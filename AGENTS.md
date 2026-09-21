@@ -66,6 +66,16 @@ These are correctness requirements, not preferences.
   Polish via `authErrorMessage` in @src/lib/auth-errors.ts; an unmapped code still reaches the URL
   so it stays diagnosable, while the user sees a generic message. Follow that shape for any new
   third-party failure.
+- **Every change to @context/foundation/roadmap.md must be mirrored to GitHub** with
+  `node scripts/roadmap-to-github.mjs --apply` — a regenerated milestone, a status flip, a new
+  slice, anything. The roadmap file stays the contract the `/10x-plan` → `/10x-implement` →
+  `/10x-archive` chain reads by `Change ID`; the issues, milestone and Projects board at
+  `users/Mr1008/projects/1` are where the work is actually tracked. Skip the sync and the board
+  silently disagrees with the plan. The script is idempotent, reconciles labels in both directions
+  and plans by default (no `--apply` = no writes). It needs the **`Mr1008`** gh account — the
+  `jakubmichalek-cambridge` account has read-only access and the script refuses to run under it;
+  use `gh auth switch --user Mr1008` or a one-shot
+  `GH_TOKEN=$(gh auth token --user Mr1008)` prefix.
 
 ## Architecture
 
@@ -104,15 +114,16 @@ shape for new form endpoints so the existing forms keep working.
 
 ## Commands
 
-| Command                     | Notes                                                                                      |
-| --------------------------- | ------------------------------------------------------------------------------------------ |
-| `npm run dev`               | Dev server on the Cloudflare `workerd` runtime, not plain Node                             |
-| `npm run build`             | SSR build via `@astrojs/cloudflare`                                                        |
-| `npm run preview`           | Serves the production build                                                                |
-| `npm run lint` / `lint:fix` | ESLint, type-checked. Prettier runs _as an ESLint rule_ — lint failures include formatting |
-| `npm run format`            | Prettier directly (astro + tailwind plugins)                                               |
-| `npm run smoke`             | Auth-flow script; `BASE_URL` defaults to `http://localhost:4321`                           |
-| `npx astro check`           | Type-checks `.astro` files — CI runs it, `npm run lint` does not                           |
+| Command                              | Notes                                                                                         |
+| ------------------------------------ | --------------------------------------------------------------------------------------------- |
+| `npm run dev`                        | Dev server on the Cloudflare `workerd` runtime, not plain Node                                |
+| `npm run build`                      | SSR build via `@astrojs/cloudflare`                                                           |
+| `npm run preview`                    | Serves the production build                                                                   |
+| `npm run lint` / `lint:fix`          | ESLint, type-checked. Prettier runs _as an ESLint rule_ — lint failures include formatting    |
+| `npm run format`                     | Prettier directly (astro + tailwind plugins)                                                  |
+| `npm run smoke`                      | Auth-flow script; `BASE_URL` defaults to `http://localhost:4321`                              |
+| `npx astro check`                    | Type-checks `.astro` files — CI runs it, `npm run lint` does not                              |
+| `node scripts/roadmap-to-github.mjs` | Mirrors the roadmap to GitHub issues/board. Plans by default; `--apply` writes. See Tripwires |
 
 There is no single-test runner because there are no tests. To reproduce CI locally:
 `npm run lint && npx astro check && npm run build`.
