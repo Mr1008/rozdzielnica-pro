@@ -151,21 +151,60 @@ Route protection is handled in `src/middleware.ts`. Add paths to the `PROTECTED_
 
 ## Deployment
 
-This project deploys to [Cloudflare Workers](https://workers.cloudflare.com/).
+Deployed to [Cloudflare Workers](https://workers.cloudflare.com/) as the Worker **`rozdzielnica-pro`**:
 
-1. Build the project:
+**https://rozdzielnica-pro.rozdzielnica-pro.workers.dev**
+
+### Auto-deploy (the normal path)
+
+Pushing to `master` deploys. Cloudflare Workers Builds is connected to the GitHub repository and runs
+`npm run build` then `npx wrangler deploy` on every push to the production branch. Builds for
+non-production branches are off.
+
+> GitHub Actions CI and the Cloudflare build run **in parallel** on the same push, so a red CI run
+> does **not** block the deploy. Check CI before pushing something you care about.
+
+### Manual deploy (fallback)
 
 ```bash
 npm run build
-```
-
-2. Deploy with Wrangler:
-
-```bash
 npx wrangler deploy
 ```
 
-Set `SUPABASE_URL` and `SUPABASE_KEY` as secrets in your Cloudflare dashboard or via `npx wrangler secret put`.
+Never `wrangler pages deploy` — `@astrojs/cloudflare` v14 dropped Pages support and the two commands
+are not interchangeable.
+
+### Secrets
+
+`SUPABASE_URL` and `SUPABASE_KEY` are runtime Workers Secrets, not build-time variables:
+
+```bash
+npx wrangler secret put SUPABASE_URL
+npx wrangler secret put SUPABASE_KEY
+```
+
+Use the Supabase **publishable** key (`sb_publishable_...`). Never a `sb_secret_...` or
+`service_role` key — `src/lib/supabase.ts` builds a cookie-scoped SSR client that acts as the
+signed-in user, and a secret key there would bypass Row Level Security.
+
+> `wrangler secret put` prompts on a TTY. Run without one (some CI shells, an agent session) it
+> reports `Success` but stores an **empty** value, and `wrangler secret list` shows only names, so it
+> cannot be detected there. Verify by checking the running app, not the command's exit code.
+
+### Operations
+
+```bash
+npx wrangler deployments list     # what is deployed
+npx wrangler versions list        # version history
+npx wrangler rollback             # revert to the previous version
+npx wrangler tail                 # live logs
+```
+
+Rollback reverts **code only** — any Supabase migration applied in the interim does not roll back
+with it.
+
+Platform rationale and risk register: [`context/foundation/infrastructure.md`](context/foundation/infrastructure.md).
+Deployment record: [`context/changes/deployment/deployment-plan.md`](context/changes/deployment/deployment-plan.md).
 
 ## Smoke test
 

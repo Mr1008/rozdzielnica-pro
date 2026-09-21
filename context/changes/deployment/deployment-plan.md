@@ -4,7 +4,7 @@ plan_type: deployment
 platform: Cloudflare Workers
 worker_name: rozdzielnica-pro
 planned_at: 2026-09-21
-status: in-progress
+status: complete
 sources:
   - context/foundation/infrastructure.md
   - context/foundation/tech-stack.md
@@ -140,12 +140,11 @@ production-access boundary in `infrastructure.md`. **The agent never sees the an
       client acts _as the signed-in user_ whose JWT arrives in the cookie, and RLS is the
       enforcement point. A secret key bypasses RLS entirely and would silently destroy the
       per-electrician isolation the PRD requires (`Projekty i dane klientów należące do danego
-    elektryka są widoczne wyłącznie dla niego`).
+  elektryka są widoczne wyłącznie dla niego`).
       Fallback to verify, not assume: the legacy `anon` JWT is deprecated end-of-2026 but still
       issued on the same page. If sign-in fails in Phase 4, swap to it — `@supabase/ssr` 0.12.7 may
       not handle the new key format. The smoke test settles it.
-- [ ] **Human — still open:** verify the project region is in the **EU** (Settings → General). Region is fixed at
-      creation; recreating now is cheap, migrating PII later is not.
+- [x] **Human:** project region confirmed **EU**.
 - [x] `.env` and `.dev.vars` stay pointed at local Supabase. Local dev keeps using
       `npx supabase start`; only production talks to the cloud project.
 - [x] Risk recorded: Supabase free projects pause after ~7 days of inactivity — a real "app is
@@ -196,15 +195,15 @@ production-access boundary in `infrastructure.md`. **The agent never sees the an
 - [x] Edge routing verified against the live Worker:
 
       | Route | Status | Location | Body | `[object Object]` |
-          | --- | --- | --- | --- | --- |
-          | `/` | 200 | — | 5010 B | no |
-          | `/dashboard` | **302** | **`/auth/signin`** | 0 B | no |
-          | `/auth/signin` | 200 | — | 9452 B | no |
-          | `/auth/signup` | 200 | — | 10952 B | no |
-          | `/nope-404` | 404 | — | 4302 B | no |
+              | --- | --- | --- | --- | --- |
+              | `/` | 200 | — | 5010 B | no |
+              | `/dashboard` | **302** | **`/auth/signin`** | 0 B | no |
+              | `/auth/signin` | 200 | — | 9452 B | no |
+              | `/auth/signup` | 200 | — | 10952 B | no |
+              | `/nope-404` | 404 | — | 4302 B | no |
 
-          The `/dashboard` redirect proves `src/middleware.ts` `PROTECTED_ROUTES` executes at the edge;
-          the 404 proves `assets.not_found_handling: "404-page"` is wired correctly.
+              The `/dashboard` redirect proves `src/middleware.ts` `PROTECTED_ROUTES` executes at the edge;
+              the 404 proves `assets.not_found_handling: "404-page"` is wired correctly.
 
 - [x] Supabase banner **gone** from `/` (body shrank 5010 B → 4623 B) — live proof both secrets
       resolved at runtime and are non-empty.
@@ -212,22 +211,23 @@ production-access boundary in `infrastructure.md`. **The agent never sees the an
       has no test suite; this is the single end-to-end auth script.
 
       | Step | Result |
-          | --- | --- |
-          | home renders | 200 |
-          | dashboard redirects anonymous user | 302 → `/auth/signin` |
-          | signup creates account | 302 → `/auth/confirm-email` |
-          | signin rejects wrong password | 302 → `/auth/signin?error=Invalid%20login%20credentials` |
-          | signin accepts correct password | 302 → `/` |
-          | dashboard renders for signed-in user | 200 |
-          | signout clears session | 302 → `/` |
-          | dashboard redirects after signout | 302 → `/auth/signin` |
+              | --- | --- |
+              | home renders | 200 |
+              | dashboard redirects anonymous user | 302 → `/auth/signin` |
+              | signup creates account | 302 → `/auth/confirm-email` |
+              | signin rejects wrong password | 302 → `/auth/signin?error=Invalid%20login%20credentials` |
+              | signin accepts correct password | 302 → `/` |
+              | dashboard renders for signed-in user | 200 |
+              | signout clears session | 302 → `/` |
+              | dashboard redirects after signout | 302 → `/auth/signin` |
 
-          Two open questions settled as a side effect: **Confirm email is off** (sign-in worked
-          immediately after sign-up), and the **new `sb_publishable_` key format works with
-          `@supabase/ssr` 0.12.7** — the legacy `anon` JWT fallback is not needed.
+              Two open questions settled as a side effect: **Confirm email is off** (sign-in worked
+              immediately after sign-up), and the **new `sb_publishable_` key format works with
+              `@supabase/ssr` 0.12.7** — the legacy `anon` JWT fallback is not needed.
 
-- [ ] **Human follow-up:** delete the `smoke-<timestamp>@example.com` user created by this run,
-      in Supabase → Authentication → Users.
+- [x] **Human:** first `smoke-<timestamp>@example.com` user deleted.
+- [ ] **Human — still open:** the Phase 5 re-run created a _second_ `smoke-*@example.com` user
+      in production Supabase. Delete it too (Authentication → Users).
 - [x] Confirmed no preview URL published. `npx wrangler versions list` shows 4 versions (initial
       deploy + three secret-put redeploys) and reports no preview URL for any of them, consistent
       with `preview_urls: false`.
@@ -235,47 +235,47 @@ production-access boundary in `infrastructure.md`. **The agent never sees the an
       and version ID. Did not actually roll back.
 - [x] `npx wrangler tail` streams live: `GET /`, `GET /dashboard` and `GET /auth/signin` all
       logged `Ok` in real time.
-- [ ] **Human follow-up:** set Supabase Authentication → URL Configuration → **Site URL** to the
-      production `workers.dev` URL. Unused while email confirmation is off, but password-reset
-      links will need it.
+- [x] **Human:** Supabase Site URL set to the production `workers.dev` URL.
 
-## Phase 5 — Cloudflare-native auto-deploy on `master`
+## Phase 5 — Cloudflare-native auto-deploy on `master` ✅
 
 Ordering matters: Workers Builds attaches to an **existing** Worker, and the dashboard Worker name
 must match `wrangler.jsonc` `name` exactly or every build fails. Phases 1 and 3 guarantee that.
 
-- [ ] **Human gate — connect Git.** Dashboard → Workers & Pages → `rozdzielnica-pro` → Settings →
-      Builds → **Connect**, authorizing the Cloudflare GitHub App against
-      `Mr1008/rozdzielnica-pro`. Scope it to **only select repositories** — that one repo.
-- [ ] Build settings: build command `npm run build` · deploy command `npx wrangler deploy` (the
-      default) · root directory blank · **no build variables** (the app needs no build-time
-      secrets).
-- [ ] Branch control → production branch `master`. Leave **"Builds for non-production branches"
-      OFF**: it would run `npx wrangler versions upload` per branch, and there is no reason to
-      generate versions nobody reviews.
-- [ ] Verify with a trivial commit to `master`; check the build log for the Node major (should
-      honour `.nvmrc`'s `22.14.0` — otherwise add a `NODE_VERSION=22.14.0` build variable), that it
-      uses the `wrangler` version from `package.json`, and that the deploy step succeeds.
-- [ ] Re-run the Phase 4 `curl` checks after the automated deploy — confirms runtime secrets
-      survived rather than assuming it.
-- [ ] `.github/workflows/ci.yml` stays **unchanged**. It gates quality on push/PR to `master` with
-      no deploy step, so it cannot race Workers Builds. Known gap, stated rather than hidden: CI
-      and the Cloudflare build run in parallel on the same push, so a **red CI does not block the
-      deploy**. Closing it means PR-only merges — a separate decision.
+- [x] **Human gate — Git connected.** Cloudflare GitHub App authorized against
+      `Mr1008/rozdzielnica-pro`, scoped to that repository only.
+- [x] Build settings confirmed in the dashboard: build command `npm run build` · deploy command
+      `npx wrangler deploy` · root directory `/` · no build variables.
+- [x] Branch control → production branch `master`; "Builds for non-production branches"
+      left **off**.
+- [x] Verified with commit `bee3a29` pushed to `master`. Workers Builds ran unattended and
+      produced version `e607bee3-243b-41f7-ab28-16e5b25d3fbe`, deployed 2026-09-21T13:06:28Z.
+- [x] Re-verified after the automated deploy: `/` 200 with no banner, `/dashboard` 302 →
+      `/auth/signin`, `/auth/signin` 200, no `[object Object]` anywhere, and **all 8 smoke steps
+      passed again**. Runtime secrets survived the redeploy — confirmed, not assumed.
+- [x] `.github/workflows/ci.yml` left **unchanged**. It gates quality on push/PR to `master`
+      with no deploy step, so it cannot race Workers Builds. Known gap, stated rather than
+      hidden: CI and the Cloudflare build run in parallel on the same push, so a **red CI does
+      not block the deploy**. Now also logged in the `infrastructure.md` risk register.
 
-## Phase 6 — Record and reconcile
+## Phase 6 — Record and reconcile ✅
 
-- [ ] Fold the three corrections above back into `context/foundation/infrastructure.md`; add the
-      Supabase free-tier inactivity pause as a new `Research finding` row.
+- [x] `context/foundation/infrastructure.md` reconciled: deployed-status banner added, the
+      preview-URL operational story corrected, four register rows marked **CORRECTED** or
+      **RESOLVED** (process v2, preview URLs, Worker name, Pages target), the binding row
+      re-scored **M → H** as partly realised, and three new rows added (Supabase inactivity
+      pause, red-CI-does-not-block-deploy, `wrangler secret put` without a TTY).
 - [x] `AGENTS.md` updated: the false starter-name tripwire replaced with the live fact (renaming
       now orphans the Worker and its `SESSION` KV namespace), and the language rule rewritten to
       "UI is Polish, code is English" with the no-inline-strings / localization-ready constraint.
 - [x] `context/foundation/prd.md` — three new non-functional requirements added covering Polish
       UI, a localization-ready text layer (MVP ships `pl` only), and locale-aware date/number/PLN
       formatting.
-- [ ] Update `README.md` Deployment section with the real Worker name and auto-deploy behaviour.
-- [ ] Commit. Nothing secret enters the tree: `.env`, `.dev.vars` and `.wrangler/` are gitignored,
-      and no key leaves the `wrangler secret put` prompts.
+- [x] `README.md` Deployment section rewritten: live URL, auto-deploy path, manual fallback,
+      the publishable-key rule, the TTY caveat, and the operations commands.
+- [x] Committed as `bee3a29` plus a docs follow-up. Nothing secret entered the tree: `.env`,
+      `.dev.vars` and `.wrangler/` are gitignored, and no key left the `wrangler secret put`
+      prompts.
 
 ---
 
@@ -304,3 +304,24 @@ Abort and report rather than improvise if: `wrangler whoami` still shows unauthe
 login; `wrangler deploy` reports a name conflict (an unexpected Worker already owns
 `rozdzielnica-pro`); the deployed `/` contains `[object Object]`; or `npm run smoke` fails against
 production after secrets are confirmed present.
+
+---
+
+## What the run taught (candidates for `context/foundation/lessons.md`)
+
+1. **A green status code is not a green render.** The CI smoke job asserts only status codes, so the
+   `[object Object]` class of failure would have sailed through it. Verifying an SSR deploy means
+   asserting on body content, not just on `2xx`.
+2. **`wrangler secret put` without a TTY reports success and stores nothing.** `wrangler secret list`
+   shows only names, so it cannot detect the empty value. Any "did the secret land?" check has to
+   observe the running app.
+3. **A first deploy on a fresh Cloudflare account fails TLS for ~30–60s** while the account
+   subdomain's certificate is issued — indistinguishable at first glance from a broken deploy or
+   corporate TLS interception.
+4. **Writing files from Python text mode on Windows silently converts LF to CRLF.** It turned five
+   one-line edits into whole-file diffs. Caught only because a diffstat looked implausible; write
+   bytes, and read `git diff --stat` before staging.
+5. **A research artifact ages between being written and being executed.** Several register entries
+   were wrong by deploy time — not carelessly written, just overtaken by platform changes. Verify a
+   risk's premise before acting on its mitigation: the pre-emptive `disable_nodejs_process_v2`
+   change would have been a real edit made for no reason.
