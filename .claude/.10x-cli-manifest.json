@@ -480,6 +480,34 @@
       },
       "installedReleaseId": "r-dd5c2b4bc3f63fee918d09330c676f31479453b6f6754ca1c13902646d33baca",
       "installedManifestHash": "f22f7bf334f0e79bf8b7f095943940825d772c1c39d3613ae7d8531f4803c37f"
+    },
+    "m2l1": {
+      "appliedAt": "2026-09-21T13:22:44.304Z",
+      "skills": {
+        "10x-idea-check": {
+          "files": [
+            "SKILL.md",
+            "references/10xdevs-4-certification.md",
+            "references/10xdevs-4-dates.md",
+            "references/assessment-guide.md",
+            "references/examples.md"
+          ]
+        },
+        "10x-init": {
+          "files": ["SKILL.md"]
+        },
+        "10x-shape": {
+          "files": ["SKILL.md", "references/prd-schema.md"]
+        },
+        "10x-prd": {
+          "files": ["SKILL.md"]
+        },
+        "10x-tech-stack-selector": {
+          "files": ["SKILL.md", "references/agent-friendly-criteria.md", "references/decision-flow.md"]
+        }
+      },
+      "prompts": [],
+      "configs": []
     }
   },
   "managedRules": {

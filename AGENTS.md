@@ -53,12 +53,19 @@ These are correctness requirements, not preferences.
 - **UI is Polish, code is English.** Every user-facing string — labels, validation and error
   messages, the printed quote — is Polish, as is domain vocabulary (obwód, rozdzielnica,
   wyłącznik różnicowoprądowy, szyna PE/N). Identifiers, comments, commit messages and
-  translation keys stay English. **Do not inline user-facing text in components** — it comes from
-  a dedicated translation module, so adding a locale is a data change rather than a rewrite. MVP
-  ships one locale, `pl`; the requirement is that nothing _blocks_ a second one, not that a second
-  one exists. Format dates, numbers and PLN amounts through the locale, never a hand-rolled format
-  string. `src/lib/config-status.ts` predates this rule and still inlines its Polish — migrate it,
-  do not copy it. Full wording: @context/foundation/prd.md `## Non-Functional Requirements`.
+  translation keys stay English. **Never inline user-facing text in a component** — add a key to
+  @src/lib/i18n/pl.ts and read it via `import { t } from "@/lib/i18n"`, which works unchanged in
+  `.astro` frontmatter and in React islands (no provider, no context). MVP ships one locale, `pl`;
+  the requirement is that nothing _blocks_ a second one, not that a second one exists — `pl.ts` is
+  deliberately not `as const` so a future `en.ts` typed `Messages` fails `astro check` if a key is
+  missing. Use `plural()` for counts (Polish has three integer forms: 1 aparat / 2 aparaty /
+  5 aparatów) and `formatMoney` / `formatDate` from the same module rather than hand-rolled
+  formats. Full wording: @context/foundation/prd.md `## Non-Functional Requirements`.
+- **Never surface a third-party error message to the user.** Supabase returns English prose in
+  `error.message`. The auth API routes redirect with `error.code` instead, and the page maps it to
+  Polish via `authErrorMessage` in @src/lib/auth-errors.ts; an unmapped code still reaches the URL
+  so it stays diagnosable, while the user sees a generic message. Follow that shape for any new
+  third-party failure.
 
 ## Architecture
 
