@@ -7,6 +7,28 @@ electrician. Scaffolded from `10x-astro-starter`; everything outside `src/pages/
 Product spec: @context/foundation/prd.md · Stack rationale: @context/foundation/tech-stack.md ·
 Setup/deploy: @README.md
 
+## Domain rules (from the PRD)
+
+These are correctness requirements, not preferences.
+
+- **Two roles.** `admin` maintains the device and cabinet catalogs and must never see projects or
+  client data. `elektryk` sees only their own projects.
+- **Never propose a device that fails the circuit's parameters.** Pick the cheapest device that
+  _does_ satisfy them. If nothing in the catalog matches, raise an error telling the user to contact
+  the admin — a catalog gap. Silently downgrading to an under-rated device is the single worst
+  failure this product can have.
+- **Layout heuristic, three rules applied together:** (1) a group's MCBs sit next to its RCD — and a
+  single-circuit RCD group becomes one RCBO instead of two devices; (2) place the group near the
+  cabinet side its cables enter from; (3) account for distance to the PE and N bars. This is a
+  deliberate heuristic, not an optimiser. Their precedence when they conflict is an open question in
+  the PRD — if you have to pick one, say so explicitly rather than burying the choice.
+- **MVP device types are closed:** fuse switch-disconnectors ("FRy"), RCD, RCBO, type-B MCBs, PE
+  bars, N bars. Nothing else.
+- **One project = one cabinet.** Single-phase and three-phase installations are both in scope.
+- **Quote:** (device count × average mount time per device) + fixed per-project overhead = hours;
+  hours × hourly rate = labour cost; catalog prices = material cost. Mount time, rate and overhead
+  are electrician _profile_ fields, not catalog or global constants.
+
 ## Tripwires
 
 - **There is no test suite.** `npm run smoke` is the only end-to-end check and it is a starter
@@ -27,24 +49,6 @@ Setup/deploy: @README.md
   not yet support ESLint 10. Removing either breaks `npm run lint`.
 - **UI copy and domain vocabulary are Polish** (see `src/lib/config-status.ts`). Keep user-facing
   strings Polish; keep code identifiers and comments English.
-
-## Commands
-
-| Command                     | Notes                                                                                      |
-| --------------------------- | ------------------------------------------------------------------------------------------ |
-| `npm run dev`               | Dev server on the Cloudflare `workerd` runtime, not plain Node                             |
-| `npm run build`             | SSR build via `@astrojs/cloudflare`                                                        |
-| `npm run preview`           | Serves the production build                                                                |
-| `npm run lint` / `lint:fix` | ESLint, type-checked. Prettier runs _as an ESLint rule_ — lint failures include formatting |
-| `npm run format`            | Prettier directly (astro + tailwind plugins)                                               |
-| `npm run smoke`             | Auth-flow script; `BASE_URL` defaults to `http://localhost:4321`                           |
-| `npx astro check`           | Type-checks `.astro` files — CI runs it, `npm run lint` does not                           |
-
-There is no single-test runner because there are no tests. To reproduce CI locally:
-`npm run lint && npx astro check && npm run build`.
-
-Pre-commit (husky + lint-staged) runs `eslint --fix` on `*.{ts,tsx,astro}` and `prettier --write` on
-`*.{json,css,md}`. Hooks install via the `prepare` script on `npm ci`.
 
 ## Architecture
 
@@ -80,27 +84,23 @@ shape for new form endpoints so the existing forms keep working.
   granular per-operation, per-role policies. Per-electrician isolation is a stated requirement, so
   RLS is the enforcement point, not application code.
 
-## Domain rules (from the PRD)
+## Commands
 
-These are correctness requirements, not preferences.
+| Command                     | Notes                                                                                      |
+| --------------------------- | ------------------------------------------------------------------------------------------ |
+| `npm run dev`               | Dev server on the Cloudflare `workerd` runtime, not plain Node                             |
+| `npm run build`             | SSR build via `@astrojs/cloudflare`                                                        |
+| `npm run preview`           | Serves the production build                                                                |
+| `npm run lint` / `lint:fix` | ESLint, type-checked. Prettier runs _as an ESLint rule_ — lint failures include formatting |
+| `npm run format`            | Prettier directly (astro + tailwind plugins)                                               |
+| `npm run smoke`             | Auth-flow script; `BASE_URL` defaults to `http://localhost:4321`                           |
+| `npx astro check`           | Type-checks `.astro` files — CI runs it, `npm run lint` does not                           |
 
-- **Two roles.** `admin` maintains the device and cabinet catalogs and must never see projects or
-  client data. `elektryk` sees only their own projects.
-- **Never propose a device that fails the circuit's parameters.** Pick the cheapest device that
-  _does_ satisfy them. If nothing in the catalog matches, raise an error telling the user to contact
-  the admin — a catalog gap. Silently downgrading to an under-rated device is the single worst
-  failure this product can have.
-- **Layout heuristic, three rules applied together:** (1) a group's MCBs sit next to its RCD — and a
-  single-circuit RCD group becomes one RCBO instead of two devices; (2) place the group near the
-  cabinet side its cables enter from; (3) account for distance to the PE and N bars. This is a
-  deliberate heuristic, not an optimiser. Their precedence when they conflict is an open question in
-  the PRD — if you have to pick one, say so explicitly rather than burying the choice.
-- **MVP device types are closed:** fuse switch-disconnectors ("FRy"), RCD, RCBO, type-B MCBs, PE
-  bars, N bars. Nothing else.
-- **One project = one cabinet.** Single-phase and three-phase installations are both in scope.
-- **Quote:** (device count × average mount time per device) + fixed per-project overhead = hours;
-  hours × hourly rate = labour cost; catalog prices = material cost. Mount time, rate and overhead
-  are electrician _profile_ fields, not catalog or global constants.
+There is no single-test runner because there are no tests. To reproduce CI locally:
+`npm run lint && npx astro check && npm run build`.
+
+Pre-commit (husky + lint-staged) runs `eslint --fix` on `*.{ts,tsx,astro}` and `prettier --write` on
+`*.{json,css,md}`. Hooks install via the `prepare` script on `npm ci`.
 
 ## Environment
 
