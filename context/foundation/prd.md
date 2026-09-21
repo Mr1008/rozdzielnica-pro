@@ -30,12 +30,15 @@ Sięga po narzędzie **po spotkaniu z klientem i analizie zastanej instalacji/pr
 ## Success Criteria
 
 ### Primary
+
 - Elektryk może dojść od założenia projektu do wygenerowanej wyceny robocizny dla realnej, prostej instalacji — otrzymując po drodze konkretny projekt/układ szafki (nie tylko liczbę) — bez ręcznego liczenia w arkuszu kalkulacyjnym.
 
 ### Secondary
+
 - Zaproponowany układ aparatów wymaga tylko punktowych ręcznych poprawek, nie budowy od zera.
 
 ### Guardrails
+
 - Wycena i dobór aparatów muszą być zawsze spójne z podanymi parametrami obwodów — system nigdy nie proponuje aparatu niezgodnego z parametrami obwodu (np. za mały prąd znamionowy); błędna sugestia jest gorsza niż brak sugestii. Gdy żaden aparat w katalogu nie spełnia parametrów obwodu, system zgłasza błąd z prośbą o kontakt z administratorem, zamiast schodzić na aparat niezgodny.
 
 ## User Stories
@@ -47,6 +50,7 @@ Sięga po narzędzie **po spotkaniu z klientem i analizie zastanej instalacji/pr
 - **Then** otrzymuje zaproponowany zestaw aparatów (najtańszy spośród spełniających parametry obwodów) i propozycję ich układu w szafce, którą może poprawić, a następnie generuje wycenę do wydruku zawierającą układ szafki, koszt materiału i koszt robocizny wyliczony wg jego stawki godzinowej
 
 #### Acceptance Criteria
+
 - Sugerowane aparaty zawsze spełniają podane parametry obwodów (aparat o zbyt niskich parametrach nie zostaje nigdy zaproponowany)
 - Gdy dla któregoś obwodu żaden aparat w katalogu nie spełnia parametrów, elektryk widzi błąd z prośbą o kontakt z administratorem, a nie propozycję niezgodnego aparatu
 - Zaproponowany układ jest edytowalny przed wygenerowaniem wyceny
@@ -93,6 +97,9 @@ Sięga po narzędzie **po spotkaniu z klientem i analizie zastanej instalacji/pr
 
 - Sugerowany zestaw aparatów, propozycja układu i wycena pojawiają się bez zauważalnego oczekiwania dla katalogu tej skali (rzędu pojedynczych sekund, nie dziesiątek sekund).
 - Projekty i dane klientów należące do danego elektryka są widoczne wyłącznie dla niego — żaden inny użytkownik nie ma wglądu w cudze projekty.
+- Cały interfejs użytkownika jest po polsku — łącznie z komunikatami błędów, walidacjami i wydrukiem wyceny — ponieważ na start aplikacja celuje w polskich klientów i posługuje się polskim nazewnictwem branżowym (obwód, rozdzielnica, wyłącznik różnicowoprądowy, szyna PE/N).
+- Warstwa tekstów jest przygotowana pod lokalizację: teksty widoczne dla użytkownika nie są wpisane na stałe w komponenty, lecz pochodzą z wydzielonego źródła tłumaczeń, tak żeby dodanie kolejnego języka nie wymagało przepisywania widoków. Samo tłumaczenie na inny język **nie jest celem MVP** — celem jest brak blokady na nie.
+- Daty, liczby i kwoty (PLN) są formatowane według lokalizacji użytkownika, a nie sztywnym formatem — spójnie z zasadą przechowywania i przetwarzania dat w UTC oraz prezentowania ich w czasie lokalnym dopiero na końcu.
 
 ## Business Logic
 
@@ -110,9 +117,9 @@ Logowanie przez email + hasło. W MVP bez weryfikacji adresu email.
 
 Dwie role:
 
-| Rola | Uprawnienia |
-| --- | --- |
-| **admin** | Zarządza katalogiem wspieranych aparatów (dane producentów: wymiary, cena katalogowa itp.) oraz katalogiem szafek rozdzielnic. Nie ma wglądu w projekty ani dane klientów elektryków. |
+| Rola         | Uprawnienia                                                                                                                                                                                                                                  |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **admin**    | Zarządza katalogiem wspieranych aparatów (dane producentów: wymiary, cena katalogowa itp.) oraz katalogiem szafek rozdzielnic. Nie ma wglądu w projekty ani dane klientów elektryków.                                                        |
 | **elektryk** | Zakłada własne projekty instalacji, wybiera szafkę, otrzymuje propozycję układu aparatów, generuje wycenę; konfiguruje w profilu stawkę godzinową, średni czas montażu na aparat i stały narzut na projekt. Widzi wyłącznie własne projekty. |
 
 Konta elektryków mogą powstać na dwa sposoby: samodzielna rejestracja lub założenie konta przez admina — oba tryby dopuszczone w MVP.
@@ -141,8 +148,8 @@ Uwaga (nie non-goal, doprecyzowanie zakresu): instalacje jednofazowe (1F) i tró
 
 **Rozstrzygnięte przy walidacji:**
 
-- *(2026-09-15)* Źródło czasu montażu aparatu — uśredniony, statystyczny parametr profilu elektryka (obok stawki godzinowej), nie pole w katalogu aparatów i nie stała globalna systemu; patrz FR-010 i `## Business Logic`.
-- *(2026-09-16)* Brak pasującego aparatu w katalogu — system zgłasza błąd z prośbą o kontakt z administratorem, zamiast schodzić na aparat niezgodny; patrz guardrail w `## Success Criteria`, `## Business Logic` i kryteria akceptacji US-01.
-- *(2026-09-16)* Grupowanie RCD nie wystarcza jako realizacja "minimalnej długości przewodów" — heurystyka obejmuje dodatkowo bliskość wyprowadzeń przewodów do szafki (góra/lewo/prawo/dół) oraz bliskość szyn PE i N; patrz `## Business Logic`.
-- *(2026-09-16)* Zakres typów aparatów w MVP zawężony do: rozłączniki bezpiecznikowe ("FRy"), RCD, RCBO, nadprądowe o charakterystyce B, szyny PE, szyny N; patrz `## Non-Goals`.
-- *(2026-09-16)* Rzędy wielkości obciążenia i danych — `qps: low`, `data_volume: small`: jeden elektryk, praca projektowa (kilka-kilkanaście projektów miesięcznie), katalog aparatów i szafek prowadzony ręcznie przez admina. Skala mieści się z dużym zapasem w darmowych limitach wybranego stacku; patrz frontmatter `target_scale` i `context/foundation/tech-stack.md`.
+- _(2026-09-15)_ Źródło czasu montażu aparatu — uśredniony, statystyczny parametr profilu elektryka (obok stawki godzinowej), nie pole w katalogu aparatów i nie stała globalna systemu; patrz FR-010 i `## Business Logic`.
+- _(2026-09-16)_ Brak pasującego aparatu w katalogu — system zgłasza błąd z prośbą o kontakt z administratorem, zamiast schodzić na aparat niezgodny; patrz guardrail w `## Success Criteria`, `## Business Logic` i kryteria akceptacji US-01.
+- _(2026-09-16)_ Grupowanie RCD nie wystarcza jako realizacja "minimalnej długości przewodów" — heurystyka obejmuje dodatkowo bliskość wyprowadzeń przewodów do szafki (góra/lewo/prawo/dół) oraz bliskość szyn PE i N; patrz `## Business Logic`.
+- _(2026-09-16)_ Zakres typów aparatów w MVP zawężony do: rozłączniki bezpiecznikowe ("FRy"), RCD, RCBO, nadprądowe o charakterystyce B, szyny PE, szyny N; patrz `## Non-Goals`.
+- _(2026-09-16)_ Rzędy wielkości obciążenia i danych — `qps: low`, `data_volume: small`: jeden elektryk, praca projektowa (kilka-kilkanaście projektów miesięcznie), katalog aparatów i szafek prowadzony ręcznie przez admina. Skala mieści się z dużym zapasem w darmowych limitach wybranego stacku; patrz frontmatter `target_scale` i `context/foundation/tech-stack.md`.

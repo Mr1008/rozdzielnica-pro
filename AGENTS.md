@@ -42,13 +42,23 @@ These are correctness requirements, not preferences.
   "simplify" it away with a non-null assertion; CI builds with no secrets and relies on this.
 - **No server-side PDF rendering.** The Cloudflare edge runtime cannot do it, so the printable quote
   must use browser print or client-side PDF generation. This constraint drove the stack choice.
-- **`package.json` `name` and `wrangler.jsonc` `name` are still `10x-astro-starter`.** Renaming the
-  wrangler name creates a new Worker on deploy — do not change it casually.
+- **The Worker `rozdzielnica-pro` is deployed — renaming it now creates a _second_ Worker.**
+  `package.json` and `wrangler.jsonc` both carry `name: "rozdzielnica-pro"`, live at
+  `rozdzielnica-pro.rozdzielnica-pro.workers.dev`. Changing the `wrangler.jsonc` name orphans the
+  existing Worker and its `SESSION` KV namespace rather than renaming them. See
+  @context/changes/deployment/deployment-plan.md.
 - **Do not unwrap `fixupPluginRules(pluginReact)` in `eslint.config.js`, or drop the `overrides`
   block in `package.json`.** Both exist because `eslint-plugin-react` / `eslint-plugin-jsx-a11y` do
   not yet support ESLint 10. Removing either breaks `npm run lint`.
-- **UI copy and domain vocabulary are Polish** (see `src/lib/config-status.ts`). Keep user-facing
-  strings Polish; keep code identifiers and comments English.
+- **UI is Polish, code is English.** Every user-facing string — labels, validation and error
+  messages, the printed quote — is Polish, as is domain vocabulary (obwód, rozdzielnica,
+  wyłącznik różnicowoprądowy, szyna PE/N). Identifiers, comments, commit messages and
+  translation keys stay English. **Do not inline user-facing text in components** — it comes from
+  a dedicated translation module, so adding a locale is a data change rather than a rewrite. MVP
+  ships one locale, `pl`; the requirement is that nothing _blocks_ a second one, not that a second
+  one exists. Format dates, numbers and PLN amounts through the locale, never a hand-rolled format
+  string. `src/lib/config-status.ts` predates this rule and still inlines its Polish — migrate it,
+  do not copy it. Full wording: @context/foundation/prd.md `## Non-Functional Requirements`.
 
 ## Architecture
 
@@ -83,6 +93,7 @@ shape for new form endpoints so the existing forms keep working.
 - New Supabase tables: migration named `YYYYMMDDHHmmss_short_description.sql`, RLS enabled, with
   granular per-operation, per-role policies. Per-electrician isolation is a stated requirement, so
   RLS is the enforcement point, not application code.
+- All datetimes should be stored and processed in UTC. Local timezone should be applied only to end-user.
 
 ## Commands
 
