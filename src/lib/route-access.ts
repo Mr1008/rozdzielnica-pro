@@ -53,10 +53,22 @@ export interface RouteRequest {
 const ALLOWED: RouteAccess = { allowed: true };
 
 /**
+ * A prefix matches its own path and its subtree, and nothing else.
+ *
+ * A bare `startsWith` would also swallow same-prefix siblings: `/administrator` starts with
+ * `/admin`, so it would be admin-gated by accident. That direction fails closed rather than open,
+ * which is why it is a correctness trap and not a hole — the next `/admin`-prefixed page would be
+ * silently misgated, with a redirect that looks like the gate working correctly.
+ */
+function matchesPrefix(pathname: string, prefix: string): boolean {
+  return pathname === prefix || pathname.startsWith(`${prefix}/`);
+}
+
+/**
  * Fails closed: anything other than "signed in, with a role the route names" is a redirect.
  */
 export function resolveRouteAccess({ pathname, isSignedIn, role }: RouteRequest): RouteAccess {
-  const route = PROTECTED_ROUTES.find((candidate) => pathname.startsWith(candidate.prefix));
+  const route = PROTECTED_ROUTES.find((candidate) => matchesPrefix(pathname, candidate.prefix));
   if (!route) return ALLOWED;
 
   if (!isSignedIn) return { allowed: false, redirectTo: SIGN_IN_PATH };

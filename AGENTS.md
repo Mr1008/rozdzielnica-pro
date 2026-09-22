@@ -42,11 +42,23 @@ These are correctness requirements, not preferences.
   `astro check` / `test:unit` / `test:integration` / build / smoke you actually ran.
 - **`npm run smoke` needs a running server AND a reachable Supabase with email confirmation
   disabled.** It signs a user up for real, and its role-gate steps sign in as the admin seeded by
-  `supabase/seed.sql`. It fails against an unconfigured or unseeded instance.
+  `supabase/seed.sql`. It fails against an unconfigured or unseeded instance. **Turning
+  `enable_confirmations` on breaks it** — the script signs a user up and immediately signs them in,
+  which a confirmation requirement refuses. Enabling confirmation therefore means reworking
+  `smoke.mjs` first: sign in as the seeded admin (already `email_confirmed_at`-stamped) or confirm
+  the new account through the local Mailpit API. Deliberately parked until the end of the MVP — see
+  `## Parked` in @context/foundation/roadmap.md.
 - **The role claim is `user_role`, never `role`.** Supabase's own `role` claim is required and holds
   `authenticated`/`anon` — PostgREST switches database roles on it, so overwriting or reading it
   instead resolves every signed-in user to "no recognised role". The claim is minted by
   `public.custom_access_token_hook` and narrowed in exactly one place, @src/lib/roles.ts.
+- **A role change does not take effect until the user's next token.** `is_admin()` and the
+  role-change trigger both read the `user_role` claim baked into the access token, never the live
+  `profiles.role`. So a demoted admin keeps admin power — including the ability to set their own
+  role back — until their token expires (`jwt_expiry`, 3600s). Accepted for now because nothing in
+  the app demotes anyone: there is no user-management UI, and role changes happen by direct SQL.
+  **Whoever builds one must invalidate the session** (`supabase.auth.admin.signOut(userId, 'global')`
+  or equivalent) as part of the demotion, or the guard is decorative for an hour.
 - **A profile's `role` is guarded by a database trigger, not by application code.**
   `public.enforce_role_change_is_admin()` (BEFORE UPDATE on `public.profiles`) raises SQLSTATE
   `42501` on any non-admin role change, because RLS grants row access but not column access. Do not
@@ -137,10 +149,11 @@ shape for new form endpoints so the existing forms keep working.
 - ESLint is `strictTypeChecked` + `stylisticTypeChecked`: no floating promises, no unsafe `any`,
   `no-console` warns, `astro/no-set-html-directive` errors. Prefix intentionally unused bindings
   with `_`.
-- Feature helpers go in `src/lib/`, each with its unit test beside it (`roles.ts` /
-  `roles.test.ts`); `tests/integration/` is reserved for the suite that needs a live database.
-  `src/types.ts` and `src/components/hooks/` do **not** exist yet — create them under those names if
-  you need them.
+- Feature helpers go in `src/lib/`. A **new** one should ship with its unit test beside it
+  (`roles.ts` / `roles.test.ts` is the pattern to copy) — this is forward guidance, not a
+  description: the helpers that predate the test suite have none. `tests/integration/` is reserved
+  for the suite that needs a live database. `src/types.ts` and `src/components/hooks/` do **not**
+  exist yet — create them under those names if you need them.
 - New Supabase tables: migration named `YYYYMMDDHHmmss_short_description.sql`, RLS enabled, with
   granular per-operation, per-role policies. Per-electrician isolation is a stated requirement, so
   RLS is the enforcement point, not application code.

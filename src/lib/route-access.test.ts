@@ -43,6 +43,25 @@ describe("resolveRouteAccess", () => {
     });
   });
 
+  /**
+   * A same-prefix sibling is a different route, not a subtree. `/administrator` starting with
+   * `/admin` must not make it admin-gated — the failure direction is over-restrictive rather than
+   * open, so it would surface as a page mysteriously redirecting rather than as a breach.
+   */
+  it("does not match a same-prefix sibling path", () => {
+    for (const pathname of ["/administrator", "/dashboardowy-eksport", "/admin-status"]) {
+      expect(resolveRouteAccess({ pathname, isSignedIn: false, role: null })).toEqual({ allowed: true });
+    }
+  });
+
+  it("still matches a protected prefix exactly, with or without a trailing slash", () => {
+    expect(resolveRouteAccess({ pathname: "/admin", isSignedIn: true, role: "admin" })).toEqual({ allowed: true });
+    expect(resolveRouteAccess({ pathname: "/admin/", isSignedIn: false, role: null })).toEqual({
+      allowed: false,
+      redirectTo: SIGN_IN_PATH,
+    });
+  });
+
   it("bounces the wrong role to its own home", () => {
     expect(resolveRouteAccess({ pathname: "/dashboard", isSignedIn: true, role: "admin" })).toEqual({
       allowed: false,

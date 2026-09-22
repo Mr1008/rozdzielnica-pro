@@ -105,9 +105,13 @@ npx supabase start
 4. Copy the credentials printed by the CLI into your `.env` and `.dev.vars`:
 
 ```
-SUPABASE_URL=http://127.0.0.1:54321
+SUPABASE_URL=http://127.0.0.1:55321
 SUPABASE_KEY=<anon key from CLI output>
 ```
+
+> This project overrides the Supabase CLI's default ports in `supabase/config.toml` — the API is on
+> **55321**, not the usual 54321. Take the values from the CLI's own output (or
+> `npx supabase status -o env`) rather than from memory.
 
 5. To stop the stack when done:
 
@@ -115,7 +119,7 @@ SUPABASE_KEY=<anon key from CLI output>
 npx supabase stop
 ```
 
-The local Studio UI is available at `http://localhost:54323`.
+The local Studio UI is available at `http://localhost:55323`.
 
 ### Database, seed data and the local admin account
 
