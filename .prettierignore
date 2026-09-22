@@ -1,0 +1,13 @@
+# Agent tooling vendored from the 10xDevs CLI, not this project's code. Formatting it produces a
+# large diff of files we do not own and will overwrite on the next `10x-cli` sync — and it makes
+# `npm run format` dirty ~36 files that have nothing to do with the change in hand.
+# `eslint.config.js` ignores `.claude/**` for the same reason.
+.claude/
+.agents/
+
+# Generated or vendored
+node_modules/
+dist/
+.astro/
+package-lock.json
+supabase/.temp/

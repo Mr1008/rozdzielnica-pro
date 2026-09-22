@@ -205,11 +205,21 @@ came pre-wired for it, and nobody priced them against a specific requirement.
   `npx wrangler deployments list` shows what is available. Time-to-revert is under a minute. Caveat:
   this rolls back _code only_ — any Supabase migration applied in the interim does not roll back with
   it, so forward-compatible migrations are the safer discipline.
-- **Approval**: an agent may deploy, tail logs, list deployments, and roll back unattended. A human
-  performs: renaming the Worker, rotating Supabase keys, applying or reverting database migrations,
-  changing Cloudflare Access policy, and deleting the Worker or project. API tokens should be scoped
-  to Workers for this project only — no DNS, no billing, no unrelated projects — and live in env
-  vars, never in a committed config file.
+- **Migrations** _(AMENDED 2026-09-22)_: applying them is no longer a human step.
+  `.github/workflows/db-migrate.yml` runs `supabase link` + `supabase db push` against the cloud
+  project on every push to `master`, using the `SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_REF` and
+  `SUPABASE_DB_PASSWORD` repository secrets. It fires in parallel with the Cloudflare deploy with no
+  ordering between the two, so forward-compatible migrations are a requirement, not a preference.
+  One thing it deliberately does not do: `supabase config push`, which would carry `config.toml`'s
+  local `site_url` to production — the cloud access-token hook is enabled by hand in the dashboard
+  instead.
+- **Approval**: an agent may deploy, tail logs, list deployments, roll back, and land a
+  forward-compatible migration through the pipeline above. A human performs: renaming the Worker,
+  rotating Supabase keys, **reverting** a database migration, changing Cloudflare Access policy, and
+  deleting the Worker or project. Reverting stays human because nothing here automates it and
+  rollback remains code-only — a migration applied in the interim does not come back with the
+  Worker version. API tokens should be scoped to Workers for this project only — no DNS, no billing,
+  no unrelated projects — and live in env vars, never in a committed config file.
 - **Logs**: `npx wrangler tail` streams live structured invocation logs. `observability.enabled` is
   already `true` in `wrangler.jsonc`, so historical logs are queryable in the dashboard under
   Workers & Pages → the Worker → Logs. Per-request CPU time is charted under the **Metrics** tab

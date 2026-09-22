@@ -10,8 +10,9 @@ A modern, opinionated starter template for building fast, accessible web applica
 - [React](https://react.dev/) v19 - UI library for interactive components
 - [TypeScript](https://www.typescriptlang.org/) v6 - Type-safe JavaScript
 - [Tailwind CSS](https://tailwindcss.com/) v4 - Utility-first CSS framework
-- [Supabase](https://supabase.com/) - Authentication and backend-as-a-service
+- [Supabase](https://supabase.com/) - Authentication, Postgres and row-level security
 - [Cloudflare Workers](https://workers.cloudflare.com/) - Edge deployment runtime
+- [Vitest](https://vitest.dev/) - Unit and integration test runner
 
 ## Prerequisites
 
@@ -55,6 +56,9 @@ npm run dev
 - `npm run lint` - Run ESLint with type-checked rules
 - `npm run lint:fix` - Auto-fix ESLint issues
 - `npm run format` - Run Prettier
+- `npm run test:unit` - Vitest unit tests (`src/**/*.test.ts`); no database or network required
+- `npm run test:integration` - Vitest RLS integration tests (`tests/integration/`); needs a running local Supabase
+- `npm test` - Both suites; fails without a local Supabase stack
 - `npm run smoke` - Smoke test the auth flow against a running server (`BASE_URL`, defaults to `http://localhost:4321`)
 
 ## Project Structure
@@ -66,7 +70,11 @@ npm run dev
 │ ├── pages/ # Astro pages
 │ │ └── api/ # API endpoints
 │ ├── components/ # UI components (Astro & React)
+│ ├── lib/ # Feature helpers, each with its unit test beside it
 │ └── assets/ # Static assets
+├── supabase/ # config.toml, migrations/, seed.sql
+├── tests/integration/ # Vitest suite that needs a live Supabase stack
+├── scripts/ # smoke.mjs and other repo tooling
 ├── public/ # Public assets
 ├── wrangler.jsonc # Cloudflare Workers config
 ```
@@ -85,11 +93,8 @@ Requires [Docker](https://www.docker.com/) and ~7 GB RAM.
 cp .env.example .env
 ```
 
-2. Initialize the local Supabase project (creates a `supabase/` config folder):
-
-```bash
-npx supabase init
-```
+2. The `supabase/` folder is committed — config, migrations and seed data are all in the repository,
+   so there is nothing to initialize.
 
 3. Start the local stack (downloads Docker images on first run):
 
@@ -112,7 +117,25 @@ npx supabase stop
 
 The local Studio UI is available at `http://localhost:54323`.
 
-No database tables or migrations are required — this project uses Supabase Auth's built-in `auth.users` table only.
+### Database, seed data and the local admin account
+
+`supabase start` applies everything in `supabase/migrations/` and then runs `supabase/seed.sql`. `npx supabase db reset` replays both from scratch.
+
+The migrations add a `public.user_role` enum (`admin`, `elektryk`), a `public.profiles` table with row-level security, a signup trigger that gives every new account a profile, and `public.custom_access_token_hook`, which mints the role into each JWT as the `user_role` claim.
+
+The seed creates one working admin account so that admin-gated routes can be exercised without dashboard setup:
+
+```
+email:    admin@example.com
+password: admin123456
+```
+
+The seed is **local and CI only**. `supabase db push` applies migrations, never seeds, so these credentials never reach a cloud project.
+
+> Two traps worth knowing before you touch `supabase/config.toml`:
+>
+> - `npx supabase db reset` does **not** re-read `config.toml` — it restarts the containers with their existing environment. Any config change (the `[auth.hook.custom_access_token]` block above all) needs a full `npx supabase stop` followed by `npx supabase start`, or the `user_role` claim silently goes missing.
+> - `[analytics]` is disabled on purpose. The `supabase_vector` container cannot reach the Docker socket on Windows and restarts in a loop; nothing local uses it, and CI already excludes `logflare,vector` from `supabase start`.
 
 ### Using a cloud Supabase project instead
 
@@ -128,6 +151,16 @@ SUPABASE_URL=https://<project-ref>.supabase.co
 SUPABASE_KEY=<anon-key>
 ```
 
+Migrations reach the cloud project through the `DB migrate` GitHub Actions workflow — see [CI](#ci) below.
+
+#### One-time cloud setup: the access-token hook
+
+The `user_role` JWT claim only exists if the cloud project is told to call the hook function. This is a manual, one-time step in the Supabase dashboard:
+
+**Authentication → Hooks → Customize Access Token (JWT) Claims → enable, Postgres function `public.custom_access_token_hook`**
+
+> Do **not** do this with `supabase config push`. That command would also push `config.toml`'s local `site_url` (`http://127.0.0.1:3000`) to the cloud project and break production auth redirects. Local config stays local.
+
 ### Email confirmation in local development
 
 By default Supabase requires email confirmation before a user can sign in. To skip this during local development:
@@ -140,14 +173,15 @@ Users can then sign in immediately after sign-up without clicking a confirmation
 
 ### Auth routes
 
-| Route                 | Description                                                             |
-| --------------------- | ----------------------------------------------------------------------- |
-| `/auth/signin`        | Email/password sign-in form                                             |
-| `/auth/signup`        | Email/password sign-up form                                             |
-| `/auth/confirm-email` | Post-signup "check your inbox" page                                     |
-| `/dashboard`          | Example protected page (redirects to `/auth/signin` if unauthenticated) |
+| Route                 | Description                                     |
+| --------------------- | ----------------------------------------------- |
+| `/auth/signin`        | Email/password sign-in form                     |
+| `/auth/signup`        | Email/password sign-up form                     |
+| `/auth/confirm-email` | Post-signup "check your inbox" page             |
+| `/dashboard`          | Electrician page — requires the `elektryk` role |
+| `/admin`              | Admin panel — requires the `admin` role         |
 
-Route protection is handled in `src/middleware.ts`. Add paths to the `PROTECTED_ROUTES` array there to require authentication.
+Route protection is applied in `src/middleware.ts`, but the rules live in `src/lib/route-access.ts`. Add an entry to the `PROTECTED_ROUTES` array there — a path prefix plus the roles allowed to reach it — rather than checking the role inside a page.
 
 ## Deployment
 
@@ -206,25 +240,49 @@ with it.
 Platform rationale and risk register: [`context/foundation/infrastructure.md`](context/foundation/infrastructure.md).
 Deployment record: [`context/changes/deployment/deployment-plan.md`](context/changes/deployment/deployment-plan.md).
 
+## Tests
+
+Two Vitest suites, kept in separate configs because their requirements differ:
+
+| Suite       | Command                    | Files                  | Needs                          |
+| ----------- | -------------------------- | ---------------------- | ------------------------------ |
+| Unit        | `npm run test:unit`        | `src/**/*.test.ts`     | Nothing — runs in CI           |
+| Integration | `npm run test:integration` | `tests/integration/**` | A running local Supabase stack |
+| Both        | `npm test`                 | —                      | A running local Supabase stack |
+
+The integration suite reads the stack's URL and keys from `supabase status -o env` and asserts the row-level security policies by creating real users and rows. Because of that, `npm test` fails on any machine with no stack running — use `npm run test:unit` for the no-infrastructure path.
+
+Neither suite exercises HTTP, the Cloudflare adapter or the real auth flow. The smoke script below does.
+
 ## Smoke test
 
-`scripts/smoke.mjs` is a dependency-free Node script that walks the whole auth flow (sign-up, sign-in, protected page, sign-out) over HTTP. Run it against the dev server or the production preview after dependency upgrades:
+`scripts/smoke.mjs` is a dependency-free Node script that walks the whole auth flow (sign-up, sign-in, protected pages, the role gate, sign-out) over HTTP. Run it against the dev server or the production preview after dependency upgrades:
 
 ```bash
 npm run dev            # or: npm run build && npm run preview
 BASE_URL=http://localhost:4321 npm run smoke
 ```
 
-It needs a reachable Supabase instance (local or cloud) with email confirmation disabled.
+It needs a reachable Supabase instance (local or cloud) with email confirmation disabled, and its role-gate steps sign in as the seeded `admin@example.com`, so the instance must be seeded too.
 
-> **Note:** this script exists primarily to guard the development of the starter itself — it is a fast sanity check that dependency upgrades did not break the build, the Cloudflare adapter or the Supabase auth flow. It is **not** a substitute for a real test suite. Once you build your own product on top of this starter, add proper tests (unit, integration, end-to-end) suited to your application.
+> **Note:** this script guards what Vitest cannot reach — that the build, the Cloudflare adapter and the real HTTP auth flow still work end to end. It complements the test suites above; neither one replaces the other.
 
 ## CI
 
-GitHub Actions runs two jobs on every push and PR to `master`:
+`.github/workflows/ci.yml` runs two jobs on every push and PR to `master`:
 
-- **ci** — lint, `astro check` and build. Configure `SUPABASE_URL` and `SUPABASE_KEY` as repository secrets for the build step.
+- **ci** — lint, `astro check`, `npm run test:unit` and build. Configure `SUPABASE_URL` and `SUPABASE_KEY` as repository secrets for the build step.
 - **smoke** — starts a local Supabase via the Supabase CLI, builds, serves the production preview on the Cloudflare runtime and runs `npm run smoke` against it. No secrets required.
+
+`.github/workflows/db-migrate.yml` runs on pushes to `master` only and applies pending migrations to the cloud project with `supabase link` + `supabase db push`. It requires three repository secrets:
+
+| Secret                  | Description                                                                                                                                                               |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SUPABASE_ACCESS_TOKEN` | Personal access token. `supabase link` reads several project-config endpoints, so a token scoped only to Migrations and Database fails with an opaque authorization error |
+| `SUPABASE_PROJECT_REF`  | The cloud project ref                                                                                                                                                     |
+| `SUPABASE_DB_PASSWORD`  | The cloud database password                                                                                                                                               |
+
+This workflow and the Cloudflare deploy fire on the same push with no ordering between them, so every migration must be forward-compatible with the currently deployed code.
 
 ## License
 

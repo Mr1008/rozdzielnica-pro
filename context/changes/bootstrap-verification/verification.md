@@ -42,10 +42,10 @@ A solo electrician-developer shipping a switchboard-planning MVP in three after-
 
 ## Pre-scaffold verification
 
-| Signal      | Value                                                        | Severity | Notes                                                                                 |
-| ----------- | ------------------------------------------------------------ | -------- | ------------------------------------------------------------------------------------- |
-| npm package | not run                                                      | n/a      | `cmd_template` starts with `git clone`; no `create-*` CLI to resolve a package name from |
-| GitHub repo | przeprogramowani/10x-astro-starter last pushed 2026-09-12    | fresh    | from `card.docs_url`; 4 days before the run                                            |
+| Signal      | Value                                                     | Severity | Notes                                                                                    |
+| ----------- | --------------------------------------------------------- | -------- | ---------------------------------------------------------------------------------------- |
+| npm package | not run                                                   | n/a      | `cmd_template` starts with `git clone`; no `create-*` CLI to resolve a package name from |
+| GitHub repo | przeprogramowani/10x-astro-starter last pushed 2026-09-12 | fresh    | from `card.docs_url`; 4 days before the run                                              |
 
 No stale signal. Proceeded without a heads-up.
 
@@ -96,21 +96,21 @@ Clean tree at scaffold time. Advisory state drifts as upstream publishes; re-run
 
 ## Hints recorded but not acted on
 
-| Hint                    | Value                 |
-| ----------------------- | --------------------- |
-| bootstrapper_confidence | first-class           |
-| quality_override        | false                 |
-| path_taken              | standard              |
-| self_check_answers      | null                  |
-| team_size               | solo                  |
-| deployment_target       | cloudflare-pages      |
-| ci_provider             | github-actions        |
-| ci_default_flow         | auto-deploy-on-merge  |
-| has_auth                | true                  |
-| has_payments            | false                 |
-| has_realtime            | false                 |
-| has_ai                  | false                 |
-| has_background_jobs     | false                 |
+| Hint                    | Value                |
+| ----------------------- | -------------------- |
+| bootstrapper_confidence | first-class          |
+| quality_override        | false                |
+| path_taken              | standard             |
+| self_check_answers      | null                 |
+| team_size               | solo                 |
+| deployment_target       | cloudflare-pages     |
+| ci_provider             | github-actions       |
+| ci_default_flow         | auto-deploy-on-merge |
+| has_auth                | true                 |
+| has_payments            | false                |
+| has_realtime            | false                |
+| has_ai                  | false                |
+| has_background_jobs     | false                |
 
 v1 records these for the audit trail only. Notably: `has_auth: true` did not change the scaffold (the starter ships Supabase auth regardless), and no CI/CD files were generated from `ci_provider` / `ci_default_flow` — the starter's own `.github/` came through the scaffold as-is. `bootstrapper_confidence: first-class` and `quality_override: false` required no compensating action.
 
@@ -119,6 +119,7 @@ v1 records these for the audit trail only. Notably: `has_auth: true` did not cha
 Next: a future skill will set up agent context (CLAUDE.md, AGENTS.md). For now, your project is scaffolded and verified — happy hacking.
 
 Useful manual steps in the meantime:
+
 - `git init` (if you have not already) to start your own repo history.
 - Review any `.scaffold` siblings the conflict policy created and decide which version of each file to keep. This run created one: `diff CLAUDE.md CLAUDE.md.scaffold`.
 - Copy `.env.example` to `.env` and fill in your Supabase and Cloudflare credentials before the first run.

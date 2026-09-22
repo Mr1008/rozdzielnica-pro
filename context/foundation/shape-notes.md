@@ -30,7 +30,7 @@ checkpoint:
     - topic: "layout heuristic scope (resolved 2026-09-16)"
       decision: "RCD grouping alone is NOT enough — the heuristic also accounts for proximity to the cable entry side of the cabinet (top/left/right/bottom) and proximity to PE and N bars; still applied directly, not as global optimization"
     - topic: "supported device types in MVP (resolved 2026-09-16)"
-      decision: "fuse switch-disconnectors (\"FRy\"), RCD, RCBO, MCBs of curve B only, PE bars, N bars; distribution blocks and other MCB curves come after MVP if time allows"
+      decision: 'fuse switch-disconnectors ("FRy"), RCD, RCBO, MCBs of curve B only, PE bars, N bars; distribution blocks and other MCB curves come after MVP if time allows'
   frs_drafted: 13
   quality_check_status: accepted
 ---
@@ -53,9 +53,9 @@ Logowanie przez email + hasło. Bez weryfikacji adresu email w MVP (utrzymanie d
 
 Dwie role:
 
-| Rola | Uprawnienia |
-| --- | --- |
-| **admin** | Zarządza katalogiem wspieranych aparatów (dane producentów: wymiary, cena katalogowa itp.) oraz katalogiem szafek rozdzielnic. Nie ma wglądu w projekty ani dane klientów elektryków. |
+| Rola         | Uprawnienia                                                                                                                                                                                                                                  |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **admin**    | Zarządza katalogiem wspieranych aparatów (dane producentów: wymiary, cena katalogowa itp.) oraz katalogiem szafek rozdzielnic. Nie ma wglądu w projekty ani dane klientów elektryków.                                                        |
 | **elektryk** | Zakłada własne projekty instalacji, wybiera szafkę, otrzymuje propozycję układu aparatów, generuje wycenę; konfiguruje w profilu stawkę godzinową, średni czas montażu na aparat i stały narzut na projekt. Widzi wyłącznie własne projekty. |
 
 Konta elektryków mogą powstać na dwa sposoby: samodzielna rejestracja lub założenie konta przez admina — oba tryby dopuszczone w MVP.
@@ -65,15 +65,19 @@ Niezalogowany użytkownik trafiający na chronioną trasę jest przekierowywany 
 ## Success Criteria
 
 ### Primary
+
 - Elektryk może dojść od założenia projektu do wygenerowanej wyceny robocizny dla realnej, prostej instalacji — otrzymując po drodze konkretny projekt/układ szafki (nie tylko liczbę) — bez ręcznego liczenia w Excelu.
 
 ### Secondary
+
 - Zaproponowany układ aparatów wymaga tylko punktowych ręcznych poprawek, nie budowy od zera.
 
 ### Guardrails
+
 - Wycena i dobór aparatów muszą być zawsze spójne z podanymi parametrami obwodów — system nigdy nie proponuje aparatu niezgodnego z parametrami obwodu (np. za mały prąd znamionowy); błędna sugestia jest gorsza niż brak sugestii.
 
 **Pierwszy przepływ MVP (numerowana sekwencja):**
+
 ```
 1. Elektryk loguje się
 2. Zakłada nowy projekt
@@ -133,6 +137,7 @@ Niezalogowany użytkownik trafiający na chronioną trasę jest przekierowywany 
 - **Then** they receive a suggested set of devices (lowest price meeting circuit parameters) and a proposed device layout in the cabinet, which they can adjust, and can generate a printable quote that includes the cabinet layout and estimated labor cost at their configured hourly rate
 
 #### Acceptance Criteria
+
 - Suggested devices always satisfy the entered circuit parameters (no under-rated device is ever suggested)
 - The proposed layout is editable before the quote is generated
 - The estimated labor time is visible and can be overridden before the quote is finalized
@@ -168,7 +173,7 @@ target_scale:
   users: small
 timeline_budget:
   mvp_weeks: 3
-  hard_deadline: null   # soft target 2026-11-04, acceptable fallback 2026-12-06 — see note below
+  hard_deadline: null # soft target 2026-11-04, acceptable fallback 2026-12-06 — see note below
   after_hours_only: true
 ```
 
@@ -185,4 +190,3 @@ Note: nie jest to twardy deadline. Użytkownik celuje w 4.11.2026, ale bez presj
 - **Bez wielu rozdzielnic w jednym projekcie** — jeden projekt odpowiada jednej szafce; łączone/wielorozdzielnicowe instalacje są poza zakresem MVP.
 
 **Uwaga (nie non-goal, doprecyzowanie zakresu):** instalacje jednofazowe (1F) i trójfazowe (3F) mają być obsługiwane w MVP — to nie jest wykluczone (patrz FR-005: liczba faz jako pole OSD).
-
