@@ -647,10 +647,10 @@ has to be undone, the schema stays and a forward migration removes it.
 
 #### Automated
 
-- [x] 5.1 Markdown formatting passes the pre-commit path
-- [x] 5.2 Full CI reproduction passes
+- [x] 5.1 Markdown formatting passes the pre-commit path — 9d1edb4
+- [x] 5.2 Full CI reproduction passes — 9d1edb4
 
 #### Manual
 
-- [x] 5.3 AGENTS.md no longer contains a statement contradicted by the code
-- [x] 5.4 The roadmap F-01 status flip has been mirrored to GitHub
+- [x] 5.3 AGENTS.md no longer contains a statement contradicted by the code — 9d1edb4
+- [x] 5.4 The roadmap F-01 status flip has been mirrored to GitHub — 9d1edb4
