@@ -1,10 +1,10 @@
 ---
 change_id: roles-and-rls-baseline
 title: Role admin/elektryk i izolacja danych elektryka przez RLS
-status: implemented
+status: archived
 created: 2026-09-21
 updated: 2026-09-22
-archived_at: null
+archived_at: 2026-09-22T14:18:53Z
 ---
 
 ## Notes
