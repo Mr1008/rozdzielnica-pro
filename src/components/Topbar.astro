@@ -1,7 +1,13 @@
 ---
 import { t } from "@/lib/i18n";
+import { ROLE_HOME } from "@/lib/route-access";
 
-const { user } = Astro.locals;
+const { user, role } = Astro.locals;
+
+// Link each role at its own home. Pointing everyone at /dashboard would give an admin a dead-end
+// link: the route gate refuses it and bounces them straight back to /admin. A signed-in user with
+// no recognised role gets no panel link at all, because no gated route will let them in.
+const home = role === null ? null : { href: ROLE_HOME[role], label: role === "admin" ? t.nav.admin : t.nav.dashboard };
 ---
 
 <div class="mb-4 flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/80">
@@ -9,9 +15,11 @@ const { user } = Astro.locals;
     <>
       <span class="text-blue-100/70">{user.email}</span>
       <div class="flex items-center gap-3">
-        <a href="/dashboard" class="text-purple-300 transition-colors hover:text-purple-100 hover:underline">
-          {t.nav.dashboard}
-        </a>
+        {home && (
+          <a href={home.href} class="text-purple-300 transition-colors hover:text-purple-100 hover:underline">
+            {home.label}
+          </a>
+        )}
         <form method="POST" action="/api/auth/signout">
           <button type="submit" class="text-purple-300 transition-colors hover:text-purple-100 hover:underline">
             {t.nav.signOut}
