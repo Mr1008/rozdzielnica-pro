@@ -603,28 +603,28 @@ has to be undone, the schema stays and a forward migration removes it.
 
 #### Automated
 
-- [x] 2.1 Unit config runs with no database available
-- [x] 2.2 Integration tests pass against a freshly reset local stack
-- [x] 2.3 Both new configs and the test files lint clean
-- [x] 2.4 Type checking still passes
+- [x] 2.1 Unit config runs with no database available — 03c1355
+- [x] 2.2 Integration tests pass against a freshly reset local stack — 03c1355
+- [x] 2.3 Both new configs and the test files lint clean — 03c1355
+- [x] 2.4 Type checking still passes — 03c1355
 
 #### Manual
 
-- [x] 2.5 Deliberately disabling one policy locally makes the corresponding test fail
+- [x] 2.5 Deliberately disabling one policy locally makes the corresponding test fail — 03c1355
 
 ### Phase 3: Claim plumbing
 
 #### Automated
 
-- [ ] 3.1 Unit tests pass
-- [ ] 3.2 No unsafe-any lint violations from reading the claim
-- [ ] 3.3 Type checking passes
-- [ ] 3.4 Production build succeeds with no Supabase env vars set
-- [ ] 3.5 Existing auth flow still passes end to end
+- [x] 3.1 Unit tests pass
+- [x] 3.2 No unsafe-any lint violations from reading the claim
+- [x] 3.3 Type checking passes
+- [x] 3.4 Production build succeeds with no Supabase env vars set
+- [x] 3.5 Existing auth flow still passes end to end
 
 #### Manual
 
-- [ ] 3.6 Signing in as the seeded admin and as a self-registered user yields the expected role on each request
+- [x] 3.6 Signing in as the seeded admin and as a self-registered user yields the expected role on each request
 
 ### Phase 4: Role gating and admin surface
 

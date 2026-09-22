@@ -19,9 +19,5 @@ export default defineConfig({
   test: {
     include: ["src/**/*.test.ts"],
     environment: "node",
-    // Unit tests arrive with the claim resolver in phase 3 of
-    // `context/changes/roles-and-rls-baseline/plan.md`. Until then the glob matches nothing and
-    // Vitest would exit non-zero. Drop this line once `src/lib/roles.test.ts` exists.
-    passWithNoTests: true,
   },
 });
