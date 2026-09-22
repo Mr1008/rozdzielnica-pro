@@ -630,17 +630,17 @@ has to be undone, the schema stays and a forward migration removes it.
 
 #### Automated
 
-- [x] 4.1 Unit tests pass
-- [x] 4.2 Integration tests still pass
-- [x] 4.3 Extended smoke script passes against a local production preview
-- [x] 4.4 Lint, type check and build pass
+- [x] 4.1 Unit tests pass — bb6961c
+- [x] 4.2 Integration tests still pass — bb6961c
+- [x] 4.3 Extended smoke script passes against a local production preview — bb6961c
+- [x] 4.4 Lint, type check and build pass — bb6961c
 
 #### Manual
 
-- [x] 4.5 Signed in as the seeded admin: /admin renders and /dashboard redirects to /admin
-- [x] 4.6 Signed in as a self-registered electrician: /dashboard renders and /admin redirects away
-- [x] 4.7 Signed out: both routes redirect to /auth/signin
-- [x] 4.8 All new strings render in Polish, including the roleless message
+- [x] 4.5 Signed in as the seeded admin: /admin renders and /dashboard redirects to /admin — bb6961c
+- [x] 4.6 Signed in as a self-registered electrician: /dashboard renders and /admin redirects away — bb6961c
+- [x] 4.7 Signed out: both routes redirect to /auth/signin — bb6961c
+- [x] 4.8 All new strings render in Polish, including the roleless message — bb6961c
 - [ ] 4.9 The same three role checks pass against the deployed Worker
 
 ### Phase 5: Documentation sync
