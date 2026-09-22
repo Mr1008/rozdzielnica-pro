@@ -470,6 +470,29 @@ function syncIssues(milestoneTitle) {
       gh(args);
     });
   }
+
+  // pass 3 — open/closed state. Reconciled in both directions like the labels above: a `done`
+  // item closes its issue, anything else reopens it, so a status flip in roadmap.md is enough and
+  // no issue is left open describing finished work (or closed while the work is back in progress).
+  // Only touched when it actually differs, so a repeated --apply is a no-op.
+  for (const it of items) {
+    const shouldBeClosed = it.status === "done";
+    const state = APPLY
+      ? ghJson(["issue", "view", String(numbers[it.id]), "--repo", REPO, "--json", "state"])?.state
+      : null;
+    const isClosed = state === "CLOSED";
+    if (APPLY && isClosed === shouldBeClosed) continue;
+    act(`${shouldBeClosed ? "zamknięcie" : "otwarcie"} issue ${it.id}`, () =>
+      gh([
+        "issue",
+        shouldBeClosed ? "close" : "reopen",
+        String(numbers[it.id]),
+        "--repo",
+        REPO,
+        ...(shouldBeClosed ? ["--reason", "completed"] : []),
+      ]),
+    );
+  }
   act(`opis issue-parasola`, () =>
     gh([
       "issue",
