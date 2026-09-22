@@ -164,9 +164,13 @@ describe("row level security on public.profiles", () => {
     env = readStackEnv();
     service = createServiceClient(env);
 
+    // Record each id as soon as its user exists, not after both: if the second creation throws, the
+    // first user would otherwise never reach `afterAll`'s cleanup and would outlive the run in a
+    // developer's persistent Docker volume.
     electricianA = await createElectrician(service, "a");
+    createdUserIds.push(electricianA.id);
     electricianB = await createElectrician(service, "b");
-    createdUserIds.push(electricianA.id, electricianB.id);
+    createdUserIds.push(electricianB.id);
 
     ({ client: clientA, accessToken: tokenA } = await signIn(env, electricianA.email, electricianA.password));
     ({ client: clientB } = await signIn(env, electricianB.email, electricianB.password));

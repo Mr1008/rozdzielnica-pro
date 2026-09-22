@@ -31,4 +31,15 @@ wyceny).
   wyśledzić w czasie, odziedziczy martwą kolumnę.
 - **Job `smoke` w CI mógłby uruchamiać `npm run test:integration`.** Już startuje żywe Supabase z
   migracjami i seedem, więc asercje RLS kosztowałyby jeden krok więcej, a stałyby się granicą
-  pilnowaną przez CI zamiast testem uruchamianym wyłącznie lokalnie.
+  pilnowaną przez CI zamiast testem uruchamianym wyłącznie lokalnie. **To nie jest jednak dopisanie
+  jednego kroku**: job `smoke` używa binarki `supabase` z `supabase/setup-cli@v3` (wersja `latest`),
+  a test woła `npx supabase status -o env`, co npm rozwiązuje najpierw do devDependency
+  (`supabase@^2.23.4`) w `node_modules/.bin`. To dwie różne binarki, a test parsuje wyjście `-o env`
+  regexem — rozjazd wersji może je cicho zepsuć. Najpierw ujednolicić wywołanie CLI, potem dopisać
+  krok.
+- **Ryzyko przyjęte świadomie: zmiana roli działa dopiero od następnego tokenu.** `is_admin()`
+  i trigger czytają claim `user_role` wypalony w tokenie, nie aktualne `profiles.role`. Zdegradowany
+  admin zachowuje uprawnienia — łącznie z przywróceniem sobie roli — aż do wygaśnięcia tokenu
+  (`jwt_expiry`, 3600 s). Dziś nieosiągalne: nie ma UI do zarządzania użytkownikami, role zmienia
+  się SQL-em. Kto zbuduje takie UI, musi przy degradacji unieważnić sesję
+  (`supabase.auth.admin.signOut(userId, 'global')`). Zapisane też jako tripwire w `AGENTS.md`.
