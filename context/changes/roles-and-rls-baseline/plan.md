@@ -586,31 +586,31 @@ has to be undone, the schema stays and a forward migration removes it.
 
 #### Automated
 
-- [x] 1.1 Local stack rebuilds from scratch with the migration and seed applied
-- [x] 1.2 The seeded admin's profile carries the admin role
-- [x] 1.3 Repo checks still pass unchanged
-- [x] 1.4 The existing auth flow is unbroken by the trigger
+- [x] 1.1 Local stack rebuilds from scratch with the migration and seed applied — ee3e9d8
+- [x] 1.2 The seeded admin's profile carries the admin role — ee3e9d8
+- [x] 1.3 Repo checks still pass unchanged — ee3e9d8
+- [x] 1.4 The existing auth flow is unbroken by the trigger — ee3e9d8
 
 #### Manual
 
-- [x] 1.5 The two leftover smoke-\* users are deleted from the production project before the backfill reaches it
-- [x] 1.6 SUPABASE_ACCESS_TOKEN, SUPABASE_PROJECT_REF and SUPABASE_DB_PASSWORD are set as repository secrets
-- [ ] 1.7 The access-token hook is enabled by hand in the cloud dashboard
-- [ ] 1.8 A fresh cloud sign-in yields a JWT containing user_role
-- [ ] 1.9 The db-migrate workflow run is green and the cloud project shows the profiles table
+- [x] 1.5 The two leftover smoke-\* users are deleted from the production project before the backfill reaches it — ee3e9d8
+- [x] 1.6 SUPABASE_ACCESS_TOKEN, SUPABASE_PROJECT_REF and SUPABASE_DB_PASSWORD are set as repository secrets — ee3e9d8
+- [x] 1.7 The access-token hook is enabled by hand in the cloud dashboard
+- [x] 1.8 A fresh cloud sign-in yields a JWT containing user_role
+- [x] 1.9 The db-migrate workflow run is green and the cloud project shows the profiles table
 
 ### Phase 2: Test harness and RLS integration tests
 
 #### Automated
 
-- [ ] 2.1 Unit config runs with no database available
-- [ ] 2.2 Integration tests pass against a freshly reset local stack
-- [ ] 2.3 Both new configs and the test files lint clean
-- [ ] 2.4 Type checking still passes
+- [x] 2.1 Unit config runs with no database available
+- [x] 2.2 Integration tests pass against a freshly reset local stack
+- [x] 2.3 Both new configs and the test files lint clean
+- [x] 2.4 Type checking still passes
 
 #### Manual
 
-- [ ] 2.5 Deliberately disabling one policy locally makes the corresponding test fail
+- [x] 2.5 Deliberately disabling one policy locally makes the corresponding test fail
 
 ### Phase 3: Claim plumbing
 

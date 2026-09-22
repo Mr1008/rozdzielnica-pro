@@ -254,6 +254,12 @@ Foundations poniżej zakładają, że to istnieje, i **nie** budują tego od now
 - **Filtr preferowanego producenta przy doborze** — Why parked: odnotowany przy FR-007 jako rozszerzenie po MVP; kryterium MVP to najniższa cena spośród poprawnych dopasowań.
 - **Szablony obwodów / kopiowanie obwodów między projektami** — Why parked: odłożone przy FR-006 na późniejszą wersję.
 - **Observability (logger, error tracking, metryki)** — Why parked: baseline pokazuje brak, ale PRD tego nie wymaga; przy jednym użytkowniku `wrangler tail` wystarcza, a cel `low-complexity` nie uzasadnia fundamentu pod monitoring.
+- **Włączenie potwierdzania adresu email** (`enable_confirmations = true`) — Why parked: świadomie
+  odłożone na **sam koniec MVP**, żeby przez cały czas budowy testowanie było łatwiejsze. Docelowo
+  do zrobienia: jest darmowe na Supabase, a widok `/auth/confirm-email` już istnieje, więc włączenie
+  wychodzi taniej niż utrzymywanie ścieżki bez potwierdzeń. Uwaga wykonawcza: `scripts/smoke.mjs`
+  rejestruje użytkownika i od razu go loguje, więc włączenie potwierdzeń wymaga przepisania skryptu
+  (logowanie jako zaseedowany admin albo potwierdzenie przez Mailpit). Patrz tripwire w `AGENTS.md`.
 - **Tłumaczenie interfejsu na inny język** — Why parked: PRD `## Non-Functional Requirements`; warstwa tłumaczeń już istnieje i nie blokuje drugiego języka, ale sam przekład nie jest celem MVP.
 
 ## Milestone History
