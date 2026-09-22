@@ -616,31 +616,31 @@ has to be undone, the schema stays and a forward migration removes it.
 
 #### Automated
 
-- [x] 3.1 Unit tests pass
-- [x] 3.2 No unsafe-any lint violations from reading the claim
-- [x] 3.3 Type checking passes
-- [x] 3.4 Production build succeeds with no Supabase env vars set
-- [x] 3.5 Existing auth flow still passes end to end
+- [x] 3.1 Unit tests pass — 7c25a9e
+- [x] 3.2 No unsafe-any lint violations from reading the claim — 7c25a9e
+- [x] 3.3 Type checking passes — 7c25a9e
+- [x] 3.4 Production build succeeds with no Supabase env vars set — 7c25a9e
+- [x] 3.5 Existing auth flow still passes end to end — 7c25a9e
 
 #### Manual
 
-- [x] 3.6 Signing in as the seeded admin and as a self-registered user yields the expected role on each request
+- [x] 3.6 Signing in as the seeded admin and as a self-registered user yields the expected role on each request — 7c25a9e
 
 ### Phase 4: Role gating and admin surface
 
 #### Automated
 
-- [ ] 4.1 Unit tests pass
-- [ ] 4.2 Integration tests still pass
-- [ ] 4.3 Extended smoke script passes against a local production preview
-- [ ] 4.4 Lint, type check and build pass
+- [x] 4.1 Unit tests pass
+- [x] 4.2 Integration tests still pass
+- [x] 4.3 Extended smoke script passes against a local production preview
+- [x] 4.4 Lint, type check and build pass
 
 #### Manual
 
-- [ ] 4.5 Signed in as the seeded admin: /admin renders and /dashboard redirects to /admin
-- [ ] 4.6 Signed in as a self-registered electrician: /dashboard renders and /admin redirects away
-- [ ] 4.7 Signed out: both routes redirect to /auth/signin
-- [ ] 4.8 All new strings render in Polish, including the roleless message
+- [x] 4.5 Signed in as the seeded admin: /admin renders and /dashboard redirects to /admin
+- [x] 4.6 Signed in as a self-registered electrician: /dashboard renders and /admin redirects away
+- [x] 4.7 Signed out: both routes redirect to /auth/signin
+- [x] 4.8 All new strings render in Polish, including the roleless message
 - [ ] 4.9 The same three role checks pass against the deployed Worker
 
 ### Phase 5: Documentation sync

@@ -22,6 +22,7 @@ export const pl = {
 
   nav: {
     dashboard: "Panel",
+    admin: "Panel administratora",
     signIn: "Zaloguj się",
     signUp: "Załóż konto",
     signOut: "Wyloguj się",
@@ -77,6 +78,7 @@ export const pl = {
     weakPassword: "Hasło jest zbyt słabe — użyj dłuższego",
     rateLimited: "Zbyt wiele prób. Spróbuj ponownie za chwilę",
     notConfigured: "Logowanie jest chwilowo niedostępne — skontaktuj się z administratorem",
+    noRole: "Twoje konto nie ma przypisanej roli — skontaktuj się z administratorem",
     unknown: "Coś poszło nie tak. Spróbuj ponownie",
   },
 
@@ -93,6 +95,12 @@ export const pl = {
     title: "Panel",
     greeting: "Witaj,",
     restricted: "Ta strona jest dostępna tylko dla zalogowanych użytkowników.",
+  },
+
+  admin: {
+    title: "Panel administratora",
+    description: "Tu powstanie katalog aparatów i katalog szafek rozdzielnic.",
+    restricted: "Ta strona jest dostępna tylko dla administratorów.",
   },
 
   config: {

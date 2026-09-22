@@ -1,8 +1,18 @@
 ---
+import Banner from "@/components/Banner.astro";
 import Welcome from "@/components/Welcome.astro";
 import Layout from "@/layouts/Layout.astro";
+import { authErrorMessage } from "@/lib/auth-errors";
+
+// `/` is where the route gate sends a signed-in user whose token carries no recognised role
+// (`NO_ROLE_PATH` in `@/lib/route-access`). Without this the bounce would be silent: the user
+// would be pushed off every gated route with nothing on screen explaining why. Same code-not-
+// message pattern as `auth/signin.astro` — an unmapped code still reaches the URL, so it stays
+// diagnosable while the user sees Polish.
+const error = authErrorMessage(Astro.url.searchParams.get("error"));
 ---
 
 <Layout>
+  {error && <Banner variant="error">{error}</Banner>}
   <Welcome />
 </Layout>
