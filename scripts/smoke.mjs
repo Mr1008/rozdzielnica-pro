@@ -4,6 +4,13 @@
 const BASE_URL = process.env.BASE_URL ?? "http://localhost:4321";
 const email = `smoke-${Date.now()}@example.com`;
 const password = "Smoke-Test-Passw0rd!";
+
+// Seeded by supabase/seed.sql on every `supabase start` and `supabase db reset`, so it exists
+// locally and in the CI smoke job but nowhere else. A self-registered account is `elektryk`; this
+// is the only way to exercise the admin side of the gate over HTTP.
+const adminEmail = "admin@example.com";
+const adminPassword = "admin123456";
+
 const jar = new Map();
 
 function cookieHeader() {
@@ -54,8 +61,27 @@ const steps = [
     { status: 302, location: "/" },
   ],
   ["dashboard renders for signed-in user", () => request("/dashboard"), { status: 200 }],
+  // The gate, from the electrician's side: a self-registered account is `elektryk`, so /admin is
+  // refused and they are bounced to their own home rather than to sign-in.
+  ["admin refuses an electrician", () => request("/admin"), { status: 302, location: "/dashboard" }],
   ["signout clears session", () => request("/api/auth/signout", { method: "POST" }), { status: 302, location: "/" }],
   ["dashboard redirects after signout", () => request("/dashboard"), { status: 302, location: "/auth/signin" }],
+  ["admin redirects anonymous user", () => request("/admin"), { status: 302, location: "/auth/signin" }],
+  // And from the admin's side, using the seeded account. Signing in lands on /admin rather than /,
+  // which is the role-aware redirect in src/pages/api/auth/signin.ts.
+  [
+    "seeded admin signs in and lands on the admin panel",
+    () => request("/api/auth/signin", { method: "POST", form: { email: adminEmail, password: adminPassword } }),
+    { status: 302, location: "/admin" },
+  ],
+  ["admin renders for the admin", () => request("/admin"), { status: 200 }],
+  ["dashboard refuses the admin", () => request("/dashboard"), { status: 302, location: "/admin" }],
+  [
+    "signout clears the admin session",
+    () => request("/api/auth/signout", { method: "POST" }),
+    { status: 302, location: "/" },
+  ],
+  ["admin redirects after admin signout", () => request("/admin"), { status: 302, location: "/auth/signin" }],
 ];
 
 let failed = 0;
