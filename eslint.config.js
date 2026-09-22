@@ -77,6 +77,19 @@ const scriptsConfig = defineConfig({
   rules: { "no-console": "off" },
 });
 
+// Tests live outside `src/`, so without this block they would only be linted incidentally — via
+// `reactConfig`'s `**/*.{js,jsx,ts,tsx}` glob, which exists for a different reason and could
+// legitimately be narrowed. Naming them here pins them into the linted set. They stay under the
+// same `strictTypeChecked` rules as product code: `tsconfig.json` includes `**/*`, so the
+// type-aware project service already resolves them, and a test that needs `any` to compile is a
+// test asserting against a contract nobody typed.
+const testsConfig = defineConfig({
+  files: ["tests/**/*.ts", "**/*.test.ts"],
+  languageOptions: {
+    parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
+  },
+});
+
 // `.claude/` holds agent tooling vendored from the 10xDevs CLI, not product code. Its `*.mjs`
 // helpers sit outside tsconfig.json, so the type-aware project service cannot parse them and
 // every one of them errors. They are not ours to lint.
@@ -91,5 +104,6 @@ export default defineConfig(
   eslintPluginAstro.configs["flat/jsx-a11y-recommended"],
   astroConfig,
   scriptsConfig,
+  testsConfig,
   eslintPluginPrettier,
 );
