@@ -1,0 +1,37 @@
+name: DB migrate
+
+# Applies pending Supabase migrations to the cloud project.
+#
+# Push to master only — never `pull_request`, or opening a PR would migrate production.
+#
+# This lives in Actions rather than in the Cloudflare Workers Builds command on purpose.
+# Workers Builds *could* run `supabase db push` — the CLI is a devDependency and the dashboard
+# takes build-time variables — and doing so would guarantee migrate-before-deploy ordering.
+# It was rejected because it would put SUPABASE_DB_PASSWORD (full production write access) into
+# a second secret store, and because the build command lives in the Cloudflare dashboard rather
+# than in this repo, where it would escape review.
+#
+# The cost of that choice is a real one: this workflow and the Workers Builds deploy fire on the
+# same push with no ordering between them. What makes the race safe is that every migration
+# statement is forward-compatible, and that application code demanding a claim only ships in a
+# later phase than the migration that mints it. Break either of those and this decision needs
+# revisiting — see context/changes/roles-and-rls-baseline/plan.md.
+on:
+  push:
+    branches: [master]
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: supabase/setup-cli@v3
+        with:
+          version: latest
+      - name: Link the cloud project
+        run: supabase link --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}
+      - name: Apply pending migrations
+        run: supabase db push

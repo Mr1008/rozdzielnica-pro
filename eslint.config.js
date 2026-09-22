@@ -77,8 +77,14 @@ const scriptsConfig = defineConfig({
   rules: { "no-console": "off" },
 });
 
+// `.claude/` holds agent tooling vendored from the 10xDevs CLI, not product code. Its `*.mjs`
+// helpers sit outside tsconfig.json, so the type-aware project service cannot parse them and
+// every one of them errors. They are not ours to lint.
+const agentToolingIgnores = defineConfig({ ignores: [".claude/**"] });
+
 export default defineConfig(
   includeIgnoreFile(gitignorePath),
+  agentToolingIgnores,
   baseConfig,
   reactConfig,
   eslintPluginAstro.configs["flat/recommended"],
