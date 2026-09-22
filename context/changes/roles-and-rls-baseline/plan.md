@@ -641,16 +641,16 @@ has to be undone, the schema stays and a forward migration removes it.
 - [x] 4.6 Signed in as a self-registered electrician: /dashboard renders and /admin redirects away — bb6961c
 - [x] 4.7 Signed out: both routes redirect to /auth/signin — bb6961c
 - [x] 4.8 All new strings render in Polish, including the roleless message — bb6961c
-- [ ] 4.9 The same three role checks pass against the deployed Worker
+- [x] 4.9 The same three role checks pass against the deployed Worker — bb6961c
 
 ### Phase 5: Documentation sync
 
 #### Automated
 
-- [ ] 5.1 Markdown formatting passes the pre-commit path
-- [ ] 5.2 Full CI reproduction passes
+- [x] 5.1 Markdown formatting passes the pre-commit path
+- [x] 5.2 Full CI reproduction passes
 
 #### Manual
 
-- [ ] 5.3 AGENTS.md no longer contains a statement contradicted by the code
-- [ ] 5.4 The roadmap F-01 status flip has been mirrored to GitHub
+- [x] 5.3 AGENTS.md no longer contains a statement contradicted by the code
+- [x] 5.4 The roadmap F-01 status flip has been mirrored to GitHub

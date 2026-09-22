@@ -1,8 +1,9 @@
 # Repository Guidelines
 
 **RozdzielnicaPro** — a switchboard (rozdzielnica) planning and labour-quoting tool for a solo
-electrician. Scaffolded from `10x-astro-starter`; everything outside `src/pages/auth/*` and
-`src/lib/supabase.ts` is still starter code, not product code.
+electrician. Scaffolded from `10x-astro-starter`. Product code so far is auth, i18n and the role/RLS
+baseline — `src/pages/auth/*`, `src/pages/admin/`, most of `src/lib/`, and all of `supabase/`. The
+rest is still starter code.
 
 Product spec: @context/foundation/prd.md · Stack rationale: @context/foundation/tech-stack.md ·
 Setup/deploy: @README.md
@@ -31,11 +32,40 @@ These are correctness requirements, not preferences.
 
 ## Tripwires
 
-- **There is no test suite.** `npm run smoke` is the only end-to-end check and it is a starter
-  sanity script, not tests. Never report "tests pass" — say which of lint / `astro check` / build /
-  smoke you actually ran.
+- **The test suite is unit + RLS-integration only — it covers no HTTP.** `npm run test:unit`
+  (Vitest, `src/**/*.test.ts`) needs no infrastructure and runs in CI; `npm run test:integration`
+  (`tests/integration/**`) asserts the RLS policies against a **live local Supabase** and is
+  local-only. `npm test` runs both, so it fails on any machine with no stack running — never wire it
+  into a git hook or a database-less CI job; use `test:unit` there. Neither suite exercises the
+  Cloudflare adapter or the real auth flow: `scripts/smoke.mjs` remains the separate,
+  dependency-free script that does. Never report a bare "tests pass" — say which of lint /
+  `astro check` / `test:unit` / `test:integration` / build / smoke you actually ran.
 - **`npm run smoke` needs a running server AND a reachable Supabase with email confirmation
-  disabled.** It signs a user up for real. It fails against an unconfigured instance.
+  disabled.** It signs a user up for real, and its role-gate steps sign in as the admin seeded by
+  `supabase/seed.sql`. It fails against an unconfigured or unseeded instance.
+- **The role claim is `user_role`, never `role`.** Supabase's own `role` claim is required and holds
+  `authenticated`/`anon` — PostgREST switches database roles on it, so overwriting or reading it
+  instead resolves every signed-in user to "no recognised role". The claim is minted by
+  `public.custom_access_token_hook` and narrowed in exactly one place, @src/lib/roles.ts.
+- **A profile's `role` is guarded by a database trigger, not by application code.**
+  `public.enforce_role_change_is_admin()` (BEFORE UPDATE on `public.profiles`) raises SQLSTATE
+  `42501` on any non-admin role change, because RLS grants row access but not column access. Do not
+  answer a 42501 by loosening something in TypeScript.
+- **Never run `supabase config push`.** `supabase/config.toml` carries
+  `site_url = "http://127.0.0.1:3000"`, which would break production auth redirects. Migrations reach
+  the cloud project through `.github/workflows/db-migrate.yml`; config does not go up at all, and the
+  cloud access-token hook is a one-time manual dashboard step (Authentication → Hooks → Customize
+  Access Token (JWT) Claims → `public.custom_access_token_hook`).
+- **`supabase db reset` does not re-read `config.toml`** — it restarts the containers with their
+  existing environment. After any `config.toml` edit, a full `npx supabase stop` then
+  `npx supabase start` is required, or GoTrue comes up without the
+  `[auth.hook.custom_access_token]` hook and the `user_role` claim is silently absent — which looks
+  exactly like a broken SQL function.
+- **`supabase link` needs a much wider access-token scope than `db push`** — it reads a bundle of
+  project-config endpoints, and the failure is an opaque
+  `Authorization failed for the access token and project ref pair` that names no endpoint. The
+  `SUPABASE_ACCESS_TOKEN` secret behind `.github/workflows/db-migrate.yml` must cover those config
+  reads, not just Migrations and Database.
 - **`createClient()` returns `null` when Supabase env vars are unset** — they are declared
   `optional: true` in `astro.config.mjs`, so the app boots and builds without them. Every call site
   must handle the null branch (see @src/middleware.ts and @src/pages/api/auth/signin.ts). Do not
@@ -83,9 +113,12 @@ Astro 7 SSR (`output: "server"`) + React 19 islands + Tailwind 4 + Supabase auth
 Workers.
 
 **Request path:** `src/middleware.ts` runs on every request → builds a Supabase SSR client from the
-request headers and `AstroCookies` → resolves the user into `context.locals.user` (typed in
-`src/env.d.ts`) → redirects to `/auth/signin` if the path matches `PROTECTED_ROUTES`. Gate a new
-page by adding its path to that array, not by checking auth inside the page.
+request headers and `AstroCookies` → resolves `context.locals.user` and `context.locals.role` (both
+typed in `src/env.d.ts`) → applies the verdict of `resolveRouteAccess`. Which roles may reach which
+paths lives in @src/lib/route-access.ts, not in the middleware: gate a new page by adding an entry
+to `PROTECTED_ROUTES` there, never by checking auth or the role inside the page. The redirect
+targets in `ROLE_HOME` must each be reachable by their own role, or two gated routes bounce forever
+— `route-access.test.ts` asserts that invariant.
 
 **Secrets** are declared in the `astro.config.mjs` `env.schema` as `context: "server", access:
 "secret"` and imported from `astro:env/server` — never `import.meta.env`, and never in client code.
@@ -104,9 +137,10 @@ shape for new form endpoints so the existing forms keep working.
 - ESLint is `strictTypeChecked` + `stylisticTypeChecked`: no floating promises, no unsafe `any`,
   `no-console` warns, `astro/no-set-html-directive` errors. Prefix intentionally unused bindings
   with `_`.
-- Feature helpers go in `src/lib/`. `src/types.ts`, `src/components/hooks/`, `supabase/migrations/`
-  and `zod` do **not** exist yet — create them following these names if you need them, and add
-  `zod` to `package.json` before importing it.
+- Feature helpers go in `src/lib/`, each with its unit test beside it (`roles.ts` /
+  `roles.test.ts`); `tests/integration/` is reserved for the suite that needs a live database.
+  `src/types.ts` and `src/components/hooks/` do **not** exist yet — create them under those names if
+  you need them.
 - New Supabase tables: migration named `YYYYMMDDHHmmss_short_description.sql`, RLS enabled, with
   granular per-operation, per-role policies. Per-electrician isolation is a stated requirement, so
   RLS is the enforcement point, not application code.
@@ -120,13 +154,17 @@ shape for new form endpoints so the existing forms keep working.
 | `npm run build`                      | SSR build via `@astrojs/cloudflare`                                                           |
 | `npm run preview`                    | Serves the production build                                                                   |
 | `npm run lint` / `lint:fix`          | ESLint, type-checked. Prettier runs _as an ESLint rule_ — lint failures include formatting    |
-| `npm run format`                     | Prettier directly (astro + tailwind plugins)                                                  |
+| `npm run format`                     | Prettier over the whole repo. `.prettierignore` keeps `.claude/` and `.agents/` out           |
+| `npm run test:unit`                  | Vitest over `src/**/*.test.ts`. No infrastructure; CI runs it                                 |
+| `npm run test:integration`           | Vitest over `tests/integration/**`. Needs a running local Supabase                            |
+| `npm test`                           | Both suites — fails with no local Supabase running. See Tripwires                             |
 | `npm run smoke`                      | Auth-flow script; `BASE_URL` defaults to `http://localhost:4321`                              |
 | `npx astro check`                    | Type-checks `.astro` files — CI runs it, `npm run lint` does not                              |
 | `node scripts/roadmap-to-github.mjs` | Mirrors the roadmap to GitHub issues/board. Plans by default; `--apply` writes. See Tripwires |
 
-There is no single-test runner because there are no tests. To reproduce CI locally:
-`npm run lint && npx astro check && npm run build`.
+To reproduce the CI `ci` job locally:
+`npm run lint && npx astro check && npm run test:unit && npm run build`. The RLS assertions in
+`npm run test:integration` are not in CI and have to be run by hand against a local stack.
 
 Pre-commit (husky + lint-staged) runs `eslint --fix` on `*.{ts,tsx,astro}` and `prettier --write` on
 `*.{json,css,md}`. Hooks install via the `prepare` script on `npm ci`.
@@ -135,8 +173,14 @@ Pre-commit (husky + lint-staged) runs `eslint --fix` on `*.{ts,tsx,astro}` and `
 
 Node 22.14.0 (`.nvmrc`). `SUPABASE_URL` and `SUPABASE_KEY` go in **both** `.env` (Node tooling) and
 `.dev.vars` (Cloudflare local dev) — both gitignored. Local stack: `npx supabase start` (Docker,
-~7 GB). Deploy: `npx wrangler deploy`, with secrets set via `npx wrangler secret put`.
+~7 GB), which applies `supabase/migrations/` and `supabase/seed.sql`. The seed is **local and CI
+only** — `supabase db push` carries migrations, never seeds. Deploy: `npx wrangler deploy`, with
+secrets set via `npx wrangler secret put`.
 
-CI (`.github/workflows/ci.yml`, on `master`): job `ci` = lint + `astro check` + build; job `smoke`
-spins up a local Supabase and runs the smoke script against the production preview. Both currently
-pass with no repository secrets configured.
+CI (on `master`): `.github/workflows/ci.yml` job `ci` = lint + `astro check` + `test:unit` + build;
+job `smoke` spins up a local Supabase and runs the smoke script against the production preview.
+Both pass with no repository secrets configured. `.github/workflows/db-migrate.yml` applies pending
+migrations to the cloud project on the same push and **does** need secrets —
+`SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_REF`, `SUPABASE_DB_PASSWORD`. It races the Cloudflare
+deploy with no ordering between them, which is only safe while every migration stays
+forward-compatible.

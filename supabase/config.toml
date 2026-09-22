@@ -368,8 +368,11 @@ deno_version = 2
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 
+# Disabled on purpose: the `supabase_vector` container cannot reach the Docker socket on Windows
+# (`docker_logs` -> ConnectionRefused), so it exits 0 and restarts in a loop. Nothing local uses
+# analytics, and the CI smoke job already excludes `logflare,vector` from `supabase start`.
 [analytics]
-enabled = true
+enabled = false
 port = 55327
 # Configure one of the supported backends: `postgres`, `bigquery`.
 backend = "postgres"

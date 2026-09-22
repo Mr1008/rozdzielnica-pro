@@ -140,7 +140,7 @@ production-access boundary in `infrastructure.md`. **The agent never sees the an
       client acts _as the signed-in user_ whose JWT arrives in the cookie, and RLS is the
       enforcement point. A secret key bypasses RLS entirely and would silently destroy the
       per-electrician isolation the PRD requires (`Projekty i dane klientów należące do danego
-  elektryka są widoczne wyłącznie dla niego`).
+elektryka są widoczne wyłącznie dla niego`).
       Fallback to verify, not assume: the legacy `anon` JWT is deprecated end-of-2026 but still
       issued on the same page. If sign-in fails in Phase 4, swap to it — `@supabase/ssr` 0.12.7 may
       not handle the new key format. The smoke test settles it.
@@ -195,15 +195,15 @@ production-access boundary in `infrastructure.md`. **The agent never sees the an
 - [x] Edge routing verified against the live Worker:
 
       | Route | Status | Location | Body | `[object Object]` |
-              | --- | --- | --- | --- | --- |
-              | `/` | 200 | — | 5010 B | no |
-              | `/dashboard` | **302** | **`/auth/signin`** | 0 B | no |
-              | `/auth/signin` | 200 | — | 9452 B | no |
-              | `/auth/signup` | 200 | — | 10952 B | no |
-              | `/nope-404` | 404 | — | 4302 B | no |
+                          | --- | --- | --- | --- | --- |
+                          | `/` | 200 | — | 5010 B | no |
+                          | `/dashboard` | **302** | **`/auth/signin`** | 0 B | no |
+                          | `/auth/signin` | 200 | — | 9452 B | no |
+                          | `/auth/signup` | 200 | — | 10952 B | no |
+                          | `/nope-404` | 404 | — | 4302 B | no |
 
-              The `/dashboard` redirect proves `src/middleware.ts` `PROTECTED_ROUTES` executes at the edge;
-              the 404 proves `assets.not_found_handling: "404-page"` is wired correctly.
+                          The `/dashboard` redirect proves `src/middleware.ts` `PROTECTED_ROUTES` executes at the edge;
+                          the 404 proves `assets.not_found_handling: "404-page"` is wired correctly.
 
 - [x] Supabase banner **gone** from `/` (body shrank 5010 B → 4623 B) — live proof both secrets
       resolved at runtime and are non-empty.
@@ -211,19 +211,19 @@ production-access boundary in `infrastructure.md`. **The agent never sees the an
       has no test suite; this is the single end-to-end auth script.
 
       | Step | Result |
-              | --- | --- |
-              | home renders | 200 |
-              | dashboard redirects anonymous user | 302 → `/auth/signin` |
-              | signup creates account | 302 → `/auth/confirm-email` |
-              | signin rejects wrong password | 302 → `/auth/signin?error=Invalid%20login%20credentials` |
-              | signin accepts correct password | 302 → `/` |
-              | dashboard renders for signed-in user | 200 |
-              | signout clears session | 302 → `/` |
-              | dashboard redirects after signout | 302 → `/auth/signin` |
+                          | --- | --- |
+                          | home renders | 200 |
+                          | dashboard redirects anonymous user | 302 → `/auth/signin` |
+                          | signup creates account | 302 → `/auth/confirm-email` |
+                          | signin rejects wrong password | 302 → `/auth/signin?error=Invalid%20login%20credentials` |
+                          | signin accepts correct password | 302 → `/` |
+                          | dashboard renders for signed-in user | 200 |
+                          | signout clears session | 302 → `/` |
+                          | dashboard redirects after signout | 302 → `/auth/signin` |
 
-              Two open questions settled as a side effect: **Confirm email is off** (sign-in worked
-              immediately after sign-up), and the **new `sb_publishable_` key format works with
-              `@supabase/ssr` 0.12.7** — the legacy `anon` JWT fallback is not needed.
+                          Two open questions settled as a side effect: **Confirm email is off** (sign-in worked
+                          immediately after sign-up), and the **new `sb_publishable_` key format works with
+                          `@supabase/ssr` 0.12.7** — the legacy `anon` JWT fallback is not needed.
 
 - [x] **Human:** first `smoke-<timestamp>@example.com` user deleted.
 - [ ] **Human — still open:** the Phase 5 re-run created a _second_ `smoke-*@example.com` user
