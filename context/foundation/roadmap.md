@@ -47,13 +47,13 @@ Uwaga: S-05 jest dziś `blocked` — Otwarte pytanie #2 (pierwszeństwo reguł r
 | ID   | Change ID                           | Outcome (elektryk / admin może …)                                                          | Prerequisites | PRD refs                      | Status   |
 | ---- | ----------------------------------- | ------------------------------------------------------------------------------------------ | ------------- | ----------------------------- | -------- |
 | F-01 | `roles-and-rls-baseline`            | (foundation) role `admin` / `elektryk` rozróżnialne, dane elektryka izolowane przez RLS    | —             | Access Control, NFR-izolacja  | done     |
-| S-01 | `admin-device-catalog`              | Admin prowadzi katalog aparatów z wymiarami, ceną i parametrami elektrycznymi              | F-01          | FR-001                        | proposed |
-| S-02 | `admin-cabinet-catalog`             | Admin prowadzi katalog szafek z wymiarami i układem szyn                                   | F-01          | FR-002                        | proposed |
+| S-01 | `admin-device-catalog`              | Admin prowadzi katalog aparatów z wymiarami, ceną i parametrami elektrycznymi              | F-01          | FR-001                        | ready    |
+| S-02 | `admin-cabinet-catalog`             | Admin prowadzi katalog szafek z wymiarami i układem szyn                                   | F-01          | FR-002                        | ready    |
 | S-03 | `project-setup-and-supply-params`   | Elektryk zakłada projekt, wybiera szafkę i opisuje przyłącze OSD/WLZ                       | F-01, S-02    | FR-003, FR-004, FR-005, US-01 | proposed |
 | S-04 | `circuit-input-and-device-matching` | Elektryk podaje obwody i grupy RCD i dostaje dobrane aparaty (albo błąd o luce w katalogu) | S-01, S-03    | FR-006, FR-007, US-01         | proposed |
 | S-05 | `cabinet-layout-proposal`           | Elektryk widzi zaproponowany układ aparatów w swojej szafce                                | S-02, S-04    | FR-008, US-01                 | blocked  |
 | S-06 | `manual-layout-editing`             | Elektryk poprawia zaproponowany układ przed wyceną                                         | S-05          | FR-009, US-01                 | proposed |
-| S-07 | `electrician-pricing-profile`       | Elektryk ustawia w profilu stawkę, średni czas montażu i narzut na projekt                 | F-01          | FR-010                        | proposed |
+| S-07 | `electrician-pricing-profile`       | Elektryk ustawia w profilu stawkę, średni czas montażu i narzut na projekt                 | F-01          | FR-010                        | ready    |
 | S-08 | `quote-cost-estimate`               | Elektryk widzi koszt materiału i robocizny i nadpisuje estymowany czas                     | S-04, S-07    | FR-011, FR-013, US-01         | proposed |
 | S-09 | `printable-quote-export`            | Elektryk drukuje/eksportuje wycenę z wizualizacją układu szafki                            | S-06, S-08    | FR-012, US-01                 | proposed |
 
@@ -109,7 +109,7 @@ Foundations poniżej zakładają, że to istnieje, i **nie** budują tego od now
 - **Unknowns:**
   - Jak wygląda akceptacja ścieżki admina — PRD nie ma dla niej żadnej historyjki ani kryteriów (Otwarte pytanie #1) — Owner: user. Block: no.
 - **Risk:** To zestaw pól, od którego zależy cały dobór aparatów w S-04. Zbyt ubogi model parametrów elektrycznych wymusi migrację w środku najważniejszego plasterka; zbyt bogaty spala wieczory na dane, których MVP nie użyje. Granicą jest zamknięta w PRD lista typów aparatów.
-- **Status:** proposed
+- **Status:** ready
 
 ### S-02: Admin prowadzi katalog szafek
 
@@ -123,7 +123,7 @@ Foundations poniżej zakładają, że to istnieje, i **nie** budują tego od now
 - **Unknowns:**
   - Jak wygląda akceptacja ścieżki admina (Otwarte pytanie #1) — Owner: user. Block: no.
 - **Risk:** PRD stawia tu wyraźny warunek treściowy: 2-3 startowe szafki muszą się **istotnie** różnić rozmiarem lub liczbą szyn, inaczej w S-05 nie da się zobaczyć, czy heurystyka w ogóle dostosowuje się do geometrii. Trzy prawie identyczne szafki unieważniają weryfikację gwiazdy przewodniej.
-- **Status:** proposed
+- **Status:** ready
 
 ### S-03: Elektryk zakłada projekt i opisuje przyłącze
 
@@ -189,7 +189,7 @@ Foundations poniżej zakładają, że to istnieje, i **nie** budują tego od now
 - **Blockers:** —
 - **Unknowns:** —
 - **Risk:** Mały plasterek, ale trzyma rozstrzygnięcie z walidacji PRD: te parametry są atrybutem **profilu elektryka**, nie polem w katalogu aparatów i nie globalną stałą. Wsadzenie czasu montażu do katalogu byłoby trudne do cofnięcia i rozjechałoby wycenę między elektrykami. Sekwencyjnie wolny — może iść równolegle do całego toru projektowego.
-- **Status:** proposed
+- **Status:** ready
 
 ### S-08: Elektryk widzi koszt materiału i robocizny
 
@@ -220,18 +220,18 @@ Foundations poniżej zakładają, że to istnieje, i **nie** budują tego od now
 
 ## Backlog Handoff
 
-| Roadmap ID | Change ID                           | Suggested issue title                                      | Ready for `/10x-plan` | Notes                                                         |
-| ---------- | ----------------------------------- | ---------------------------------------------------------- | --------------------- | ------------------------------------------------------------- |
-| F-01       | `roles-and-rls-baseline`            | Role admin/elektryk + izolacja danych przez RLS            | yes                   | Uruchom `/10x-plan roles-and-rls-baseline`                    |
-| S-01       | `admin-device-catalog`              | Katalog aparatów prowadzony przez admina                   | no                    | Czeka na F-01                                                 |
-| S-02       | `admin-cabinet-catalog`             | Katalog szafek rozdzielnic prowadzony przez admina         | no                    | Czeka na F-01; startowe szafki muszą się istotnie różnić      |
-| S-03       | `project-setup-and-supply-params`   | Nowy projekt: wybór szafki + parametry OSD/WLZ             | no                    | Czeka na F-01, S-02                                           |
-| S-04       | `circuit-input-and-device-matching` | Obwody, grupy RCD i dobór aparatów z guardrailem           | no                    | Czeka na S-01, S-03                                           |
-| S-05       | `cabinet-layout-proposal`           | Heurystyczna propozycja układu aparatów w szafce           | no                    | `blocked` — wymaga rozstrzygnięcia Otwartego pytania #2       |
-| S-06       | `manual-layout-editing`             | Ręczna korekta zaproponowanego układu                      | no                    | Czeka na S-05                                                 |
-| S-07       | `electrician-pricing-profile`       | Parametry wyceny w profilu elektryka                       | no                    | Czeka na F-01; potem może iść równolegle do toru projektowego |
-| S-08       | `quote-cost-estimate`               | Koszt materiału i robocizny z możliwością nadpisania czasu | no                    | Czeka na S-04, S-07                                           |
-| S-09       | `printable-quote-export`            | Wydruk wyceny z wizualizacją układu szafki                 | no                    | Czeka na S-06, S-08                                           |
+| Roadmap ID | Change ID                           | Suggested issue title                                      | Ready for `/10x-plan` | Notes                                                                                     |
+| ---------- | ----------------------------------- | ---------------------------------------------------------- | --------------------- | ----------------------------------------------------------------------------------------- |
+| F-01       | `roles-and-rls-baseline`            | Role admin/elektryk + izolacja danych przez RLS            | done                  | Zarchiwizowane → `context/archive/2026-09-21-roles-and-rls-baseline/`                     |
+| S-01       | `admin-device-catalog`              | Katalog aparatów prowadzony przez admina                   | yes                   | Uruchom `/10x-plan admin-device-catalog`                                                  |
+| S-02       | `admin-cabinet-catalog`             | Katalog szafek rozdzielnic prowadzony przez admina         | yes                   | Uruchom `/10x-plan admin-cabinet-catalog`; startowe szafki muszą się istotnie różnić      |
+| S-03       | `project-setup-and-supply-params`   | Nowy projekt: wybór szafki + parametry OSD/WLZ             | no                    | Czeka na S-02                                                                             |
+| S-04       | `circuit-input-and-device-matching` | Obwody, grupy RCD i dobór aparatów z guardrailem           | no                    | Czeka na S-01, S-03                                                                       |
+| S-05       | `cabinet-layout-proposal`           | Heurystyczna propozycja układu aparatów w szafce           | no                    | `blocked` — wymaga rozstrzygnięcia Otwartego pytania #2                                   |
+| S-06       | `manual-layout-editing`             | Ręczna korekta zaproponowanego układu                      | no                    | Czeka na S-05                                                                             |
+| S-07       | `electrician-pricing-profile`       | Parametry wyceny w profilu elektryka                       | yes                   | Uruchom `/10x-plan electrician-pricing-profile`; może iść równolegle do toru projektowego |
+| S-08       | `quote-cost-estimate`               | Koszt materiału i robocizny z możliwością nadpisania czasu | no                    | Czeka na S-04, S-07                                                                       |
+| S-09       | `printable-quote-export`            | Wydruk wyceny z wizualizacją układu szafki                 | no                    | Czeka na S-06, S-08                                                                       |
 
 ## Open Roadmap Questions
 
