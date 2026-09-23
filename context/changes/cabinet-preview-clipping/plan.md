@@ -83,12 +83,12 @@ Refs: https://github.com/Mr1008/rozdzielnica-pro/issues/13
 
 #### Automated
 
-- [x] 1.1 Pure drawing helpers with unit tests
-- [x] 1.2 CabinetDrawing clips to the interior and outlines invalid elements
-- [x] 1.3 Editor passes invalid elements to the preview
-- [x] 1.4 Unit tests, lint and astro check pass
+- [x] 1.1 Pure drawing helpers with unit tests — b51cdd0
+- [x] 1.2 CabinetDrawing clips to the interior and outlines invalid elements — b51cdd0
+- [x] 1.3 Editor passes invalid elements to the preview — b51cdd0
+- [x] 1.4 Unit tests, lint and astro check pass — b51cdd0
 
 #### Manual
 
-- [x] 1.5 Repro geometry clipped and marked in the editor preview
+- [x] 1.5 Repro geometry clipped and marked in the editor preview — b51cdd0
 - [x] 1.6 Cabinet list thumbnails unchanged
