@@ -103,6 +103,84 @@ export const pl = {
     restricted: "Ta strona jest dostępna tylko dla administratorów.",
   },
 
+  cabinets: {
+    geometry: "Geometria szafki",
+    interior: "Wnętrze szafki",
+    fields: {
+      name: "Nazwa",
+      manufacturer: "Producent",
+      model: "Model",
+      price: "Cena katalogowa",
+      widthMm: "Szerokość (mm)",
+      heightMm: "Wysokość (mm)",
+      depthMm: "Głębokość (mm)",
+      xMm: "X (mm)",
+      yMm: "Y (mm)",
+      lengthMm: "Długość (mm)",
+      offsetMm: "Odsunięcie (mm)",
+      zMm: "Odległość od płyty montażowej (mm)",
+      side: "Strona",
+      kind: "Rodzaj",
+      orientation: "Ułożenie",
+      terminalGroups: "Grupy zacisków",
+      terminalCount: "Liczba zacisków",
+      minMm2: "Przekrój min. (mm²)",
+      maxMm2: "Przekrój maks. (mm²)",
+    },
+    elements: {
+      rail: "Szyna DIN",
+      entry: "Wprowadzenie przewodów",
+      bar: "Szyna PE/N",
+    },
+    elementNumbered: {
+      rail: (n: number) => `Szyna DIN ${String(n)}`,
+      entry: (n: number) => `Wprowadzenie ${String(n)}`,
+      bar: (n: number) => `Szyna PE/N ${String(n)}`,
+    },
+    sides: {
+      top: "Góra",
+      bottom: "Dół",
+      left: "Lewo",
+      right: "Prawo",
+    },
+    barKinds: {
+      PE: "PE (ochronna)",
+      N: "N (neutralna)",
+    },
+    orientations: {
+      horizontal: "Pozioma",
+      vertical: "Pionowa",
+    },
+  },
+
+  /**
+   * Keyed by `GeometryIssueCode` (camelCased). See `geometryIssueMessage` in
+   * `src/lib/cabinet-geometry.ts` for the mapping.
+   */
+  geometryIssues: {
+    malformed: (subject: string) => `${subject}: dane są niekompletne lub nieprawidłowe`,
+    sizeNotPositiveInteger: (subject: string) =>
+      `${subject}: wymiary i długości muszą być dodatnimi liczbami całkowitymi (mm)`,
+    positionNotNonNegativeInteger: (subject: string) =>
+      `${subject}: położenie musi być nieujemną liczbą całkowitą (mm)`,
+    noRails: "Szafka musi mieć co najmniej jedną szynę DIN",
+    noEntries: "Szafka musi mieć co najmniej jedno wprowadzenie przewodów",
+    railOutsideInterior: (n: number) => `Szyna DIN ${String(n)} wychodzi poza wnętrze szafki`,
+    railsOverlap: (n: number) => `Szyna DIN ${String(n)} nachodzi na inną szynę DIN`,
+    railOverlapsBar: (n: number) => `Szyna DIN ${String(n)} nachodzi na szynę PE/N`,
+    barOutsideInterior: (n: number) => `Szyna PE/N ${String(n)} wychodzi poza wnętrze szafki`,
+    barDepthOutsideInterior: (n: number) => `Szyna PE/N ${String(n)} wystaje poza głębokość wnętrza szafki`,
+    barsTooClose: (n: number, clearanceMm: number) =>
+      `Szyna PE/N ${String(n)} nachodzi na inną szynę PE/N, a ich odległości od płyty montażowej różnią się o mniej niż ${String(clearanceMm)} mm`,
+    entryExceedsSide: (n: number) => `Wprowadzenie ${String(n)} wychodzi poza bok szafki`,
+    entriesOverlap: (n: number) => `Wprowadzenie ${String(n)} nachodzi na inne wprowadzenie na tym samym boku`,
+    barNoTerminalGroups: (n: number) => `Szyna PE/N ${String(n)} musi mieć co najmniej jedną grupę zacisków`,
+    terminalCountInvalid: (n: number) =>
+      `Szyna PE/N ${String(n)}: liczba zacisków w grupie musi być dodatnią liczbą całkowitą`,
+    terminalRangeInvalid: (n: number) =>
+      `Szyna PE/N ${String(n)}: zakres przekrojów zacisków musi spełniać warunek 0 < min. ≤ maks.`,
+  },
+
   config: {
     supabaseMissing: "Supabase nie jest skonfigurowany — funkcje uwierzytelniania są wyłączone.",
     supabaseDocsLabel: "Zobacz instrukcję konfiguracji",
