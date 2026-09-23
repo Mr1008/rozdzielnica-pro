@@ -1,0 +1,139 @@
+---
+import Banner from "@/components/Banner.astro";
+import Topbar from "@/components/Topbar.astro";
+import { CabinetDrawing } from "@/components/cabinets/CabinetDrawing";
+import Layout from "@/layouts/Layout.astro";
+import { NEW_CABINET_PATH, cabinetEditPath, sortForCatalogList } from "@/lib/cabinet-catalog";
+import { cabinetErrorMessage } from "@/lib/cabinet-errors";
+import { parseCabinetGeometry } from "@/lib/cabinet-geometry";
+import { formatMoney, t } from "@/lib/i18n";
+import { ROLE_HOME } from "@/lib/route-access";
+import { createClient } from "@/lib/supabase";
+
+// No role check here on purpose: `/admin/*` is gated in `src/lib/route-access.ts`, and RLS lets an
+// admin read every cabinet, archived ones included.
+const actionError = cabinetErrorMessage(Astro.url.searchParams.get("error"));
+
+async function loadCabinets() {
+  const supabase = createClient(Astro.request.headers, Astro.cookies);
+  // `createClient()` is null when the Supabase env vars are unset; the middleware would already have
+  // sent an anonymous visitor to sign in, but the branch must still render something sane.
+  if (!supabase) return { rows: [], loadError: t.cabinetErrors.notConfigured };
+
+  const { data, error } = await supabase
+    .from("cabinets")
+    .select("id, name, manufacturer, model, price_grosze, geometry, archived_at");
+  if (error) return { rows: [], loadError: t.cabinets.catalog.loadFailed };
+  return { rows: sortForCatalogList(data), loadError: null };
+}
+
+const { rows, loadError } = await loadCabinets();
+
+// A stored row that no longer parses is listed with a warning instead of a drawing, so the admin can
+// still open, fix or archive it — one bad row must not take the whole catalog down.
+const cabinets = rows.map((row) => ({ ...row, parsed: parseCabinetGeometry(row.geometry) }));
+
+const buttonClass =
+  "rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-sm text-white transition-colors hover:bg-white/20";
+---
+
+<Layout title={t.cabinets.catalog.title}>
+  {actionError && <Banner variant="error">{actionError}</Banner>}
+  {loadError && <Banner variant="error">{loadError}</Banner>}
+  <div class="bg-cosmic min-h-screen p-4 text-white sm:p-8">
+    <div class="mx-auto max-w-5xl">
+      <Topbar />
+
+      <div class="mb-6 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <a
+            href={ROLE_HOME.admin}
+            class="text-sm text-purple-300 transition-colors hover:text-purple-100 hover:underline"
+          >
+            {t.cabinets.catalog.backToAdmin}
+          </a>
+          <h1 class="mt-2 bg-gradient-to-r from-blue-200 to-purple-200 bg-clip-text text-3xl font-bold text-transparent">
+            {t.cabinets.catalog.title}
+          </h1>
+          <p class="mt-1 text-blue-100/70">{t.cabinets.catalog.description}</p>
+        </div>
+        <a
+          href={NEW_CABINET_PATH}
+          class="rounded-lg bg-purple-500/80 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-purple-500"
+        >
+          {t.cabinets.catalog.newCabinet}
+        </a>
+      </div>
+
+      {!loadError && cabinets.length === 0 && (
+        <p class="rounded-2xl border border-white/10 bg-white/10 p-8 text-center text-blue-100/70">
+          {t.cabinets.catalog.empty}
+        </p>
+      )}
+
+      <ul class="flex flex-col gap-4">
+        {cabinets.map((cabinet) => {
+          const archived = cabinet.archived_at !== null;
+          return (
+            <li
+              class:list={[
+                "flex flex-col gap-4 rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur-xl sm:flex-row sm:items-center",
+                archived && "opacity-70",
+              ]}
+            >
+              <div class="flex h-40 w-40 shrink-0 items-center justify-center rounded-lg bg-white/90 p-2">
+                {cabinet.parsed.ok ? (
+                  <CabinetDrawing geometry={cabinet.parsed.geometry} className="h-full w-full" />
+                ) : (
+                  <p class="text-center text-xs text-red-800">{t.cabinets.catalog.invalidStoredGeometry}</p>
+                )}
+              </div>
+
+              <div class="min-w-0 flex-1">
+                <div class="flex flex-wrap items-center gap-2">
+                  <h2 class="text-lg font-semibold">{cabinet.name}</h2>
+                  {archived && (
+                    <span class="rounded-full border border-amber-300/40 bg-amber-400/20 px-2 py-0.5 text-xs text-amber-100">
+                      {t.cabinets.catalog.archivedBadge}
+                    </span>
+                  )}
+                </div>
+                <dl class="mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm text-blue-100/80">
+                  <dt class="text-blue-100/50">{t.cabinets.fields.manufacturer}</dt>
+                  <dd>{cabinet.manufacturer}</dd>
+                  <dt class="text-blue-100/50">{t.cabinets.fields.model}</dt>
+                  <dd>{cabinet.model}</dd>
+                  <dt class="text-blue-100/50">{t.cabinets.fields.price}</dt>
+                  <dd>{formatMoney(cabinet.price_grosze / 100)}</dd>
+                  {cabinet.parsed.ok && (
+                    <>
+                      <dt class="text-blue-100/50">{t.cabinets.interior}</dt>
+                      <dd>
+                        {t.cabinets.catalog.dimensions(
+                          cabinet.parsed.geometry.interior.widthMm,
+                          cabinet.parsed.geometry.interior.heightMm,
+                          cabinet.parsed.geometry.interior.depthMm,
+                        )}
+                      </dd>
+                    </>
+                  )}
+                </dl>
+              </div>
+
+              <div class="flex shrink-0 gap-2 sm:flex-col">
+                <a href={cabinetEditPath(cabinet.id)} class:list={[buttonClass, "text-center"]}>
+                  {t.cabinets.catalog.edit}
+                </a>
+                <form method="POST" action={`/api/admin/cabinets/${cabinet.id}/${archived ? "restore" : "archive"}`}>
+                  <button type="submit" class:list={[buttonClass, "w-full"]}>
+                    {archived ? t.cabinets.catalog.restore : t.cabinets.catalog.archive}
+                  </button>
+                </form>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  </div>
+</Layout>

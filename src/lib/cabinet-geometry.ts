@@ -119,7 +119,8 @@ export function parseCabinetGeometry(
   return { ok: false, issues: dedupe(issues) };
 }
 
-interface Rect {
+/** A front-view rectangle in millimetres, origin at the interior's top-left corner. */
+export interface Rect {
   x: number;
   y: number;
   w: number;
@@ -128,12 +129,12 @@ interface Rect {
 
 type Bar = CabinetGeometry["bars"][number];
 
-function railRect(rail: CabinetGeometry["rails"][number]): Rect {
+export function railRect(rail: CabinetGeometry["rails"][number]): Rect {
   return { x: rail.xMm, y: rail.yMm, w: rail.lengthMm, h: RAIL_HEIGHT_MM };
 }
 
 /** A vertical bar is a horizontal one turned 90°: its length runs down, its height across. */
-function barRect(bar: Bar): Rect {
+export function barRect(bar: Bar): Rect {
   return bar.orientation === "horizontal"
     ? { x: bar.xMm, y: bar.yMm, w: bar.lengthMm, h: bar.heightMm }
     : { x: bar.xMm, y: bar.yMm, w: bar.heightMm, h: bar.lengthMm };
@@ -142,6 +143,17 @@ function barRect(bar: Bar): Rect {
 /** Strict, so rectangles that only touch along an edge do not overlap. */
 function overlaps(a: Rect, b: Rect): boolean {
   return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+}
+
+/**
+ * For each bar, whether another bar overlapping it in the front view sits nearer the viewer (a
+ * larger `zMm`). Such a bar is partly hidden, so the drawing renders it dashed.
+ */
+export function barsBehindAnother(bars: readonly Bar[]): boolean[] {
+  const rects = bars.map(barRect);
+  return bars.map((bar, index) =>
+    bars.some((other, otherIndex) => other.zMm > bar.zMm && overlaps(rects[index], rects[otherIndex])),
+  );
 }
 
 function fitsInterior(rect: Rect, interior: CabinetGeometry["interior"]): boolean {

@@ -507,28 +507,28 @@ cabinets through the UI.
 
 #### Automated
 
-- [x] 2.1 Migration and seed apply cleanly on a fresh stack: `npx supabase db reset`
-- [x] 2.2 Generated types are current: `npm run db:types` produces no diff
-- [x] 2.3 RLS integration tests pass: `npm run test:integration`
-- [x] 2.4 Unit tests, lint, type check and build pass: `npm run lint && npx astro check && npm run test:unit && npm run build`
+- [x] 2.1 Migration and seed apply cleanly on a fresh stack: `npx supabase db reset` — ffb81e0
+- [x] 2.2 Generated types are current: `npm run db:types` produces no diff — ffb81e0
+- [x] 2.3 RLS integration tests pass: `npm run test:integration` — ffb81e0
+- [x] 2.4 Unit tests, lint, type check and build pass: `npm run lint && npx astro check && npm run test:unit && npm run build` — ffb81e0
 
 #### Manual
 
-- [x] 2.5 In local Studio, `public.cabinets` shows three seeded rows with RLS enabled and no delete policy
+- [x] 2.5 In local Studio, `public.cabinets` shows three seeded rows with RLS enabled and no delete policy — ffb81e0
 
 ### Phase 3: Read-only surface — drawing, list, lifecycle
 
 #### Automated
 
-- [ ] 3.1 Route-access tests cover `/api/admin`: `npm run test:unit`
-- [ ] 3.2 Lint, type check and build pass: `npm run lint && npx astro check && npm run build`
-- [ ] 3.3 RLS integration tests still pass: `npm run test:integration`
+- [x] 3.1 Route-access tests cover `/api/admin`: `npm run test:unit`
+- [x] 3.2 Lint, type check and build pass: `npm run lint && npx astro check && npm run build`
+- [x] 3.3 RLS integration tests still pass: `npm run test:integration`
 
 #### Manual
 
-- [ ] 3.4 As the seeded admin, `/admin/cabinets` lists the three starter cabinets with drawings that are visibly different, including the split row and the dashed bar behind another
-- [ ] 3.5 Archive then restore a cabinet from the list; the badge follows
-- [ ] 3.6 As an electrician, `/admin/cabinets` and a POST to `/api/admin/cabinets/<id>/archive` redirect away and change nothing
+- [x] 3.4 As the seeded admin, `/admin/cabinets` lists the three starter cabinets with drawings that are visibly different, including the split row and the dashed bar behind another
+- [x] 3.5 Archive then restore a cabinet from the list; the badge follows
+- [x] 3.6 As an electrician, `/admin/cabinets` and a POST to `/api/admin/cabinets/<id>/archive` redirect away and change nothing
 
 ### Phase 4: Editor and write path
 

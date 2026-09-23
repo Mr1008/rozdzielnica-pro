@@ -99,8 +99,10 @@ export const pl = {
 
   admin: {
     title: "Panel administratora",
-    description: "Tu powstanie katalog aparatów i katalog szafek rozdzielnic.",
+    description: "Katalogi, z których elektrycy dobierają szafki i aparaty.",
     restricted: "Ta strona jest dostępna tylko dla administratorów.",
+    cabinetCatalogLink: "Katalog szafek",
+    cabinetCatalogDescription: "Szafki rozdzielnic z wymiarami, szynami DIN, wprowadzeniami i szynami PE/N.",
   },
 
   cabinets: {
@@ -151,6 +153,42 @@ export const pl = {
       horizontal: "Pozioma",
       vertical: "Pionowa",
     },
+    catalog: {
+      title: "Katalog szafek",
+      description: "Szafki, spośród których elektryk wybiera rozdzielnicę do projektu.",
+      backToAdmin: "Wróć do panelu administratora",
+      newCabinet: "Nowa szafka",
+      empty: "Katalog szafek jest pusty.",
+      loadFailed: "Nie udało się wczytać katalogu szafek. Spróbuj ponownie",
+      edit: "Edytuj",
+      archive: "Archiwizuj",
+      restore: "Przywróć",
+      archivedBadge: "Zarchiwizowana",
+      dimensions: (widthMm: number, heightMm: number, depthMm: number) =>
+        `${String(widthMm)} × ${String(heightMm)} × ${String(depthMm)} mm`,
+      invalidStoredGeometry: "Zapisana geometria tej szafki jest nieprawidłowa — popraw ją w edycji.",
+    },
+    drawing: {
+      label: (widthMm: number, heightMm: number) =>
+        `Rysunek wnętrza szafki, widok z przodu, ${String(widthMm)} × ${String(heightMm)} mm`,
+      barLabels: {
+        PE: "PE",
+        N: "N",
+      },
+    },
+  },
+
+  /**
+   * Keyed by the `?error=` code the cabinet endpoints redirect with. See `cabinetErrorMessage` in
+   * `src/lib/cabinet-errors.ts` for the mapping.
+   */
+  cabinetErrors: {
+    notConfigured: "Katalog szafek jest chwilowo niedostępny — baza danych nie jest skonfigurowana",
+    forbidden: "Nie masz uprawnień do zmiany katalogu szafek",
+    notFound: "Nie znaleziono tej szafki",
+    duplicateModel: "Szafka o tym producencie i modelu już istnieje w katalogu",
+    invalidInput: "Formularz zawiera nieprawidłowe dane",
+    unknown: "Coś poszło nie tak. Spróbuj ponownie",
   },
 
   /**

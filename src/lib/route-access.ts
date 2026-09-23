@@ -18,6 +18,9 @@ interface ProtectedRoute {
 export const PROTECTED_ROUTES: readonly ProtectedRoute[] = [
   { prefix: "/dashboard", roles: ["elektryk"] },
   { prefix: "/admin", roles: ["admin"] },
+  // The admin form endpoints. `/admin` does not cover them — prefixes match whole path segments —
+  // so without this a non-admin POST would reach Supabase, where RLS is still the real boundary.
+  { prefix: "/api/admin", roles: ["admin"] },
 ];
 
 /**
