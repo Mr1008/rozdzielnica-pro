@@ -91,4 +91,4 @@ Refs: https://github.com/Mr1008/rozdzielnica-pro/issues/13
 #### Manual
 
 - [x] 1.5 Repro geometry clipped and marked in the editor preview — b51cdd0
-- [x] 1.6 Cabinet list thumbnails unchanged
+- [x] 1.6 Cabinet list thumbnails unchanged — b51cdd0
