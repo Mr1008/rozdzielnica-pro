@@ -115,3 +115,45 @@ values
     '{"version":1,"interior":{"widthMm":600,"heightMm":800,"depthMm":130},"rails":[{"xMm":30,"yMm":100,"lengthMm":540},{"xMm":30,"yMm":250,"lengthMm":540},{"xMm":30,"yMm":400,"lengthMm":540},{"xMm":30,"yMm":550,"lengthMm":240},{"xMm":330,"yMm":550,"lengthMm":240}],"entries":[{"side":"bottom","offsetMm":100,"lengthMm":400},{"side":"left","offsetMm":200,"lengthMm":400}],"bars":[{"kind":"PE","orientation":"horizontal","xMm":50,"yMm":680,"lengthMm":500,"heightMm":15,"zMm":20,"terminalGroups":[{"count":20,"minMm2":1.5,"maxMm2":16},{"count":3,"minMm2":6,"maxMm2":35}]},{"kind":"N","orientation":"horizontal","xMm":100,"yMm":685,"lengthMm":400,"heightMm":15,"zMm":40,"terminalGroups":[{"count":16,"minMm2":1.5,"maxMm2":16},{"count":2,"minMm2":6,"maxMm2":35}]}]}'::jsonb
   )
 on conflict ((lower(manufacturer)), (lower(model))) do nothing;
+
+-- A sample device catalog (PRD FR-001), so S-04 can be developed against both matcher paths at once.
+-- Sample data, not real products — hence the manufacturer names. What it deliberately contains:
+--   * MCB type B, 6 kA: B6–B32 in 1P, and B16/B20/B25 in 3P;
+--   * the same MCB B16 1P from two manufacturers at two prices — the cheapest-match case;
+--   * RCD 40 A 30 mA in 2P and 4P, types A and AC; RCBO B10 and B16 1P+N 30 mA type A, 6 kA;
+--   * fuse switch-disconnectors 1P and 3P; one PE bar and one N bar;
+--   * NO B40 in any pole configuration — the catalog-gap case (a circuit needing 40 A gets the
+--     "contact the admin" error, never an under-rated MCB).
+-- Widths are real DIN module multiples (17.5 mm per module). Every row must pass `parseDeviceSpec`;
+-- `tests/integration/rls-devices.test.ts` checks that. Keyed on the case-insensitive unique index,
+-- so re-running inserts nothing.
+insert into public.devices (
+  kind, name, manufacturer, model, price_grosze, width_mm, height_mm, depth_mm,
+  poles, rated_current_a, residual_current_ma, rcd_type, breaking_capacity_ka, terminal_groups
+)
+values
+  ('mcb_b', 'Wyłącznik nadprądowy B6 1P', 'Przykładowy producent', 'PRZ-B6-1P', 1490, 17.5, 85, 70, '1P', 6, null, null, 6, null),
+  ('mcb_b', 'Wyłącznik nadprądowy B10 1P', 'Przykładowy producent', 'PRZ-B10-1P', 1490, 17.5, 85, 70, '1P', 10, null, null, 6, null),
+  ('mcb_b', 'Wyłącznik nadprądowy B13 1P', 'Przykładowy producent', 'PRZ-B13-1P', 1490, 17.5, 85, 70, '1P', 13, null, null, 6, null),
+  ('mcb_b', 'Wyłącznik nadprądowy B16 1P', 'Przykładowy producent', 'PRZ-B16-1P', 1590, 17.5, 85, 70, '1P', 16, null, null, 6, null),
+  ('mcb_b', 'Wyłącznik nadprądowy B20 1P', 'Przykładowy producent', 'PRZ-B20-1P', 1690, 17.5, 85, 70, '1P', 20, null, null, 6, null),
+  ('mcb_b', 'Wyłącznik nadprądowy B25 1P', 'Przykładowy producent', 'PRZ-B25-1P', 1790, 17.5, 85, 70, '1P', 25, null, null, 6, null),
+  ('mcb_b', 'Wyłącznik nadprądowy B32 1P', 'Przykładowy producent', 'PRZ-B32-1P', 1990, 17.5, 85, 70, '1P', 32, null, null, 6, null),
+  ('mcb_b', 'Wyłącznik nadprądowy B16 1P', 'Inny przykładowy producent', 'INN-B16-1P', 1290, 17.5, 85, 70, '1P', 16, null, null, 6, null),
+  ('mcb_b', 'Wyłącznik nadprądowy B16 3P', 'Przykładowy producent', 'PRZ-B16-3P', 5490, 52.5, 85, 70, '3P', 16, null, null, 6, null),
+  ('mcb_b', 'Wyłącznik nadprądowy B20 3P', 'Przykładowy producent', 'PRZ-B20-3P', 5690, 52.5, 85, 70, '3P', 20, null, null, 6, null),
+  ('mcb_b', 'Wyłącznik nadprądowy B25 3P', 'Przykładowy producent', 'PRZ-B25-3P', 5890, 52.5, 85, 70, '3P', 25, null, null, 6, null),
+  ('rcd', 'Wyłącznik różnicowoprądowy 2P 40 A 30 mA typ A', 'Przykładowy producent', 'PRZ-RCD-2P-40-30-A', 11900, 35, 85, 70, '2P', 40, 30, 'A', null, null),
+  ('rcd', 'Wyłącznik różnicowoprądowy 2P 40 A 30 mA typ AC', 'Przykładowy producent', 'PRZ-RCD-2P-40-30-AC', 8900, 35, 85, 70, '2P', 40, 30, 'AC', null, null),
+  ('rcd', 'Wyłącznik różnicowoprądowy 4P 40 A 30 mA typ A', 'Przykładowy producent', 'PRZ-RCD-4P-40-30-A', 19900, 70, 85, 70, '4P', 40, 30, 'A', null, null),
+  ('rcd', 'Wyłącznik różnicowoprądowy 4P 40 A 30 mA typ AC', 'Przykładowy producent', 'PRZ-RCD-4P-40-30-AC', 15900, 70, 85, 70, '4P', 40, 30, 'AC', null, null),
+  ('rcbo', 'Wyłącznik różnicowonadprądowy B10 1P+N 30 mA typ A', 'Przykładowy producent', 'PRZ-RCBO-B10-30-A', 16900, 35, 85, 70, '1P+N', 10, 30, 'A', 6, null),
+  ('rcbo', 'Wyłącznik różnicowonadprądowy B16 1P+N 30 mA typ A', 'Przykładowy producent', 'PRZ-RCBO-B16-30-A', 16900, 35, 85, 70, '1P+N', 16, 30, 'A', 6, null),
+  ('switch_disconnector', 'Rozłącznik bezpiecznikowy 1P 63 A', 'Przykładowy producent', 'PRZ-FR-1P-63', 3990, 17.5, 85, 70, '1P', 63, null, null, null, null),
+  ('switch_disconnector', 'Rozłącznik bezpiecznikowy 3P 40 A', 'Przykładowy producent', 'PRZ-FR-3P-40', 9990, 52.5, 85, 70, '3P', 40, null, null, null, null),
+  ('switch_disconnector', 'Rozłącznik bezpiecznikowy 3P 63 A', 'Przykładowy producent', 'PRZ-FR-3P-63', 11990, 52.5, 85, 70, '3P', 63, null, null, null, null),
+  ('pe_bar', 'Szyna PE 12-torowa', 'Przykładowy producent', 'PRZ-PE-12', 2490, 70, 15, 20, null, null, null, null, null,
+    '[{"count":10,"minMm2":1.5,"maxMm2":16},{"count":2,"minMm2":6,"maxMm2":25}]'::jsonb),
+  ('n_bar', 'Szyna N 12-torowa', 'Przykładowy producent', 'PRZ-N-12', 2490, 70, 15, 20, null, null, null, null, null,
+    '[{"count":10,"minMm2":1.5,"maxMm2":16},{"count":2,"minMm2":6,"maxMm2":25}]'::jsonb)
+on conflict ((lower(manufacturer)), (lower(model))) do nothing;

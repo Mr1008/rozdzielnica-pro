@@ -70,6 +70,69 @@ export type Database = {
         }
         Relationships: []
       }
+      devices: {
+        Row: {
+          archived_at: string | null
+          breaking_capacity_ka: number | null
+          created_at: string
+          depth_mm: number
+          height_mm: number
+          id: string
+          kind: Database["public"]["Enums"]["device_kind"]
+          manufacturer: string
+          model: string
+          name: string
+          poles: Database["public"]["Enums"]["pole_config"] | null
+          price_grosze: number
+          rated_current_a: number | null
+          rcd_type: Database["public"]["Enums"]["rcd_type"] | null
+          residual_current_ma: number | null
+          terminal_groups: Json | null
+          updated_at: string
+          width_mm: number
+        }
+        Insert: {
+          archived_at?: string | null
+          breaking_capacity_ka?: number | null
+          created_at?: string
+          depth_mm: number
+          height_mm: number
+          id?: string
+          kind: Database["public"]["Enums"]["device_kind"]
+          manufacturer: string
+          model: string
+          name: string
+          poles?: Database["public"]["Enums"]["pole_config"] | null
+          price_grosze: number
+          rated_current_a?: number | null
+          rcd_type?: Database["public"]["Enums"]["rcd_type"] | null
+          residual_current_ma?: number | null
+          terminal_groups?: Json | null
+          updated_at?: string
+          width_mm: number
+        }
+        Update: {
+          archived_at?: string | null
+          breaking_capacity_ka?: number | null
+          created_at?: string
+          depth_mm?: number
+          height_mm?: number
+          id?: string
+          kind?: Database["public"]["Enums"]["device_kind"]
+          manufacturer?: string
+          model?: string
+          name?: string
+          poles?: Database["public"]["Enums"]["pole_config"] | null
+          price_grosze?: number
+          rated_current_a?: number | null
+          rcd_type?: Database["public"]["Enums"]["rcd_type"] | null
+          residual_current_ma?: number | null
+          terminal_groups?: Json | null
+          updated_at?: string
+          width_mm?: number
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -103,6 +166,15 @@ export type Database = {
       is_admin: { Args: never; Returns: boolean }
     }
     Enums: {
+      device_kind:
+        | "switch_disconnector"
+        | "rcd"
+        | "rcbo"
+        | "mcb_b"
+        | "pe_bar"
+        | "n_bar"
+      pole_config: "1P" | "1P+N" | "2P" | "3P" | "3P+N" | "4P"
+      rcd_type: "AC" | "A" | "F" | "B"
       user_role: "admin" | "elektryk"
     }
     CompositeTypes: {
@@ -234,6 +306,16 @@ export const Constants = {
   },
   public: {
     Enums: {
+      device_kind: [
+        "switch_disconnector",
+        "rcd",
+        "rcbo",
+        "mcb_b",
+        "pe_bar",
+        "n_bar",
+      ],
+      pole_config: ["1P", "1P+N", "2P", "3P", "3P+N", "4P"],
+      rcd_type: ["AC", "A", "F", "B"],
       user_role: ["admin", "elektryk"],
     },
   },

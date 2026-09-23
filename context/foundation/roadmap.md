@@ -260,6 +260,13 @@ Foundations poniżej zakładają, że to istnieje, i **nie** budują tego od now
   wychodzi taniej niż utrzymywanie ścieżki bez potwierdzeń. Uwaga wykonawcza: `scripts/smoke.mjs`
   rejestruje użytkownika i od razu go loguje, więc włączenie potwierdzeń wymaga przepisania skryptu
   (logowanie jako zaseedowany admin albo potwierdzenie przez Mailpit). Patrz tripwire w `AGENTS.md`.
+- **Trójwymiarowy podgląd szafki** (obrót, przybliżanie i przesuwanie myszą) — Why parked: pomysł
+  użytkownika z 2026-09-23, niski priorytet, na sam koniec MVP, jeśli zostanie czas. Żaden FR tego
+  nie wymaga — wystarcza rysunek 2D z przodu (S-05, S-06, S-09). Uwaga wykonawcza: geometria szafki
+  ma już głębokość (`depthMm`, `zMm` szyn PE/N), a aparaty dostają wysokość i głębokość w S-01, więc
+  dane pod 3D istnieją. Renderer byłby wyspą Reacta po stronie klienta (np. three.js), bez wpływu na
+  wydruk, który zostaje w 2D. Śledzone w GitHub
+  [#14](https://github.com/Mr1008/rozdzielnica-pro/issues/14).
 - **Tłumaczenie interfejsu na inny język** — Why parked: PRD `## Non-Functional Requirements`; warstwa tłumaczeń już istnieje i nie blokuje drugiego języka, ale sam przekład nie jest celem MVP.
 
 ## Milestone History
