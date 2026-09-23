@@ -25,16 +25,16 @@ two price tiers at one rating and a deliberate B40 gap for S-04.
 
 ## Key Decisions Made
 
-| Decision      | Choice                                                                                          | Why (1 sentence)                                                                               |
-| ------------- | ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| Data model    | One `devices` table, typed nullable parameter columns, per-kind CHECK                           | The database itself refuses an under-specified device — defence in depth for the guardrail.    |
-| Parameters    | Poles + In (FR/RCD/RCBO/MCB), IΔn + RCD type (RCD/RCBO), Icn (MCB/RCBO), terminal groups (bars) | Covers what simple circuit specs, 1F/3F and the OSD pre-meter check need, nothing more.        |
-| FR            | Plain switch-disconnector with rated current and poles, no fuse links                           | User clarification: physical disconnectors only; FR is never overcurrent protection.           |
-| Width         | Stored in mm (0.1 precision); UI defaults to DIN modules (17.5 mm) with a mm toggle             | Exact datasheet values (12 × 17.5 = 210 mm fits a 210 mm rail); electricians think in modules. |
-| Seed          | ~20 realistic devices, two price tiers, deliberate B40 gap                                      | S-04 can test cheapest-match and "catalog gap → contact admin" from day one.                   |
-| Kind on edit  | Locked after creation                                                                           | A different kind is a different product; archive and recreate instead.                         |
-| Shared code   | Move `isUuid`, list sort, price helpers, editor field components to shared modules              | Two catalogs, one implementation; the cabinet behaviour stays unchanged.                       |
-| S-04 contract | Projects snapshot the chosen device; archived devices never matched                             | Same rule as the cabinet geometry snapshot — admin edits never shift an existing quote.        |
+| Decision      | Choice                                                                                                                             | Why (1 sentence)                                                                               |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Data model    | One `devices` table, typed nullable parameter columns, per-kind CHECK                                                              | The database itself refuses an under-specified device — defence in depth for the guardrail.    |
+| Parameters    | Poles + In (FR/RCD/RCBO/MCB), IΔn + RCD type (RCD/RCBO), Icn (MCB/RCBO), terminal groups (bars)                                    | Covers what simple circuit specs, 1F/3F and the OSD pre-meter check need, nothing more.        |
+| FR            | Plain switch-disconnector with rated current and poles, no fuse links                                                              | User clarification: physical disconnectors only; FR is never overcurrent protection.           |
+| Width         | Width in mm to 0.01 (half modules exact), height/depth to 0.1; UI defaults to DIN modules (17.5 mm, 0.5 TE steps) with a mm toggle | Exact datasheet values (12 × 17.5 = 210 mm fits a 210 mm rail); electricians think in modules. |
+| Seed          | ~20 realistic devices, two price tiers, deliberate B40 gap                                                                         | S-04 can test cheapest-match and "catalog gap → contact admin" from day one.                   |
+| Kind on edit  | Locked after creation                                                                                                              | A different kind is a different product; archive and recreate instead.                         |
+| Shared code   | Move `isUuid`, list sort, price helpers, editor field components to shared modules                                                 | Two catalogs, one implementation; the cabinet behaviour stays unchanged.                       |
+| S-04 contract | Projects snapshot the chosen device; archived devices never matched                                                                | Same rule as the cabinet geometry snapshot — admin edits never shift an existing quote.        |
 
 ## Scope
 

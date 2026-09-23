@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { terminalGroupSchema } from "@/lib/cabinet-geometry";
+import type { Enums } from "@/lib/database.types";
 import { t } from "@/lib/i18n";
 import { MAX_PRICE_GROSZE } from "@/lib/price-input";
 
@@ -26,6 +27,16 @@ export type PoleConfig = (typeof POLE_CONFIGS)[number];
 
 export const RCD_TYPES = ["AC", "A", "F", "B"] as const;
 export type RcdType = (typeof RCD_TYPES)[number];
+
+/**
+ * The three unions must equal the database enums, so a migration that adds or drops a value without
+ * this file (or the reverse) fails `astro check` instead of drifting silently.
+ */
+type Equals<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+type AssertTrue<T extends true> = T;
+type _DeviceKindInSync = AssertTrue<Equals<DeviceKind, Enums<"device_kind">>>;
+type _PoleConfigInSync = AssertTrue<Equals<PoleConfig, Enums<"pole_config">>>;
+type _RcdTypeInSync = AssertTrue<Equals<RcdType, Enums<"rcd_type">>>;
 
 /** The pole configurations each kind is made in. Bars have no poles. */
 export const POLES_BY_KIND = {
