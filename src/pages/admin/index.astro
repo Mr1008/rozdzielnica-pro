@@ -1,15 +1,17 @@
 ---
 import Layout from "@/layouts/Layout.astro";
+import { CABINETS_PATH } from "@/lib/cabinet-catalog";
 import { t } from "@/lib/i18n";
 
 // No role check here on purpose: `/admin` is gated in `src/lib/route-access.ts`, which the
-// middleware applies to every request. The catalog UI belongs to slices S-01 and S-02.
+// middleware applies to every request. This is the catalog hub; the device catalog link lands with
+// slice S-01.
 const { user } = Astro.locals;
 ---
 
 <Layout title={t.admin.title}>
   <div class="bg-cosmic flex min-h-screen items-center justify-center p-4">
-    <div class="rounded-2xl border border-white/10 bg-white/10 p-8 text-center text-white backdrop-blur-xl">
+    <div class="w-full max-w-lg rounded-2xl border border-white/10 bg-white/10 p-8 text-center text-white backdrop-blur-xl">
       <h1 class="mb-4 bg-gradient-to-r from-blue-200 to-purple-200 bg-clip-text text-3xl font-bold text-transparent">
         {t.admin.title}
       </h1>
@@ -17,7 +19,18 @@ const { user } = Astro.locals;
         {t.dashboard.greeting} <span class="font-semibold text-white">{user?.email}</span>
       </p>
       <p class="mt-2 text-blue-100/70">{t.admin.description}</p>
-      <p class="mt-2 text-sm text-blue-100/50">{t.admin.restricted}</p>
+
+      <nav class="mt-6 flex flex-col gap-3 text-left">
+        <a
+          href={CABINETS_PATH}
+          class="block rounded-xl border border-white/20 bg-white/10 p-4 transition-colors hover:bg-white/20"
+        >
+          <span class="font-semibold text-white">{t.admin.cabinetCatalogLink}</span>
+          <span class="mt-1 block text-sm text-blue-100/70">{t.admin.cabinetCatalogDescription}</span>
+        </a>
+      </nav>
+
+      <p class="mt-6 text-sm text-blue-100/50">{t.admin.restricted}</p>
       <form method="POST" action="/api/auth/signout" class="mt-6">
         <button
           type="submit"

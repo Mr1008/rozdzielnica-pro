@@ -62,6 +62,25 @@ describe("resolveRouteAccess", () => {
     });
   });
 
+  it("gates the admin API for the admin role only", () => {
+    const pathname = "/api/admin/cabinets/00000000-0000-0000-0000-000000000001/archive";
+    expect(resolveRouteAccess({ pathname, isSignedIn: true, role: "admin" })).toEqual({ allowed: true });
+    expect(resolveRouteAccess({ pathname, isSignedIn: true, role: "elektryk" })).toEqual({
+      allowed: false,
+      redirectTo: ROLE_HOME.elektryk,
+    });
+    expect(resolveRouteAccess({ pathname, isSignedIn: false, role: null })).toEqual({
+      allowed: false,
+      redirectTo: SIGN_IN_PATH,
+    });
+  });
+
+  it("leaves the auth API open, since it sits outside /api/admin", () => {
+    expect(resolveRouteAccess({ pathname: "/api/auth/signin", isSignedIn: false, role: null })).toEqual({
+      allowed: true,
+    });
+  });
+
   it("bounces the wrong role to its own home", () => {
     expect(resolveRouteAccess({ pathname: "/dashboard", isSignedIn: true, role: "admin" })).toEqual({
       allowed: false,

@@ -3,6 +3,8 @@ import {
   BAR_Z_CLEARANCE_MM,
   GEOMETRY_ISSUE_CODES,
   RAIL_HEIGHT_MM,
+  barRect,
+  barsBehindAnother,
   cabinetGeometrySchema,
   geometryIssueMessage,
   parseCabinetGeometry,
@@ -300,5 +302,33 @@ describe("geometryIssueMessage", () => {
     expect(geometryIssueMessage({ code: "size_not_positive_integer", element: { kind: "entry", index: 0 } })).toContain(
       "Wprowadzenie 1",
     );
+  });
+});
+
+describe("barRect", () => {
+  it("turns a vertical bar's length downward and its height across", () => {
+    expect(barRect(bar({ orientation: "vertical", xMm: 5, yMm: 7, lengthMm: 300, heightMm: 15 }))).toEqual({
+      x: 5,
+      y: 7,
+      w: 15,
+      h: 300,
+    });
+  });
+});
+
+describe("barsBehindAnother", () => {
+  it("marks only the overlapped bar that sits farther from the viewer", () => {
+    const back = bar({ zMm: 20 });
+    const front = bar({ kind: "N", yMm: 405, zMm: 40 });
+    expect(barsBehindAnother([back, front])).toEqual([true, false]);
+    expect(barsBehindAnother([front, back])).toEqual([false, true]);
+  });
+
+  it("marks nothing when bars do not overlap in the front view, whatever their depth", () => {
+    expect(barsBehindAnother([bar({ zMm: 0 }), bar({ yMm: 420, zMm: 50 })])).toEqual([false, false]);
+  });
+
+  it("marks neither of two overlapping bars at the same depth", () => {
+    expect(barsBehindAnother([bar(), bar({ yMm: 405 })])).toEqual([false, false]);
   });
 });
