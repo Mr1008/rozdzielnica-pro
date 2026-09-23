@@ -545,4 +545,4 @@ cabinets through the UI.
 - [x] 4.6 Typing a rail that leaves the interior, overlapping two rails, and an entry past its side each shows a Polish message and blocks submit — b33cebf
 - [x] 4.7 Creating a second cabinet with an existing manufacturer + model shows the Polish duplicate error and the typed geometry is still there — b33cebf
 - [x] 4.8 Editing a seeded cabinet's price and a rail position persists after reload — b33cebf
-- [ ] 4.9 After merge and deploy, `/admin/cabinets` works on the production Worker (migration applied by `db-migrate.yml`)
+- [x] 4.9 After merge and deploy, `/admin/cabinets` works on the production Worker (migration applied by `db-migrate.yml`)
