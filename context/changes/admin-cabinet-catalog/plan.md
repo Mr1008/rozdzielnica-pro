@@ -534,15 +534,15 @@ cabinets through the UI.
 
 #### Automated
 
-- [x] 4.1 Form-parsing unit tests pass: `npm run test:unit`
-- [x] 4.2 Lint, type check and build pass: `npm run lint && npx astro check && npm run build`
-- [x] 4.3 RLS integration tests still pass: `npm run test:integration`
-- [x] 4.4 Smoke script still passes against the dev server: `npm run smoke`
+- [x] 4.1 Form-parsing unit tests pass: `npm run test:unit` — b33cebf
+- [x] 4.2 Lint, type check and build pass: `npm run lint && npx astro check && npm run build` — b33cebf
+- [x] 4.3 RLS integration tests still pass: `npm run test:integration` — b33cebf
+- [x] 4.4 Smoke script still passes against the dev server: `npm run smoke` — b33cebf
 
 #### Manual
 
-- [x] 4.5 As admin, create a cabinet with a split rail row and two bars at different depths; it appears in the list with a matching drawing
-- [x] 4.6 Typing a rail that leaves the interior, overlapping two rails, and an entry past its side each shows a Polish message and blocks submit
-- [x] 4.7 Creating a second cabinet with an existing manufacturer + model shows the Polish duplicate error and the typed geometry is still there
-- [x] 4.8 Editing a seeded cabinet's price and a rail position persists after reload
+- [x] 4.5 As admin, create a cabinet with a split rail row and two bars at different depths; it appears in the list with a matching drawing — b33cebf
+- [x] 4.6 Typing a rail that leaves the interior, overlapping two rails, and an entry past its side each shows a Polish message and blocks submit — b33cebf
+- [x] 4.7 Creating a second cabinet with an existing manufacturer + model shows the Polish duplicate error and the typed geometry is still there — b33cebf
+- [x] 4.8 Editing a seeded cabinet's price and a rail position persists after reload — b33cebf
 - [ ] 4.9 After merge and deploy, `/admin/cabinets` works on the production Worker (migration applied by `db-migrate.yml`)
