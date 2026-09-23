@@ -495,26 +495,26 @@ cabinets through the UI.
 
 #### Automated
 
-- [x] 1.1 Geometry unit tests pass: `npm run test:unit`
-- [x] 1.2 Lint passes: `npm run lint`
-- [x] 1.3 Type check passes: `npx astro check`
+- [x] 1.1 Geometry unit tests pass: `npm run test:unit` — d897831
+- [x] 1.2 Lint passes: `npm run lint` — d897831
+- [x] 1.3 Type check passes: `npx astro check` — d897831
 
 #### Manual
 
-- [x] 1.4 Reviewer reads the issue-code list and confirms it matches the agreed rules (no rule missing, none invented)
+- [x] 1.4 Reviewer reads the issue-code list and confirms it matches the agreed rules (no rule missing, none invented) — d897831
 
 ### Phase 2: Database, types and starter cabinets
 
 #### Automated
 
-- [ ] 2.1 Migration and seed apply cleanly on a fresh stack: `npx supabase db reset`
-- [ ] 2.2 Generated types are current: `npm run db:types` produces no diff
-- [ ] 2.3 RLS integration tests pass: `npm run test:integration`
-- [ ] 2.4 Unit tests, lint, type check and build pass: `npm run lint && npx astro check && npm run test:unit && npm run build`
+- [x] 2.1 Migration and seed apply cleanly on a fresh stack: `npx supabase db reset`
+- [x] 2.2 Generated types are current: `npm run db:types` produces no diff
+- [x] 2.3 RLS integration tests pass: `npm run test:integration`
+- [x] 2.4 Unit tests, lint, type check and build pass: `npm run lint && npx astro check && npm run test:unit && npm run build`
 
 #### Manual
 
-- [ ] 2.5 In local Studio, `public.cabinets` shows three seeded rows with RLS enabled and no delete policy
+- [x] 2.5 In local Studio, `public.cabinets` shows three seeded rows with RLS enabled and no delete policy
 
 ### Phase 3: Read-only surface — drawing, list, lifecycle
 

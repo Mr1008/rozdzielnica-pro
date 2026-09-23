@@ -11,3 +11,4 @@ dist/
 .astro/
 package-lock.json
 supabase/.temp/
+src/lib/database.types.ts
