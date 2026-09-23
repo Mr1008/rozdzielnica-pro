@@ -20,7 +20,8 @@ import {
   type RailDraft,
   type TerminalGroupDraft,
 } from "@/lib/cabinet-draft";
-import { CABINET_FORM_FIELDS, parsePriceGrosze, type CabinetRow } from "@/lib/cabinet-form";
+import { CABINET_FORM_FIELDS, type CabinetRow } from "@/lib/cabinet-form";
+import { parsePriceGrosze } from "@/lib/price-input";
 import {
   BAR_KINDS,
   BAR_ORIENTATIONS,

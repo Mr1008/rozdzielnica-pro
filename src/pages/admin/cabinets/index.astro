@@ -3,14 +3,9 @@ import Banner from "@/components/Banner.astro";
 import Topbar from "@/components/Topbar.astro";
 import { CabinetDrawing } from "@/components/cabinets/CabinetDrawing";
 import Layout from "@/layouts/Layout.astro";
-import {
-  NEW_CABINET_PATH,
-  cabinetArchivePath,
-  cabinetEditPath,
-  cabinetRestorePath,
-  sortForCatalogList,
-} from "@/lib/cabinet-catalog";
+import { NEW_CABINET_PATH, cabinetArchivePath, cabinetEditPath, cabinetRestorePath } from "@/lib/cabinet-catalog";
 import { cabinetErrorMessage } from "@/lib/cabinet-errors";
+import { sortForCatalogList } from "@/lib/catalog";
 import { parseCabinetGeometry } from "@/lib/cabinet-geometry";
 import { formatMoney, t } from "@/lib/i18n";
 import { ROLE_HOME } from "@/lib/route-access";

@@ -1,7 +1,8 @@
 import type { APIRoute } from "astro";
-import { CABINETS_PATH, cabinetFormErrorPath, cabinetsErrorPath, isUuid } from "@/lib/cabinet-catalog";
+import { CABINETS_PATH, cabinetFormErrorPath, cabinetsErrorPath } from "@/lib/cabinet-catalog";
 import { CABINET_ERROR, cabinetErrorFromPostgrest } from "@/lib/cabinet-errors";
 import { parseCabinetForm } from "@/lib/cabinet-form";
+import { isUuid } from "@/lib/catalog";
 import { createClient } from "@/lib/supabase";
 
 /**
