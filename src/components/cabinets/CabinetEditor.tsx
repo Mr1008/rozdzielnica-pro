@@ -4,6 +4,7 @@ import { ServerError } from "@/components/auth/ServerError";
 import { CabinetDrawing } from "@/components/cabinets/CabinetDrawing";
 import { Button } from "@/components/ui/button";
 import { CABINETS_PATH } from "@/lib/cabinet-catalog";
+import { issueElements } from "@/lib/cabinet-drawing";
 import {
   cabinetDraftSchema,
   draftFromRow,
@@ -852,7 +853,13 @@ export default function CabinetEditor({ initial, action, error }: CabinetEditorP
           <h2 className="mb-3 text-lg font-semibold text-white">{e.preview}</h2>
           <div className="rounded-lg bg-white/90 p-3">
             {preview ? (
-              <CabinetDrawing geometry={preview} highlight={active ?? undefined} className="max-h-[70vh]" />
+              <CabinetDrawing
+                geometry={preview}
+                highlight={active ?? undefined}
+                // Issue indices describe the candidate, so they only apply when it is what is drawn.
+                invalid={candidateDrawable ? issueElements(issues) : undefined}
+                className="max-h-[70vh]"
+              />
             ) : (
               <p className="py-8 text-center text-sm text-zinc-700">{e.previewUnavailable}</p>
             )}
