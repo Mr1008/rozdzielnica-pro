@@ -14,6 +14,22 @@ export function cabinetsErrorPath(code: string): string {
   return `${CABINETS_PATH}?error=${encodeURIComponent(code)}`;
 }
 
+/** Where the create form posts. */
+export const CABINETS_API_PATH = "/api/admin/cabinets";
+
+/** Where the edit form posts. */
+export function cabinetApiPath(id: string): string {
+  return `${CABINETS_API_PATH}/${id}`;
+}
+
+/**
+ * The create (`id` null) or edit form with an `?error=<code>`: the editor restores the admin's
+ * draft from `sessionStorage` only when this parameter is present.
+ */
+export function cabinetFormErrorPath(id: string | null, code: string): string {
+  return `${id === null ? NEW_CABINET_PATH : cabinetEditPath(id)}?error=${encodeURIComponent(code)}`;
+}
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**

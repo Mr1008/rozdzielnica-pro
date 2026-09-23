@@ -1,8 +1,9 @@
 # Repository Guidelines
 
 **RozdzielnicaPro** — a switchboard (rozdzielnica) planning and labour-quoting tool for a solo
-electrician. Scaffolded from `10x-astro-starter`. Product code so far is auth, i18n and the role/RLS
-baseline — `src/pages/auth/*`, `src/pages/admin/`, most of `src/lib/`, and all of `supabase/`. The
+electrician. Scaffolded from `10x-astro-starter`. Product code so far is auth, i18n, the role/RLS
+baseline and the admin cabinet catalog — `src/pages/auth/*`, `src/pages/admin/`,
+`src/pages/api/admin/`, `src/components/cabinets/`, most of `src/lib/`, and all of `supabase/`. The
 rest is still starter code.
 
 Product spec: @context/foundation/prd.md · Stack rationale: @context/foundation/tech-stack.md ·
@@ -63,6 +64,13 @@ These are correctness requirements, not preferences.
   `public.enforce_role_change_is_admin()` (BEFORE UPDATE on `public.profiles`) raises SQLSTATE
   `42501` on any non-admin role change, because RLS grants row access but not column access. Do not
   answer a 42501 by loosening something in TypeScript.
+- **Cabinet `geometry` is validated only by `parseCabinetGeometry`** in
+  @src/lib/cabinet-geometry.ts. The database CHECK asserts nothing but an object at `version: 1`, so
+  every write of `cabinets.geometry` — endpoint, seed, migration — must go through it (the editor's
+  endpoints do, via `parseCabinetForm`); never write the column around it.
+- **A project must snapshot its cabinet's `geometry`, not reference it live** (S-03). Admin edits to
+  a cabinet must never shift an existing project's layout or quote; archiving only hides the cabinet
+  from the picker.
 - **Never run `supabase config push`.** `supabase/config.toml` carries
   `site_url = "http://127.0.0.1:3000"`, which would break production auth redirects. Migrations reach
   the cloud project through `.github/workflows/db-migrate.yml`; config does not go up at all, and the
@@ -173,6 +181,7 @@ shape for new form endpoints so the existing forms keep working.
 | `npm test`                           | Both suites — fails with no local Supabase running. See Tripwires                             |
 | `npm run smoke`                      | Auth-flow script; `BASE_URL` defaults to `http://localhost:4321`                              |
 | `npx astro check`                    | Type-checks `.astro` files — CI runs it, `npm run lint` does not                              |
+| `npm run db:types`                   | Regenerates the committed `src/lib/database.types.ts` from the local stack after a migration  |
 | `node scripts/roadmap-to-github.mjs` | Mirrors the roadmap to GitHub issues/board. Plans by default; `--apply` writes. See Tripwires |
 
 To reproduce the CI `ci` job locally:

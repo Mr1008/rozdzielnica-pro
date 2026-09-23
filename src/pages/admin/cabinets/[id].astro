@@ -1,0 +1,63 @@
+---
+import Banner from "@/components/Banner.astro";
+import Topbar from "@/components/Topbar.astro";
+import CabinetEditor from "@/components/cabinets/CabinetEditor";
+import Layout from "@/layouts/Layout.astro";
+import { CABINETS_PATH, cabinetApiPath, isUuid } from "@/lib/cabinet-catalog";
+import { cabinetErrorMessage } from "@/lib/cabinet-errors";
+import type { CabinetRow } from "@/lib/cabinet-form";
+import { t } from "@/lib/i18n";
+import { createClient } from "@/lib/supabase";
+
+// No role check here on purpose: `/admin/*` is gated in `src/lib/route-access.ts`, and RLS lets an
+// admin read every cabinet, archived ones included.
+const { id } = Astro.params;
+const error = cabinetErrorMessage(Astro.url.searchParams.get("error")) ?? undefined;
+
+async function loadCabinet(): Promise<{ row: CabinetRow | null; loadError: string | null }> {
+  // Checked before querying: a non-UUID would reach PostgREST as `22P02` and read as a failure,
+  // when it is simply a cabinet that does not exist.
+  if (!isUuid(id)) return { row: null, loadError: null };
+
+  const supabase = createClient(Astro.request.headers, Astro.cookies);
+  if (!supabase) return { row: null, loadError: t.cabinetErrors.notConfigured };
+
+  const { data, error: queryError } = await supabase
+    .from("cabinets")
+    .select("id, name, manufacturer, model, price_grosze, geometry")
+    .eq("id", id)
+    .maybeSingle();
+  if (queryError) return { row: null, loadError: t.cabinets.editor.loadFailed };
+  return { row: data, loadError: null };
+}
+
+const { row, loadError } = await loadCabinet();
+if (!row && !loadError) Astro.response.status = 404;
+
+const title = row ? t.cabinets.editor.editTitle : t.cabinets.editor.notFoundTitle;
+---
+
+<Layout title={title}>
+  {loadError && <Banner variant="error">{loadError}</Banner>}
+  <div class="bg-cosmic min-h-screen p-4 text-white sm:p-8">
+    <div class="mx-auto max-w-6xl">
+      <Topbar />
+      <a href={CABINETS_PATH} class="text-sm text-purple-300 transition-colors hover:text-purple-100 hover:underline">
+        {t.cabinets.editor.backToCatalog}
+      </a>
+      <h1 class="mt-2 mb-6 bg-gradient-to-r from-blue-200 to-purple-200 bg-clip-text text-3xl font-bold text-transparent">
+        {row ? `${title}: ${row.name}` : title}
+      </h1>
+      {row ? (
+        // `client:only`: the editor restores a rejected draft from sessionStorage on its first render.
+        <CabinetEditor initial={row} action={cabinetApiPath(row.id)} error={error} client:only="react" />
+      ) : (
+        !loadError && (
+          <p class="rounded-2xl border border-white/10 bg-white/10 p-8 text-center text-blue-100/70">
+            {t.cabinetErrors.notFound}
+          </p>
+        )
+      )}
+    </div>
+  </div>
+</Layout>
