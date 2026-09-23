@@ -1,0 +1,27 @@
+---
+import Topbar from "@/components/Topbar.astro";
+import CabinetEditor from "@/components/cabinets/CabinetEditor";
+import Layout from "@/layouts/Layout.astro";
+import { CABINETS_API_PATH, CABINETS_PATH } from "@/lib/cabinet-catalog";
+import { cabinetErrorMessage } from "@/lib/cabinet-errors";
+import { t } from "@/lib/i18n";
+
+// No role check here on purpose: `/admin/*` is gated in `src/lib/route-access.ts`.
+const error = cabinetErrorMessage(Astro.url.searchParams.get("error")) ?? undefined;
+---
+
+<Layout title={t.cabinets.editor.newTitle}>
+  <div class="bg-cosmic min-h-screen p-4 text-white sm:p-8">
+    <div class="mx-auto max-w-6xl">
+      <Topbar />
+      <a href={CABINETS_PATH} class="text-sm text-purple-300 transition-colors hover:text-purple-100 hover:underline">
+        {t.cabinets.editor.backToCatalog}
+      </a>
+      <h1 class="mt-2 mb-6 bg-gradient-to-r from-blue-200 to-purple-200 bg-clip-text text-3xl font-bold text-transparent">
+        {t.cabinets.editor.newTitle}
+      </h1>
+      {/* `client:only`: the editor restores a rejected draft from sessionStorage on its first render. */}
+      <CabinetEditor action={CABINETS_API_PATH} error={error} client:only="react" />
+    </div>
+  </div>
+</Layout>

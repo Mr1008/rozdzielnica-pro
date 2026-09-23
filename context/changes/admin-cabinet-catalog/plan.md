@@ -520,29 +520,29 @@ cabinets through the UI.
 
 #### Automated
 
-- [x] 3.1 Route-access tests cover `/api/admin`: `npm run test:unit`
-- [x] 3.2 Lint, type check and build pass: `npm run lint && npx astro check && npm run build`
-- [x] 3.3 RLS integration tests still pass: `npm run test:integration`
+- [x] 3.1 Route-access tests cover `/api/admin`: `npm run test:unit` — 6399c36
+- [x] 3.2 Lint, type check and build pass: `npm run lint && npx astro check && npm run build` — 6399c36
+- [x] 3.3 RLS integration tests still pass: `npm run test:integration` — 6399c36
 
 #### Manual
 
-- [x] 3.4 As the seeded admin, `/admin/cabinets` lists the three starter cabinets with drawings that are visibly different, including the split row and the dashed bar behind another
-- [x] 3.5 Archive then restore a cabinet from the list; the badge follows
-- [x] 3.6 As an electrician, `/admin/cabinets` and a POST to `/api/admin/cabinets/<id>/archive` redirect away and change nothing
+- [x] 3.4 As the seeded admin, `/admin/cabinets` lists the three starter cabinets with drawings that are visibly different, including the split row and the dashed bar behind another — 6399c36
+- [x] 3.5 Archive then restore a cabinet from the list; the badge follows — 6399c36
+- [x] 3.6 As an electrician, `/admin/cabinets` and a POST to `/api/admin/cabinets/<id>/archive` redirect away and change nothing — 6399c36
 
 ### Phase 4: Editor and write path
 
 #### Automated
 
-- [ ] 4.1 Form-parsing unit tests pass: `npm run test:unit`
-- [ ] 4.2 Lint, type check and build pass: `npm run lint && npx astro check && npm run build`
-- [ ] 4.3 RLS integration tests still pass: `npm run test:integration`
-- [ ] 4.4 Smoke script still passes against the dev server: `npm run smoke`
+- [x] 4.1 Form-parsing unit tests pass: `npm run test:unit`
+- [x] 4.2 Lint, type check and build pass: `npm run lint && npx astro check && npm run build`
+- [x] 4.3 RLS integration tests still pass: `npm run test:integration`
+- [x] 4.4 Smoke script still passes against the dev server: `npm run smoke`
 
 #### Manual
 
-- [ ] 4.5 As admin, create a cabinet with a split rail row and two bars at different depths; it appears in the list with a matching drawing
-- [ ] 4.6 Typing a rail that leaves the interior, overlapping two rails, and an entry past its side each shows a Polish message and blocks submit
-- [ ] 4.7 Creating a second cabinet with an existing manufacturer + model shows the Polish duplicate error and the typed geometry is still there
-- [ ] 4.8 Editing a seeded cabinet's price and a rail position persists after reload
+- [x] 4.5 As admin, create a cabinet with a split rail row and two bars at different depths; it appears in the list with a matching drawing
+- [x] 4.6 Typing a rail that leaves the interior, overlapping two rails, and an entry past its side each shows a Polish message and blocks submit
+- [x] 4.7 Creating a second cabinet with an existing manufacturer + model shows the Polish duplicate error and the typed geometry is still there
+- [x] 4.8 Editing a seeded cabinet's price and a rail position persists after reload
 - [ ] 4.9 After merge and deploy, `/admin/cabinets` works on the production Worker (migration applied by `db-migrate.yml`)

@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { CABINETS_PATH, cabinetEditPath, cabinetsErrorPath, isUuid, sortForCatalogList } from "./cabinet-catalog";
+import {
+  CABINETS_API_PATH,
+  CABINETS_PATH,
+  NEW_CABINET_PATH,
+  cabinetApiPath,
+  cabinetEditPath,
+  cabinetFormErrorPath,
+  cabinetsErrorPath,
+  isUuid,
+  sortForCatalogList,
+} from "./cabinet-catalog";
 
 describe("isUuid", () => {
   it("accepts a canonical UUID in either case", () => {
@@ -28,6 +38,12 @@ describe("paths", () => {
     expect(cabinetEditPath("abc")).toBe(`${CABINETS_PATH}/abc`);
     expect(cabinetsErrorPath("not_found")).toBe(`${CABINETS_PATH}?error=not_found`);
     expect(cabinetsErrorPath("a&b")).toBe(`${CABINETS_PATH}?error=a%26b`);
+  });
+
+  it("builds the form endpoints and the form error redirects", () => {
+    expect(cabinetApiPath("abc")).toBe(`${CABINETS_API_PATH}/abc`);
+    expect(cabinetFormErrorPath(null, "duplicate_model")).toBe(`${NEW_CABINET_PATH}?error=duplicate_model`);
+    expect(cabinetFormErrorPath("abc", "a&b")).toBe(`${CABINETS_PATH}/abc?error=a%26b`);
   });
 });
 
