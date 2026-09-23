@@ -79,26 +79,24 @@ Before any reading, identify what kinds of upstream artifacts the user passed in
 
 **Question count and focus scale with what's provided:**
 
-| Upstream artifacts      | LOW | MEDIUM | HIGH  | What changes vs. baseline                                                                                                           |
-| ----------------------- | --- | ------ | ----- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| Task only (baseline)    | 4–6 | 7–10   | 11–15 | Full questioning across all relevant categories.                                                                                    |
-| Task + research         | 3–5 | 5–7    | 8–11  | Skip questions whose answer is already in the research doc. Don't re-spawn sub-agents to find what research already mapped.         |
-| Task + frame            | 2–3 | 4–6    | 7–9   | Skip [D]iagnostic categories — frame settled problem framing. Treat the Reframed (or Confirmed) Problem Statement as authoritative. |
-| Task + frame + research | 1–2 | 3–5    | 5–7   | Skip both. Ask only [S]olution-design questions that genuinely need user input.                                                     |
+| Upstream artifacts          | LOW   | MEDIUM | HIGH  | What changes vs. baseline                                                                                                              |
+| --------------------------- | ----- | ------ | ----- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Task only (baseline)        | 4–6   | 7–10   | 11–15 | Full questioning across all relevant categories.                                                                                       |
+| Task + research             | 3–5   | 5–7    | 8–11  | Skip questions whose answer is already in the research doc. Don't re-spawn sub-agents to find what research already mapped.            |
+| Task + frame                | 2–3   | 4–6    | 7–9   | Skip [D]iagnostic categories — frame settled problem framing. Treat the Reframed (or Confirmed) Problem Statement as authoritative.    |
+| Task + frame + research     | 1–2   | 3–5    | 5–7   | Skip both. Ask only [S]olution-design questions that genuinely need user input.                                                        |
 
 **Settled-input exception:** if upstream artifacts already resolve every material solution decision, propose **0 substantive questions**, briefly identify that evidence, and obtain the usual native complexity/budget confirmation. Retain native structure approval. If an agreed budget becomes unnecessary after later answers, confirm the adjustment rather than padding questions. The ranges above guide unresolved work; they do not require invented decisions.
 
 **Principle**: every artifact passed in is a source of decisions already made. Reading them counts as listening to the user. Don't ask the user what they already wrote down.
 
 **When a frame is present**, read it FULLY and treat as authoritative:
-
 - Copy the **Reported Observation** + **Reframed (or Confirmed) Problem Statement** as the task definition. Do not re-question the framing.
 - Lift the **Hypothesis Investigation** table and **Narrowing Signals** into your "Current State Analysis" — this work is already done.
 - If the frame **Confidence: LOW** is flagged, surface that in the plan's "Open Risks & Assumptions" and ask ONE clarifying question about how to proceed (verify first, or plan with risk acknowledged).
 - Do NOT re-investigate the framing. Frame owns problem framing; you own solution design.
 
 **When research is present**, read it FULLY and use as the codebase baseline:
-
 - "Code References" section IS your codebase grounding — don't re-spawn Explore agents to find the same files.
 - "Architecture Insights" feed directly into "Current State Analysis."
 - Spawn sub-agents only to fill specific gaps research didn't cover (e.g., the exact files this plan will modify if research was broader).
@@ -197,7 +195,7 @@ Before any reading, identify what kinds of upstream artifacts the user passed in
      `[1-sentence what this does] · Strength: [key advantage] · Tradeoff: [key cost or risk]`
    - The recommendation should be grounded in research (codebase patterns for software, domain knowledge and context for non-software) — not guessing
 
-   **Check the payload before calling the tool:** every `header` is 1–12 characters (count spaces), each question has 2–4 distinct choices within the actual host limit, only the first label contains the exact `⭐ Recommended` marker, and every description contains both `· Strength:` and `· Tradeoff:` with concrete content. Use `Format` instead of the 13-character `Output format`. Verify the native call arguments themselves, not only a prose preview.
+   **Check the payload before calling the tool:** every `header` is 1–12 characters (count spaces), each question has 2–4 distinct choices within the actual host limit, only the first label contains the exact `⭐ Recommended` marker, and every description contains both ` · Strength: ` and ` · Tradeoff: ` with concrete content. Use `Format` instead of the 13-character `Output format`. Verify the native call arguments themselves, not only a prose preview.
 
    **Example AskUserQuestion call with recommendations (software — delivery):** `Rollout` is `[S]` — delivery strategy; ask only when the change can fail in production in a way the release path would have to contain, otherwise inherit the team's default.
 
@@ -211,7 +209,7 @@ Before any reading, identify what kinds of upstream artifacts the user passed in
        description: "Deploy the new calculation for all accounts in a single release. · Strength: One code path from day one — nothing to clean up and no flag bookkeeping. · Tradeoff: Rollback means a redeploy, and incorrect invoices have already reached customers."
      - label: "Shadow run first"
        description: "Compute old and new prices in parallel, log the differences, serve only the old result for two weeks. · Strength: Surfaces disagreements against real traffic with zero customer impact. · Tradeoff: Delays launch by the observation window and adds a diff log nobody owns yet."
-       multiSelect: false
+     multiSelect: false
 
    **Example AskUserQuestion call with recommendations (software):** `Conflicts` is `[S]` — solution architecture; ask only if the decision remains unresolved after reading upstream artifacts.
 
@@ -225,7 +223,7 @@ Before any reading, identify what kinds of upstream artifacts the user passed in
        description: "Later save silently overwrites earlier one. · Strength: Zero added complexity, no UI changes needed. · Tradeoff: Users can lose work without warning — acceptable only if edits are rare or low-stakes."
      - label: "Lock-based"
        description: "First editor locks the resource; others see read-only until released. · Strength: Prevents conflicts entirely — simplest mental model for users. · Tradeoff: Stale locks require TTL + cleanup logic; blocks legitimate concurrent work."
-       multiSelect: false
+     multiSelect: false
 
    **Example AskUserQuestion call with recommendations (non-software — content/strategy):** `Depth` is `[D]` — diagnostic about audience/scope; skip if a frame brief already settled who this is for.
 
@@ -239,7 +237,7 @@ Before any reading, identify what kinds of upstream artifacts the user passed in
        description: "High-level principles, no code. · Strength: Accessible to all skill levels, faster to produce. · Tradeoff: Advanced learners may find it too shallow — risks losing engagement."
      - label: "Deep dive with open challenges"
        description: "Minimal scaffolding, real-world problems. · Strength: Forces genuine problem-solving, highest learning retention. · Tradeoff: High dropout risk for less experienced learners; harder to support at scale."
-       multiSelect: false
+     multiSelect: false
 
    **What to ask about** — adapt categories to the domain of the task:
 
@@ -488,7 +486,7 @@ On `$10x-plan <change-id> save` (and the persistence route in [plan-persistence.
 
 `context/foundation/roadmap.md` (produced by `/10x-roadmap`) indexes each Foundation/Slice by a stable **Change ID**. As planning turns a roadmap item into a concrete change folder + plan, mark that item **`planning`** so the roadmap reflects that the item has left the backlog and entered active work. `/10x-implement` later advances the same item to `in-progress`, and `/10x-archive` closes it to `done`.
 
-Do this in Step 4 (right after the `change.md` → `planned` stamp). The lookup is **mandatory**; "best effort" scopes only the _edits_ — a missing roadmap or a not-found target is skipped silently and never blocks, prompts, or aborts the run. Do not skip the check on the assumption there's no roadmap.
+Do this in Step 4 (right after the `change.md` → `planned` stamp). The lookup is **mandatory**; "best effort" scopes only the *edits* — a missing roadmap or a not-found target is skipped silently and never blocks, prompts, or aborts the run. Do not skip the check on the assumption there's no roadmap.
 
 1. `test -f context/foundation/roadmap.md`. If absent, skip this step silently.
 2. Read the file. Look for `<change-id>` used as a `Change ID`:
@@ -496,13 +494,11 @@ Do this in Step 4 (right after the `change.md` → `planned` stamp). The lookup 
    - and in the `## Foundations` / `## Slices` bodies — the `### <ID>: …` block that contains a `- **Change ID:** <change-id>` line.
 
    Match is exact-string only. **No match** → print `ℹ context/foundation/roadmap.md has no item with Change ID "<change-id>" — roadmap left untouched.` and stop here.
-
 3. **Match found** → if the item's `- **Status:**` is already `planning`, `in-progress`, or `done`, leave it untouched (**forward-only**: never regress a more-advanced status) and stop. Otherwise apply both edits with the Edit tool — each independent and best effort; skip a sub-edit whose target isn't where the `/10x-roadmap` template puts it, and note the skip. Touch only the `Status` field:
    1. **`## At a glance`** — set the matched row's **Status** cell to `planning`.
    2. **Item body** — rewrite the item's `- **Status:**` line to `- **Status:** planning`.
 
    Then bump the roadmap frontmatter `updated:` to `<today>` (skip if there is no frontmatter).
-
 4. `/10x-plan` does not commit its own artifacts; leave the flip in the working tree. It is committed later alongside the change's first `/10x-implement` phase (which re-flips the same item to `in-progress`).
 
 ## Important Guidelines

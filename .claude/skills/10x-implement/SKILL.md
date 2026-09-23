@@ -68,7 +68,6 @@ Writing a phase's code is the expensive part of this session: reading the source
 **Ask before the first phase of the run** (the first pending phase, or the one named by a `phase N` argument):
 
 AskUserQuestion:
-
 - question: "Phase [N] — how should I implement it?"
   header: "Exec mode"
   options:
@@ -76,7 +75,7 @@ AskUserQuestion:
     description: "A subagent writes the code; I keep the gates, staging, commit and Progress here. Keeps this context lean across a long plan — you see the touched files, adaptations and gate verdicts when it returns."
   - label: "Implement in this context"
     description: "I write the code here so you can watch the edits land and redirect me mid-phase. Costs context — a long plan may need a clear between phases."
-    multiSelect: false
+  multiSelect: false
 
 For every later phase the choice rides along with the "Next phase decision" prompt at the end of the commit ritual — no separate question. If the user asked for several phases consecutively (so that prompt is skipped), carry the last chosen mode forward.
 
@@ -182,9 +181,9 @@ Before proposing any phase-end or epilogue commit message, scan the conversation
 
 ## Roadmap status sync
 
-`context/foundation/roadmap.md` (produced by `/10x-roadmap`) indexes each Foundation/Slice by a stable **Change ID**. `/10x-archive` already closes the loop on the far end — when a change archives, it flips the matching roadmap item to `Status: done`. This step wires the near end: when implementation _starts_, mark the matching item **`in-progress`** so the roadmap shows live work instead of jumping straight from `ready` to `done`.
+`context/foundation/roadmap.md` (produced by `/10x-roadmap`) indexes each Foundation/Slice by a stable **Change ID**. `/10x-archive` already closes the loop on the far end — when a change archives, it flips the matching roadmap item to `Status: done`. This step wires the near end: when implementation *starts*, mark the matching item **`in-progress`** so the roadmap shows live work instead of jumping straight from `ready` to `done`.
 
-Run it **once, on entry** to the change (right after the `change.md` → `implementing` stamp) — not per phase. The lookup is **mandatory**; "best effort" scopes only the _edits_ — a missing roadmap or a not-found target is skipped silently and never blocks, prompts, rolls back, or aborts the run. Do not skip the check on the assumption there's no roadmap.
+Run it **once, on entry** to the change (right after the `change.md` → `implementing` stamp) — not per phase. The lookup is **mandatory**; "best effort" scopes only the *edits* — a missing roadmap or a not-found target is skipped silently and never blocks, prompts, rolls back, or aborts the run. Do not skip the check on the assumption there's no roadmap.
 
 1. `test -f context/foundation/roadmap.md`. If absent, skip this step silently.
 2. Capture whether the file is already dirty: `ROADMAP_PREDIRTY=$(git status --porcelain context/foundation/roadmap.md 2>/dev/null)` — used in step 5 to decide staging.
@@ -192,14 +191,12 @@ Run it **once, on entry** to the change (right after the `change.md` → `implem
    - in the `## At a glance` table — the row whose **Change ID** column cell equals `<change-id>` exactly;
    - and in the `## Foundations` / `## Slices` bodies — the `### <ID>: …` block that contains a `- **Change ID:** <change-id>` line.
 
-   `<ID>` is that item's roadmap-local id (`F-NN` or `S-NN`). Match is exact-string only — a slice can spawn several changes, so a near-miss is intentionally _not_ touched. **No match** → print `ℹ context/foundation/roadmap.md has no item with Change ID "<change-id>" — roadmap left untouched.` and skip the rest of this step.
-
+   `<ID>` is that item's roadmap-local id (`F-NN` or `S-NN`). Match is exact-string only — a slice can spawn several changes, so a near-miss is intentionally *not* touched. **No match** → print `ℹ context/foundation/roadmap.md has no item with Change ID "<change-id>" — roadmap left untouched.` and skip the rest of this step.
 4. **Match found** → read the item's current `- **Status:**`. If it is already `in-progress` or `done`, leave it untouched (**forward-only**: never regress a more-advanced status) and skip to step 5. Otherwise apply both edits with the Edit tool — each independent and best effort; if a target isn't where the `/10x-roadmap` template puts it (hand-edited or older-format roadmap), skip that sub-edit, keep going, and note what was skipped. Touch only the `Status` field; leave `Outcome`, `Prerequisites`, `Change ID`, etc. alone.
    1. **`## At a glance`** — in the matched row, set the **Status** column cell to `in-progress`.
    2. **Item body** — rewrite the item's `- **Status:**` line to `- **Status:** in-progress`.
 
    Then bump the roadmap frontmatter `updated:` to `<today>` (leave every other key alone; skip this if the file has no frontmatter).
-
 5. **Fold the flip into this change's history.** If `git` is available **and** `ROADMAP_PREDIRTY` (step 2) was empty, add `context/foundation/roadmap.md` to the current phase's touched-file set so the status flip lands in the phase's commit rather than lingering dirty. If `ROADMAP_PREDIRTY` was non-empty, the file already had uncommitted edits: leave the flip in the working tree, keep `context/foundation/roadmap.md` OUT of the touched-file set, and print `⚠ context/foundation/roadmap.md had pre-existing uncommitted changes — flipped roadmap item <ID> to in-progress in the working tree but did NOT stage it. Commit it yourself.` If `git` is unavailable, the edit simply stays in the working tree.
 
 ## Verification Approach
@@ -208,7 +205,7 @@ After implementing a phase, run this fixed sequence — the canonical order for 
 
 1. **(a) Plan criteria** — run the phase's `#### Automated` success-criteria commands from the plan, in order. Each command is its own gate with its own verdict line.
 
-2. **Stage the touched-file set** — run steps 2–4 of the commit ritual below ("Compute the staging set", "Detect unrelated dirty paths", "Stage explicitly by path") _here_, not at commit time. Staging before the break-check is what makes its restore exact: `git checkout -- <file>` resets the worktree to the staged version, so a deliberate break can never leak into the commit.
+2. **Stage the touched-file set** — run steps 2–4 of the commit ritual below ("Compute the staging set", "Detect unrelated dirty paths", "Stage explicitly by path") *here*, not at commit time. Staging before the break-check is what makes its restore exact: `git checkout -- <file>` resets the worktree to the staged version, so a deliberate break can never leak into the commit.
 
 3. **(b) Deliberate-break check** — only for phases that add or change tests. With the phase's files staged, verify the new or changed test actually protects something:
 
@@ -257,7 +254,7 @@ Alongside the sequence:
 
   2. **Compute the staging set.** Steps 2–4 already ran once as gate-stack step 2; re-run them here so anything a gate fix touched gets captured. When nothing changed since, they are a no-op. Take the touched-file set maintained during the phase (see "Tracking files touched during a phase" above) and union it with `{context/changes/<change-id>/plan.md}`. The plan file is always staged because each phase produces at least one Edit to its `## Progress` section.
 
-  3. **Detect unrelated dirty paths.** Run `git status --porcelain` and intersect with paths _outside_ the staging set. If the dirty-but-untouched set is non-empty, present the offending paths and use `AskUserQuestion`:
+  3. **Detect unrelated dirty paths.** Run `git status --porcelain` and intersect with paths *outside* the staging set. If the dirty-but-untouched set is non-empty, present the offending paths and use `AskUserQuestion`:
 
      - question: "<N> unrelated path(s) are dirty. How should I handle them?"
        header: "Dirty paths"
@@ -268,7 +265,7 @@ Alongside the sequence:
          description: "Add the unrelated paths to this commit. You take responsibility for the broader scope."
        - label: "Abort"
          description: "Stop the phase commit. Resolve the dirty paths first, then re-run the ritual."
-         multiSelect: false
+       multiSelect: false
 
      If the dirty-but-untouched set is empty, skip this step.
 
@@ -293,7 +290,7 @@ Alongside the sequence:
          description: "Override the subject; keep the body."
        - label: "Override entirely"
          description: "Replace both subject and body."
-         multiSelect: false
+       multiSelect: false
 
   7. **Commit via heredoc.** Run `git commit` per the global commit-message protocol:
 
@@ -346,7 +343,6 @@ Alongside the sequence:
 
   **If user chooses to clear**: Copy the resume command to clipboard and display it:
   1. Copy:
-
      ```bash
      echo -n "/10x-implement <change-id> phase [next-phase-number]" | pbcopy 2>/dev/null || echo -n "/10x-implement <change-id> phase [next-phase-number]" | clip.exe 2>/dev/null || echo -n "/10x-implement <change-id> phase [next-phase-number]" | xclip -selection clipboard 2>/dev/null || true
      ```
@@ -355,7 +351,6 @@ Alongside the sequence:
      # PowerShell (Windows)
      Set-Clipboard "/10x-implement <change-id> phase [next-phase-number]"
      ```
-
   2. Display:
      ```
      → /10x-implement <change-id> phase [next-phase-number] (✓ copied)
@@ -400,7 +395,7 @@ When every `- [ ]` in the entire `## Progress` section is now `- [x]`:
        description: "STOP without flipping change.md.status. Address the stragglers manually, then re-enter the epilogue path."
      - label: "Proceed to epilogue"
        description: "Flip status: implemented and run the epilogue commit anyway. Stragglers will surface as warnings under /10x-archive."
-       multiSelect: false
+     multiSelect: false
 
    On "Pause": STOP immediately. Do NOT update `change.md`, do NOT run the epilogue commit. On "Proceed to epilogue": continue with steps 2–4 below. If the count is zero, skip this step and continue.
 

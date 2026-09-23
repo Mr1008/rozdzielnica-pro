@@ -54,15 +54,15 @@ If that change's Progress section has at least one `- [x]` row whose line ends w
 
 While rendering, surface drift between `change.md.status` and Progress reality. Warnings appear inline next to the change line:
 
-| Condition                                                               | Warning                                               |
-| ----------------------------------------------------------------------- | ----------------------------------------------------- |
-| `status: implementing` AND Progress has 0 `[x]`                         | `⚠ status drift: implementing but no progress`        |
-| `status: implementing` AND every Progress item `[x]`                    | `⚠ status drift: should be implemented`               |
-| `status: planned` AND any Progress item `[x]`                           | `⚠ status drift: should be implementing`              |
-| `status: archived` AND folder is in `context/changes/` (not `archive/`) | `⚠ status drift: archived in wrong folder`            |
-| Folder in `context/archive/` AND `status` ≠ `archived`                  | `⚠ status drift: in archive/ but status not archived` |
-| `status: plan_reviewed` AND `reviews/plan-review.md` missing            | `⚠ missing plan-review artifact`                      |
-| `status: impl_reviewed` AND no `reviews/impl-review*.md` present        | `⚠ missing impl-review artifact`                      |
+| Condition | Warning |
+|---|---|
+| `status: implementing` AND Progress has 0 `[x]` | `⚠ status drift: implementing but no progress` |
+| `status: implementing` AND every Progress item `[x]` | `⚠ status drift: should be implemented` |
+| `status: planned` AND any Progress item `[x]` | `⚠ status drift: should be implementing` |
+| `status: archived` AND folder is in `context/changes/` (not `archive/`) | `⚠ status drift: archived in wrong folder` |
+| Folder in `context/archive/` AND `status` ≠ `archived` | `⚠ status drift: in archive/ but status not archived` |
+| `status: plan_reviewed` AND `reviews/plan-review.md` missing | `⚠ missing plan-review artifact` |
+| `status: impl_reviewed` AND no `reviews/impl-review*.md` present | `⚠ missing impl-review artifact` |
 
 Never error or exit non-zero on a drift — `/10x-status` is informational. The warning gives the user a nudge to fix `change.md` or move the folder.
 

@@ -7,7 +7,7 @@ Progress remain the same when the documents are presented in the conversation.
 
 ## Full plan
 
-```markdown
+````markdown
 # [Feature/Task Name] Implementation Plan
 
 ## Overview
@@ -145,7 +145,7 @@ A code snippet appears here ONLY when the change is non-obvious — a tricky reg
 #### Automated
 
 - [ ] 2.1 <…>
-```
+````
 
 ## Brief
 
@@ -172,11 +172,11 @@ A code snippet appears here ONLY when the change is non-obvious — a tricky reg
 
 When a frame brief or research doc was the input, mark the **Source** column to show where the decision came from. This lets readers see the lineage: what was settled upstream vs decided in this planning session.
 
-| Decision        | Choice            | Why (1 sentence) | Source                  |
-| --------------- | ----------------- | ---------------- | ----------------------- |
-| [Decision area] | [What was chosen] | [Core rationale] | Frame / Research / Plan |
-| [Decision area] | [Choice]          | [Rationale]      | Frame / Research / Plan |
-| ...             | ...               | ...              | ...                     |
+| Decision                       | Choice            | Why (1 sentence)  | Source           |
+| ------------------------------ | ----------------- | ----------------- | ---------------- |
+| [Decision area]                | [What was chosen] | [Core rationale]  | Frame / Research / Plan |
+| [Decision area]                | [Choice]          | [Rationale]       | Frame / Research / Plan |
+| ...                            | ...               | ...               | ...              |
 
 (Omit the `Source` column if no upstream artifacts were provided — every row would be `Plan`.)
 

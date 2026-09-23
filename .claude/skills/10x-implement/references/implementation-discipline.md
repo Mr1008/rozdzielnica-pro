@@ -1,10 +1,10 @@
 # Implementation discipline
 
-Tool-agnostic craft for implementing one phase of a plan well. This is the _how you write the code_ layer — it deliberately says nothing about gates, staging, commits, or Progress checkboxes; those belong to the verification sequence in `SKILL.md`, not to the editing itself.
+Tool-agnostic craft for implementing one phase of a plan well. This is the *how you write the code* layer — it deliberately says nothing about gates, staging, commits, or Progress checkboxes; those belong to the verification sequence in `SKILL.md`, not to the editing itself.
 
 ## Follow the plan's intent, adapt to reality
 
-The plan is the guide, not a literal script. Implement what the phase is _for_, and adapt to what you actually find in the codebase. Adapting means adjusting a coordinate — a moved file, a renamed symbol, an import path — to reach the plan's intended end state. It never means redesigning the phase, adding scope the plan didn't ask for, or reinterpreting its goal. When the codebase and the plan disagree, classify the gap before you act:
+The plan is the guide, not a literal script. Implement what the phase is *for*, and adapt to what you actually find in the codebase. Adapting means adjusting a coordinate — a moved file, a renamed symbol, an import path — to reach the plan's intended end state. It never means redesigning the phase, adding scope the plan didn't ask for, or reinterpreting its goal. When the codebase and the plan disagree, classify the gap before you act:
 
 - **Minor** — a moved file, a renamed symbol, import drift, a trivial API/config delta. Intent is intact; only a coordinate changed. Adapt, and say so in one line (`ADAPT: plan says src/auth.ts, file is now src/auth/index.ts`).
 - **Structural** — a missing dependency, an architecture that differs from what the plan assumes, a referenced file/API that does not exist, a phase depending on output a prior phase never produced. The plan cannot be followed as written and adapting would mean redesigning it. Do NOT guess a redesign — stop and put the choice to the user with the specifics.
