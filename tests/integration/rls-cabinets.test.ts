@@ -23,6 +23,7 @@ import {
 type CabinetInsert = Database["public"]["Tables"]["cabinets"]["Insert"];
 
 const SAMPLE_MANUFACTURER = "Przykładowy producent";
+const SEEDED_MODELS = ["PRZ-S1", "PRZ-M3", "PRZ-L4"];
 const TEST_MANUFACTURER = "Producent testowy RLS";
 
 const MINIMAL_GEOMETRY: CabinetGeometry = {
@@ -82,7 +83,8 @@ describe("row level security on public.cabinets", () => {
 
   afterAll(async () => {
     if (createdCabinetIds.length > 0) {
-      await service.from("cabinets").delete().in("id", createdCabinetIds);
+      const { error } = await service.from("cabinets").delete().in("id", createdCabinetIds);
+      if (error) throw new Error(`Test cabinets were not cleaned up: ${error.code}`);
     }
     for (const id of createdUserIds) {
       await service.auth.admin.deleteUser(id);
@@ -136,7 +138,8 @@ describe("row level security on public.cabinets", () => {
       const inserted = await adminClient.from("cabinets").insert(testCabinet()).select("id").single();
       expect(inserted.error).toBeNull();
       const id = inserted.data?.id ?? "";
-      createdCabinetIds.push(id);
+      // An empty id would make the cleanup's `.in("id", …)` fail with 22P02 and leak every row.
+      if (id) createdCabinetIds.push(id);
 
       const updated = await adminClient
         .from("cabinets")
@@ -229,7 +232,9 @@ describe("row level security on public.cabinets", () => {
       const { data, error } = await service
         .from("cabinets")
         .select("model, geometry")
-        .eq("manufacturer", SAMPLE_MANUFACTURER);
+        .eq("manufacturer", SAMPLE_MANUFACTURER)
+        // Keyed on the seeded models, so a sample cabinet added locally through the UI doesn't break it.
+        .in("model", SEEDED_MODELS);
 
       expect(error).toBeNull();
       const rows = data ?? [];

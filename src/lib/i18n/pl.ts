@@ -171,6 +171,7 @@ export const pl = {
     editor: {
       newTitle: "Nowa szafka",
       editTitle: "Edycja szafki",
+      editTitleFor: (name: string) => `Edycja szafki: ${name}`,
       notFoundTitle: "Nie znaleziono szafki",
       loadFailed: "Nie udało się wczytać tej szafki. Spróbuj ponownie",
       backToCatalog: "Wróć do katalogu szafek",

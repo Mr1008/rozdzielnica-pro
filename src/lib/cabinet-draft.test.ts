@@ -7,8 +7,11 @@ import {
   geometryFromDraft,
   isDrawable,
   newBarDraft,
+  newEntryDraft,
   newRailDraft,
+  newTerminalGroupDraft,
   numberFromField,
+  type GeometryDraft,
 } from "./cabinet-draft";
 import { parseCabinetForm } from "./cabinet-form";
 import { parseCabinetGeometry, type CabinetGeometry } from "./cabinet-geometry";
@@ -75,7 +78,7 @@ describe("draft round trip", () => {
   it("turns a malformed stored geometry into empty fields instead of throwing", () => {
     const draft = draftFromGeometry({ interior: { widthMm: "wide" }, rails: [{ xMm: 1 }, 7], bars: "none" });
     expect(draft.interior).toEqual({ widthMm: "", heightMm: "", depthMm: "" });
-    expect(draft.rails).toEqual([{ xMm: "1", yMm: "", lengthMm: "" }]);
+    expect(draft.rails).toEqual([{ key: expect.any(String) as string, xMm: "1", yMm: "", lengthMm: "" }]);
     expect(draft.entries).toEqual([]);
     expect(draft.bars).toEqual([]);
     expect(draftFromGeometry(null).rails).toEqual([]);
@@ -84,8 +87,57 @@ describe("draft round trip", () => {
   it("a draft survives JSON storage and the restore schema", () => {
     const draft = draftFromRow();
     draft.geometry.bars.push(newBarDraft());
-    expect(cabinetDraftSchema.parse(JSON.parse(JSON.stringify(draft)))).toEqual(draft);
+    const restored = cabinetDraftSchema.parse(JSON.parse(JSON.stringify(draft)));
+    expect(geometryFromDraft(restored.geometry)).toEqual(geometryFromDraft(draft.geometry));
+    expect({ ...restored, geometry: undefined }).toEqual({ ...draft, geometry: undefined });
     expect(cabinetDraftSchema.safeParse({ name: "x" }).success).toBe(false);
+  });
+});
+
+function allKeys(geometry: GeometryDraft): string[] {
+  return [
+    ...geometry.rails.map((rail) => rail.key),
+    ...geometry.entries.map((entry) => entry.key),
+    ...geometry.bars.flatMap((bar) => [bar.key, ...bar.terminalGroups.map((group) => group.key)]),
+  ];
+}
+
+function hasKeyProperty(value: unknown): boolean {
+  if (Array.isArray(value)) return value.some(hasKeyProperty);
+  if (typeof value !== "object" || value === null) return false;
+  return "key" in value || Object.values(value).some(hasKeyProperty);
+}
+
+describe("draft element keys", () => {
+  it("are unique across newly created elements and draftFromGeometry output", () => {
+    const draft = draftFromGeometry(WITH_BARS);
+    const created = [
+      newRailDraft(draft).key,
+      newEntryDraft(draft).key,
+      newTerminalGroupDraft().key,
+      ...[newBarDraft()].flatMap((bar) => [bar.key, ...bar.terminalGroups.map((group) => group.key)]),
+    ];
+    const keys = [...allKeys(draft), ...allKeys(draftFromGeometry(WITH_BARS)), ...created];
+    expect(keys.length).toBe(4 * 2 + 5);
+    expect(new Set(keys).size).toBe(keys.length);
+  });
+
+  it("never reach the geometry document", () => {
+    const draft = draftFromGeometry(WITH_BARS);
+    draft.bars.push(newBarDraft());
+    expect(hasKeyProperty(geometryFromDraft(draft))).toBe(false);
+  });
+
+  it("are minted for a restored draft stored without them", () => {
+    const draft = { name: "", manufacturer: "", model: "", price: "", geometry: draftFromGeometry(WITH_BARS) };
+    const stripped: unknown = JSON.parse(
+      JSON.stringify(draft, (name, value: unknown) => (name === "key" ? undefined : value)),
+    );
+    expect(hasKeyProperty(stripped)).toBe(false);
+    const keys = allKeys(cabinetDraftSchema.parse(stripped).geometry);
+    expect(keys.length).toBe(4);
+    expect(keys.every((k) => k.length > 0)).toBe(true);
+    expect(new Set(keys).size).toBe(keys.length);
   });
 });
 
@@ -102,14 +154,18 @@ describe("isDrawable", () => {
   it("refuses a candidate with an empty field or a non-positive size", () => {
     const draft = draftFromGeometry(DEFAULT_GEOMETRY);
     expect(isDrawable(geometryFromDraft({ ...draft, interior: { ...draft.interior, widthMm: "" } }))).toBe(false);
-    expect(isDrawable(geometryFromDraft({ ...draft, rails: [{ xMm: "0", yMm: "", lengthMm: "10" }] }))).toBe(false);
-    expect(isDrawable(geometryFromDraft({ ...draft, rails: [{ xMm: "0", yMm: "0", lengthMm: "0" }] }))).toBe(false);
+    expect(isDrawable(geometryFromDraft({ ...draft, rails: [{ key: "r", xMm: "0", yMm: "", lengthMm: "10" }] }))).toBe(
+      false,
+    );
+    expect(isDrawable(geometryFromDraft({ ...draft, rails: [{ key: "r", xMm: "0", yMm: "0", lengthMm: "0" }] }))).toBe(
+      false,
+    );
   });
 });
 
 describe("newRailDraft", () => {
   it("places the new rail one pitch below the lowest, full width", () => {
-    expect(newRailDraft(draftFromGeometry(DEFAULT_GEOMETRY))).toEqual({ xMm: "0", yMm: "225", lengthMm: "400" });
+    expect(newRailDraft(draftFromGeometry(DEFAULT_GEOMETRY))).toMatchObject({ xMm: "0", yMm: "225", lengthMm: "400" });
     expect(newRailDraft({ ...draftFromGeometry(DEFAULT_GEOMETRY), rails: [] }).yMm).toBe("0");
   });
 });

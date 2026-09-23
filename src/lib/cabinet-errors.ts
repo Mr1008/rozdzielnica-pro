@@ -41,15 +41,16 @@ export function cabinetErrorMessage(code: string | null | undefined): string | n
 /**
  * Maps a PostgREST error to a code by its SQLSTATE, never by its message. A write RLS silently
  * refuses is not an error at all — it affects zero rows — so callers must check the returned rows
- * too; this only covers what does come back as an error.
+ * too; this only covers what does come back as an error. An unmapped SQLSTATE passes through as-is,
+ * so the URL stays diagnosable; `cabinetErrorMessage` shows the generic text for it.
  */
-export function cabinetErrorFromPostgrest(error: { code?: string | null }): CabinetErrorCode {
+export function cabinetErrorFromPostgrest(error: { code?: string | null }): string {
   switch (error.code) {
     case "23505":
       return CABINET_ERROR.duplicateModel;
     case "42501":
       return CABINET_ERROR.forbidden;
     default:
-      return CABINET_ERROR.unknown;
+      return error.code ?? CABINET_ERROR.unknown;
   }
 }

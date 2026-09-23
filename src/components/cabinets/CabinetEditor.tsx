@@ -431,6 +431,16 @@ export default function CabinetEditor({ initial, action, error }: CabinetEditorP
     });
   }
 
+  function setTerminalGroups(barIndex: number, change: (groups: TerminalGroupDraft[]) => TerminalGroupDraft[]) {
+    updateGeometry((geometry) => {
+      const bar = geometry.bars[barIndex];
+      return {
+        ...geometry,
+        bars: replaceAt(geometry.bars, barIndex, { ...bar, terminalGroups: change(bar.terminalGroups) }),
+      };
+    });
+  }
+
   function removeElement(kind: GeometryElementKind, index: number) {
     updateGeometry((geometry) => {
       switch (kind) {
@@ -574,7 +584,7 @@ export default function CabinetEditor({ initial, action, error }: CabinetEditorP
             const id = `cabinet-rail-${String(index)}`;
             return (
               <ElementCard
-                key={id}
+                key={rail.key}
                 legend={t.cabinets.elementNumbered.rail(index + 1)}
                 active={isActive("rail", index)}
                 invalid={railIssues.length > 0}
@@ -631,7 +641,7 @@ export default function CabinetEditor({ initial, action, error }: CabinetEditorP
             const id = `cabinet-entry-${String(index)}`;
             return (
               <ElementCard
-                key={id}
+                key={entry.key}
                 legend={t.cabinets.elementNumbered.entry(index + 1)}
                 active={isActive("entry", index)}
                 invalid={entryIssues.length > 0}
@@ -691,7 +701,7 @@ export default function CabinetEditor({ initial, action, error }: CabinetEditorP
             const id = `cabinet-bar-${String(index)}`;
             return (
               <ElementCard
-                key={id}
+                key={bar.key}
                 legend={t.cabinets.elementNumbered.bar(index + 1)}
                 active={isActive("bar", index)}
                 invalid={barIssues.length > 0}
@@ -775,7 +785,7 @@ export default function CabinetEditor({ initial, action, error }: CabinetEditorP
                     const groupLabel = e.terminalGroupNumbered(groupIndex + 1);
                     return (
                       <div
-                        key={groupId}
+                        key={group.key}
                         role="group"
                         aria-label={groupLabel}
                         className="grid items-end gap-3 rounded-lg border border-white/10 p-2 sm:grid-cols-[1fr_1fr_1fr_auto]"
@@ -809,7 +819,7 @@ export default function CabinetEditor({ initial, action, error }: CabinetEditorP
                         <RemoveButton
                           label={e.removeElement(groupLabel)}
                           onClick={() => {
-                            setBar(index, { terminalGroups: removeAt(bar.terminalGroups, groupIndex) });
+                            setTerminalGroups(index, (groups) => removeAt(groups, groupIndex));
                           }}
                         />
                       </div>
@@ -817,7 +827,7 @@ export default function CabinetEditor({ initial, action, error }: CabinetEditorP
                   })}
                   <AddButton
                     onClick={() => {
-                      setBar(index, { terminalGroups: [...bar.terminalGroups, newTerminalGroupDraft()] });
+                      setTerminalGroups(index, (groups) => [...groups, newTerminalGroupDraft()]);
                     }}
                   >
                     {e.addTerminalGroup}

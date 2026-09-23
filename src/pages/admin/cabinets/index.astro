@@ -3,7 +3,13 @@ import Banner from "@/components/Banner.astro";
 import Topbar from "@/components/Topbar.astro";
 import { CabinetDrawing } from "@/components/cabinets/CabinetDrawing";
 import Layout from "@/layouts/Layout.astro";
-import { NEW_CABINET_PATH, cabinetEditPath, sortForCatalogList } from "@/lib/cabinet-catalog";
+import {
+  NEW_CABINET_PATH,
+  cabinetArchivePath,
+  cabinetEditPath,
+  cabinetRestorePath,
+  sortForCatalogList,
+} from "@/lib/cabinet-catalog";
 import { cabinetErrorMessage } from "@/lib/cabinet-errors";
 import { parseCabinetGeometry } from "@/lib/cabinet-geometry";
 import { formatMoney, t } from "@/lib/i18n";
@@ -23,7 +29,13 @@ async function loadCabinets() {
   const { data, error } = await supabase
     .from("cabinets")
     .select("id, name, manufacturer, model, price_grosze, geometry, archived_at");
-  if (error) return { rows: [], loadError: t.cabinets.catalog.loadFailed };
+  if (error) {
+    // The SQLSTATE only, never Supabase's message — `wrangler tail` is the only trace a failure leaves.
+    // eslint-disable-next-line no-console
+    console.error("cabinets list load failed", error.code);
+    Astro.response.status = 500;
+    return { rows: [], loadError: t.cabinets.catalog.loadFailed };
+  }
   return { rows: sortForCatalogList(data), loadError: null };
 }
 
@@ -124,7 +136,7 @@ const buttonClass =
                 <a href={cabinetEditPath(cabinet.id)} class:list={[buttonClass, "text-center"]}>
                   {t.cabinets.catalog.edit}
                 </a>
-                <form method="POST" action={`/api/admin/cabinets/${cabinet.id}/${archived ? "restore" : "archive"}`}>
+                <form method="POST" action={archived ? cabinetRestorePath(cabinet.id) : cabinetArchivePath(cabinet.id)}>
                   <button type="submit" class:list={[buttonClass, "w-full"]}>
                     {archived ? t.cabinets.catalog.restore : t.cabinets.catalog.archive}
                   </button>
