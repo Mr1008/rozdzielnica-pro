@@ -9,12 +9,33 @@ import { BAR_KINDS, BAR_ORIENTATIONS, ENTRY_SIDES, type CabinetGeometry } from "
  * `parseCabinetGeometry`, the one validator every geometry write goes through.
  */
 
+let nextKey = 0;
+
+/**
+ * A client-side identity for a rail, entry, bar or terminal group, used as its React `key` so a
+ * removal does not hand one element's DOM node (and focus) to the next. Never part of the geometry.
+ */
+export function newDraftKey(): string {
+  nextKey += 1;
+  return `d${String(nextKey)}`;
+}
+
 const field = z.string();
 
-const railDraftSchema = z.object({ xMm: field, yMm: field, lengthMm: field });
-const entryDraftSchema = z.object({ side: z.enum(ENTRY_SIDES), offsetMm: field, lengthMm: field });
-const terminalGroupDraftSchema = z.object({ count: field, minMm2: field, maxMm2: field });
+/**
+ * Every restored element is re-keyed: the counter restarts on each page load, so a stored key could
+ * collide with one minted later, and a draft stored before keys existed has none.
+ */
+const key = z
+  .string()
+  .optional()
+  .transform(() => newDraftKey());
+
+const railDraftSchema = z.object({ key, xMm: field, yMm: field, lengthMm: field });
+const entryDraftSchema = z.object({ key, side: z.enum(ENTRY_SIDES), offsetMm: field, lengthMm: field });
+const terminalGroupDraftSchema = z.object({ key, count: field, minMm2: field, maxMm2: field });
 const barDraftSchema = z.object({
+  key,
   kind: z.enum(BAR_KINDS),
   orientation: z.enum(BAR_ORIENTATIONS),
   xMm: field,
@@ -159,16 +180,19 @@ export function draftFromGeometry(input: unknown): GeometryDraft {
       depthMm: numberField(interior, "depthMm"),
     },
     rails: records(doc.rails).map((rail) => ({
+      key: newDraftKey(),
       xMm: numberField(rail, "xMm"),
       yMm: numberField(rail, "yMm"),
       lengthMm: numberField(rail, "lengthMm"),
     })),
     entries: records(doc.entries).map((entry) => ({
+      key: newDraftKey(),
       side: oneOf(ENTRY_SIDES, entry.side, "top"),
       offsetMm: numberField(entry, "offsetMm"),
       lengthMm: numberField(entry, "lengthMm"),
     })),
     bars: records(doc.bars).map((bar) => ({
+      key: newDraftKey(),
       kind: oneOf(BAR_KINDS, bar.kind, "PE"),
       orientation: oneOf(BAR_ORIENTATIONS, bar.orientation, "horizontal"),
       xMm: numberField(bar, "xMm"),
@@ -177,6 +201,7 @@ export function draftFromGeometry(input: unknown): GeometryDraft {
       heightMm: numberField(bar, "heightMm"),
       zMm: numberField(bar, "zMm"),
       terminalGroups: records(bar.terminalGroups).map((group) => ({
+        key: newDraftKey(),
         count: numberField(group, "count"),
         minMm2: numberField(group, "minMm2"),
         maxMm2: numberField(group, "maxMm2"),
@@ -201,6 +226,7 @@ export function draftFromRow(row?: CabinetRow): CabinetDraft {
 export function newRailDraft(geometry: GeometryDraft): RailDraft {
   const lowest = Math.max(...geometry.rails.map((rail) => numberFromField(rail.yMm)).filter(Number.isFinite), -1);
   return {
+    key: newDraftKey(),
     xMm: "0",
     yMm: String(lowest < 0 ? 0 : lowest + RAIL_PITCH_MM),
     lengthMm: geometry.interior.widthMm,
@@ -208,15 +234,16 @@ export function newRailDraft(geometry: GeometryDraft): RailDraft {
 }
 
 export function newEntryDraft(geometry: GeometryDraft): EntryDraft {
-  return { side: "bottom", offsetMm: "0", lengthMm: geometry.interior.widthMm };
+  return { key: newDraftKey(), side: "bottom", offsetMm: "0", lengthMm: geometry.interior.widthMm };
 }
 
 export function newTerminalGroupDraft(): TerminalGroupDraft {
-  return { count: "8", minMm2: "1,5", maxMm2: "16" };
+  return { key: newDraftKey(), count: "8", minMm2: "1,5", maxMm2: "16" };
 }
 
 export function newBarDraft(): BarDraft {
   return {
+    key: newDraftKey(),
     kind: "PE",
     orientation: "horizontal",
     xMm: "0",

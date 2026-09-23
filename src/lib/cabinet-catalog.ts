@@ -22,6 +22,16 @@ export function cabinetApiPath(id: string): string {
   return `${CABINETS_API_PATH}/${id}`;
 }
 
+/** Where the list's archive button posts. */
+export function cabinetArchivePath(id: string): string {
+  return `${cabinetApiPath(id)}/archive`;
+}
+
+/** Where the list's restore button posts. */
+export function cabinetRestorePath(id: string): string {
+  return `${cabinetApiPath(id)}/restore`;
+}
+
 /**
  * The create (`id` null) or edit form with an `?error=<code>`: the editor restores the admin's
  * draft from `sessionStorage` only when this parameter is present.

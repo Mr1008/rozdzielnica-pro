@@ -3,6 +3,7 @@ import {
   SEEDED_ADMIN,
   createElectrician,
   createServiceClient,
+  createUserClient,
   decodeClaims,
   readStackEnv,
   signIn,
@@ -108,6 +109,12 @@ describe("row level security on public.profiles", () => {
     expect(adminClaims.user_role).toBe("admin");
     expect(electricianClaims.role).toBe("authenticated");
     expect(adminClaims.role).toBe("authenticated");
+  });
+
+  it("refuses anon a select with 42501", async () => {
+    const { error } = await createUserClient(env).from("profiles").select("id");
+
+    expect(error?.code).toBe("42501");
   });
 
   it("cascades a profile away when its auth.users row is deleted", async () => {

@@ -35,7 +35,7 @@ jobs:
           cache: npm
       - uses: supabase/setup-cli@v3
         with:
-          version: latest
+          version: 2.117.0 # keep in step with the `supabase` version in package-lock.json
       - run: npm ci
       - name: Start local Supabase
         run: |

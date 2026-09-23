@@ -35,8 +35,12 @@ describe("cabinetErrorFromPostgrest", () => {
     expect(cabinetErrorFromPostgrest({ code: "42501" })).toBe(CABINET_ERROR.forbidden);
   });
 
-  it("maps anything else to unknown", () => {
-    expect(cabinetErrorFromPostgrest({ code: "22P02" })).toBe(CABINET_ERROR.unknown);
+  it("passes an unmapped code through so the URL stays diagnosable", () => {
+    expect(cabinetErrorFromPostgrest({ code: "23514" })).toBe("23514");
+    expect(cabinetErrorFromPostgrest({ code: "PGRST204" })).toBe("PGRST204");
+  });
+
+  it("falls back to unknown when there is no code", () => {
     expect(cabinetErrorFromPostgrest({ code: null })).toBe(CABINET_ERROR.unknown);
     expect(cabinetErrorFromPostgrest({})).toBe(CABINET_ERROR.unknown);
   });
