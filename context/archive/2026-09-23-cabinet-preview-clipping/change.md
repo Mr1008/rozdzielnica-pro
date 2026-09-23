@@ -1,9 +1,10 @@
 ---
 change_id: cabinet-preview-clipping
 title: Podgląd szafki nie rysuje elementów poza wnętrzem
-status: implemented
+status: archived
 created: 2026-09-23
 updated: 2026-09-23
+archived_at: 2026-09-23T13:31:15Z
 ---
 
 ## Notes
