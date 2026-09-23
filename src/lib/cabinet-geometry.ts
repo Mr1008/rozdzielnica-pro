@@ -63,11 +63,18 @@ const entrySchema = z.object({
   lengthMm: sizeMm,
 });
 
-const terminalGroupSchema = z.object({
+/**
+ * One group of identical terminals on a PE/N bar. Shared with the device catalog, whose PE and N
+ * bars carry the same shape. It does not check `minMm2 ≤ maxMm2` — callers do (see
+ * `findGeometryIssues` here, `parseDeviceSpec` for devices).
+ */
+export const terminalGroupSchema = z.object({
   count: z.number().int().positive(),
   minMm2: z.number().positive(),
   maxMm2: z.number().positive(),
 });
+
+export type TerminalGroup = z.infer<typeof terminalGroupSchema>;
 
 const barSchema = z.object({
   kind: z.enum(BAR_KINDS),

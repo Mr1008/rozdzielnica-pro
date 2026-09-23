@@ -3,9 +3,10 @@ import Banner from "@/components/Banner.astro";
 import Topbar from "@/components/Topbar.astro";
 import CabinetEditor from "@/components/cabinets/CabinetEditor";
 import Layout from "@/layouts/Layout.astro";
-import { CABINETS_PATH, cabinetApiPath, isUuid } from "@/lib/cabinet-catalog";
+import { CABINETS_PATH, cabinetApiPath } from "@/lib/cabinet-catalog";
 import { cabinetErrorMessage } from "@/lib/cabinet-errors";
 import type { CabinetRow } from "@/lib/cabinet-form";
+import { isUuid } from "@/lib/catalog";
 import { t } from "@/lib/i18n";
 import { createClient } from "@/lib/supabase";
 

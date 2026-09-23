@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { formatPriceInput, type CabinetRow } from "@/lib/cabinet-form";
+import type { CabinetRow } from "@/lib/cabinet-form";
+import { formatPriceInput } from "@/lib/price-input";
 import { BAR_KINDS, BAR_ORIENTATIONS, ENTRY_SIDES, type CabinetGeometry } from "@/lib/cabinet-geometry";
 
 /**
