@@ -220,18 +220,18 @@ Foundations poniżej zakładają, że to istnieje, i **nie** budują tego od now
 
 ## Backlog Handoff
 
-| Roadmap ID | Change ID                           | Suggested issue title                                      | Ready for `/10x-plan` | Notes                                                                                            |
-| ---------- | ----------------------------------- | ---------------------------------------------------------- | --------------------- | ------------------------------------------------------------------------------------------------ |
-| F-01       | `roles-and-rls-baseline`            | Role admin/elektryk + izolacja danych przez RLS            | done                  | Zarchiwizowane → `context/archive/2026-09-21-roles-and-rls-baseline/`                            |
-| S-01       | `admin-device-catalog`              | Katalog aparatów prowadzony przez admina                   | yes                   | Uruchom `/10x-plan admin-device-catalog`                                                         |
-| S-02       | `admin-cabinet-catalog`             | Katalog szafek rozdzielnic prowadzony przez admina         | in-progress           | W realizacji — `/10x-implement admin-cabinet-catalog`; startowe szafki muszą się istotnie różnić |
-| S-03       | `project-setup-and-supply-params`   | Nowy projekt: wybór szafki + parametry OSD/WLZ             | no                    | Czeka na S-02                                                                                    |
-| S-04       | `circuit-input-and-device-matching` | Obwody, grupy RCD i dobór aparatów z guardrailem           | no                    | Czeka na S-01, S-03                                                                              |
-| S-05       | `cabinet-layout-proposal`           | Heurystyczna propozycja układu aparatów w szafce           | no                    | `blocked` — wymaga rozstrzygnięcia Otwartego pytania #2                                          |
-| S-06       | `manual-layout-editing`             | Ręczna korekta zaproponowanego układu                      | no                    | Czeka na S-05                                                                                    |
-| S-07       | `electrician-pricing-profile`       | Parametry wyceny w profilu elektryka                       | yes                   | Uruchom `/10x-plan electrician-pricing-profile`; może iść równolegle do toru projektowego        |
-| S-08       | `quote-cost-estimate`               | Koszt materiału i robocizny z możliwością nadpisania czasu | no                    | Czeka na S-04, S-07                                                                              |
-| S-09       | `printable-quote-export`            | Wydruk wyceny z wizualizacją układu szafki                 | no                    | Czeka na S-06, S-08                                                                              |
+| Roadmap ID | Change ID                           | Suggested issue title                                      | Ready for `/10x-plan` | Notes                                                                                     |
+| ---------- | ----------------------------------- | ---------------------------------------------------------- | --------------------- | ----------------------------------------------------------------------------------------- |
+| F-01       | `roles-and-rls-baseline`            | Role admin/elektryk + izolacja danych przez RLS            | done                  | Zarchiwizowane → `context/archive/2026-09-21-roles-and-rls-baseline/`                     |
+| S-01       | `admin-device-catalog`              | Katalog aparatów prowadzony przez admina                   | yes                   | Uruchom `/10x-plan admin-device-catalog`                                                  |
+| S-02       | `admin-cabinet-catalog`             | Katalog szafek rozdzielnic prowadzony przez admina         | done                  | Zarchiwizowane → `context/archive/2026-09-23-admin-cabinet-catalog/`                      |
+| S-03       | `project-setup-and-supply-params`   | Nowy projekt: wybór szafki + parametry OSD/WLZ             | no                    | Czeka na S-02                                                                             |
+| S-04       | `circuit-input-and-device-matching` | Obwody, grupy RCD i dobór aparatów z guardrailem           | no                    | Czeka na S-01, S-03                                                                       |
+| S-05       | `cabinet-layout-proposal`           | Heurystyczna propozycja układu aparatów w szafce           | no                    | `blocked` — wymaga rozstrzygnięcia Otwartego pytania #2                                   |
+| S-06       | `manual-layout-editing`             | Ręczna korekta zaproponowanego układu                      | no                    | Czeka na S-05                                                                             |
+| S-07       | `electrician-pricing-profile`       | Parametry wyceny w profilu elektryka                       | yes                   | Uruchom `/10x-plan electrician-pricing-profile`; może iść równolegle do toru projektowego |
+| S-08       | `quote-cost-estimate`               | Koszt materiału i robocizny z możliwością nadpisania czasu | no                    | Czeka na S-04, S-07                                                                       |
+| S-09       | `printable-quote-export`            | Wydruk wyceny z wizualizacją układu szafki                 | no                    | Czeka na S-06, S-08                                                                       |
 
 ## Open Roadmap Questions
 
