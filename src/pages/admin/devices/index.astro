@@ -1,0 +1,190 @@
+---
+import Banner from "@/components/Banner.astro";
+import Topbar from "@/components/Topbar.astro";
+import Layout from "@/layouts/Layout.astro";
+import { sortForCatalogList } from "@/lib/catalog";
+import { NEW_DEVICE_PATH, deviceArchivePath, deviceEditPath, deviceRestorePath } from "@/lib/device-catalog";
+import { deviceErrorMessage } from "@/lib/device-errors";
+import { DEVICE_KINDS, deviceKindLabel, parseDeviceSpec } from "@/lib/device-spec";
+import { deviceParameterSummary, deviceWidthLabel } from "@/lib/device-summary";
+import { formatMoney, t } from "@/lib/i18n";
+import { ROLE_HOME } from "@/lib/route-access";
+import { createClient } from "@/lib/supabase";
+
+// No role check here on purpose: `/admin/*` is gated in `src/lib/route-access.ts`, and RLS lets an
+// admin read every device, archived ones included.
+const actionError = deviceErrorMessage(Astro.url.searchParams.get("error"));
+
+async function loadDevices() {
+  const supabase = createClient(Astro.request.headers, Astro.cookies);
+  // `createClient()` is null when the Supabase env vars are unset; the middleware would already have
+  // sent an anonymous visitor to sign in, but the branch must still render something sane.
+  if (!supabase) return { rows: [], loadError: t.deviceErrors.notConfigured };
+
+  const { data, error } = await supabase
+    .from("devices")
+    .select(
+      "id, kind, name, manufacturer, model, price_grosze, width_mm, height_mm, depth_mm, poles, rated_current_a, residual_current_ma, rcd_type, breaking_capacity_ka, terminal_groups, archived_at",
+    );
+  if (error) {
+    // The SQLSTATE only, never Supabase's message — `wrangler tail` is the only trace a failure leaves.
+    // eslint-disable-next-line no-console
+    console.error("devices list load failed", error.code);
+    Astro.response.status = 500;
+    return { rows: [], loadError: t.devices.catalog.loadFailed };
+  }
+  return { rows: data, loadError: null };
+}
+
+const { rows, loadError } = await loadDevices();
+
+// One section per kind, in the fixed `DEVICE_KINDS` order, so an empty kind — a catalog gap — stays
+// visible. A stored row that no longer parses is listed with a warning instead of a summary, so the
+// admin can still open, fix or archive it.
+const sections = DEVICE_KINDS.map((kind) => ({
+  kind,
+  isBar: kind === "pe_bar" || kind === "n_bar",
+  devices: sortForCatalogList(rows.filter((row) => row.kind === kind)).map((row) => {
+    const parsed = parseDeviceSpec(row);
+    return { ...row, summary: parsed.ok ? deviceParameterSummary(parsed.spec) : null };
+  }),
+}));
+
+const buttonClass =
+  "rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-sm text-white transition-colors hover:bg-white/20";
+const headerCellClass = "px-3 py-2 text-left text-xs font-medium tracking-wide text-blue-100/50 uppercase";
+const cellClass = "px-3 py-2 align-top";
+---
+
+<Layout title={t.devices.catalog.title}>
+  {actionError && <Banner variant="error">{actionError}</Banner>}
+  {loadError && <Banner variant="error">{loadError}</Banner>}
+  <div class="bg-cosmic min-h-screen p-4 text-white sm:p-8">
+    <div class="mx-auto max-w-6xl">
+      <Topbar />
+
+      <div class="mb-6 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <a
+            href={ROLE_HOME.admin}
+            class="text-sm text-purple-300 transition-colors hover:text-purple-100 hover:underline"
+          >
+            {t.devices.catalog.backToAdmin}
+          </a>
+          <h1 class="mt-2 bg-gradient-to-r from-blue-200 to-purple-200 bg-clip-text text-3xl font-bold text-transparent">
+            {t.devices.catalog.title}
+          </h1>
+          <p class="mt-1 text-blue-100/70">{t.devices.catalog.description}</p>
+        </div>
+        <a
+          href={NEW_DEVICE_PATH}
+          class="rounded-lg bg-purple-500/80 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-purple-500"
+        >
+          {t.devices.catalog.newDevice}
+        </a>
+      </div>
+
+      {!loadError && rows.length === 0 && (
+        <p class="mb-6 rounded-2xl border border-white/10 bg-white/10 p-8 text-center text-blue-100/70">
+          {t.devices.catalog.empty}
+        </p>
+      )}
+
+      {!loadError && (
+        <div class="flex flex-col gap-6">
+          {sections.map((section) => (
+            <section
+              aria-labelledby={`kind-${section.kind}`}
+              class="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur-xl"
+            >
+              <h2 id={`kind-${section.kind}`} class="mb-3 text-lg font-semibold">
+                {deviceKindLabel(section.kind)}
+              </h2>
+
+              {section.devices.length === 0 ? (
+                <p class="text-sm text-blue-100/60">{t.devices.catalog.emptyKind}</p>
+              ) : (
+                <div class="overflow-x-auto">
+                  <table class="w-full border-collapse text-sm">
+                    <thead>
+                      <tr class="border-b border-white/10">
+                        <th scope="col" class:list={headerCellClass}>
+                          {t.devices.fields.name}
+                        </th>
+                        <th scope="col" class:list={headerCellClass}>
+                          {t.devices.fields.manufacturer}
+                        </th>
+                        <th scope="col" class:list={headerCellClass}>
+                          {t.devices.fields.model}
+                        </th>
+                        <th scope="col" class:list={headerCellClass}>
+                          {section.isBar ? t.devices.fields.terminalGroups : t.devices.catalog.parameters}
+                        </th>
+                        <th scope="col" class:list={headerCellClass}>
+                          {t.devices.fields.width}
+                        </th>
+                        <th scope="col" class:list={[headerCellClass, "text-right"]}>
+                          {t.devices.fields.price}
+                        </th>
+                        <th scope="col" class:list={headerCellClass}>
+                          <span class="sr-only">{t.devices.catalog.actions}</span>
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {section.devices.map((device) => {
+                        const archived = device.archived_at !== null;
+                        return (
+                          <tr class:list={["border-b border-white/5 last:border-b-0", archived && "opacity-70"]}>
+                            <td class:list={cellClass}>
+                              <div class="flex flex-wrap items-center gap-2">
+                                <span class="font-medium">{device.name}</span>
+                                {archived && (
+                                  <span class="rounded-full border border-amber-300/40 bg-amber-400/20 px-2 py-0.5 text-xs text-amber-100">
+                                    {t.devices.catalog.archivedBadge}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td class:list={[cellClass, "text-blue-100/80"]}>{device.manufacturer}</td>
+                            <td class:list={[cellClass, "text-blue-100/80"]}>{device.model}</td>
+                            <td class:list={[cellClass, "text-blue-100/80"]}>
+                              {device.summary ?? (
+                                <span class="text-red-200">{t.devices.catalog.invalidStoredSpec}</span>
+                              )}
+                            </td>
+                            <td class:list={[cellClass, "whitespace-nowrap text-blue-100/80"]}>
+                              {deviceWidthLabel(device.width_mm)}
+                            </td>
+                            <td class:list={[cellClass, "text-right whitespace-nowrap"]}>
+                              {formatMoney(device.price_grosze / 100)}
+                            </td>
+                            <td class:list={cellClass}>
+                              <div class="flex justify-end gap-2">
+                                <a href={deviceEditPath(device.id)} class:list={buttonClass}>
+                                  {t.devices.catalog.edit}
+                                </a>
+                                <form
+                                  method="POST"
+                                  action={archived ? deviceRestorePath(device.id) : deviceArchivePath(device.id)}
+                                >
+                                  <button type="submit" class:list={buttonClass}>
+                                    {archived ? t.devices.catalog.restore : t.devices.catalog.archive}
+                                  </button>
+                                </form>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+          ))}
+        </div>
+      )}
+    </div>
+  </div>
+</Layout>
