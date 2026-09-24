@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { mmFromModules } from "@/lib/din-module";
 import { t } from "@/lib/i18n";
 import {
   DEVICE_FIELDS,
@@ -121,9 +122,13 @@ describe("parseDeviceSpec — valid devices", () => {
     expect(result).toEqual({ ok: true, spec: VALID.rcd });
   });
 
-  it("accepts one decimal place, including values with binary noise", () => {
+  it("accepts one decimal place, and every width the module converter produces", () => {
     expect(parseDeviceSpec({ ...VALID.mcb_b, depth_mm: 35.3, breaking_capacity_ka: 4.5 }).ok).toBe(true);
-    expect(parseDeviceSpec({ ...VALID.mcb_b, width_mm: 0.1 * 3 }).ok).toBe(true);
+    // The only arithmetic on the way in is modules × 17.5; half-module steps are multiples of 8.75,
+    // which are exact in binary, so the exact decimal check never trips on them.
+    for (const modules of [0.5, 1, 1.5, 2.5, 3, 12, 24.5]) {
+      expect(parseDeviceSpec({ ...VALID.mcb_b, width_mm: mmFromModules(modules) }).ok).toBe(true);
+    }
   });
 });
 
@@ -141,6 +146,7 @@ describe("parseDeviceSpec — one failure per issue code", () => {
     ["price_invalid", { ...VALID.mcb_b, price_grosze: 0 }, { field: "price_grosze", code: "price_invalid" }],
     ["not_positive", { ...VALID.mcb_b, width_mm: 0 }, { field: "width_mm", code: "not_positive" }],
     ["not_integer", { ...VALID.rcd, residual_current_ma: 30.5 }, { field: "residual_current_ma", code: "not_integer" }],
+    ["too_large", { ...VALID.mcb_b, width_mm: 10000 }, { field: "width_mm", code: "too_large" }],
     ["too_many_decimals", { ...VALID.mcb_b, width_mm: 17.555 }, { field: "width_mm", code: "too_many_decimals" }],
     ["pole_not_allowed", { ...VALID.mcb_b, poles: "5P" }, { field: "poles", code: "pole_not_allowed" }],
     ["invalid_rcd_type", { ...VALID.rcd, rcd_type: "S" }, { field: "rcd_type", code: "invalid_rcd_type" }],
@@ -196,6 +202,38 @@ describe("parseDeviceSpec — per-kind rules", () => {
     expect(issuesOf({ ...VALID.mcb_b, width_mm: 43.75 })).toEqual([]);
     expect(issuesOf({ ...VALID.mcb_b, width_mm: 26.255 })).toEqual([{ field: "width_mm", code: "too_many_decimals" }]);
     expect(issuesOf({ ...VALID.mcb_b, height_mm: 85.25 })).toEqual([{ field: "height_mm", code: "too_many_decimals" }]);
+  });
+
+  it("rejects a long fraction instead of letting the column round it", () => {
+    expect(issuesOf({ ...VALID.mcb_b, width_mm: 17.50000001 })).toEqual([
+      { field: "width_mm", code: "too_many_decimals" },
+    ]);
+    expect(issuesOf({ ...VALID.mcb_b, height_mm: 1234.5000001 })).toEqual([
+      { field: "height_mm", code: "too_many_decimals" },
+    ]);
+    expect(issuesOf({ ...VALID.mcb_b, width_mm: 35.3, height_mm: 85.1, breaking_capacity_ka: 4.5 })).toEqual([]);
+  });
+
+  it("refuses a value above its column's limit and accepts the limit itself", () => {
+    expect(issuesOf({ ...VALID.mcb_b, width_mm: 9999.99 })).toEqual([]);
+    expect(issuesOf({ ...VALID.mcb_b, height_mm: 99999.9 })).toEqual([]);
+    expect(issuesOf({ ...VALID.mcb_b, breaking_capacity_ka: 999.9 })).toEqual([]);
+    expect(issuesOf({ ...VALID.mcb_b, rated_current_a: 2_147_483_647 })).toEqual([]);
+    expect(issuesOf({ ...VALID.mcb_b, height_mm: 100000 })).toEqual([{ field: "height_mm", code: "too_large" }]);
+    expect(issuesOf({ ...VALID.mcb_b, breaking_capacity_ka: 1000 })).toEqual([
+      { field: "breaking_capacity_ka", code: "too_large" },
+    ]);
+    expect(issuesOf({ ...VALID.mcb_b, rated_current_a: 2_147_483_648 })).toEqual([
+      { field: "rated_current_a", code: "too_large" },
+    ]);
+    expect(issuesOf({ ...VALID.rcd, residual_current_ma: 2_147_483_648 })).toEqual([
+      { field: "residual_current_ma", code: "too_large" },
+    ]);
+  });
+
+  it("names the limit in the too-large message", () => {
+    expect(deviceIssueMessage({ field: "width_mm", code: "too_large" })).toContain("maks. 9999,99");
+    expect(deviceIssueMessage({ field: "breaking_capacity_ka", code: "too_large" })).toContain("maks. 999,9");
   });
 
   it("names the allowed decimal places in the message", () => {

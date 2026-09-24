@@ -234,6 +234,31 @@ describe("row level security on public.devices", () => {
       expect(Date.parse(after.data?.updated_at ?? "")).toBeGreaterThan(Date.parse(before.data?.updated_at ?? ""));
     });
 
+    it("is refused a kind change with 23514, even between kinds that share parameters", async () => {
+      const { data: bar, error: insertError } = await service
+        .from("devices")
+        .insert(testDevice("pe_bar"))
+        .select("id")
+        .single();
+      expect(insertError).toBeNull();
+      if (bar) createdDeviceIds.push(bar.id);
+
+      // PE and N bars carry the same parameter set, so only the trigger — not the per-kind CHECK —
+      // can refuse this one.
+      const { error } = await adminClient
+        .from("devices")
+        .update({ kind: "n_bar" })
+        .eq("id", bar?.id ?? "");
+      expect(error?.code).toBe("23514");
+
+      const after = await service
+        .from("devices")
+        .select("kind")
+        .eq("id", bar?.id ?? "")
+        .single();
+      expect(after.data?.kind).toBe("pe_bar");
+    });
+
     it("stores a half-module width exactly", async () => {
       const id = await seedDevice({ width_mm: 26.25 });
 

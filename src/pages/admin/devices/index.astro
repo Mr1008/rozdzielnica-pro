@@ -90,7 +90,9 @@ const cellClass = "px-3 py-2 align-top";
         </p>
       )}
 
-      {!loadError && (
+      {/* An empty catalog says so once; the per-kind sections only appear once there is something to
+          group, and then an empty kind is a visible catalog gap. */}
+      {!loadError && rows.length > 0 && (
         <div class="flex flex-col gap-6">
           {sections.map((section) => (
             <section

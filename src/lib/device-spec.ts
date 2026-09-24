@@ -92,6 +92,7 @@ export const DEVICE_ISSUE_CODES = [
   "price_invalid",
   "not_positive",
   "not_integer",
+  "too_large",
   "too_many_decimals",
   "pole_not_allowed",
   "invalid_rcd_type",
@@ -111,23 +112,45 @@ export interface DeviceIssue {
 export const WIDTH_DECIMAL_PLACES = 2;
 export const DECIMAL_PLACES = 1;
 
-/** At most `places` decimal places, tolerating binary noise such as `35.3 * 10 = 353.00000000000006`. */
+/**
+ * The largest value each numeric column holds — `numeric(6,2)` width, `numeric(6,1)` height and
+ * depth, `numeric(4,1)` breaking capacity, `integer` currents. Checked here so an oversized value
+ * is refused on its field instead of reaching PostgREST as a bare 22003.
+ */
+export const MAX_WIDTH_MM = 9999.99;
+export const MAX_DIMENSION_MM = 99999.9;
+export const MAX_BREAKING_CAPACITY_KA = 999.9;
+export const MAX_INTEGER = 2_147_483_647;
+
+/**
+ * At most `places` decimal places, exactly: the value must survive rounding to `places` unchanged.
+ * A parsed "35,3" is the double nearest 35.3, and `toFixed` round-trips to that same double, so no
+ * tolerance is needed — and none is allowed, because a tolerance lets `17.50000001` through for
+ * the `numeric` column to round silently. Callers check the upper bound first, so `toFixed` never
+ * sees a value large enough to switch to exponent notation.
+ */
 function hasAtMostDecimals(value: number, places: number): boolean {
-  const scaled = value * 10 ** places;
-  return Math.abs(scaled - Math.round(scaled)) <= 1e-9 * Math.max(1, Math.abs(scaled));
+  return Number(value.toFixed(places)) === value;
 }
 
 const textSchema = z.string().trim().min(1);
 const priceSchema = z.number().int().positive().max(MAX_PRICE_GROSZE);
-const oneDecimalSchema = z
+const dimensionSchema = z
   .number()
   .positive()
+  .max(MAX_DIMENSION_MM)
+  .refine((n) => hasAtMostDecimals(n, DECIMAL_PLACES));
+const breakingCapacitySchema = z
+  .number()
+  .positive()
+  .max(MAX_BREAKING_CAPACITY_KA)
   .refine((n) => hasAtMostDecimals(n, DECIMAL_PLACES));
 const widthSchema = z
   .number()
   .positive()
+  .max(MAX_WIDTH_MM)
   .refine((n) => hasAtMostDecimals(n, WIDTH_DECIMAL_PLACES));
-const currentSchema = z.number().int().positive();
+const currentSchema = z.number().int().positive().max(MAX_INTEGER);
 const rcdTypeSchema = z.enum(RCD_TYPES);
 const terminalGroupsSchema = z.array(terminalGroupSchema.refine((group) => group.minMm2 <= group.maxMm2)).min(1);
 
@@ -137,8 +160,8 @@ const common = {
   model: textSchema,
   price_grosze: priceSchema,
   width_mm: widthSchema,
-  height_mm: oneDecimalSchema,
-  depth_mm: oneDecimalSchema,
+  height_mm: dimensionSchema,
+  depth_mm: dimensionSchema,
 };
 
 /** A bar carries no poles, currents or protection parameters. */
@@ -179,7 +202,7 @@ export const deviceSpecSchema = z.discriminatedUnion("kind", [
     rated_current_a: currentSchema,
     residual_current_ma: currentSchema,
     rcd_type: rcdTypeSchema,
-    breaking_capacity_ka: oneDecimalSchema,
+    breaking_capacity_ka: breakingCapacitySchema,
     terminal_groups: z.null(),
   }),
   z.object({
@@ -189,7 +212,7 @@ export const deviceSpecSchema = z.discriminatedUnion("kind", [
     rated_current_a: currentSchema,
     residual_current_ma: z.null(),
     rcd_type: z.null(),
-    breaking_capacity_ka: oneDecimalSchema,
+    breaking_capacity_ka: breakingCapacitySchema,
     terminal_groups: z.null(),
   }),
   z.object({ kind: z.literal("pe_bar"), ...common, ...noProtection, terminal_groups: terminalGroupsSchema }),
@@ -215,21 +238,24 @@ const checkText: Check = (value) => {
 
 const checkPrice: Check = (value) => (priceSchema.safeParse(value).success ? null : "price_invalid");
 
-function checkNumber(value: unknown, rule: (n: number) => DeviceIssueCode | null): DeviceIssueCode | null {
+function checkNumber(value: unknown, max: number, rule: (n: number) => DeviceIssueCode | null): DeviceIssueCode | null {
   if (isAbsent(value)) return "required";
   if (typeof value !== "number" || !Number.isFinite(value)) return "malformed";
   if (value <= 0) return "not_positive";
+  if (value > max) return "too_large";
   return rule(value);
 }
 
-function checkDecimals(places: number): Check {
-  return (value) => checkNumber(value, (n) => (hasAtMostDecimals(n, places) ? null : "too_many_decimals"));
+function checkDecimals(places: number, max: number): Check {
+  return (value) => checkNumber(value, max, (n) => (hasAtMostDecimals(n, places) ? null : "too_many_decimals"));
 }
 
-const checkOneDecimal = checkDecimals(DECIMAL_PLACES);
-const checkWidth = checkDecimals(WIDTH_DECIMAL_PLACES);
+const checkDimension = checkDecimals(DECIMAL_PLACES, MAX_DIMENSION_MM);
+const checkBreakingCapacity = checkDecimals(DECIMAL_PLACES, MAX_BREAKING_CAPACITY_KA);
+const checkWidth = checkDecimals(WIDTH_DECIMAL_PLACES, MAX_WIDTH_MM);
 
-const checkCurrent: Check = (value) => checkNumber(value, (n) => (Number.isInteger(n) ? null : "not_integer"));
+const checkCurrent: Check = (value) =>
+  checkNumber(value, MAX_INTEGER, (n) => (Number.isInteger(n) ? null : "not_integer"));
 
 const checkRcdType: Check = (value) => {
   if (isAbsent(value)) return "required";
@@ -276,7 +302,7 @@ function parameterChecks(kind: DeviceKind): Record<DeviceParameter, (value: unkn
     rated_current_a: one(checkCurrent),
     residual_current_ma: one(checkCurrent),
     rcd_type: one(checkRcdType),
-    breaking_capacity_ka: one(checkOneDecimal),
+    breaking_capacity_ka: one(checkBreakingCapacity),
     terminal_groups: checkTerminalGroups,
   };
 }
@@ -287,8 +313,8 @@ const COMMON_CHECKS: [DeviceField, Check][] = [
   ["model", checkText],
   ["price_grosze", checkPrice],
   ["width_mm", checkWidth],
-  ["height_mm", checkOneDecimal],
-  ["depth_mm", checkOneDecimal],
+  ["height_mm", checkDimension],
+  ["depth_mm", checkDimension],
 ];
 
 /**
@@ -364,6 +390,14 @@ const FIELD_LABEL_KEYS: Record<DeviceField, keyof typeof t.devices.fields> = {
   terminal_groups: "terminalGroups",
 };
 
+/** The ceiling a `too_large` issue on this field refers to. */
+function maxFor(field: DeviceField): number {
+  if (field === "width_mm") return MAX_WIDTH_MM;
+  if (field === "height_mm" || field === "depth_mm") return MAX_DIMENSION_MM;
+  if (field === "breaking_capacity_ka") return MAX_BREAKING_CAPACITY_KA;
+  return MAX_INTEGER;
+}
+
 /** Polish text for one issue. The `Record` keeps it exhaustive over `DeviceIssueCode`. */
 export function deviceIssueMessage(issue: DeviceIssue): string {
   const subject = t.devices.fields[FIELD_LABEL_KEYS[issue.field]];
@@ -375,6 +409,7 @@ export function deviceIssueMessage(issue: DeviceIssue): string {
     price_invalid: () => m.priceInvalid,
     not_positive: () => m.notPositive(subject),
     not_integer: () => m.notInteger(subject),
+    too_large: () => m.tooLarge(subject, maxFor(issue.field)),
     too_many_decimals: () =>
       m.tooManyDecimals(subject, issue.field === "width_mm" ? WIDTH_DECIMAL_PLACES : DECIMAL_PLACES),
     pole_not_allowed: () => m.poleNotAllowed,

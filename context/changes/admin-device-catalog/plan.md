@@ -524,6 +524,26 @@ production catalog starts empty; the admin enters devices through the UI.
 - Pattern — editor island: `src/components/cabinets/CabinetEditor.tsx`
 - Pattern — RLS harness: `tests/integration/support.ts`, `tests/integration/rls-cabinets.test.ts`
 
+## Addendum (2026-09-24)
+
+Decisions made after this plan was written. They take precedence over the phase text above, which
+is kept as executed.
+
+- **Width precision:** `width_mm` is `numeric(6,2)` so half DIN modules are exact (1,5 TE =
+  26,25 mm). `height_mm` / `depth_mm` stay `numeric(6,1)`. Decided in Phase 1 (see `change.md`).
+  The "0.1 precision" in the parameter matrix note and in the S-05 contract above means height and
+  depth only.
+- **Manual check 4.7:** the pole select offers only the kind's own configurations, so "choosing a
+  pole configuration not offered for the kind" cannot happen in the UI. A tampered or restored
+  value is refused by `parseDeviceSpec` (`pole_not_allowed`, unit-tested) and by the per-kind CHECK.
+- **Implementation review** (`reviews/impl-review.md`):
+  - F1: every numeric field is capped at its column's limit (`too_large`), so an oversized value
+    is refused on its field instead of reaching PostgREST as a bare 22003.
+  - F3: `20260924094718_devices_kind_immutable.sql` adds a trigger that refuses any change of
+    `kind` (23514). The locked kind is now a schema fact, not only an editor rule.
+  - F4: the decimal check is exact rather than tolerance-based, so a long fraction is rejected,
+    never rounded.
+
 ## Progress
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles. See `references/progress-format.md`.
