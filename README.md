@@ -183,6 +183,7 @@ Users can then sign in immediately after sign-up without clicking a confirmation
 | `/auth/signup`        | Email/password sign-up form                                 |
 | `/auth/confirm-email` | Post-signup "check your inbox" page                         |
 | `/dashboard`          | Electrician page — requires the `elektryk` role             |
+| `/dashboard/profile`  | Electrician pricing profile (rate, mount time, overhead)    |
 | `/admin`              | Admin panel — requires the `admin` role                     |
 | `/admin/cabinets`     | Cabinet catalog: list, create, edit, archive — `admin` role |
 | `/admin/devices`      | Device catalog: list, create, edit, archive — `admin` role  |

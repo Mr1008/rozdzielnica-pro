@@ -2,10 +2,11 @@
 
 **RozdzielnicaPro** — a switchboard (rozdzielnica) planning and labour-quoting tool for a solo
 electrician. Scaffolded from `10x-astro-starter`. Product code so far is auth, i18n, the role/RLS
-baseline and the admin cabinet and device catalogs — `src/pages/auth/*`, `src/pages/admin/`
-(including `src/pages/admin/devices/`), `src/pages/api/admin/`, `src/components/cabinets/`,
-`src/components/devices/`, `src/components/forms/`, most of `src/lib/`, and all of `supabase/`. The
-rest is still starter code.
+baseline, the admin cabinet and device catalogs and the electrician pricing profile —
+`src/pages/auth/*`, `src/pages/admin/` (including `src/pages/admin/devices/`), `src/pages/api/admin/`,
+`src/pages/dashboard.astro`, `src/pages/dashboard/profile.astro`, `src/pages/api/profile/`,
+`src/components/cabinets/`, `src/components/devices/`, `src/components/forms/`, most of `src/lib/`,
+and all of `supabase/`. The rest is still starter code.
 
 Product spec: @context/foundation/prd.md · Stack rationale: @context/foundation/tech-stack.md ·
 Setup/deploy: @README.md
@@ -77,6 +78,12 @@ These are correctness requirements, not preferences.
   extra decimal places because `numeric` columns would round them silently. An FR is a plain
   switch-disconnector — a rated current and poles, no protection — so the matcher must never treat
   it as overcurrent or residual-current protection.
+- **Pricing bounds are guarded twice, and the two guards must change together.** The named CHECKs
+  in `supabase/migrations/20260924120000_pricing_profiles.sql` and the `MIN_`/`MAX_` constants in
+  @src/lib/pricing-profile.ts (plus `MAX_PRICE_GROSZE` for the rate) encode the same ranges. The
+  table is `pricing_profiles`, not a column on `profiles`, because `profiles` has admin policies.
+  **No row means "not configured"** — that is the contract S-08 reads: it must block and send the
+  electrician to `/dashboard/profile`, never fall back to invented defaults.
 - **A project must snapshot its cabinet's `geometry`, not reference it live** (S-03). Admin edits to
   a cabinet must never shift an existing project's layout or quote; archiving only hides the cabinet
   from the picker.

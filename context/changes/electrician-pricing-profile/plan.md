@@ -319,31 +319,31 @@ no row, which is the "not configured" state.
 
 #### Automated
 
-- [x] 1.1 Migration applies on a clean stack: `npx supabase db reset`
-- [x] 1.2 Regenerated types are committed and `npx astro check` passes
-- [x] 1.3 Parser unit tests pass: `npm run test:unit`
-- [x] 1.4 RLS assertions pass against the local stack: `npm run test:integration`
-- [x] 1.5 Lint passes: `npm run lint`
+- [x] 1.1 Migration applies on a clean stack: `npx supabase db reset` — 9585cac
+- [x] 1.2 Regenerated types are committed and `npx astro check` passes — 9585cac
+- [x] 1.3 Parser unit tests pass: `npm run test:unit` — 9585cac
+- [x] 1.4 RLS assertions pass against the local stack: `npm run test:integration` — 9585cac
+- [x] 1.5 Lint passes: `npm run lint` — 9585cac
 
 #### Manual
 
-- [x] 1.6 In local Studio, `pricing_profiles` shows RLS enabled with exactly three policies and no admin policy
+- [x] 1.6 In local Studio, `pricing_profiles` shows RLS enabled with exactly three policies and no admin policy — 9585cac
 
 ### Phase 2: Profile page and write path
 
 #### Automated
 
-- [ ] 2.1 Lint passes: `npm run lint`
-- [ ] 2.2 Type check passes: `npx astro check`
-- [ ] 2.3 Unit tests pass, including the new route-gate and error-map cases: `npm run test:unit`
-- [ ] 2.4 Build passes: `npm run build`
-- [ ] 2.5 RLS suite still passes: `npm run test:integration`
-- [ ] 2.6 Smoke script still passes against the dev server: `npm run smoke`
+- [x] 2.1 Lint passes: `npm run lint`
+- [x] 2.2 Type check passes: `npx astro check`
+- [x] 2.3 Unit tests pass, including the new route-gate and error-map cases: `npm run test:unit`
+- [x] 2.4 Build passes: `npm run build`
+- [x] 2.5 RLS suite still passes: `npm run test:integration`
+- [x] 2.6 Smoke script still passes against the dev server: `npm run smoke`
 
 #### Manual
 
-- [ ] 2.7 As a fresh electrician: the dashboard shows the not-configured notice, the form starts empty, saving `120,50` / `15` / `0` shows the confirmation and the notice disappears
-- [ ] 2.8 Reload shows the saved values pre-filled (rate as `120,50`)
-- [ ] 2.9 Browser blocks `0` minutes per device and `7,5` minutes before submit; a tampered POST (e.g. via devtools removing `min`) lands on `?error=invalid_input` with Polish text
-- [ ] 2.10 As the seeded admin, `/dashboard/profile` redirects to `/admin`
-- [ ] 2.11 All visible text is Polish
+- [x] 2.7 As a fresh electrician: the dashboard shows the not-configured notice, the form starts empty, saving `120,50` / `15` / `0` shows the confirmation and the notice disappears
+- [x] 2.8 Reload shows the saved values pre-filled (rate as `120,50`)
+- [x] 2.9 Browser blocks `0` minutes per device and `7,5` minutes before submit; a tampered POST (e.g. via devtools removing `min`) lands on `?error=invalid_input` with Polish text
+- [x] 2.10 As the seeded admin, `/dashboard/profile` redirects to `/admin`
+- [x] 2.11 All visible text is Polish

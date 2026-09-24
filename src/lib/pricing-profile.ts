@@ -17,6 +17,10 @@ export const MAX_MOUNT_MINUTES = 600;
 export const MIN_OVERHEAD_MINUTES = 0;
 export const MAX_OVERHEAD_MINUTES = 6000;
 
+/** The profile page and the endpoint its form posts to. */
+export const PRICING_PROFILE_PATH = "/dashboard/profile";
+export const PRICING_API_PATH = "/api/profile/pricing";
+
 /** The form field names, shared by the page's inputs and the parser. */
 export const PRICING_FIELDS = {
   hourlyRate: "hourly_rate",
