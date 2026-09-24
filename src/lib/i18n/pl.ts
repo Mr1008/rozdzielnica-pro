@@ -323,10 +323,29 @@ export const pl = {
       archive: "Archiwizuj",
       restore: "Przywróć",
       archivedBadge: "Zarchiwizowany",
+      emptyKind: "Brak aparatów tego rodzaju.",
+      parameters: "Parametry",
+      actions: "Akcje",
       /** `modules` is null when the width is not a whole number of half-modules. */
       width: (modules: number | null, mm: number) =>
         modules === null ? `${formatNumber(mm)} mm` : `${formatNumber(modules)} TE (${formatNumber(mm)} mm)`,
       invalidStoredSpec: "Zapisane parametry tego aparatu są nieprawidłowe — popraw je w edycji.",
+    },
+    /**
+     * The one-line parameter summary in the catalog list, e.g. "B16 1P, 6 kA". Assembled by
+     * `deviceParameterSummary` in `src/lib/device-summary.ts`.
+     */
+    summary: {
+      separator: ", ",
+      /** A B-characteristic overcurrent rating (MCB, RCBO): "B16 1P". */
+      characteristicB: (ratedCurrentA: number, poles: string) => `B${String(ratedCurrentA)} ${poles}`,
+      /** A plain current rating (FR, RCD): "40 A 2P". */
+      ratedCurrent: (ratedCurrentA: number, poles: string) => `${String(ratedCurrentA)} A ${poles}`,
+      residualCurrent: (residualCurrentMa: number) => `${String(residualCurrentMa)} mA`,
+      rcdType: (rcdType: string) => `typ ${rcdType}`,
+      breakingCapacity: (breakingCapacityKa: number) => `${formatNumber(breakingCapacityKa)} kA`,
+      terminalGroup: (count: number, minMm2: number, maxMm2: number) =>
+        `${String(count)} × ${formatNumber(minMm2)}–${formatNumber(maxMm2)} mm²`,
     },
     editor: {
       newTitle: "Nowy aparat",
@@ -360,6 +379,19 @@ export const pl = {
    * Keyed by `DeviceIssueCode` (camelCased). See `deviceIssueMessage` in `src/lib/device-spec.ts`
    * for the mapping; `subject` is the label of the field the issue is on.
    */
+  /**
+   * Keyed by the `?error=` code the device endpoints redirect with. See `deviceErrorMessage` in
+   * `src/lib/device-errors.ts` for the mapping.
+   */
+  deviceErrors: {
+    notConfigured: "Katalog aparatów jest chwilowo niedostępny — baza danych nie jest skonfigurowana",
+    forbidden: "Nie masz uprawnień do zmiany katalogu aparatów",
+    notFound: "Nie znaleziono tego aparatu",
+    duplicateModel: "Aparat o tym producencie i modelu już istnieje w katalogu",
+    invalidInput: "Formularz zawiera nieprawidłowe dane",
+    unknown: "Coś poszło nie tak. Spróbuj ponownie",
+  },
+
   deviceIssues: {
     malformed: (subject: string) => `${subject}: dane są niekompletne lub nieprawidłowe`,
     required: (subject: string) => `${subject}: pole jest wymagane`,

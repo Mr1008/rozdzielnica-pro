@@ -1,11 +1,11 @@
 ---
 import Layout from "@/layouts/Layout.astro";
 import { CABINETS_PATH } from "@/lib/cabinet-catalog";
+import { DEVICES_PATH } from "@/lib/device-catalog";
 import { t } from "@/lib/i18n";
 
 // No role check here on purpose: `/admin` is gated in `src/lib/route-access.ts`, which the
-// middleware applies to every request. This is the catalog hub; the device catalog link lands with
-// slice S-01.
+// middleware applies to every request. This is the catalog hub.
 const { user } = Astro.locals;
 ---
 
@@ -27,6 +27,13 @@ const { user } = Astro.locals;
         >
           <span class="font-semibold text-white">{t.admin.cabinetCatalogLink}</span>
           <span class="mt-1 block text-sm text-blue-100/70">{t.admin.cabinetCatalogDescription}</span>
+        </a>
+        <a
+          href={DEVICES_PATH}
+          class="block rounded-xl border border-white/20 bg-white/10 p-4 transition-colors hover:bg-white/20"
+        >
+          <span class="font-semibold text-white">{t.admin.deviceCatalogLink}</span>
+          <span class="mt-1 block text-sm text-blue-100/70">{t.admin.deviceCatalogDescription}</span>
         </a>
       </nav>
 

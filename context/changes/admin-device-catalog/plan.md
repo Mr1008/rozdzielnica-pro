@@ -544,28 +544,28 @@ production catalog starts empty; the admin enters devices through the UI.
 
 #### Automated
 
-- [x] 2.1 Migration and seed apply cleanly on a fresh stack: `npx supabase db reset`
-- [x] 2.2 Generated types are current: `npm run db:types` produces no diff
-- [x] 2.3 RLS and CHECK integration tests pass: `npm run test:integration`
-- [x] 2.4 Unit tests, lint, type check and build pass: `npm run lint && npx astro check && npm run test:unit && npm run build`
+- [x] 2.1 Migration and seed apply cleanly on a fresh stack: `npx supabase db reset` — 743dd7d
+- [x] 2.2 Generated types are current: `npm run db:types` produces no diff — 743dd7d
+- [x] 2.3 RLS and CHECK integration tests pass: `npm run test:integration` — 743dd7d
+- [x] 2.4 Unit tests, lint, type check and build pass: `npm run lint && npx astro check && npm run test:unit && npm run build` — 743dd7d
 
 #### Manual
 
-- [x] 2.5 In local Studio, `public.devices` shows the seeded rows with RLS enabled and no delete policy
+- [x] 2.5 In local Studio, `public.devices` shows the seeded rows with RLS enabled and no delete policy — 743dd7d
 
 ### Phase 3: Read-only surface — list, lifecycle, hub
 
 #### Automated
 
-- [ ] 3.1 Path and error-mapping unit tests pass: `npm run test:unit`
-- [ ] 3.2 Lint, type check and build pass: `npm run lint && npx astro check && npm run build`
-- [ ] 3.3 RLS integration tests still pass: `npm run test:integration`
+- [x] 3.1 Path and error-mapping unit tests pass: `npm run test:unit`
+- [x] 3.2 Lint, type check and build pass: `npm run lint && npx astro check && npm run build`
+- [x] 3.3 RLS integration tests still pass: `npm run test:integration`
 
 #### Manual
 
-- [ ] 3.4 As the seeded admin, `/admin/devices` lists the seed grouped into six kind sections with Polish parameter summaries and widths shown as TE + mm
-- [ ] 3.5 Archive then restore a device from the list; the badge follows
-- [ ] 3.6 As an electrician, `/admin/devices` and a POST to `/api/admin/devices/<id>/archive` redirect away and change nothing
+- [x] 3.4 As the seeded admin, `/admin/devices` lists the seed grouped into six kind sections with Polish parameter summaries and widths shown as TE + mm
+- [x] 3.5 Archive then restore a device from the list; the badge follows
+- [x] 3.6 As an electrician, `/admin/devices` and a POST to `/api/admin/devices/<id>/archive` redirect away and change nothing
 
 ### Phase 4: Editor, write path and documentation
 
