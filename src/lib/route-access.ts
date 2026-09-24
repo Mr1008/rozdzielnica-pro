@@ -21,6 +21,9 @@ export const PROTECTED_ROUTES: readonly ProtectedRoute[] = [
   // The admin form endpoints. `/admin` does not cover them — prefixes match whole path segments —
   // so without this a non-admin POST would reach Supabase, where RLS is still the real boundary.
   { prefix: "/api/admin", roles: ["admin"] },
+  // The electrician's own profile endpoints (pricing). `/dashboard` does not cover them, for the
+  // same reason; RLS on `pricing_profiles` is still the real boundary.
+  { prefix: "/api/profile", roles: ["elektryk"] },
 ];
 
 /**

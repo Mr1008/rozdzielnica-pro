@@ -416,6 +416,39 @@ export const pl = {
     foreignParameter: (subject: string) => `${subject}: ten parametr nie dotyczy wybranego rodzaju aparatu`,
   },
 
+  pricingProfile: {
+    title: "Parametry wyceny",
+    description:
+      "Na ich podstawie system wylicza czas i koszt robocizny: liczba aparatów × średni czas montażu + stały narzut na projekt, razy stawka godzinowa.",
+    backToDashboard: "Wróć do panelu",
+    hourlyRateLabel: "Stawka godzinowa",
+    hourlyRateHint: "W złotych za godzinę, np. 120 albo 120,50.",
+    hourlyRatePlaceholder: "np. 120,50",
+    mountMinutesLabel: "Średni czas montażu jednego aparatu",
+    mountMinutesHint: (min: number, max: number) =>
+      `W pełnych minutach, od ${String(min)} do ${String(max)}. Jedna uśredniona wartość dla wszystkich aparatów.`,
+    overheadMinutesLabel: "Stały narzut czasowy na projekt",
+    overheadMinutesHint: (min: number, max: number) =>
+      `W pełnych minutach, od ${String(min)} do ${String(max)} — np. przygotowanie szafki i podłączenie WLZ.`,
+    save: "Zapisz parametry",
+    saved: "Parametry wyceny zostały zapisane.",
+    loadFailed: "Nie udało się wczytać parametrów wyceny. Spróbuj ponownie",
+    dashboardLink: "Parametry wyceny",
+    dashboardLinkDescription: "Stawka godzinowa, średni czas montażu aparatu i stały narzut na projekt.",
+    notConfigured: "Nie ustawiono jeszcze parametrów wyceny — uzupełnij je, zanim przygotujesz pierwszą wycenę.",
+  },
+
+  /**
+   * Keyed by the `?error=` code the pricing-profile endpoint redirects with. See
+   * `pricingErrorMessage` in `src/lib/pricing-errors.ts` for the mapping.
+   */
+  pricingErrors: {
+    notConfigured: "Parametry wyceny są chwilowo niedostępne — baza danych nie jest skonfigurowana",
+    forbidden: "Nie masz uprawnień do zmiany parametrów wyceny",
+    invalidInput: "Formularz zawiera nieprawidłowe dane — sprawdź stawkę i czasy w minutach",
+    unknown: "Coś poszło nie tak. Spróbuj ponownie",
+  },
+
   config: {
     supabaseMissing: "Supabase nie jest skonfigurowany — funkcje uwierzytelniania są wyłączone.",
     supabaseDocsLabel: "Zobacz instrukcję konfiguracji",

@@ -7,6 +7,13 @@ export const MAX_PRICE_GROSZE = 2_147_483_647;
 const PRICE = /^(\d+)(?:[.,](\d{1,2}))?$/;
 
 /**
+ * The same shape as `PRICE`, for an `<input pattern>` (which the browser anchors itself). It checks
+ * the format only — zero and the integer ceiling are still the parser's to refuse. Keep the two in
+ * step; `price-input.test.ts` asserts they agree.
+ */
+export const PRICE_INPUT_PATTERN = String.raw`\d+(?:[.,]\d{1,2})?`;
+
+/**
  * A PLN amount as typed by the admin (`"249,99"`, `"249.9"`, `"12"`) to integer grosze, or null
  * when it is not a plain positive amount. Deliberately strict: no thousands separators, no currency
  * sign, no third decimal — so `formatMoney` output is rejected; pre-fill with `formatPriceInput`.

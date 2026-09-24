@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { formatMoney } from "@/lib/i18n";
-import { formatPriceInput, parsePriceGrosze } from "./price-input";
+import { PRICE_INPUT_PATTERN, formatPriceInput, parsePriceGrosze } from "./price-input";
 
 describe("parsePriceGrosze", () => {
   it("accepts a comma or a dot as the decimal separator", () => {
@@ -49,5 +49,24 @@ describe("formatPriceInput", () => {
 
   it("differs from formatMoney, whose output the parser rejects", () => {
     expect(parsePriceGrosze(formatMoney(1234.56))).toBeNull();
+  });
+});
+
+describe("PRICE_INPUT_PATTERN", () => {
+  // The browser anchors a `pattern` attribute and compiles it with the `v` flag.
+  const pattern = new RegExp(`^(?:${PRICE_INPUT_PATTERN})$`, "v");
+
+  it("accepts every well-formed amount the parser accepts", () => {
+    for (const raw of ["12", "12,5", "12.5", "12,05", "0,01", "21474836,47"]) {
+      expect(pattern.test(raw), raw).toBe(true);
+      expect(parsePriceGrosze(raw), raw).not.toBeNull();
+    }
+  });
+
+  it("rejects every malformed amount the parser rejects", () => {
+    for (const raw of ["-1", "abc", "", "12,", ",5", "1e3", "12 zł", "12,345", "1 234,56", "1.234,56"]) {
+      expect(pattern.test(raw), raw).toBe(false);
+      expect(parsePriceGrosze(raw), raw).toBeNull();
+    }
   });
 });

@@ -75,6 +75,19 @@ describe("resolveRouteAccess", () => {
     });
   });
 
+  it("gates the profile API for the elektryk role only", () => {
+    const pathname = "/api/profile/pricing";
+    expect(resolveRouteAccess({ pathname, isSignedIn: true, role: "elektryk" })).toEqual({ allowed: true });
+    expect(resolveRouteAccess({ pathname, isSignedIn: true, role: "admin" })).toEqual({
+      allowed: false,
+      redirectTo: ROLE_HOME.admin,
+    });
+    expect(resolveRouteAccess({ pathname, isSignedIn: false, role: null })).toEqual({
+      allowed: false,
+      redirectTo: SIGN_IN_PATH,
+    });
+  });
+
   it("leaves the auth API open, since it sits outside /api/admin", () => {
     expect(resolveRouteAccess({ pathname: "/api/auth/signin", isSignedIn: false, role: null })).toEqual({
       allowed: true,
