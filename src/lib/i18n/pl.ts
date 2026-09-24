@@ -382,10 +382,6 @@ export const pl = {
   },
 
   /**
-   * Keyed by `DeviceIssueCode` (camelCased). See `deviceIssueMessage` in `src/lib/device-spec.ts`
-   * for the mapping; `subject` is the label of the field the issue is on.
-   */
-  /**
    * Keyed by the `?error=` code the device endpoints redirect with. See `deviceErrorMessage` in
    * `src/lib/device-errors.ts` for the mapping.
    */
@@ -398,6 +394,10 @@ export const pl = {
     unknown: "Coś poszło nie tak. Spróbuj ponownie",
   },
 
+  /**
+   * Keyed by `DeviceIssueCode` (camelCased). See `deviceIssueMessage` in `src/lib/device-spec.ts`
+   * for the mapping; `subject` is the label of the field the issue is on.
+   */
   deviceIssues: {
     malformed: (subject: string) => `${subject}: dane są niekompletne lub nieprawidłowe`,
     required: (subject: string) => `${subject}: pole jest wymagane`,
@@ -405,6 +405,7 @@ export const pl = {
     priceInvalid: "Podaj cenę większą od zera, z najwyżej dwoma miejscami po przecinku, np. 49,99",
     notPositive: (subject: string) => `${subject}: wartość musi być większa od zera`,
     notInteger: (subject: string) => `${subject}: podaj liczbę całkowitą`,
+    tooLarge: (subject: string, max: number) => `${subject}: wartość jest za duża (maks. ${formatNumber(max)})`,
     tooManyDecimals: (subject: string, places: number) =>
       `${subject}: podaj najwyżej ${places === 1 ? "jedno miejsce" : `${String(places)} miejsca`} po przecinku`,
     poleNotAllowed: "Wybrany rodzaj aparatu nie występuje w takiej konfiguracji biegunów",
