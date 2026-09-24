@@ -1,7 +1,7 @@
 ---
 change_id: electrician-pricing-profile
 title: Parametry wyceny w profilu elektryka
-status: implementing
+status: implemented
 created: 2026-09-24
 updated: 2026-09-24
 ---
