@@ -133,6 +133,41 @@ export type Database = {
         }
         Relationships: []
       }
+      pricing_profiles: {
+        Row: {
+          created_at: string
+          hourly_rate_grosze: number
+          mount_minutes_per_device: number
+          project_overhead_minutes: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          hourly_rate_grosze: number
+          mount_minutes_per_device: number
+          project_overhead_minutes: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          hourly_rate_grosze?: number
+          mount_minutes_per_device?: number
+          project_overhead_minutes?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pricing_profiles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
