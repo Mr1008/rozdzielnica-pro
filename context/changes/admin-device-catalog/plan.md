@@ -557,31 +557,31 @@ production catalog starts empty; the admin enters devices through the UI.
 
 #### Automated
 
-- [x] 3.1 Path and error-mapping unit tests pass: `npm run test:unit`
-- [x] 3.2 Lint, type check and build pass: `npm run lint && npx astro check && npm run build`
-- [x] 3.3 RLS integration tests still pass: `npm run test:integration`
+- [x] 3.1 Path and error-mapping unit tests pass: `npm run test:unit` — 5daeefa
+- [x] 3.2 Lint, type check and build pass: `npm run lint && npx astro check && npm run build` — 5daeefa
+- [x] 3.3 RLS integration tests still pass: `npm run test:integration` — 5daeefa
 
 #### Manual
 
-- [x] 3.4 As the seeded admin, `/admin/devices` lists the seed grouped into six kind sections with Polish parameter summaries and widths shown as TE + mm
-- [x] 3.5 Archive then restore a device from the list; the badge follows
-- [x] 3.6 As an electrician, `/admin/devices` and a POST to `/api/admin/devices/<id>/archive` redirect away and change nothing
+- [x] 3.4 As the seeded admin, `/admin/devices` lists the seed grouped into six kind sections with Polish parameter summaries and widths shown as TE + mm — 5daeefa
+- [x] 3.5 Archive then restore a device from the list; the badge follows — 5daeefa
+- [x] 3.6 As an electrician, `/admin/devices` and a POST to `/api/admin/devices/<id>/archive` redirect away and change nothing — 5daeefa
 
 ### Phase 4: Editor, write path and documentation
 
 #### Automated
 
-- [ ] 4.1 Form-parsing and shared-component unit tests pass: `npm run test:unit`
-- [ ] 4.2 Lint, type check and build pass: `npm run lint && npx astro check && npm run build`
-- [ ] 4.3 RLS integration tests still pass: `npm run test:integration`
-- [ ] 4.4 Smoke script still passes against the dev server: `npm run smoke`
+- [x] 4.1 Form-parsing and shared-component unit tests pass: `npm run test:unit`
+- [x] 4.2 Lint, type check and build pass: `npm run lint && npx astro check && npm run build`
+- [x] 4.3 RLS integration tests still pass: `npm run test:integration`
+- [x] 4.4 Smoke script still passes against the dev server: `npm run smoke`
 
 #### Manual
 
-- [ ] 4.5 As admin, create one device of each kind; each appears in its section with the right parameter summary
-- [ ] 4.6 Width entered as 3 TE is saved as 52,5 mm and shown as "3 TE (52,5 mm)"; switching to mm and entering 36 is shown as "36 mm" and reopens in mm mode
-- [ ] 4.7 Leaving a required parameter empty, choosing a pole configuration not offered for the kind, or typing a second decimal place shows a Polish message and blocks submit
-- [ ] 4.8 Creating a device with an existing manufacturer + model shows the Polish duplicate error and the typed values are still there
-- [ ] 4.9 Editing a seeded device's price and rated current persists after reload; the kind cannot be changed
-- [ ] 4.10 The cabinet editor still creates and edits a cabinet exactly as before
+- [x] 4.5 As admin, create one device of each kind; each appears in its section with the right parameter summary
+- [x] 4.6 Width entered as 3 TE is saved as 52,5 mm and shown as "3 TE (52,5 mm)"; switching to mm and entering 36 is shown as "36 mm" and reopens in mm mode
+- [x] 4.7 Leaving a required parameter empty, choosing a pole configuration not offered for the kind, or typing a second decimal place shows a Polish message and blocks submit
+- [x] 4.8 Creating a device with an existing manufacturer + model shows the Polish duplicate error and the typed values are still there
+- [x] 4.9 Editing a seeded device's price and rated current persists after reload; the kind cannot be changed
+- [x] 4.10 The cabinet editor still creates and edits a cabinet exactly as before
 - [ ] 4.11 After merge and deploy, `/admin/devices` works on the production Worker (migration applied by `db-migrate.yml`)

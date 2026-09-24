@@ -2,35 +2,18 @@ import { z } from "zod";
 import type { CabinetRow } from "@/lib/cabinet-form";
 import { formatPriceInput } from "@/lib/price-input";
 import { BAR_KINDS, BAR_ORIENTATIONS, ENTRY_SIDES, type CabinetGeometry } from "@/lib/cabinet-geometry";
+import { draftKeySchema, fieldFromNumber, newDraftKey, numberFromField } from "@/lib/draft-fields";
 
 /**
  * The cabinet editor's state. Every number is kept as the string the admin typed, so a half-typed
  * or emptied field never snaps to 0; `geometryFromDraft` derives the candidate document that
  * `parseCabinetGeometry` judges and the preview draws. Nothing here validates — that stays in
- * `parseCabinetGeometry`, the one validator every geometry write goes through.
+ * `parseCabinetGeometry`, the one validator every geometry write goes through. Element keys
+ * (`newDraftKey`) are never part of the geometry.
  */
-
-let nextKey = 0;
-
-/**
- * A client-side identity for a rail, entry, bar or terminal group, used as its React `key` so a
- * removal does not hand one element's DOM node (and focus) to the next. Never part of the geometry.
- */
-export function newDraftKey(): string {
-  nextKey += 1;
-  return `d${String(nextKey)}`;
-}
 
 const field = z.string();
-
-/**
- * Every restored element is re-keyed: the counter restarts on each page load, so a stored key could
- * collide with one minted later, and a draft stored before keys existed has none.
- */
-const key = z
-  .string()
-  .optional()
-  .transform(() => newDraftKey());
+const key = draftKeySchema;
 
 const railDraftSchema = z.object({ key, xMm: field, yMm: field, lengthMm: field });
 const entryDraftSchema = z.object({ key, side: z.enum(ENTRY_SIDES), offsetMm: field, lengthMm: field });
@@ -81,22 +64,6 @@ export const DEFAULT_GEOMETRY: CabinetGeometry = {
 
 /** Typical spacing between DIN rail rows, used to place an added rail below the last one. */
 const RAIL_PITCH_MM = 125;
-
-const PLAIN_NUMBER = /^-?\d+(?:[.,]\d+)?$/;
-
-/**
- * A typed field to a number: `","` and `"."` both mark decimals; anything else — empty, `1e3`,
- * `12 mm` — is `NaN`, which `parseCabinetGeometry` reports as an issue on that element.
- */
-export function numberFromField(value: string): number {
-  const trimmed = value.trim();
-  return PLAIN_NUMBER.test(trimmed) ? Number(trimmed.replace(",", ".")) : Number.NaN;
-}
-
-/** Decimals are shown with a comma, like everywhere else in the Polish UI. */
-export function fieldFromNumber(value: number): string {
-  return String(value).replace(".", ",");
-}
 
 /** The candidate document. Its numbers may be `NaN`; judge it with `parseCabinetGeometry`. */
 export function geometryFromDraft(draft: GeometryDraft): CabinetGeometry {

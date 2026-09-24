@@ -2,8 +2,9 @@
 
 **RozdzielnicaPro** — a switchboard (rozdzielnica) planning and labour-quoting tool for a solo
 electrician. Scaffolded from `10x-astro-starter`. Product code so far is auth, i18n, the role/RLS
-baseline and the admin cabinet catalog — `src/pages/auth/*`, `src/pages/admin/`,
-`src/pages/api/admin/`, `src/components/cabinets/`, most of `src/lib/`, and all of `supabase/`. The
+baseline and the admin cabinet and device catalogs — `src/pages/auth/*`, `src/pages/admin/`
+(including `src/pages/admin/devices/`), `src/pages/api/admin/`, `src/components/cabinets/`,
+`src/components/devices/`, `src/components/forms/`, most of `src/lib/`, and all of `supabase/`. The
 rest is still starter code.
 
 Product spec: @context/foundation/prd.md · Stack rationale: @context/foundation/tech-stack.md ·
@@ -24,8 +25,8 @@ These are correctness requirements, not preferences.
   cabinet side its cables enter from; (3) account for distance to the PE and N bars. This is a
   deliberate heuristic, not an optimiser. Their precedence when they conflict is an open question in
   the PRD — if you have to pick one, say so explicitly rather than burying the choice.
-- **MVP device types are closed:** fuse switch-disconnectors ("FRy"), RCD, RCBO, type-B MCBs, PE
-  bars, N bars. Nothing else.
+- **MVP device types are closed:** switch-disconnectors ("FR", no fuse links), RCD, RCBO, type-B
+  MCBs, PE bars, N bars. Nothing else.
 - **One project = one cabinet.** Single-phase and three-phase installations are both in scope.
 - **Quote:** (device count × average mount time per device) + fixed per-project overhead = hours;
   hours × hourly rate = labour cost; catalog prices = material cost. Mount time, rate and overhead
@@ -68,6 +69,14 @@ These are correctness requirements, not preferences.
   @src/lib/cabinet-geometry.ts. The database CHECK asserts nothing but an object at `version: 1`, so
   every write of `cabinets.geometry` — endpoint, seed, migration — must go through it (the editor's
   endpoints do, via `parseCabinetForm`); never write the column around it.
+- **Device parameters are guarded twice, and the two guards must change together.** The
+  `devices_parameters_match_kind` CHECK in `supabase/migrations/20260923130628_devices_catalog.sql`
+  and `parseDeviceSpec` in @src/lib/device-spec.ts (`POLES_BY_KIND`, `PARAMETERS_BY_KIND`, the
+  decimal scales) encode the same per-kind rules; a migration that changes one without the other
+  lets the editor accept rows the database refuses, or the reverse. `parseDeviceSpec` also rejects
+  extra decimal places because `numeric` columns would round them silently. An FR is a plain
+  switch-disconnector — a rated current and poles, no protection — so the matcher must never treat
+  it as overcurrent or residual-current protection.
 - **A project must snapshot its cabinet's `geometry`, not reference it live** (S-03). Admin edits to
   a cabinet must never shift an existing project's layout or quote; archiving only hides the cabinet
   from the picker.
