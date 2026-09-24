@@ -72,7 +72,10 @@ describe("parsePricingForm", () => {
 
   it("accepts only whole digits for minutes, after trimming", () => {
     expect(parsedValue({ mount_minutes_per_device: " 15 " })?.mount_minutes_per_device).toBe(15);
-    for (const minutes of ["7,5", "7.5", "-1", "+5", "1e2", "0x10", "", " "]) {
+    // A `type="number"` input submits a whole number typed as `15.0` unchanged.
+    expect(parsedValue({ mount_minutes_per_device: "15.0" })?.mount_minutes_per_device).toBe(15);
+    expect(parsedValue({ project_overhead_minutes: "0.00" })?.project_overhead_minutes).toBe(0);
+    for (const minutes of ["7,5", "7.5", "15.", "15.01", "-1", "-0", "+5", "1e2", "0x10", "", " "]) {
       expect(parsedValue({ mount_minutes_per_device: minutes }), `mount ${minutes}`).toBeNull();
       expect(parsedValue({ project_overhead_minutes: minutes }), `overhead ${minutes}`).toBeNull();
     }

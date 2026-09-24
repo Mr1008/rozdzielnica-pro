@@ -36,8 +36,12 @@ export interface PricingProfile {
 
 export type PricingFormResult = { ok: true; value: PricingProfile } | { ok: false; code: "invalid_input" };
 
-/** Digits only: no sign, no decimal separator, no exponent — `Number()` would accept all three. */
-const WHOLE_MINUTES = /^\d+$/;
+/**
+ * Whole minutes: digits, optionally with a zero fraction (`15.0`) because a `type="number"` input
+ * submits that as typed. No sign, no comma, no exponent and no real fraction — `Number()` would
+ * accept all of them.
+ */
+const WHOLE_MINUTES = /^\d+(?:\.0+)?$/;
 
 function readText(form: FormData, name: string): string | null {
   const value = form.get(name);

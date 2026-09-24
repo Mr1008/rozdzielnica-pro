@@ -117,6 +117,24 @@ describe("row level security on public.pricing_profiles", () => {
       }
     });
 
+    it("is refused moving their row to another user with 42501", async () => {
+      // A fresh electrician without a row, so the refusal is the `with check`, not the primary key.
+      const victim = await createElectrician(service, "pricing-move");
+      createdUserIds.push(victim.id);
+
+      const { error } = await clientA
+        .from("pricing_profiles")
+        .update({ user_id: victim.id })
+        .eq("user_id", electricianA.id);
+      expect(error?.code).toBe("42501");
+
+      const { data } = await service
+        .from("pricing_profiles")
+        .select("user_id")
+        .in("user_id", [electricianA.id, victim.id]);
+      expect(data).toEqual([{ user_id: electricianA.id }]);
+    });
+
     it("is refused a delete, and the row survives", async () => {
       const { error } = await clientA.from("pricing_profiles").delete().eq("user_id", electricianA.id);
       expect(error?.code).toBe("42501");
@@ -186,6 +204,18 @@ describe("row level security on public.pricing_profiles", () => {
       expect(data).toEqual([]);
     });
 
+    it("is refused an upsert over an electrician's row with 42501", async () => {
+      const before = await service.from("pricing_profiles").select("*").eq("user_id", electricianA.id).single();
+
+      const { error } = await adminClient
+        .from("pricing_profiles")
+        .upsert({ user_id: electricianA.id, ...PRICING, hourly_rate_grosze: 1 }, { onConflict: "user_id" });
+      expect(error?.code).toBe("42501");
+
+      const after = await service.from("pricing_profiles").select("*").eq("user_id", electricianA.id).single();
+      expect(after.data).toEqual(before.data);
+    });
+
     it("updates zero rows of an electrician's data", async () => {
       const { data, error } = await adminClient
         .from("pricing_profiles")
@@ -202,6 +232,19 @@ describe("row level security on public.pricing_profiles", () => {
     const { error } = await createUserClient(env).from("pricing_profiles").select("user_id");
 
     expect(error?.code).toBe("42501");
+  });
+
+  it("refuses anon an insert and an update with 42501", async () => {
+    const anon = createUserClient(env);
+
+    const inserted = await anon.from("pricing_profiles").insert({ user_id: electricianA.id, ...PRICING });
+    expect(inserted.error?.code).toBe("42501");
+
+    const updated = await anon
+      .from("pricing_profiles")
+      .update({ hourly_rate_grosze: 1 })
+      .eq("user_id", electricianA.id);
+    expect(updated.error?.code).toBe("42501");
   });
 
   it("cascades a pricing row away when its account is deleted", async () => {
