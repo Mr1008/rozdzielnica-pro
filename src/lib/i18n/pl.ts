@@ -356,7 +356,13 @@ export const pl = {
       backToCatalog: "Wróć do katalogu aparatów",
       catalogSection: "Dane katalogowe",
       dimensionsSection: "Wymiary",
-      dimensionsHint: "Wymiary w milimetrach, najwyżej jedno miejsce po przecinku, np. 17,5.",
+      dimensionsHint:
+        "Szerokość w modułach TE (co 0,5 TE) albo w milimetrach z najwyżej dwoma miejscami po przecinku, np. 26,25. Wysokość i głębokość w milimetrach z najwyżej jednym miejscem po przecinku, np. 17,5.",
+      widthModulesInvalid: "Szerokość w modułach podaj w krokach co 0,5 TE, np. 1,5",
+      /** Under a width typed in modules: what will be saved. */
+      widthEquals: (mm: number) => `= ${formatNumber(mm)} mm`,
+      kindLocked: "Rodzaju zapisanego aparatu nie można zmienić.",
+      chooseKindFirst: "Wybierz rodzaj aparatu, aby podać jego parametry.",
       parametersSection: "Parametry elektryczne",
       terminalGroupsSection: "Grupy zacisków",
       kindPlaceholder: "Wybierz rodzaj aparatu",

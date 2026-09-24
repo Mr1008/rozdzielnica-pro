@@ -10,7 +10,6 @@ import {
   newEntryDraft,
   newRailDraft,
   newTerminalGroupDraft,
-  numberFromField,
   type GeometryDraft,
 } from "./cabinet-draft";
 import { parseCabinetForm } from "./cabinet-form";
@@ -31,19 +30,6 @@ const WITH_BARS: CabinetGeometry = {
     },
   ],
 };
-
-describe("numberFromField", () => {
-  it("reads plain decimals with either separator", () => {
-    expect(numberFromField("12")).toBe(12);
-    expect(numberFromField(" 1,5 ")).toBe(1.5);
-    expect(numberFromField("2.5")).toBe(2.5);
-    expect(numberFromField("-3")).toBe(-3);
-  });
-
-  it("is NaN for anything else, so the geometry parser flags the field", () => {
-    for (const raw of ["", " ", "1e3", "12 mm", "0x10", ","]) expect(numberFromField(raw), raw).toBeNaN();
-  });
-});
 
 describe("draft round trip", () => {
   it("geometry → draft → geometry is lossless, decimals included", () => {

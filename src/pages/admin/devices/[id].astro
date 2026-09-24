@@ -1,0 +1,72 @@
+---
+import Banner from "@/components/Banner.astro";
+import Topbar from "@/components/Topbar.astro";
+import DeviceEditor from "@/components/devices/DeviceEditor";
+import Layout from "@/layouts/Layout.astro";
+import { isUuid } from "@/lib/catalog";
+import { DEVICES_PATH, deviceApiPath } from "@/lib/device-catalog";
+import { deviceErrorMessage } from "@/lib/device-errors";
+import type { DeviceRow } from "@/lib/device-form";
+import { t } from "@/lib/i18n";
+import { createClient } from "@/lib/supabase";
+
+// No role check here on purpose: `/admin/*` is gated in `src/lib/route-access.ts`, and RLS lets an
+// admin read every device, archived ones included.
+const { id } = Astro.params;
+const error = deviceErrorMessage(Astro.url.searchParams.get("error")) ?? undefined;
+
+async function loadDevice(): Promise<{ row: DeviceRow | null; loadError: string | null }> {
+  // Checked before querying: a non-UUID would reach PostgREST as `22P02` and read as a failure,
+  // when it is simply a device that does not exist.
+  if (!isUuid(id)) return { row: null, loadError: null };
+
+  const supabase = createClient(Astro.request.headers, Astro.cookies);
+  if (!supabase) return { row: null, loadError: t.deviceErrors.notConfigured };
+
+  const { data, error: queryError } = await supabase
+    .from("devices")
+    .select(
+      "id, kind, name, manufacturer, model, price_grosze, width_mm, height_mm, depth_mm, poles, rated_current_a, residual_current_ma, rcd_type, breaking_capacity_ka, terminal_groups",
+    )
+    .eq("id", id)
+    .maybeSingle();
+  if (queryError) {
+    // The SQLSTATE only, never Supabase's message — `wrangler tail` is the only trace a failure leaves.
+    // eslint-disable-next-line no-console
+    console.error("device load failed", queryError.code);
+    Astro.response.status = 500;
+    return { row: null, loadError: t.devices.editor.loadFailed };
+  }
+  return { row: data, loadError: null };
+}
+
+const { row, loadError } = await loadDevice();
+if (!row && !loadError) Astro.response.status = 404;
+
+const title = row ? t.devices.editor.editTitle : t.devices.editor.notFoundTitle;
+---
+
+<Layout title={title}>
+  {loadError && <Banner variant="error">{loadError}</Banner>}
+  <div class="bg-cosmic min-h-screen p-4 text-white sm:p-8">
+    <div class="mx-auto max-w-6xl">
+      <Topbar />
+      <a href={DEVICES_PATH} class="text-sm text-purple-300 transition-colors hover:text-purple-100 hover:underline">
+        {t.devices.editor.backToCatalog}
+      </a>
+      <h1 class="mt-2 mb-6 bg-gradient-to-r from-blue-200 to-purple-200 bg-clip-text text-3xl font-bold text-transparent">
+        {row ? t.devices.editor.editTitleFor(row.name) : title}
+      </h1>
+      {row ? (
+        // `client:only`: the editor restores a rejected draft from sessionStorage on its first render.
+        <DeviceEditor initial={row} action={deviceApiPath(row.id)} error={error} client:only="react" />
+      ) : (
+        !loadError && (
+          <p class="rounded-2xl border border-white/10 bg-white/10 p-8 text-center text-blue-100/70">
+            {t.deviceErrors.notFound}
+          </p>
+        )
+      )}
+    </div>
+  </div>
+</Layout>

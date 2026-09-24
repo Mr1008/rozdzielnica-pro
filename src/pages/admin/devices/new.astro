@@ -1,0 +1,27 @@
+---
+import Topbar from "@/components/Topbar.astro";
+import DeviceEditor from "@/components/devices/DeviceEditor";
+import Layout from "@/layouts/Layout.astro";
+import { DEVICES_API_PATH, DEVICES_PATH } from "@/lib/device-catalog";
+import { deviceErrorMessage } from "@/lib/device-errors";
+import { t } from "@/lib/i18n";
+
+// No role check here on purpose: `/admin/*` is gated in `src/lib/route-access.ts`.
+const error = deviceErrorMessage(Astro.url.searchParams.get("error")) ?? undefined;
+---
+
+<Layout title={t.devices.editor.newTitle}>
+  <div class="bg-cosmic min-h-screen p-4 text-white sm:p-8">
+    <div class="mx-auto max-w-6xl">
+      <Topbar />
+      <a href={DEVICES_PATH} class="text-sm text-purple-300 transition-colors hover:text-purple-100 hover:underline">
+        {t.devices.editor.backToCatalog}
+      </a>
+      <h1 class="mt-2 mb-6 bg-gradient-to-r from-blue-200 to-purple-200 bg-clip-text text-3xl font-bold text-transparent">
+        {t.devices.editor.newTitle}
+      </h1>
+      {/* `client:only`: the editor restores a rejected draft from sessionStorage on its first render. */}
+      <DeviceEditor action={DEVICES_API_PATH} error={error} client:only="react" />
+    </div>
+  </div>
+</Layout>

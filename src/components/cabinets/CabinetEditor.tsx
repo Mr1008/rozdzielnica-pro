@@ -1,7 +1,9 @@
 import { useEffect, useState, type ReactNode, type SubmitEvent } from "react";
-import { CircleAlert, Plus, Save, Trash2 } from "lucide-react";
+import { CircleAlert, Save } from "lucide-react";
 import { ServerError } from "@/components/auth/ServerError";
 import { CabinetDrawing } from "@/components/cabinets/CabinetDrawing";
+import { clearStoredDraft, readStoredDraft, writeStoredDraft } from "@/components/forms/draft-storage";
+import { AddButton, NumberField, RemoveButton, Section, SelectField, TextField } from "@/components/forms/fields";
 import { Button } from "@/components/ui/button";
 import { CABINETS_PATH } from "@/lib/cabinet-catalog";
 import { issueElements } from "@/lib/cabinet-drawing";
@@ -48,6 +50,11 @@ interface CabinetEditorProps {
 
 type ScalarField = "name" | "manufacturer" | "model" | "price";
 
+/** A server-side rejection reloads the page; the draft stored on submit is restored from here. */
+function draftStorageKey(id: string | undefined): string {
+  return `cabinet-draft:${id ?? "new"}`;
+}
+
 interface Highlight {
   kind: GeometryElementKind;
   index: number;
@@ -62,43 +69,6 @@ interface EditorState {
 function stateFor(draft: CabinetDraft, previous: CabinetGeometry | null): EditorState {
   const candidate = geometryFromDraft(draft.geometry);
   return { draft, lastDrawable: isDrawable(candidate) ? candidate : previous };
-}
-
-// ---------------------------------------------------------------------------------------------------
-// Draft storage: a server-side rejection (e.g. a duplicate model) reloads the page, so the draft is
-// stored on submit and restored only when the page comes back with `?error=`. Storage can be
-// unavailable (private mode, quota), so every access is guarded.
-// ---------------------------------------------------------------------------------------------------
-
-function draftStorageKey(id: string | undefined): string {
-  return `cabinet-draft:${id ?? "new"}`;
-}
-
-function readStoredDraft(key: string): CabinetDraft | null {
-  try {
-    const raw = window.sessionStorage.getItem(key);
-    if (raw === null) return null;
-    const parsed = cabinetDraftSchema.safeParse(JSON.parse(raw));
-    return parsed.success ? parsed.data : null;
-  } catch {
-    return null;
-  }
-}
-
-function writeStoredDraft(key: string, draft: CabinetDraft): void {
-  try {
-    window.sessionStorage.setItem(key, JSON.stringify(draft));
-  } catch {
-    // Without storage the draft is simply not kept across an error redirect.
-  }
-}
-
-function clearStoredDraft(key: string): void {
-  try {
-    window.sessionStorage.removeItem(key);
-  } catch {
-    // Nothing stored, nothing to clear.
-  }
 }
 
 // ---------------------------------------------------------------------------------------------------
@@ -134,110 +104,6 @@ function removeAt<T>(items: readonly T[], index: number): T[] {
 // Presentational pieces
 // ---------------------------------------------------------------------------------------------------
 
-const inputClass =
-  "w-full rounded-lg border bg-white/10 px-3 py-2 text-sm text-white placeholder-white/40 transition-colors focus:ring-2 focus:outline-none";
-
-function FieldError({ id, message }: { id: string; message: string }) {
-  return (
-    <p id={id} className="mt-1 flex items-center gap-1 text-xs text-red-300">
-      <CircleAlert className="size-3 shrink-0" />
-      {message}
-    </p>
-  );
-}
-
-interface TextFieldProps {
-  id: string;
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  name?: string;
-  onBlur?: () => void;
-  error?: string;
-  hint?: string;
-  placeholder?: string;
-  inputMode?: "text" | "numeric" | "decimal";
-}
-
-function TextField({ id, label, value, onChange, name, onBlur, error, hint, placeholder, inputMode }: TextFieldProps) {
-  const describedBy = error ? `${id}-error` : hint ? `${id}-hint` : undefined;
-  return (
-    <div>
-      <label htmlFor={id} className="mb-1 block text-xs text-blue-100/80">
-        {label}
-      </label>
-      <input
-        id={id}
-        name={name}
-        type="text"
-        inputMode={inputMode}
-        autoComplete="off"
-        value={value}
-        placeholder={placeholder}
-        aria-invalid={error ? true : undefined}
-        aria-describedby={describedBy}
-        onChange={(e) => {
-          onChange(e.target.value);
-        }}
-        onBlur={onBlur}
-        className={cn(
-          inputClass,
-          error ? "border-red-400/60 focus:ring-red-400" : "border-white/20 focus:ring-purple-400",
-        )}
-      />
-      {error ? (
-        <FieldError id={`${id}-error`} message={error} />
-      ) : (
-        hint && (
-          <p id={`${id}-hint`} className="mt-1 text-xs text-blue-100/50">
-            {hint}
-          </p>
-        )
-      )}
-    </div>
-  );
-}
-
-/** Millimetres are integers; terminal cross-sections (mm²) may be decimal. */
-function NumberField(props: Omit<TextFieldProps, "inputMode" | "name"> & { decimal?: boolean }) {
-  const { decimal, ...rest } = props;
-  return <TextField {...rest} inputMode={decimal ? "decimal" : "numeric"} />;
-}
-
-interface SelectFieldProps<T extends string> {
-  id: string;
-  label: string;
-  value: T;
-  options: readonly T[];
-  labels: Record<T, string>;
-  onChange: (value: T) => void;
-}
-
-function SelectField<T extends string>({ id, label, value, options, labels, onChange }: SelectFieldProps<T>) {
-  return (
-    <div>
-      <label htmlFor={id} className="mb-1 block text-xs text-blue-100/80">
-        {label}
-      </label>
-      <select
-        id={id}
-        value={value}
-        onChange={(e) => {
-          const next = options.find((option) => option === e.target.value);
-          if (next !== undefined) onChange(next);
-        }}
-        className={cn(inputClass, "border-white/20 focus:ring-purple-400 [&>option]:text-zinc-900")}
-      >
-        {options.map((option) => (
-          <option key={option} value={option}>
-            {labels[option]}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
-}
-
 function IssueList({ issues }: { issues: readonly GeometryIssue[] }) {
   if (issues.length === 0) return null;
   return (
@@ -252,45 +118,6 @@ function IssueList({ issues }: { issues: readonly GeometryIssue[] }) {
         </li>
       ))}
     </ul>
-  );
-}
-
-function Section({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
-  return (
-    <section className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur-xl">
-      <h2 className="text-lg font-semibold text-white">{title}</h2>
-      {hint && <p className="mt-1 text-xs text-blue-100/60">{hint}</p>}
-      <div className="mt-4 flex flex-col gap-3">{children}</div>
-    </section>
-  );
-}
-
-const smallButtonClass =
-  "rounded-lg border border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white focus-visible:ring-purple-400";
-
-function AddButton({ onClick, children }: { onClick: () => void; children: ReactNode }) {
-  return (
-    <Button type="button" variant="ghost" size="sm" onClick={onClick} className={cn(smallButtonClass, "self-start")}>
-      <Plus className="size-4" />
-      {children}
-    </Button>
-  );
-}
-
-function RemoveButton({ label, onClick }: { label: string; onClick: () => void }) {
-  return (
-    <Button
-      type="button"
-      variant="ghost"
-      size="sm"
-      onClick={onClick}
-      aria-label={label}
-      title={label}
-      className={smallButtonClass}
-    >
-      <Trash2 className="size-4" />
-      <span className="sr-only sm:not-sr-only">{t.cabinets.editor.remove}</span>
-    </Button>
   );
 }
 
@@ -319,7 +146,11 @@ function ElementCard({ legend, active, invalid, issues, onFocus, onRemove, child
         <span aria-hidden="true" className="text-sm font-semibold text-white">
           {legend}
         </span>
-        <RemoveButton label={t.cabinets.editor.removeElement(legend)} onClick={onRemove} />
+        <RemoveButton
+          label={t.cabinets.editor.removeElement(legend)}
+          text={t.cabinets.editor.remove}
+          onClick={onRemove}
+        />
       </div>
       {children}
       <IssueList issues={issues} />
@@ -344,7 +175,7 @@ export default function CabinetEditor({ initial, action, error }: CabinetEditorP
   // Mounted `client:only`, so this first render already runs in the browser and can read the draft
   // a server-side rejection left behind — no SSR pass that would render the unrestored form first.
   const [boot] = useState(() => {
-    const stored = error ? readStoredDraft(storageKey) : null;
+    const stored = error ? readStoredDraft(storageKey, cabinetDraftSchema) : null;
     return { draft: stored ?? draftFromRow(initial), restored: stored !== null };
   });
   const [state, setState] = useState<EditorState>(() => stateFor(boot.draft, null));
@@ -820,6 +651,7 @@ export default function CabinetEditor({ initial, action, error }: CabinetEditorP
                         />
                         <RemoveButton
                           label={e.removeElement(groupLabel)}
+                          text={e.remove}
                           onClick={() => {
                             setTerminalGroups(index, (groups) => removeAt(groups, groupIndex));
                           }}
