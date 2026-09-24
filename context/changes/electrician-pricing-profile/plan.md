@@ -333,17 +333,17 @@ no row, which is the "not configured" state.
 
 #### Automated
 
-- [x] 2.1 Lint passes: `npm run lint`
-- [x] 2.2 Type check passes: `npx astro check`
-- [x] 2.3 Unit tests pass, including the new route-gate and error-map cases: `npm run test:unit`
-- [x] 2.4 Build passes: `npm run build`
-- [x] 2.5 RLS suite still passes: `npm run test:integration`
-- [x] 2.6 Smoke script still passes against the dev server: `npm run smoke`
+- [x] 2.1 Lint passes: `npm run lint` — 9b3e6cf
+- [x] 2.2 Type check passes: `npx astro check` — 9b3e6cf
+- [x] 2.3 Unit tests pass, including the new route-gate and error-map cases: `npm run test:unit` — 9b3e6cf
+- [x] 2.4 Build passes: `npm run build` — 9b3e6cf
+- [x] 2.5 RLS suite still passes: `npm run test:integration` — 9b3e6cf
+- [x] 2.6 Smoke script still passes against the dev server: `npm run smoke` — 9b3e6cf
 
 #### Manual
 
-- [x] 2.7 As a fresh electrician: the dashboard shows the not-configured notice, the form starts empty, saving `120,50` / `15` / `0` shows the confirmation and the notice disappears
-- [x] 2.8 Reload shows the saved values pre-filled (rate as `120,50`)
-- [x] 2.9 Browser blocks `0` minutes per device and `7,5` minutes before submit; a tampered POST (e.g. via devtools removing `min`) lands on `?error=invalid_input` with Polish text
-- [x] 2.10 As the seeded admin, `/dashboard/profile` redirects to `/admin`
-- [x] 2.11 All visible text is Polish
+- [x] 2.7 As a fresh electrician: the dashboard shows the not-configured notice, the form starts empty, saving `120,50` / `15` / `0` shows the confirmation and the notice disappears — 9b3e6cf
+- [x] 2.8 Reload shows the saved values pre-filled (rate as `120,50`) — 9b3e6cf
+- [x] 2.9 Browser blocks `0` minutes per device and `7,5` minutes before submit; a tampered POST (e.g. via devtools removing `min`) lands on `?error=invalid_input` with Polish text — 9b3e6cf
+- [x] 2.10 As the seeded admin, `/dashboard/profile` redirects to `/admin` — 9b3e6cf
+- [x] 2.11 All visible text is Polish — 9b3e6cf
