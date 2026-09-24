@@ -267,6 +267,14 @@ Foundations poniżej zakładają, że to istnieje, i **nie** budują tego od now
   dane pod 3D istnieją. Renderer byłby wyspą Reacta po stronie klienta (np. three.js), bez wpływu na
   wydruk, który zostaje w 2D. Śledzone w GitHub
   [#14](https://github.com/Mr1008/rozdzielnica-pro/issues/14).
+- **Układ biegunów/zacisków aparatu w konfiguracji katalogu** (np. po której stronie jest biegun N
+  w RCD 4P) — Why parked: pomysł użytkownika z 2026-09-24, zgłoszony po domknięciu S-01. Różni
+  producenci umieszczają N w innym miejscu (lewa/prawa strona aparatu), a S-01 zapisuje tylko
+  konfigurację biegunów (`poles`: 1P … 4P), nie ich kolejność. Nie blokuje MVP. Uwaga wykonawcza:
+  ma znaczenie dla reguły (3) bliskości szyn PE/N w S-05 i dla czytelności wydruku w S-09 — warto
+  wrócić do tego przy planowaniu S-05; dodanie pola do `devices` to nowa migracja + rozszerzenie
+  CHECK `devices_parameters_match_kind` i `parseDeviceSpec`, które muszą zmienić się razem.
+  Śledzone w GitHub [#15](https://github.com/Mr1008/rozdzielnica-pro/issues/15).
 - **Tłumaczenie interfejsu na inny język** — Why parked: PRD `## Non-Functional Requirements`; warstwa tłumaczeń już istnieje i nie blokuje drugiego języka, ale sam przekład nie jest celem MVP.
 
 ## Milestone History
