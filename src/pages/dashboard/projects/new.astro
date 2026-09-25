@@ -1,0 +1,95 @@
+---
+import Banner from "@/components/Banner.astro";
+import Topbar from "@/components/Topbar.astro";
+import CabinetPicker from "@/components/projects/CabinetPicker.astro";
+import ProjectDetailsFields from "@/components/projects/ProjectDetailsFields.astro";
+import Layout from "@/layouts/Layout.astro";
+import { parseCabinetGeometry } from "@/lib/cabinet-geometry";
+import { sortForCatalogList } from "@/lib/catalog";
+import { t } from "@/lib/i18n";
+import { PROJECTS_API_PATH, PROJECTS_PATH } from "@/lib/project";
+import { projectErrorMessage } from "@/lib/project-errors";
+import { createClient } from "@/lib/supabase";
+
+// No role check here on purpose: `/dashboard/*` is gated to electricians in
+// `src/lib/route-access.ts`, and RLS shows an electrician only the active cabinets.
+const error = projectErrorMessage(Astro.url.searchParams.get("error"));
+
+async function loadCabinets() {
+  const supabase = createClient(Astro.request.headers, Astro.cookies);
+  if (!supabase) return { cabinets: [], loadError: t.projectErrors.notConfigured };
+
+  // RLS already hides archived cabinets from an electrician; the filter repeats it, so the picker
+  // never offers one the snapshot trigger would refuse.
+  const { data, error: queryError } = await supabase
+    .from("cabinets")
+    .select("id, name, manufacturer, model, geometry, archived_at")
+    .is("archived_at", null);
+  if (queryError) {
+    // The SQLSTATE only, never Supabase's message — `wrangler tail` is the only trace a failure leaves.
+    // eslint-disable-next-line no-console
+    console.error("project cabinet picker load failed", queryError.code);
+    Astro.response.status = 500;
+    return { cabinets: [], loadError: t.projects.new.loadFailed };
+  }
+  // A cabinet whose geometry no longer parses is still offered, just without a drawing.
+  const cabinets = sortForCatalogList(data).map(({ id, name, manufacturer, model, geometry }) => {
+    const parsed = parseCabinetGeometry(geometry);
+    return { id, name, manufacturer, model, geometry: parsed.ok ? parsed.geometry : null };
+  });
+  return { cabinets, loadError: null };
+}
+
+const { cabinets, loadError } = await loadCabinets();
+
+const sectionClass = "flex flex-col gap-5 rounded-2xl border border-white/10 bg-white/10 p-6 backdrop-blur-xl";
+---
+
+<Layout title={t.projects.new.title}>
+  {loadError && <Banner variant="error">{loadError}</Banner>}
+  {error && <Banner variant="error">{error}</Banner>}
+  <div class="bg-cosmic min-h-screen p-4 text-white sm:p-8">
+    <div class="mx-auto max-w-4xl">
+      <Topbar />
+      <a href={PROJECTS_PATH} class="text-sm text-purple-300 transition-colors hover:text-purple-100 hover:underline">
+        {t.projects.new.backToList}
+      </a>
+      <h1 class="mt-2 mb-6 bg-gradient-to-r from-blue-200 to-purple-200 bg-clip-text text-3xl font-bold text-transparent">
+        {t.projects.new.title}
+      </h1>
+
+      {!loadError && cabinets.length === 0 && (
+        <p class="rounded-2xl border border-amber-300/40 bg-amber-300/10 p-8 text-center text-amber-100">
+          {t.projects.new.noCabinets}
+        </p>
+      )}
+
+      {cabinets.length > 0 && (
+        <form method="POST" action={PROJECTS_API_PATH} class="flex flex-col gap-6">
+          <section class:list={sectionClass}>
+            <h2 class="text-lg font-semibold">{t.projects.new.detailsSection}</h2>
+            <ProjectDetailsFields />
+          </section>
+
+          <fieldset class:list={sectionClass}>
+            <legend class="sr-only">{t.projects.new.cabinetSection}</legend>
+            <h2 class="text-lg font-semibold" aria-hidden="true">
+              {t.projects.new.cabinetSection}
+            </h2>
+            <p class="text-sm text-blue-100/70">{t.projects.new.cabinetHint}</p>
+            <CabinetPicker cabinets={cabinets} idPrefix="new-cabinet" />
+          </fieldset>
+
+          <div>
+            <button
+              type="submit"
+              class="rounded-lg bg-purple-500/80 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-purple-500"
+            >
+              {t.projects.new.create}
+            </button>
+          </div>
+        </form>
+      )}
+    </div>
+  </div>
+</Layout>

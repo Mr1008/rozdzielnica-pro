@@ -88,6 +88,20 @@ describe("resolveRouteAccess", () => {
     });
   });
 
+  it("gates the project API for the elektryk role only", () => {
+    for (const pathname of ["/api/projects", "/api/projects/00000000-0000-0000-0000-000000000001/delete"]) {
+      expect(resolveRouteAccess({ pathname, isSignedIn: true, role: "elektryk" })).toEqual({ allowed: true });
+      expect(resolveRouteAccess({ pathname, isSignedIn: true, role: "admin" })).toEqual({
+        allowed: false,
+        redirectTo: ROLE_HOME.admin,
+      });
+      expect(resolveRouteAccess({ pathname, isSignedIn: false, role: null })).toEqual({
+        allowed: false,
+        redirectTo: SIGN_IN_PATH,
+      });
+    }
+  });
+
   it("leaves the auth API open, since it sits outside /api/admin", () => {
     expect(resolveRouteAccess({ pathname: "/api/auth/signin", isSignedIn: false, role: null })).toEqual({
       allowed: true,

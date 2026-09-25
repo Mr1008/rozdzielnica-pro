@@ -1,0 +1,84 @@
+---
+import { t } from "@/lib/i18n";
+import {
+  MAX_CLIENT_NAME_LENGTH,
+  MAX_PROJECT_NAME_LENGTH,
+  MAX_SITE_ADDRESS_LENGTH,
+  PROJECT_FIELDS,
+  type ProjectDetails,
+} from "@/lib/project";
+import { cn } from "@/lib/utils";
+
+/**
+ * The name, client and site-address inputs, shared by the new-project form and the project page's
+ * details form. `required` and `maxlength` mirror `parseProjectDetailsForm`, which the endpoint runs
+ * again. `maxlength` counts UTF-16 units, so it can only be stricter than the parser's code points
+ * (an emoji counts twice), never looser.
+ */
+interface Props {
+  /** A stored project to pre-fill from; the create form starts empty. */
+  initial?: ProjectDetails | null;
+}
+
+const { initial = null } = Astro.props;
+
+const inputClass = cn(
+  "w-full rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-sm text-white placeholder-white/40",
+  "transition-colors focus:ring-2 focus:ring-purple-400 focus:outline-none",
+);
+const labelClass = "mb-1 block text-xs text-blue-100/80";
+const hintClass = "mt-1 text-xs text-blue-100/50";
+---
+
+<div>
+  <label for="project-name" class:list={labelClass}>
+    {t.projects.fields.name}
+  </label>
+  <input
+    id="project-name"
+    name={PROJECT_FIELDS.name}
+    type="text"
+    required
+    maxlength={MAX_PROJECT_NAME_LENGTH}
+    autocomplete="off"
+    value={initial?.name ?? ""}
+    placeholder={t.projects.fields.namePlaceholder}
+    class:list={inputClass}
+  />
+</div>
+<div>
+  <label for="project-client" class:list={labelClass}>
+    {t.projects.fields.clientName}
+  </label>
+  <input
+    id="project-client"
+    name={PROJECT_FIELDS.clientName}
+    type="text"
+    maxlength={MAX_CLIENT_NAME_LENGTH}
+    autocomplete="off"
+    value={initial?.client_name ?? ""}
+    aria-describedby="project-client-hint"
+    class:list={inputClass}
+  />
+  <p id="project-client-hint" class:list={hintClass}>
+    {t.projects.fields.optionalHint}
+  </p>
+</div>
+<div>
+  <label for="project-address" class:list={labelClass}>
+    {t.projects.fields.siteAddress}
+  </label>
+  <input
+    id="project-address"
+    name={PROJECT_FIELDS.siteAddress}
+    type="text"
+    maxlength={MAX_SITE_ADDRESS_LENGTH}
+    autocomplete="off"
+    value={initial?.site_address ?? ""}
+    aria-describedby="project-address-hint"
+    class:list={inputClass}
+  />
+  <p id="project-address-hint" class:list={hintClass}>
+    {t.projects.fields.optionalHint}
+  </p>
+</div>

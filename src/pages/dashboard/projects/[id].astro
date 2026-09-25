@@ -1,0 +1,211 @@
+---
+import Banner from "@/components/Banner.astro";
+import Topbar from "@/components/Topbar.astro";
+import { CabinetDrawing } from "@/components/cabinets/CabinetDrawing";
+import CabinetPicker from "@/components/projects/CabinetPicker.astro";
+import ProjectDetailsFields from "@/components/projects/ProjectDetailsFields.astro";
+import Layout from "@/layouts/Layout.astro";
+import { parseCabinetGeometry } from "@/lib/cabinet-geometry";
+import { isUuid, sortForCatalogList } from "@/lib/catalog";
+import { t } from "@/lib/i18n";
+import {
+  PROJECTS_PATH,
+  PROJECT_FIELDS,
+  projectApiPath,
+  projectCabinetApiPath,
+  projectDeleteApiPath,
+} from "@/lib/project";
+import { projectErrorMessage } from "@/lib/project-errors";
+import { createClient } from "@/lib/supabase";
+
+// No role check here on purpose: `/dashboard/*` is gated to electricians in
+// `src/lib/route-access.ts`, and RLS returns only the caller's own project — another electrician's
+// id reads exactly like one that does not exist.
+const { id } = Astro.params;
+const error = projectErrorMessage(Astro.url.searchParams.get("error"));
+const created = Astro.url.searchParams.get("created") === "1" && error === null;
+const savedParam = error === null ? Astro.url.searchParams.get("saved") : null;
+const saved =
+  savedParam === "details"
+    ? t.projects.page.savedDetails
+    : savedParam === "cabinet"
+      ? t.projects.page.savedCabinet
+      : null;
+
+const supabase = createClient(Astro.request.headers, Astro.cookies);
+
+async function loadProject() {
+  // Checked before querying: a non-UUID would reach PostgREST as `22P02` and read as a failure,
+  // when it is simply a project that does not exist.
+  if (!isUuid(id)) return { project: null, loadError: null };
+  if (!supabase) return { project: null, loadError: t.projectErrors.notConfigured };
+
+  const { data, error: queryError } = await supabase
+    .from("projects")
+    .select(
+      "id, name, client_name, site_address, cabinet_id, cabinet_name, cabinet_manufacturer, cabinet_model, cabinet_geometry",
+    )
+    .eq("id", id)
+    .maybeSingle();
+  if (queryError) {
+    // The SQLSTATE only, never Supabase's message — `wrangler tail` is the only trace a failure leaves.
+    // eslint-disable-next-line no-console
+    console.error("project load failed", queryError.code);
+    Astro.response.status = 500;
+    return { project: null, loadError: t.projects.page.loadFailed };
+  }
+  return { project: data, loadError: null };
+}
+
+/** The active catalog cabinets for the change form. A failure here leaves the rest of the page up. */
+async function loadCabinets() {
+  if (!supabase) return { cabinets: [], cabinetsError: t.projectErrors.notConfigured };
+  // RLS already hides archived cabinets from an electrician; the filter repeats it, so the picker
+  // never offers one the snapshot trigger would refuse.
+  const { data, error: queryError } = await supabase
+    .from("cabinets")
+    .select("id, name, manufacturer, model, geometry, archived_at")
+    .is("archived_at", null);
+  if (queryError) {
+    // eslint-disable-next-line no-console
+    console.error("project cabinet picker load failed", queryError.code);
+    return { cabinets: [], cabinetsError: t.projects.cabinet.loadFailed };
+  }
+  const cabinets = sortForCatalogList(data).map(({ id: cabinetId, name, manufacturer, model, geometry }) => {
+    const parsed = parseCabinetGeometry(geometry);
+    return { id: cabinetId, name, manufacturer, model, geometry: parsed.ok ? parsed.geometry : null };
+  });
+  return { cabinets, cabinetsError: null };
+}
+
+const { project, loadError } = await loadProject();
+if (!project && !loadError) Astro.response.status = 404;
+
+const { cabinets, cabinetsError } = project ? await loadCabinets() : { cabinets: [], cabinetsError: null };
+
+// The snapshot passed `parseCabinetGeometry` on its way into the catalog; parsing again only guards
+// the drawing. A snapshot that does not parse omits the drawing rather than failing the page.
+const snapshotGeometry = project ? parseCabinetGeometry(project.cabinet_geometry) : null;
+const currentStillActive = project !== null && cabinets.some((cabinet) => cabinet.id === project.cabinet_id);
+
+const title = project ? project.name : t.projects.page.notFoundTitle;
+const sectionClass = "flex flex-col gap-5 rounded-2xl border border-white/10 bg-white/10 p-6 backdrop-blur-xl";
+const buttonClass =
+  "rounded-lg border border-white/20 bg-white/10 px-4 py-2 text-sm transition-colors hover:bg-white/20";
+---
+
+<Layout title={title}>
+  {loadError && <Banner variant="error">{loadError}</Banner>}
+  {error && <Banner variant="error">{error}</Banner>}
+  {created && <Banner variant="info">{t.projects.page.created}</Banner>}
+  {saved && <Banner variant="info">{saved}</Banner>}
+  <div class="bg-cosmic min-h-screen p-4 text-white sm:p-8">
+    <div class="mx-auto max-w-4xl">
+      <Topbar />
+      <a href={PROJECTS_PATH} class="text-sm text-purple-300 transition-colors hover:text-purple-100 hover:underline">
+        {t.projects.page.backToList}
+      </a>
+      <h1 class="mt-2 mb-6 bg-gradient-to-r from-blue-200 to-purple-200 bg-clip-text text-3xl font-bold text-transparent">
+        {title}
+      </h1>
+
+      {!project && !loadError && (
+        <p class="rounded-2xl border border-white/10 bg-white/10 p-8 text-center text-blue-100/70">
+          {t.projects.page.notFound}
+        </p>
+      )}
+
+      {project && (
+        <div class="flex flex-col gap-6">
+          <form method="POST" action={projectApiPath(project.id)} class:list={sectionClass}>
+            <h2 class="text-lg font-semibold">{t.projects.page.detailsSection}</h2>
+            <ProjectDetailsFields initial={project} />
+            <div>
+              <button type="submit" class:list={buttonClass}>
+                {t.projects.page.saveDetails}
+              </button>
+            </div>
+          </form>
+
+          <section class:list={sectionClass} aria-labelledby="cabinet-heading">
+            <h2 id="cabinet-heading" class="text-lg font-semibold">
+              {t.projects.cabinet.section}
+            </h2>
+            <div class="flex flex-col gap-4 sm:flex-row sm:items-start">
+              <div class="flex h-56 w-full shrink-0 items-center justify-center rounded-lg bg-white/90 p-2 sm:w-56">
+                {snapshotGeometry?.ok ? (
+                  <CabinetDrawing geometry={snapshotGeometry.geometry} className="h-full w-full" />
+                ) : (
+                  <p class="text-center text-xs text-slate-700">{t.projects.cabinet.drawingUnavailable}</p>
+                )}
+              </div>
+              <div class="min-w-0 flex-1">
+                <p class="text-lg font-semibold">{project.cabinet_name}</p>
+                <dl class="mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm text-blue-100/80">
+                  <dt class="text-blue-100/50">{t.cabinets.fields.manufacturer}</dt>
+                  <dd>{project.cabinet_manufacturer}</dd>
+                  <dt class="text-blue-100/50">{t.cabinets.fields.model}</dt>
+                  <dd>{project.cabinet_model}</dd>
+                </dl>
+                <p class="mt-3 text-xs text-blue-100/50">{t.projects.cabinet.snapshotHint}</p>
+                {!cabinetsError && !currentStillActive && (
+                  <p class="mt-3 rounded-lg border border-amber-300/40 bg-amber-300/10 p-2 text-xs text-amber-100">
+                    {t.projects.cabinet.currentArchived}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <form method="POST" action={projectCabinetApiPath(project.id)} class="flex flex-col gap-4">
+              <fieldset class="flex flex-col gap-3">
+                <legend class="mb-1 font-semibold">{t.projects.cabinet.changeTitle}</legend>
+                <p class="text-sm text-blue-100/70">{t.projects.cabinet.changeHint}</p>
+                {cabinetsError && <p class="text-sm text-red-200">{cabinetsError}</p>}
+                {!cabinetsError && cabinets.length === 0 && (
+                  <p class="text-sm text-amber-100">{t.projects.cabinet.noCabinets}</p>
+                )}
+                {cabinets.length > 0 && (
+                  <CabinetPicker
+                    cabinets={cabinets}
+                    selectedId={currentStillActive ? project.cabinet_id : null}
+                    idPrefix="change-cabinet"
+                  />
+                )}
+              </fieldset>
+              {cabinets.length > 0 && (
+                <div>
+                  <button type="submit" class:list={buttonClass}>
+                    {t.projects.cabinet.change}
+                  </button>
+                </div>
+              )}
+            </form>
+          </section>
+
+          {/* The OSD/WLZ supply section (form and warnings) goes here — Phase 3 of this change. */}
+
+          <form
+            method="POST"
+            action={projectDeleteApiPath(project.id)}
+            class="flex flex-col gap-4 rounded-2xl border border-red-300/30 bg-red-500/10 p-6 backdrop-blur-xl"
+          >
+            <h2 class="text-lg font-semibold">{t.projects.delete.section}</h2>
+            <p class="text-sm text-blue-100/70">{t.projects.delete.hint}</p>
+            <label class="flex items-center gap-2 text-sm">
+              <input type="checkbox" name={PROJECT_FIELDS.confirmDelete} value="1" required class="accent-red-400" />
+              {t.projects.delete.confirm}
+            </label>
+            <div>
+              <button
+                type="submit"
+                class="rounded-lg border border-red-300/40 bg-red-500/30 px-4 py-2 text-sm transition-colors hover:bg-red-500/50"
+              >
+                {t.projects.delete.submit}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+    </div>
+  </div>
+</Layout>

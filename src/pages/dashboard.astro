@@ -2,6 +2,7 @@
 import Layout from "@/layouts/Layout.astro";
 import { t } from "@/lib/i18n";
 import { PRICING_PROFILE_PATH } from "@/lib/pricing-profile";
+import { PROJECTS_PATH } from "@/lib/project";
 import { createClient } from "@/lib/supabase";
 
 const { user } = Astro.locals;
@@ -52,6 +53,13 @@ const showPricingNotice = await pricingMissing();
       )}
 
       <nav class="mt-6 flex flex-col gap-3 text-left">
+        <a
+          href={PROJECTS_PATH}
+          class="block rounded-xl border border-white/20 bg-white/10 p-4 transition-colors hover:bg-white/20"
+        >
+          <span class="font-semibold text-white">{t.projects.dashboardLink}</span>
+          <span class="mt-1 block text-sm text-blue-100/70">{t.projects.dashboardLinkDescription}</span>
+        </a>
         <a
           href={PRICING_PROFILE_PATH}
           class="block rounded-xl border border-white/20 bg-white/10 p-4 transition-colors hover:bg-white/20"
