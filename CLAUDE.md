@@ -38,45 +38,36 @@ than pasting their contents. Most important rules go at the top — attention is
 of a long file. Per-area rules belong in a nested `AGENTS.md` next to the code they govern.
 <!-- BEGIN @przeprogramowani/10x-cli -->
 
-## 10xDevs AI Toolkit - Module 2, Lesson 3
+## 10xDevs AI Toolkit - Module 2, Lesson 5 (10xDevs 4.0 UI)
 
-Review AI-generated code before merge with the **implementation review chain**:
+Treat a visual change as a **10x change with a design-system contract**, not a "make it pretty" chat:
 
 ```
-/10x-implement -> /10x-impl-review -> triage -> (/10x-lesson | fix | skip | disagree)
+/10x-new -> audit+reference research -> plan (tokens then one view) -> implement -> screenshot gate -> /10x-impl-review
 ```
-
-`/10x-impl-review` is the lesson focus. Review is a quality gate, not an instruction to fix every finding.
 
 ### Task Router - Where to start
 
-| Skill                          | Use it when                                                                                                                                                                                                                             |
-| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Code review (lesson focus)** |                                                                                                                                                                                                                                         |
-| `/10x-impl-review <change-id>` | You have implemented code and want a structured review before merge. The skill checks plan adherence, scope discipline, safety and quality, architecture, pattern consistency, and success criteria, then presents findings for triage. |
-| **Recurring lesson outcome**   |                                                                                                                                                                                                                                         |
-| `/10x-lesson`                  | A finding reveals a recurring project rule or agent failure pattern. Record it in `context/foundation/lessons.md` instead of treating it as a one-off note.                                                                             |
+| Skill                          | Use it when                                                                                                                                                                                         |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/10x-ui`                      | A view that already renders and needs auditing and improving: theme, restyle, "nicer UI", tokens, visual pass — on the course app or any other stack. Not for building the view in the first place. |
+| `/10x-research`                | Locate this repo's value source and shared components, map which views read them, and pick a named motif — not a moodboard. Output is a list of charges (file, line, user impact).                  |
+| `/10x-plan` / `/10x-implement` | Same chain as earlier M2 lessons; payload is UI.                                                                                                                                                    |
+| `/10x-impl-review`             | Before merge; do not skip visual findings as cosmetic.                                                                                                                                              |
 
-### Triage discipline
+### Contract
 
-- Severity says how bad the finding is. Impact says how much the decision matters now.
-- Valid outcomes: fix now, fix differently, skip, accept as risk, record as recurring rule (`/10x-lesson`), disagree.
-- Fix critical findings. Do not burn hours on low-impact observations just because the agent found them.
-- Conscious skipping of low-impact findings is a valid review outcome, not negligence.
-- If you disagree with a finding, record why. Wrong agent reasoning is also signal.
+- Two halves, whatever the stack: semantic tokens in one source, and importable components living in the repo. Tailwind v4 `@theme` + shadcn is how the course app realises them; read this repo's own realisation before proposing values.
+- Values taken from outside go into the repo with a line naming the source. Not into the chat history.
+- One view + global tokens. Not a whole-MVP rebrand. Not worktrees/`/goal`.
+- Three charge categories: missing tokens, missing shared component, accidental architecture.
+- Visual gate: a kitchen sink rendering every state, screenshotted; wire it into a screenshot test only if the repo already has one. Do not blind-update baselines.
+- No design system in the repo? Proposing one is allowed — marked as adding a dependency, scoped to what the change needs, and always losing to a system that already exists.
+- Models: route by phase, not vendor. Strongest model you have for audit, plan and review; a cheaper working tier for implementing charges in the loop; escalate only when the same charge survives two rounds. Any vision-capable model works, and no single model — Fable 5.1 included — is a requirement.
 
-### Review boundaries
+### Lesson boundaries
 
-- This lesson reviews implemented code. It does not create the plan, execute new phases, or teach CI review.
-- Testing strategy and quality gates are introduced in Module 3.
-- Do not use `/10x-contract` as a triage outcome in this lesson.
-
-### Paths used by this lesson
-
-- `context/changes/<change-id>/plan.md` - expected implementation contract
-- `context/changes/<change-id>/reviews/` - review output
-- `context/foundation/lessons.md` - recurring lessons
-
-Skills must not write to `context/archive/`. Archived changes are immutable; if a resolved target path starts with `context/archive/`, abort with: "This change is archived. Open a new change with `/10x-new` instead."
+- Do not reteach Exa/Context7, worktrees, or screenshot testing as a testing course.
+- Do not initialize a second design system on a repo that already has one — `shadcn init` on the course starter included.
 
 <!-- END @przeprogramowani/10x-cli -->
