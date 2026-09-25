@@ -2,11 +2,12 @@
 
 **RozdzielnicaPro** — a switchboard (rozdzielnica) planning and labour-quoting tool for a solo
 electrician. Scaffolded from `10x-astro-starter`. Product code so far is auth, i18n, the role/RLS
-baseline, the admin cabinet and device catalogs and the electrician pricing profile —
-`src/pages/auth/*`, `src/pages/admin/` (including `src/pages/admin/devices/`), `src/pages/api/admin/`,
-`src/pages/dashboard.astro`, `src/pages/dashboard/profile.astro`, `src/pages/api/profile/`,
-`src/components/cabinets/`, `src/components/devices/`, `src/components/forms/`, most of `src/lib/`,
-and all of `supabase/`. The rest is still starter code.
+baseline, the admin cabinet and device catalogs, the electrician pricing profile and projects (cabinet
+snapshot, OSD/WLZ supply and its warnings) — `src/pages/auth/*`, `src/pages/admin/` (including
+`src/pages/admin/devices/`), `src/pages/api/admin/`, `src/pages/dashboard.astro`,
+`src/pages/dashboard/profile.astro`, `src/pages/dashboard/projects/`, `src/pages/api/profile/`,
+`src/pages/api/projects/`, `src/components/cabinets/`, `src/components/devices/`,
+`src/components/forms/`, `src/components/projects/`, most of `src/lib/`, and all of `supabase/`. The rest is still starter code.
 
 Product spec: @context/foundation/prd.md · Stack rationale: @context/foundation/tech-stack.md ·
 Setup/deploy: @README.md
@@ -70,6 +71,8 @@ These are correctness requirements, not preferences.
   @src/lib/cabinet-geometry.ts. The database CHECK asserts nothing but an object at `version: 1`, so
   every write of `cabinets.geometry` — endpoint, seed, migration — must go through it (the editor's
   endpoints do, via `parseCabinetForm`); never write the column around it.
+  `projects.cabinet_geometry` has no TypeScript writer at all: only the `projects_snapshot_cabinet`
+  trigger writes it, copying a `cabinets.geometry` that has already passed the parser.
 - **Device parameters are guarded twice, and the two guards must change together.** The
   `devices_parameters_match_kind` CHECK in `supabase/migrations/20260923130628_devices_catalog.sql`
   and `parseDeviceSpec` in @src/lib/device-spec.ts (`POLES_BY_KIND`, `PARAMETERS_BY_KIND`, the
@@ -86,7 +89,21 @@ These are correctness requirements, not preferences.
   electrician to `/dashboard/profile`, never fall back to invented defaults.
 - **A project must snapshot its cabinet's `geometry`, not reference it live** (S-03). Admin edits to
   a cabinet must never shift an existing project's layout or quote; archiving only hides the cabinet
-  from the picker.
+  from the picker. The snapshot (`cabinet_geometry`, `cabinet_name`, `cabinet_manufacturer`,
+  `cabinet_model`, `cabinet_price_grosze`) is written **only** by the `projects_snapshot_cabinet`
+  trigger in `supabase/migrations/20260924150000_projects.sql`: it re-snapshots when `cabinet_id`
+  changes and otherwise resets those columns, so client-sent values are ignored. Send `cabinet_id`
+  alone; never write the snapshot columns from TypeScript. Downstream slices read the snapshot, never
+  `cabinets.geometry`.
+- **Supply value lists are guarded twice, and the two guards must change together.** The CHECKs and
+  enums on the seven supply columns in `supabase/migrations/20260924150000_projects.sql` and the lists
+  in @src/lib/supply-params.ts encode the same values (the enum unions are asserted against
+  `database.types.ts`; the numeric lists are not). **A null supply means "not configured"** — the
+  seven columns are all set or all null (`projects_supply_all_or_nothing`), and that is the contract
+  S-04 reads: it must block and send the electrician to the project page, never fall back to
+  invented defaults. The warnings in @src/lib/supply-warnings.ts are informational and never block a
+  save; `AMPACITY_A` is transcribed from PN-HD 60364-5-52 and its completeness test must keep every
+  combination present.
 - **Never run `supabase config push`.** `supabase/config.toml` carries
   `site_url = "http://127.0.0.1:3000"`, which would break production auth redirects. Migrations reach
   the cloud project through `.github/workflows/db-migrate.yml`; config does not go up at all, and the
