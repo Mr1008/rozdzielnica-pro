@@ -1,7 +1,8 @@
 ---
 change_id: project-setup-and-supply-params
 title: Nowy projekt — wybór szafki i parametry OSD/WLZ
-status: impl_reviewed
+status: archived
+archived_at: 2026-09-25T09:35:44Z
 created: 2026-09-24
 updated: 2026-09-25
 ---
