@@ -40,7 +40,11 @@ describe("projectErrorFromPostgrest", () => {
 
   it("maps a missing or archived cabinet to cabinet unavailable", () => {
     expect(projectErrorFromPostgrest({ code: "P0002" })).toBe(PROJECT_ERROR.cabinetUnavailable);
-    expect(projectErrorFromPostgrest({ code: "23503" })).toBe(PROJECT_ERROR.cabinetUnavailable);
+  });
+
+  it("does not label a foreign-key violation as a cabinet problem", () => {
+    // The trigger raises P0002 for a missing cabinet first; a 23503 can only be another key.
+    expect(projectErrorFromPostgrest({ code: "23503" })).toBe("23503");
   });
 
   it("passes an unmapped code through so the URL stays diagnosable", () => {

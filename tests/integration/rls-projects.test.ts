@@ -474,8 +474,14 @@ describe("row level security and the cabinet snapshot on public.projects", () =>
       const cases = [
         { name: "" },
         { name: " Dom" },
+        // Any whitespace at an edge, not just the plain space — the form's `trim()` strips it all.
+        { name: "\tDom" },
+        { name: "Dom\n" },
+        { name: " " },
         { name: "a".repeat(201) },
         { client_name: "" },
+        { client_name: "Jan\t" },
+        { site_address: "\tul. Lipowa 5" },
         { client_name: "k".repeat(201) },
         { site_address: "" },
         { site_address: "a".repeat(301) },

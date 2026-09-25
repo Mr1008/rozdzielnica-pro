@@ -17,6 +17,16 @@ export function projectPath(id: string): string {
   return `${PROJECTS_PATH}/${id}`;
 }
 
+/** The project list with an `?error=` banner — where a project that is not found lands. */
+export function projectsErrorPath(code: string): string {
+  return `${PROJECTS_PATH}?error=${encodeURIComponent(code)}`;
+}
+
+/** Back to the form a write came from with an `?error=` code: the new-project form when `id` is null. */
+export function projectFormErrorPath(id: string | null, code: string): string {
+  return `${id === null ? NEW_PROJECT_PATH : projectPath(id)}?error=${encodeURIComponent(code)}`;
+}
+
 /** The endpoints the project forms post to. */
 export const PROJECTS_API_PATH = "/api/projects";
 

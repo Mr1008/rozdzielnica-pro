@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { isUuid } from "@/lib/catalog";
-import { PROJECTS_PATH, parseProjectDetailsForm, projectPath } from "@/lib/project";
+import { parseProjectDetailsForm, projectFormErrorPath, projectPath, projectsErrorPath } from "@/lib/project";
 import { PROJECT_ERROR, projectErrorFromPostgrest } from "@/lib/project-errors";
 import { SIGN_IN_PATH } from "@/lib/route-access";
 import { createClient } from "@/lib/supabase";
@@ -13,9 +13,9 @@ import { createClient } from "@/lib/supabase";
 export const POST: APIRoute = async (context) => {
   const { id } = context.params;
   // A missing project goes to the list: its own page would only render a 404.
-  const notFound = () => context.redirect(`${PROJECTS_PATH}?error=${PROJECT_ERROR.notFound}`);
+  const notFound = () => context.redirect(projectsErrorPath(PROJECT_ERROR.notFound));
   if (!isUuid(id)) return notFound();
-  const back = (code: string) => context.redirect(`${projectPath(id)}?error=${encodeURIComponent(code)}`);
+  const back = (code: string) => context.redirect(projectFormErrorPath(id, code));
 
   // The route gate already refuses an anonymous request.
   if (!context.locals.user) return context.redirect(SIGN_IN_PATH);

@@ -43,9 +43,10 @@ export function projectErrorMessage(code: string | null | undefined): string | n
  * Maps a PostgREST error to a code by its SQLSTATE, never by its message. An insert refused by RLS
  * raises `42501`; an update or delete RLS refuses matches zero rows instead, so callers must check
  * the returned rows too. A CHECK violation (`23514`) means the parser let through something the
- * database refuses. `P0002` is the snapshot trigger finding no active cabinet, and `23503` a
- * `cabinet_id` naming no cabinet at all — to the user both are a cabinet that is no longer
- * available. An unmapped SQLSTATE passes through as-is.
+ * database refuses. `P0002` is the snapshot trigger finding no active cabinet — it runs BEFORE the
+ * foreign keys, so a `cabinet_id` naming no cabinet raises it too, and a `23503` can only come from
+ * another key (`user_id`); it is not mapped, so it is never mislabelled as a cabinet problem. An
+ * unmapped SQLSTATE passes through as-is.
  */
 export function projectErrorFromPostgrest(error: { code?: string | null }): string {
   switch (error.code) {
@@ -54,7 +55,6 @@ export function projectErrorFromPostgrest(error: { code?: string | null }): stri
     case "23514":
       return PROJECT_ERROR.invalidInput;
     case "P0002":
-    case "23503":
       return PROJECT_ERROR.cabinetUnavailable;
     default:
       return error.code ?? PROJECT_ERROR.unknown;

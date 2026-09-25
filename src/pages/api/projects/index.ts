@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { NEW_PROJECT_PATH, parseNewProjectForm, projectPath } from "@/lib/project";
+import { parseNewProjectForm, projectFormErrorPath, projectPath } from "@/lib/project";
 import { PROJECT_ERROR, projectErrorFromPostgrest } from "@/lib/project-errors";
 import { SIGN_IN_PATH } from "@/lib/route-access";
 import { createClient } from "@/lib/supabase";
@@ -11,7 +11,7 @@ import { createClient } from "@/lib/supabase";
  * `src/lib/route-access.ts`; RLS on `projects` is still the real boundary.
  */
 export const POST: APIRoute = async (context) => {
-  const back = (code: string) => context.redirect(`${NEW_PROJECT_PATH}?error=${encodeURIComponent(code)}`);
+  const back = (code: string) => context.redirect(projectFormErrorPath(null, code));
 
   // The route gate already refuses an anonymous request; this only keeps `user.id` typed as present.
   const { user } = context.locals;

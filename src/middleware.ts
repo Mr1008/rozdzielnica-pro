@@ -1,9 +1,15 @@
 import { defineMiddleware } from "astro:middleware";
+import { resolveTimeZone } from "@/lib/i18n";
 import { resolveUserRole } from "@/lib/roles";
 import { resolveRouteAccess } from "@/lib/route-access";
 import { createClient } from "@/lib/supabase";
 
 export const onRequest = defineMiddleware(async (context, next) => {
+  // Cloudflare attaches `cf` to the incoming request (`Astro.request.cf` since Astro 6); its `timezone`
+  // is geolocated from the IP. It is absent outside the Workers runtime, which `resolveTimeZone` covers.
+  const cf = (context.request as Request & { cf?: { timezone?: unknown } }).cf;
+  context.locals.timeZone = resolveTimeZone(cf?.timezone);
+
   const supabase = createClient(context.request.headers, context.cookies);
 
   if (supabase) {

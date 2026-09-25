@@ -500,6 +500,7 @@ export const pl = {
       snapshotHint: "Projekt przechowuje kopię szafki z chwili jej wybrania — zmiany w katalogu jej nie zmieniają.",
       drawingUnavailable: "Rysunek tej szafki jest niedostępny.",
       currentArchived: "Ta szafka została wycofana z katalogu. Projekt zachowuje jej zapisaną kopię.",
+      manufacturerModel: (manufacturer: string, model: string) => `${manufacturer} · ${model}`,
       changeTitle: "Zmień szafkę",
       changeHint: "Nowa szafka zastąpi zapisaną kopię w tym projekcie.",
       noCabinets: "Katalog szafek jest pusty — skontaktuj się z administratorem.",
@@ -589,7 +590,7 @@ export const pl = {
     aluminiumBelowMinimum: (minimumMm2: number) =>
       `WLZ z żyłami aluminiowymi powinna mieć przekrój co najmniej ${formatNumber(minimumMm2)} mm².`,
     penBelowMinimum: (minimumMm2: number) =>
-      `W układzie TN-C przewód PEN powinien mieć przekrój co najmniej ${formatNumber(minimumMm2)} mm² dla wybranego materiału żył.`,
+      `Przewód PEN w WLZ (układ TN-C albo TN-C-S z rozdziałem PEN w rozdzielnicy) powinien mieć przekrój co najmniej ${formatNumber(minimumMm2)} mm² dla wybranego materiału żył.`,
     voltageDropHigh: (percent: number, limitPercent: number) =>
       `Spadek napięcia na WLZ wynosi ok. ${formatNumber(percent)} % i przekracza zalecane ${formatNumber(limitPercent)} %. Wyliczono go przy pełnym prądzie zabezpieczenia przedlicznikowego, więc jest zawyżony — to oszacowanie z zapasem.`,
     note: "Kontrole są uproszczone i mają charakter informacyjny: obciążalność pochodzi z tabel dla izolacji PVC bez współczynników poprawkowych (temperatura, grupowanie), a spadek napięcia liczony jest przy pełnym prądzie zabezpieczenia przedlicznikowego. Nie blokują zapisu i nie zastępują obliczeń projektowych.",
