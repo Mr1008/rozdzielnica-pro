@@ -632,18 +632,18 @@ cannot block an admin action.
 
 #### Automated
 
-- [x] 3.1 Lint passes: `npm run lint`
-- [x] 3.2 Type check passes: `npx astro check`
-- [x] 3.3 Unit tests pass, including the warning boundaries and table completeness: `npm run test:unit`
-- [x] 3.4 Build passes: `npm run build`
-- [x] 3.5 RLS suite still passes: `npm run test:integration`
-- [x] 3.6 Smoke script still passes against the dev server: `npm run smoke`
+- [x] 3.1 Lint passes: `npm run lint` — a4d367b
+- [x] 3.2 Type check passes: `npx astro check` — a4d367b
+- [x] 3.3 Unit tests pass, including the warning boundaries and table completeness: `npm run test:unit` — a4d367b
+- [x] 3.4 Build passes: `npm run build` — a4d367b
+- [x] 3.5 RLS suite still passes: `npm run test:integration` — a4d367b
+- [x] 3.6 Smoke script still passes against the dev server: `npm run smoke` — a4d367b
 
 #### Manual
 
-- [x] 3.7 An electrician checks the transcribed `AMPACITY_A` values and the installation → reference-method mapping against PN-HD 60364-5-52 tables B.52.2–B.52.5
-- [x] 3.8 Saving 25 A / TN-C-S / 1 phase / 15 m / 10 mm² / Cu / w rurce podtynkowo shows exactly the voltage-drop warning (≈ 0,58 %). Switching to 3 phases removes it
-- [x] 3.9 63 A with Cu 10 mm² in a conduit shows the ampacity warning. Al 10 mm² shows the aluminium warning, and TN-C with Cu 6 mm² shows the PEN warning
-- [x] 3.10 After the first save, the list's supply-missing badge is gone. Reload shows the values pre-filled, with the length shown using a comma
-- [x] 3.11 A tampered POST (e.g. `premeter_protection_a=30`) lands on `?error=invalid_input` with Polish text
-- [x] 3.12 All visible text is Polish
+- [x] 3.7 An electrician checks the transcribed `AMPACITY_A` values and the installation → reference-method mapping against PN-HD 60364-5-52 tables B.52.2–B.52.5 — a4d367b
+- [x] 3.8 Saving 25 A / TN-C-S / 1 phase / 15 m / 10 mm² / Cu / w rurce podtynkowo shows exactly the voltage-drop warning (≈ 0,58 %). Switching to 3 phases removes it — a4d367b
+- [x] 3.9 63 A with Cu 10 mm² in a conduit shows the ampacity warning. Al 10 mm² shows the aluminium warning, and TN-C with Cu 6 mm² shows the PEN warning — a4d367b
+- [x] 3.10 After the first save, the list's supply-missing badge is gone. Reload shows the values pre-filled, with the length shown using a comma — a4d367b
+- [x] 3.11 A tampered POST (e.g. `premeter_protection_a=30`) lands on `?error=invalid_input` with Polish text — a4d367b
+- [x] 3.12 All visible text is Polish — a4d367b
