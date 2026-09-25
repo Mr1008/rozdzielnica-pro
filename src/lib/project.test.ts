@@ -14,6 +14,8 @@ import {
   projectCabinetApiPath,
   projectDeleteApiPath,
   projectPath,
+  projectFormErrorPath,
+  projectsErrorPath,
   projectSupplyApiPath,
 } from "./project";
 
@@ -52,6 +54,12 @@ describe("project paths", () => {
     expect(projectCabinetApiPath("x")).toBe("/api/projects/x/cabinet");
     expect(projectSupplyApiPath("x")).toBe("/api/projects/x/supply");
     expect(projectDeleteApiPath("x")).toBe("/api/projects/x/delete");
+  });
+
+  it("build the error redirects, encoding the code", () => {
+    expect(projectsErrorPath("not_found")).toBe("/dashboard/projects?error=not_found");
+    expect(projectFormErrorPath(null, "invalid_input")).toBe("/dashboard/projects/new?error=invalid_input");
+    expect(projectFormErrorPath(CABINET_ID, "a&b")).toBe(`/dashboard/projects/${CABINET_ID}?error=a%26b`);
   });
 });
 

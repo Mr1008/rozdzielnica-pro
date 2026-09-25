@@ -81,19 +81,20 @@ create table if not exists public.projects (
   updated_at timestamptz not null default now()
 );
 
--- Text: stored trimmed (no leading or trailing space), 1–200 / 1–300 code points (`char_length`, the
+-- Text: stored trimmed (no leading or trailing whitespace of any kind — `[[:space:]]`, not `btrim`,
+-- which strips only the plain space), 1–200 / 1–300 code points (`char_length`, the
 -- same counting as `Array.from(s).length` in `src/lib/project.ts`). The optional fields are null, never blank.
 alter table public.projects drop constraint if exists projects_name_valid;
 alter table public.projects add constraint projects_name_valid
-  check (name = btrim(name) and char_length(name) between 1 and 200);
+  check (name !~ '^[[:space:]]|[[:space:]]$' and char_length(name) between 1 and 200);
 
 alter table public.projects drop constraint if exists projects_client_name_valid;
 alter table public.projects add constraint projects_client_name_valid
-  check (client_name is null or (client_name = btrim(client_name) and char_length(client_name) between 1 and 200));
+  check (client_name is null or (client_name !~ '^[[:space:]]|[[:space:]]$' and char_length(client_name) between 1 and 200));
 
 alter table public.projects drop constraint if exists projects_site_address_valid;
 alter table public.projects add constraint projects_site_address_valid
-  check (site_address is null or (site_address = btrim(site_address) and char_length(site_address) between 1 and 300));
+  check (site_address is null or (site_address !~ '^[[:space:]]|[[:space:]]$' and char_length(site_address) between 1 and 300));
 
 -- Supply value lists: keep in sync with `src/lib/supply-params.ts`. Each CHECK passes on NULL; the
 -- all-or-nothing CHECK decides whether a null is allowed. The three enum columns need no CHECK —

@@ -54,7 +54,7 @@ const { cabinets, selectedId = null, idPrefix } = Astro.props;
                 {cabinet.name}
               </span>
               <span id={`${inputId}-model`} class="block text-sm text-blue-100/70">
-                {cabinet.manufacturer} · {cabinet.model}
+                {t.projects.cabinet.manufacturerModel(cabinet.manufacturer, cabinet.model)}
               </span>
             </span>
             <span class="flex h-32 w-full items-center justify-center rounded-lg bg-white/90 p-2">

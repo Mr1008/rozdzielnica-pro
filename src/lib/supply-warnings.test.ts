@@ -12,10 +12,13 @@ import {
   type SupplyWarning,
 } from "./supply-warnings";
 
-/** 25 A, TN-C-S, three-phase, 15 m of Cu 10 mm² in a flush conduit: raises nothing. */
+/**
+ * 25 A, TN-S, three-phase, 15 m of Cu 10 mm² in a flush conduit: raises nothing. TN-S so that the
+ * PEN check stays out of tests that vary the cross-section or material for another warning.
+ */
 const COMPLIANT: SupplyParams = {
   premeter_protection_a: 25,
-  earthing_system: "TN-C-S",
+  earthing_system: "TN-S",
   phase_count: 3,
   wlz_length_m: 15,
   wlz_cross_section_mm2: 10,
@@ -149,6 +152,10 @@ describe("supplyWarnings", () => {
       ]);
     });
 
+    it("warns for TN-C-S with Cu 6 mm², where the PEN splits in the switchboard", () => {
+      expect(codes({ ...base, earthing_system: "TN-C-S", wlz_cross_section_mm2: 6 })).toEqual(["pen_below_minimum"]);
+    });
+
     it("does not warn for TN-S with Cu 6 mm²", () => {
       expect(codes({ ...base, earthing_system: "TN-S", wlz_cross_section_mm2: 6 })).toEqual([]);
     });
@@ -168,7 +175,15 @@ describe("supplyWarnings", () => {
     it("is ≈ 0.58 % for 25 A, 15 m, Cu 10 mm² single-phase, and warns alone", () => {
       expect(voltageDropPercent(reference)).toBeCloseTo(0.58, 2);
       expect(supplyWarnings(reference)).toEqual([
-        { code: "voltage_drop_high", percent: 0.58, limitPercent: VOLTAGE_DROP_LIMIT_PERCENT },
+        { code: "voltage_drop_high", percent: 0.59, limitPercent: VOLTAGE_DROP_LIMIT_PERCENT },
+      ]);
+    });
+
+    it("warns just above the limit instead of rounding it away (13 m ≈ 0.5047 %)", () => {
+      const boundary = { ...reference, wlz_length_m: 13 };
+      expect(voltageDropPercent(boundary)).toBeCloseTo(0.5047, 4);
+      expect(supplyWarnings(boundary)).toEqual([
+        { code: "voltage_drop_high", percent: 0.51, limitPercent: VOLTAGE_DROP_LIMIT_PERCENT },
       ]);
     });
 

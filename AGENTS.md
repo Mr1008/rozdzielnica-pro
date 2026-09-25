@@ -198,7 +198,10 @@ shape for new form endpoints so the existing forms keep working.
 - New Supabase tables: migration named `YYYYMMDDHHmmss_short_description.sql`, RLS enabled, with
   granular per-operation, per-role policies. Per-electrician isolation is a stated requirement, so
   RLS is the enforcement point, not application code.
-- All datetimes should be stored and processed in UTC. Local timezone should be applied only to end-user.
+- All datetimes should be stored and processed in UTC. Local timezone should be applied only to end-user:
+  `formatDate`/`formatDateTime` require a zone — pass `Astro.locals.timeZone`, which the middleware
+  resolves from Cloudflare's `request.cf.timezone` (fallback `Europe/Warsaw`). The Workers runtime
+  itself runs in UTC, so an `Intl` formatter without a zone shows the wrong day after 22:00.
 
 ## Commands
 

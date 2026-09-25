@@ -117,7 +117,12 @@ export function wlzAmpacityA(params: SupplyParams): number {
 /** Aluminium WLZ conductors below this cross-section warn. */
 export const ALUMINIUM_MIN_MM2 = 16;
 
-/** The smallest PEN conductor in a TN-C system, per material. */
+/**
+ * The smallest PEN conductor, per material. Checked for TN-C and TN-C-S: in TN-C-S the PEN is assumed
+ * to split in the switchboard (the usual arrangement for a single-family house), so the WLZ feeding it
+ * still carries a PEN. Where the split is in the connection box this warning is a false positive —
+ * informational, never blocking.
+ */
 export const PEN_MIN_MM2 = { Cu: 10, Al: 16 } as const satisfies Record<ConductorMaterial, number>;
 
 /** Conductivity γ in m/(Ω·mm²). */
@@ -152,8 +157,9 @@ export type SupplyWarning =
 
 export type SupplyWarningCode = SupplyWarning["code"];
 
-function roundTo2(value: number): number {
-  return Math.round(value * 100) / 100;
+/** Rounded up to 0.01, so a displayed drop is never at or below the limit it exceeds. */
+function ceilTo2(value: number): number {
+  return Math.ceil(value * 100) / 100;
 }
 
 /** Every warning the supply raises, in a stable order: ampacity, aluminium, PEN, voltage drop. */
@@ -170,14 +176,15 @@ export function supplyWarnings(params: SupplyParams): SupplyWarning[] {
   }
 
   const penMinimum = PEN_MIN_MM2[params.wlz_material];
-  if (params.earthing_system === "TN-C" && params.wlz_cross_section_mm2 < penMinimum) {
+  const carriesPen = params.earthing_system === "TN-C" || params.earthing_system === "TN-C-S";
+  if (carriesPen && params.wlz_cross_section_mm2 < penMinimum) {
     warnings.push({ code: "pen_below_minimum", minimumMm2: penMinimum });
   }
 
-  // Compared after rounding, so the percentage shown is always visibly above the limit.
-  const percent = roundTo2(voltageDropPercent(params));
+  // The raw value is compared, so no drop above the limit is rounded away; only the display rounds.
+  const percent = voltageDropPercent(params);
   if (percent > VOLTAGE_DROP_LIMIT_PERCENT) {
-    warnings.push({ code: "voltage_drop_high", percent, limitPercent: VOLTAGE_DROP_LIMIT_PERCENT });
+    warnings.push({ code: "voltage_drop_high", percent: ceilTo2(percent), limitPercent: VOLTAGE_DROP_LIMIT_PERCENT });
   }
 
   return warnings;

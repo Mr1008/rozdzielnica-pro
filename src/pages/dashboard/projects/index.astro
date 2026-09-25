@@ -95,7 +95,9 @@ const projects = rows.map((row) => ({ ...row, supplyMissing: supplyFromRow(row) 
               </span>
               <span class="text-sm text-blue-100/80">{project.client_name ?? t.projects.list.noClient}</span>
               <span class="text-sm text-blue-100/60">{t.projects.list.cabinet(project.cabinet_name)}</span>
-              <span class="text-xs text-blue-100/50">{t.projects.list.updatedAt(formatDate(project.updated_at))}</span>
+              <span class="text-xs text-blue-100/50">
+                {t.projects.list.updatedAt(formatDate(project.updated_at, Astro.locals.timeZone))}
+              </span>
             </a>
           </li>
         ))}
