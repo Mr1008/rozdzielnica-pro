@@ -177,16 +177,19 @@ Users can then sign in immediately after sign-up without clicking a confirmation
 
 ### Auth routes
 
-| Route                 | Description                                                 |
-| --------------------- | ----------------------------------------------------------- |
-| `/auth/signin`        | Email/password sign-in form                                 |
-| `/auth/signup`        | Email/password sign-up form                                 |
-| `/auth/confirm-email` | Post-signup "check your inbox" page                         |
-| `/dashboard`          | Electrician page — requires the `elektryk` role             |
-| `/dashboard/profile`  | Electrician pricing profile (rate, mount time, overhead)    |
-| `/admin`              | Admin panel — requires the `admin` role                     |
-| `/admin/cabinets`     | Cabinet catalog: list, create, edit, archive — `admin` role |
-| `/admin/devices`      | Device catalog: list, create, edit, archive — `admin` role  |
+| Route                      | Description                                                                      |
+| -------------------------- | -------------------------------------------------------------------------------- |
+| `/auth/signin`             | Email/password sign-in form                                                      |
+| `/auth/signup`             | Email/password sign-up form                                                      |
+| `/auth/confirm-email`      | Post-signup "check your inbox" page                                              |
+| `/dashboard`               | Electrician page — requires the `elektryk` role                                  |
+| `/dashboard/profile`       | Electrician pricing profile (rate, mount time, overhead)                         |
+| `/dashboard/projects`      | Electrician's projects: list                                                     |
+| `/dashboard/projects/new`  | New project: details and a cabinet from the catalog                              |
+| `/dashboard/projects/[id]` | Project page: details, cabinet snapshot, OSD/WLZ supply and its warnings, delete |
+| `/admin`                   | Admin panel — requires the `admin` role                                          |
+| `/admin/cabinets`          | Cabinet catalog: list, create, edit, archive — `admin` role                      |
+| `/admin/devices`           | Device catalog: list, create, edit, archive — `admin` role                       |
 
 Route protection is applied in `src/middleware.ts`, but the rules live in `src/lib/route-access.ts`. Add an entry to the `PROTECTED_ROUTES` array there — a path prefix plus the roles allowed to reach it — rather than checking the role inside a page.
 

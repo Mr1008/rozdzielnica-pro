@@ -527,6 +527,75 @@ export const pl = {
     unknown: "Coś poszło nie tak. Spróbuj ponownie",
   },
 
+  /** The project page's OSD/WLZ section. Option values come from `src/lib/supply-params.ts`. */
+  supply: {
+    section: "Przyłącze i WLZ",
+    description:
+      "Parametry przyłącza od OSD i wewnętrznej linii zasilającej (WLZ). Na ich podstawie system wyświetla uproszczone ostrzeżenia, a w kolejnym kroku dobiera zabezpieczenia główne.",
+    osdSection: "Przyłącze (OSD)",
+    wlzSection: "WLZ — wewnętrzna linia zasilająca",
+    fields: {
+      premeterProtection: "Zabezpieczenie przedlicznikowe",
+      earthingSystem: "Układ sieci",
+      phaseCount: "Liczba faz",
+      wlzLength: "Długość WLZ (m)",
+      wlzCrossSection: "Przekrój żył WLZ",
+      wlzMaterial: "Materiał żył",
+      wlzInstallation: "Sposób ułożenia",
+    },
+    choose: "Wybierz…",
+    protectionOption: (amperes: number) => `${String(amperes)} A`,
+    phaseCountOption: (n: number) => `${String(n)} ${plural(n, { one: "faza", few: "fazy", many: "faz" })}`,
+    crossSectionOption: (mm2: number) => `${formatNumber(mm2)} mm²`,
+    /** Keyed by `EarthingSystem`. */
+    earthingSystems: {
+      "TN-C": "TN-C",
+      "TN-S": "TN-S",
+      "TN-C-S": "TN-C-S",
+      TT: "TT",
+    },
+    /** Keyed by `ConductorMaterial`. */
+    materials: {
+      Cu: "Miedź (Cu)",
+      Al: "Aluminium (Al)",
+    },
+    /** Keyed by `WlzInstallation`. */
+    installations: {
+      surface: "Natynkowo",
+      conduit_surface: "W rurce natynkowo",
+      conduit_flush: "W rurce podtynkowo",
+      in_wall: "Bezpośrednio w ścianie/tynku",
+      in_ground: "W gruncie",
+    },
+    protectionHint: "Prąd znamionowy zabezpieczenia przed licznikiem, w amperach — z warunków przyłączenia OSD.",
+    lengthHint: (maxMetres: number) =>
+      `W metrach, np. 15 albo 12,5 — najwyżej jedno miejsce po przecinku, maks. ${formatNumber(maxMetres)} m.`,
+    lengthPlaceholder: "np. 12,5",
+    crossSectionHint: "Przekrój jednej żyły, w mm².",
+    save: "Zapisz przyłącze",
+    saved: "Parametry przyłącza zostały zapisane.",
+    notConfigured:
+      "Nie uzupełniono jeszcze parametrów przyłącza — podaj je, zanim przejdziesz do obwodów i doboru aparatów.",
+    warningsTitle: "Kontrola przyłącza",
+  },
+
+  /**
+   * Keyed by `SupplyWarningCode` (camelCased). See `supplyWarningMessage` in
+   * `src/lib/supply-warnings.ts` for the mapping.
+   */
+  supplyWarnings: {
+    wlzAmpacityBelowProtection: (ampacityA: number, protectionA: number) =>
+      `Obciążalność prądowa długotrwała WLZ (${formatNumber(ampacityA)} A dla tego przekroju, materiału i sposobu ułożenia) jest mniejsza niż zabezpieczenie przedlicznikowe (${formatNumber(protectionA)} A). Rozważ większy przekrój WLZ.`,
+    aluminiumBelowMinimum: (minimumMm2: number) =>
+      `WLZ z żyłami aluminiowymi powinna mieć przekrój co najmniej ${formatNumber(minimumMm2)} mm².`,
+    penBelowMinimum: (minimumMm2: number) =>
+      `W układzie TN-C przewód PEN powinien mieć przekrój co najmniej ${formatNumber(minimumMm2)} mm² dla wybranego materiału żył.`,
+    voltageDropHigh: (percent: number, limitPercent: number) =>
+      `Spadek napięcia na WLZ wynosi ok. ${formatNumber(percent)} % i przekracza zalecane ${formatNumber(limitPercent)} %. Wyliczono go przy pełnym prądzie zabezpieczenia przedlicznikowego, więc jest zawyżony — to oszacowanie z zapasem.`,
+    note: "Kontrole są uproszczone i mają charakter informacyjny: obciążalność pochodzi z tabel dla izolacji PVC bez współczynników poprawkowych (temperatura, grupowanie), a spadek napięcia liczony jest przy pełnym prądzie zabezpieczenia przedlicznikowego. Nie blokują zapisu i nie zastępują obliczeń projektowych.",
+    none: "Uproszczone kontrole nie wykazały zastrzeżeń do parametrów przyłącza.",
+  },
+
   config: {
     supabaseMissing: "Supabase nie jest skonfigurowany — funkcje uwierzytelniania są wyłączone.",
     supabaseDocsLabel: "Zobacz instrukcję konfiguracji",

@@ -612,38 +612,38 @@ cannot block an admin action.
 
 #### Automated
 
-- [x] 2.1 Lint passes: `npm run lint`
-- [x] 2.2 Type check passes: `npx astro check`
-- [x] 2.3 Unit tests pass, including the route-gate and error-map cases: `npm run test:unit`
-- [x] 2.4 Build passes: `npm run build`
-- [x] 2.5 RLS suite still passes: `npm run test:integration`
-- [x] 2.6 Smoke script still passes against the dev server: `npm run smoke`
+- [x] 2.1 Lint passes: `npm run lint` — 3fce53b
+- [x] 2.2 Type check passes: `npx astro check` — 3fce53b
+- [x] 2.3 Unit tests pass, including the route-gate and error-map cases: `npm run test:unit` — 3fce53b
+- [x] 2.4 Build passes: `npm run build` — 3fce53b
+- [x] 2.5 RLS suite still passes: `npm run test:integration` — 3fce53b
+- [x] 2.6 Smoke script still passes against the dev server: `npm run smoke` — 3fce53b
 
 #### Manual
 
-- [x] 2.7 As a fresh electrician: dashboard → Projekty (empty state) → Nowy projekt → pick a cabinet → the project page shows its drawing, and the list shows the project with the supply-missing badge
-- [x] 2.8 Editing the details and changing the cabinet both persist. After a cabinet change, the page shows the new cabinet's drawing
-- [x] 2.9 As the seeded admin, editing that cabinet's geometry leaves the project's drawing unchanged. After the admin archives it, the cabinet disappears from the electrician's picker, while the project still shows its snapshot
-- [x] 2.10 Deleting without ticking the checkbox is blocked. With it ticked, the project is gone from the list
-- [x] 2.11 A second electrician gets 404 on the first electrician's project URL; the admin is redirected to `/admin`
-- [x] 2.12 All visible text is Polish
+- [x] 2.7 As a fresh electrician: dashboard → Projekty (empty state) → Nowy projekt → pick a cabinet → the project page shows its drawing, and the list shows the project with the supply-missing badge — 3fce53b
+- [x] 2.8 Editing the details and changing the cabinet both persist. After a cabinet change, the page shows the new cabinet's drawing — 3fce53b
+- [x] 2.9 As the seeded admin, editing that cabinet's geometry leaves the project's drawing unchanged. After the admin archives it, the cabinet disappears from the electrician's picker, while the project still shows its snapshot — 3fce53b
+- [x] 2.10 Deleting without ticking the checkbox is blocked. With it ticked, the project is gone from the list — 3fce53b
+- [x] 2.11 A second electrician gets 404 on the first electrician's project URL; the admin is redirected to `/admin` — 3fce53b
+- [x] 2.12 All visible text is Polish — 3fce53b
 
 ### Phase 3: OSD/WLZ parameters and warnings
 
 #### Automated
 
-- [ ] 3.1 Lint passes: `npm run lint`
-- [ ] 3.2 Type check passes: `npx astro check`
-- [ ] 3.3 Unit tests pass, including the warning boundaries and table completeness: `npm run test:unit`
-- [ ] 3.4 Build passes: `npm run build`
-- [ ] 3.5 RLS suite still passes: `npm run test:integration`
-- [ ] 3.6 Smoke script still passes against the dev server: `npm run smoke`
+- [x] 3.1 Lint passes: `npm run lint`
+- [x] 3.2 Type check passes: `npx astro check`
+- [x] 3.3 Unit tests pass, including the warning boundaries and table completeness: `npm run test:unit`
+- [x] 3.4 Build passes: `npm run build`
+- [x] 3.5 RLS suite still passes: `npm run test:integration`
+- [x] 3.6 Smoke script still passes against the dev server: `npm run smoke`
 
 #### Manual
 
-- [ ] 3.7 An electrician checks the transcribed `AMPACITY_A` values and the installation → reference-method mapping against PN-HD 60364-5-52 tables B.52.2–B.52.5
-- [ ] 3.8 Saving 25 A / TN-C-S / 1 phase / 15 m / 10 mm² / Cu / w rurce podtynkowo shows exactly the voltage-drop warning (≈ 0,58 %). Switching to 3 phases removes it
-- [ ] 3.9 63 A with Cu 10 mm² in a conduit shows the ampacity warning. Al 10 mm² shows the aluminium warning, and TN-C with Cu 6 mm² shows the PEN warning
-- [ ] 3.10 After the first save, the list's supply-missing badge is gone. Reload shows the values pre-filled, with the length shown using a comma
-- [ ] 3.11 A tampered POST (e.g. `premeter_protection_a=30`) lands on `?error=invalid_input` with Polish text
-- [ ] 3.12 All visible text is Polish
+- [x] 3.7 An electrician checks the transcribed `AMPACITY_A` values and the installation → reference-method mapping against PN-HD 60364-5-52 tables B.52.2–B.52.5
+- [x] 3.8 Saving 25 A / TN-C-S / 1 phase / 15 m / 10 mm² / Cu / w rurce podtynkowo shows exactly the voltage-drop warning (≈ 0,58 %). Switching to 3 phases removes it
+- [x] 3.9 63 A with Cu 10 mm² in a conduit shows the ampacity warning. Al 10 mm² shows the aluminium warning, and TN-C with Cu 6 mm² shows the PEN warning
+- [x] 3.10 After the first save, the list's supply-missing badge is gone. Reload shows the values pre-filled, with the length shown using a comma
+- [x] 3.11 A tampered POST (e.g. `premeter_protection_a=30`) lands on `?error=invalid_input` with Polish text
+- [x] 3.12 All visible text is Polish
