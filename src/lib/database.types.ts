@@ -192,6 +192,104 @@ export type Database = {
         }
         Relationships: []
       }
+      projects: {
+        Row: {
+          cabinet_geometry: Json
+          cabinet_id: string
+          cabinet_manufacturer: string
+          cabinet_model: string
+          cabinet_name: string
+          cabinet_price_grosze: number
+          client_name: string | null
+          created_at: string
+          earthing_system: Database["public"]["Enums"]["earthing_system"] | null
+          id: string
+          name: string
+          phase_count: number | null
+          premeter_protection_a: number | null
+          site_address: string | null
+          updated_at: string
+          user_id: string
+          wlz_cross_section_mm2: number | null
+          wlz_installation:
+            | Database["public"]["Enums"]["wlz_installation"]
+            | null
+          wlz_length_m: number | null
+          wlz_material: Database["public"]["Enums"]["conductor_material"] | null
+        }
+        Insert: {
+          cabinet_geometry?: Json
+          cabinet_id: string
+          cabinet_manufacturer?: string
+          cabinet_model?: string
+          cabinet_name?: string
+          cabinet_price_grosze?: number
+          client_name?: string | null
+          created_at?: string
+          earthing_system?:
+            | Database["public"]["Enums"]["earthing_system"]
+            | null
+          id?: string
+          name: string
+          phase_count?: number | null
+          premeter_protection_a?: number | null
+          site_address?: string | null
+          updated_at?: string
+          user_id: string
+          wlz_cross_section_mm2?: number | null
+          wlz_installation?:
+            | Database["public"]["Enums"]["wlz_installation"]
+            | null
+          wlz_length_m?: number | null
+          wlz_material?:
+            | Database["public"]["Enums"]["conductor_material"]
+            | null
+        }
+        Update: {
+          cabinet_geometry?: Json
+          cabinet_id?: string
+          cabinet_manufacturer?: string
+          cabinet_model?: string
+          cabinet_name?: string
+          cabinet_price_grosze?: number
+          client_name?: string | null
+          created_at?: string
+          earthing_system?:
+            | Database["public"]["Enums"]["earthing_system"]
+            | null
+          id?: string
+          name?: string
+          phase_count?: number | null
+          premeter_protection_a?: number | null
+          site_address?: string | null
+          updated_at?: string
+          user_id?: string
+          wlz_cross_section_mm2?: number | null
+          wlz_installation?:
+            | Database["public"]["Enums"]["wlz_installation"]
+            | null
+          wlz_length_m?: number | null
+          wlz_material?:
+            | Database["public"]["Enums"]["conductor_material"]
+            | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "projects_cabinet_id_fkey"
+            columns: ["cabinet_id"]
+            isOneToOne: false
+            referencedRelation: "cabinets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -201,6 +299,7 @@ export type Database = {
       is_admin: { Args: never; Returns: boolean }
     }
     Enums: {
+      conductor_material: "Cu" | "Al"
       device_kind:
         | "switch_disconnector"
         | "rcd"
@@ -208,9 +307,16 @@ export type Database = {
         | "mcb_b"
         | "pe_bar"
         | "n_bar"
+      earthing_system: "TN-C" | "TN-S" | "TN-C-S" | "TT"
       pole_config: "1P" | "1P+N" | "2P" | "3P" | "3P+N" | "4P"
       rcd_type: "AC" | "A" | "F" | "B"
       user_role: "admin" | "elektryk"
+      wlz_installation:
+        | "surface"
+        | "conduit_surface"
+        | "conduit_flush"
+        | "in_wall"
+        | "in_ground"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -341,6 +447,7 @@ export const Constants = {
   },
   public: {
     Enums: {
+      conductor_material: ["Cu", "Al"],
       device_kind: [
         "switch_disconnector",
         "rcd",
@@ -349,9 +456,17 @@ export const Constants = {
         "pe_bar",
         "n_bar",
       ],
+      earthing_system: ["TN-C", "TN-S", "TN-C-S", "TT"],
       pole_config: ["1P", "1P+N", "2P", "3P", "3P+N", "4P"],
       rcd_type: ["AC", "A", "F", "B"],
       user_role: ["admin", "elektryk"],
+      wlz_installation: [
+        "surface",
+        "conduit_surface",
+        "conduit_flush",
+        "in_wall",
+        "in_ground",
+      ],
     },
   },
 } as const
