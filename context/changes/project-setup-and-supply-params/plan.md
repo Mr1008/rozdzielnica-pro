@@ -598,35 +598,35 @@ cannot block an admin action.
 
 #### Automated
 
-- [x] 1.1 Migration applies on a clean stack: `npx supabase db reset`
-- [x] 1.2 Regenerated types are committed and `npx astro check` passes
-- [x] 1.3 Parser unit tests pass: `npm run test:unit`
-- [x] 1.4 RLS and trigger assertions pass against the local stack: `npm run test:integration`
-- [x] 1.5 Lint passes: `npm run lint`
+- [x] 1.1 Migration applies on a clean stack: `npx supabase db reset` — b9d3c66
+- [x] 1.2 Regenerated types are committed and `npx astro check` passes — b9d3c66
+- [x] 1.3 Parser unit tests pass: `npm run test:unit` — b9d3c66
+- [x] 1.4 RLS and trigger assertions pass against the local stack: `npm run test:integration` — b9d3c66
+- [x] 1.5 Lint passes: `npm run lint` — b9d3c66
 
 #### Manual
 
-- [x] 1.6 In local Studio, `projects` shows RLS enabled with exactly four policies, none for the admin
+- [x] 1.6 In local Studio, `projects` shows RLS enabled with exactly four policies, none for the admin — b9d3c66
 
 ### Phase 2: Projects — list, creation, project page
 
 #### Automated
 
-- [ ] 2.1 Lint passes: `npm run lint`
-- [ ] 2.2 Type check passes: `npx astro check`
-- [ ] 2.3 Unit tests pass, including the route-gate and error-map cases: `npm run test:unit`
-- [ ] 2.4 Build passes: `npm run build`
-- [ ] 2.5 RLS suite still passes: `npm run test:integration`
-- [ ] 2.6 Smoke script still passes against the dev server: `npm run smoke`
+- [x] 2.1 Lint passes: `npm run lint`
+- [x] 2.2 Type check passes: `npx astro check`
+- [x] 2.3 Unit tests pass, including the route-gate and error-map cases: `npm run test:unit`
+- [x] 2.4 Build passes: `npm run build`
+- [x] 2.5 RLS suite still passes: `npm run test:integration`
+- [x] 2.6 Smoke script still passes against the dev server: `npm run smoke`
 
 #### Manual
 
-- [ ] 2.7 As a fresh electrician: dashboard → Projekty (empty state) → Nowy projekt → pick a cabinet → the project page shows its drawing, and the list shows the project with the supply-missing badge
-- [ ] 2.8 Editing the details and changing the cabinet both persist. After a cabinet change, the page shows the new cabinet's drawing
-- [ ] 2.9 As the seeded admin, editing that cabinet's geometry leaves the project's drawing unchanged. After the admin archives it, the cabinet disappears from the electrician's picker, while the project still shows its snapshot
-- [ ] 2.10 Deleting without ticking the checkbox is blocked. With it ticked, the project is gone from the list
-- [ ] 2.11 A second electrician gets 404 on the first electrician's project URL; the admin is redirected to `/admin`
-- [ ] 2.12 All visible text is Polish
+- [x] 2.7 As a fresh electrician: dashboard → Projekty (empty state) → Nowy projekt → pick a cabinet → the project page shows its drawing, and the list shows the project with the supply-missing badge
+- [x] 2.8 Editing the details and changing the cabinet both persist. After a cabinet change, the page shows the new cabinet's drawing
+- [x] 2.9 As the seeded admin, editing that cabinet's geometry leaves the project's drawing unchanged. After the admin archives it, the cabinet disappears from the electrician's picker, while the project still shows its snapshot
+- [x] 2.10 Deleting without ticking the checkbox is blocked. With it ticked, the project is gone from the list
+- [x] 2.11 A second electrician gets 404 on the first electrician's project URL; the admin is redirected to `/admin`
+- [x] 2.12 All visible text is Polish
 
 ### Phase 3: OSD/WLZ parameters and warnings
 

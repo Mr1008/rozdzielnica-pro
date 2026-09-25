@@ -1,0 +1,105 @@
+---
+import Banner from "@/components/Banner.astro";
+import Topbar from "@/components/Topbar.astro";
+import Layout from "@/layouts/Layout.astro";
+import { formatDate, t } from "@/lib/i18n";
+import { NEW_PROJECT_PATH, projectPath } from "@/lib/project";
+import { projectErrorMessage } from "@/lib/project-errors";
+import { ROLE_HOME } from "@/lib/route-access";
+import { createClient } from "@/lib/supabase";
+import { supplyFromRow } from "@/lib/supply-params";
+
+// No role check here on purpose: `/dashboard/*` is gated to electricians in
+// `src/lib/route-access.ts`, and RLS returns only the caller's own projects.
+const actionError = projectErrorMessage(Astro.url.searchParams.get("error"));
+const deleted = Astro.url.searchParams.get("deleted") === "1" && actionError === null;
+
+async function loadProjects() {
+  const supabase = createClient(Astro.request.headers, Astro.cookies);
+  // `createClient()` is null when the Supabase env vars are unset.
+  if (!supabase) return { rows: [], loadError: t.projectErrors.notConfigured };
+
+  const { data, error } = await supabase
+    .from("projects")
+    .select(
+      "id, name, client_name, cabinet_name, updated_at, premeter_protection_a, earthing_system, phase_count, wlz_length_m, wlz_cross_section_mm2, wlz_material, wlz_installation",
+    )
+    .order("updated_at", { ascending: false });
+  if (error) {
+    // The SQLSTATE only, never Supabase's message — `wrangler tail` is the only trace a failure leaves.
+    // eslint-disable-next-line no-console
+    console.error("projects list load failed", error.code);
+    Astro.response.status = 500;
+    return { rows: [], loadError: t.projects.list.loadFailed };
+  }
+  return { rows: data, loadError: null };
+}
+
+const { rows, loadError } = await loadProjects();
+
+const projects = rows.map((row) => ({ ...row, supplyMissing: supplyFromRow(row) === null }));
+---
+
+<Layout title={t.projects.list.title}>
+  {actionError && <Banner variant="error">{actionError}</Banner>}
+  {loadError && <Banner variant="error">{loadError}</Banner>}
+  {deleted && <Banner variant="info">{t.projects.list.deleted}</Banner>}
+  <div class="bg-cosmic min-h-screen p-4 text-white sm:p-8">
+    <div class="mx-auto max-w-4xl">
+      <Topbar />
+
+      <div class="mb-6 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <a
+            href={ROLE_HOME.elektryk}
+            class="text-sm text-purple-300 transition-colors hover:text-purple-100 hover:underline"
+          >
+            {t.projects.list.backToDashboard}
+          </a>
+          <h1 class="mt-2 bg-gradient-to-r from-blue-200 to-purple-200 bg-clip-text text-3xl font-bold text-transparent">
+            {t.projects.list.title}
+          </h1>
+          <p class="mt-1 text-blue-100/70">{t.projects.list.description}</p>
+          {!loadError && projects.length > 0 && (
+            <p class="mt-1 text-sm text-blue-100/50">{t.projects.list.count(projects.length)}</p>
+          )}
+        </div>
+        <a
+          href={NEW_PROJECT_PATH}
+          class="rounded-lg bg-purple-500/80 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-purple-500"
+        >
+          {t.projects.list.newProject}
+        </a>
+      </div>
+
+      {!loadError && projects.length === 0 && (
+        <p class="rounded-2xl border border-white/10 bg-white/10 p-8 text-center text-blue-100/70">
+          {t.projects.list.empty}
+        </p>
+      )}
+
+      <ul class="flex flex-col gap-3">
+        {projects.map((project) => (
+          <li>
+            <a
+              href={projectPath(project.id)}
+              class="flex flex-col gap-1 rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur-xl transition-colors hover:bg-white/20"
+            >
+              <span class="flex flex-wrap items-center gap-2">
+                <span class="text-lg font-semibold">{project.name}</span>
+                {project.supplyMissing && (
+                  <span class="rounded-full border border-amber-300/40 bg-amber-400/20 px-2 py-0.5 text-xs text-amber-100">
+                    {t.projects.list.supplyMissingBadge}
+                  </span>
+                )}
+              </span>
+              <span class="text-sm text-blue-100/80">{project.client_name ?? t.projects.list.noClient}</span>
+              <span class="text-sm text-blue-100/60">{t.projects.list.cabinet(project.cabinet_name)}</span>
+              <span class="text-xs text-blue-100/50">{t.projects.list.updatedAt(formatDate(project.updated_at))}</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </div>
+  </div>
+</Layout>

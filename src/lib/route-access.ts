@@ -24,6 +24,9 @@ export const PROTECTED_ROUTES: readonly ProtectedRoute[] = [
   // The electrician's own profile endpoints (pricing). `/dashboard` does not cover them, for the
   // same reason; RLS on `pricing_profiles` is still the real boundary.
   { prefix: "/api/profile", roles: ["elektryk"] },
+  // The electrician's project endpoints (create, details, cabinet, delete). `/dashboard` does not
+  // cover them either; RLS on `projects` (owner only, `elektryk` claim on writes) is the real boundary.
+  { prefix: "/api/projects", roles: ["elektryk"] },
 ];
 
 /**

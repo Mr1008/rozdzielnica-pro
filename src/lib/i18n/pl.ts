@@ -449,6 +449,84 @@ export const pl = {
     unknown: "Coś poszło nie tak. Spróbuj ponownie",
   },
 
+  projects: {
+    dashboardLink: "Projekty",
+    dashboardLinkDescription: "Twoje projekty rozdzielnic: szafka, przyłącze, a w kolejnych krokach obwody i wycena.",
+    fields: {
+      name: "Nazwa projektu",
+      namePlaceholder: "np. Dom Kowalskich",
+      clientName: "Klient",
+      siteAddress: "Adres inwestycji",
+      optionalHint: "Opcjonalnie.",
+    },
+    list: {
+      title: "Projekty",
+      description: "Projekty rozdzielnic, które przygotowujesz dla swoich klientów.",
+      backToDashboard: "Wróć do panelu",
+      newProject: "Nowy projekt",
+      empty: "Nie masz jeszcze żadnego projektu. Załóż pierwszy, aby zaplanować rozdzielnicę.",
+      loadFailed: "Nie udało się wczytać projektów. Spróbuj ponownie",
+      count: (n: number) => `${String(n)} ${plural(n, { one: "projekt", few: "projekty", many: "projektów" })}`,
+      supplyMissingBadge: "Przyłącze nieuzupełnione",
+      noClient: "Bez klienta",
+      cabinet: (name: string) => `Szafka: ${name}`,
+      updatedAt: (date: string) => `Zmieniono ${date}`,
+      deleted: "Projekt został usunięty.",
+    },
+    new: {
+      title: "Nowy projekt",
+      backToList: "Wróć do projektów",
+      detailsSection: "Dane projektu",
+      cabinetSection: "Szafka rozdzielnicy",
+      cabinetHint:
+        "Wybierz szafkę z katalogu. Projekt zapisze jej kopię — późniejsze zmiany w katalogu go nie zmienią.",
+      noCabinets: "Katalog szafek jest pusty — skontaktuj się z administratorem.",
+      loadFailed: "Nie udało się wczytać katalogu szafek. Spróbuj ponownie",
+      create: "Załóż projekt",
+    },
+    page: {
+      notFoundTitle: "Nie znaleziono projektu",
+      notFound: "Nie znaleziono tego projektu.",
+      backToList: "Wróć do projektów",
+      loadFailed: "Nie udało się wczytać projektu. Spróbuj ponownie",
+      created: "Projekt został założony.",
+      savedDetails: "Dane projektu zostały zapisane.",
+      savedCabinet: "Szafka projektu została zmieniona.",
+      detailsSection: "Dane projektu",
+      saveDetails: "Zapisz dane projektu",
+    },
+    cabinet: {
+      section: "Szafka rozdzielnicy",
+      snapshotHint: "Projekt przechowuje kopię szafki z chwili jej wybrania — zmiany w katalogu jej nie zmieniają.",
+      drawingUnavailable: "Rysunek tej szafki jest niedostępny.",
+      currentArchived: "Ta szafka została wycofana z katalogu. Projekt zachowuje jej zapisaną kopię.",
+      changeTitle: "Zmień szafkę",
+      changeHint: "Nowa szafka zastąpi zapisaną kopię w tym projekcie.",
+      noCabinets: "Katalog szafek jest pusty — skontaktuj się z administratorem.",
+      loadFailed: "Nie udało się wczytać katalogu szafek. Spróbuj ponownie",
+      change: "Zmień szafkę",
+    },
+    delete: {
+      section: "Usuń projekt",
+      hint: "Usunięcia nie można cofnąć — projekt zniknie razem ze wszystkimi danymi.",
+      confirm: "Potwierdzam usunięcie projektu",
+      submit: "Usuń projekt",
+    },
+  },
+
+  /**
+   * Keyed by the `?error=` code the project endpoints redirect with. See `projectErrorMessage` in
+   * `src/lib/project-errors.ts` for the mapping.
+   */
+  projectErrors: {
+    notConfigured: "Projekty są chwilowo niedostępne — baza danych nie jest skonfigurowana",
+    forbidden: "Nie masz uprawnień do zmiany tego projektu",
+    notFound: "Nie znaleziono tego projektu",
+    invalidInput: "Formularz zawiera nieprawidłowe dane",
+    cabinetUnavailable: "Wybrana szafka nie jest już dostępna w katalogu — wybierz inną",
+    unknown: "Coś poszło nie tak. Spróbuj ponownie",
+  },
+
   config: {
     supabaseMissing: "Supabase nie jest skonfigurowany — funkcje uwierzytelniania są wyłączone.",
     supabaseDocsLabel: "Zobacz instrukcję konfiguracji",

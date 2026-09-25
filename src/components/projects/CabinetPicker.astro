@@ -1,0 +1,72 @@
+---
+import { CabinetDrawing } from "@/components/cabinets/CabinetDrawing";
+import type { CabinetGeometry } from "@/lib/cabinet-geometry";
+import { t } from "@/lib/i18n";
+import { PROJECT_FIELDS } from "@/lib/project";
+
+/**
+ * The radio list of active catalog cabinets, shared by the new-project form and the project page's
+ * cabinet change. Server-rendered: the drawing is static SVG, no island. A cabinet whose stored
+ * geometry no longer parses is still listed, just without a drawing.
+ */
+interface CabinetOption {
+  id: string;
+  name: string;
+  manufacturer: string;
+  model: string;
+  geometry: CabinetGeometry | null;
+}
+
+interface Props {
+  cabinets: readonly CabinetOption[];
+  /** The option to preselect, e.g. the project's current cabinet. */
+  selectedId?: string | null;
+  /** Keeps the input ids unique when a page renders more than one picker. */
+  idPrefix: string;
+}
+
+const { cabinets, selectedId = null, idPrefix } = Astro.props;
+---
+
+<ul class="grid gap-3 sm:grid-cols-2">
+  {cabinets.map((cabinet) => {
+    const inputId = `${idPrefix}-${cabinet.id}`;
+    return (
+      <li>
+        <label
+          for={inputId}
+          class="flex h-full cursor-pointer gap-3 rounded-xl border border-white/20 bg-white/5 p-3 transition-colors hover:bg-white/10 has-checked:border-purple-300 has-checked:bg-purple-500/20 has-focus-visible:ring-2 has-focus-visible:ring-purple-400"
+        >
+          <input
+            id={inputId}
+            type="radio"
+            name={PROJECT_FIELDS.cabinetId}
+            value={cabinet.id}
+            required
+            checked={cabinet.id === selectedId}
+            aria-labelledby={`${inputId}-name`}
+            aria-describedby={`${inputId}-model`}
+            class="mt-1 shrink-0 accent-purple-400"
+          />
+          <span class="flex min-w-0 flex-1 flex-col gap-2">
+            <span>
+              <span id={`${inputId}-name`} class="block font-semibold text-white">
+                {cabinet.name}
+              </span>
+              <span id={`${inputId}-model`} class="block text-sm text-blue-100/70">
+                {cabinet.manufacturer} · {cabinet.model}
+              </span>
+            </span>
+            <span class="flex h-32 w-full items-center justify-center rounded-lg bg-white/90 p-2">
+              {cabinet.geometry ? (
+                <CabinetDrawing geometry={cabinet.geometry} className="h-full w-full" />
+              ) : (
+                <span class="text-center text-xs text-slate-700">{t.projects.cabinet.drawingUnavailable}</span>
+              )}
+            </span>
+          </span>
+        </label>
+      </li>
+    );
+  })}
+</ul>
