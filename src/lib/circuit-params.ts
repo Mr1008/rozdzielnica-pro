@@ -1,5 +1,6 @@
 import { ENTRY_SIDES } from "@/lib/cabinet-geometry";
 import { isUuid } from "@/lib/catalog";
+import type { Enums } from "@/lib/database.types";
 import { RCD_TYPES, type RcdType } from "@/lib/device-spec";
 import { t } from "@/lib/i18n";
 import { WLZ_INSTALLATIONS, type WlzInstallation } from "@/lib/supply-params";
@@ -38,8 +39,15 @@ export const MAX_GROUPS = 20;
 export const MAX_CIRCUIT_NAME_LENGTH = 100;
 export const MAX_GROUP_LABEL_LENGTH = 40;
 
-// Phase 2 adds the `entry_side` enum; its `Enums<"entry_side">` equality assertion lands with it.
 export type EntrySide = (typeof ENTRY_SIDES)[number];
+
+/**
+ * The entry-side union must equal the `entry_side` database enum, so a migration that adds or drops a
+ * side without `ENTRY_SIDES` (or the reverse) fails `astro check` instead of drifting silently.
+ */
+type Equals<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+type AssertTrue<T extends true> = T;
+type _EntrySideInSync = AssertTrue<Equals<EntrySide, Enums<"entry_side">>>;
 
 export interface RcdGroupInput {
   id: string;
