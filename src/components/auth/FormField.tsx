@@ -1,9 +1,8 @@
 import type { ReactNode } from "react";
 import { CircleAlert } from "lucide-react";
-import { cn } from "@/lib/utils";
-
-const inputBase =
-  "w-full rounded-lg bg-white/10 border px-3 py-2 pl-10 text-white placeholder-white/40 focus:outline-none focus:ring-2 transition-colors";
+import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
+import { fieldControlProps, fieldErrorId, fieldHintId } from "@/lib/field-a11y";
 
 interface FormFieldProps {
   id: string;
@@ -14,11 +13,17 @@ interface FormFieldProps {
   onChange: (value: string) => void;
   placeholder?: string;
   error?: string;
-  hint?: ReactNode;
+  /** Shown under the control while there is no error; an error replaces it. */
+  hint?: string;
   icon: ReactNode;
   endContent?: ReactNode;
 }
 
+/**
+ * A labelled auth input on the shared `Field` / `InputGroup` primitives: the icon as a leading addon,
+ * `endContent` (e.g. the password toggle) as a trailing one, and the hint or error wired to the
+ * control through `fieldControlProps` (`aria-describedby`, `aria-invalid`).
+ */
 export function FormField({
   id,
   name,
@@ -33,14 +38,11 @@ export function FormField({
   endContent,
 }: FormFieldProps) {
   return (
-    <div>
-      <label htmlFor={id} className="mb-1 block text-sm text-blue-100/80">
-        {label}
-      </label>
-      <div className="relative">
-        <span className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-white/40">{icon}</span>
-        <input
-          id={id}
+    <Field data-invalid={error ? true : undefined} className="gap-2">
+      <FieldLabel htmlFor={id}>{label}</FieldLabel>
+      <InputGroup>
+        <InputGroupAddon aria-hidden="true">{icon}</InputGroupAddon>
+        <InputGroupInput
           name={name ?? id}
           type={type}
           value={value}
@@ -48,21 +50,18 @@ export function FormField({
             onChange(e.target.value);
           }}
           placeholder={placeholder}
-          className={cn(
-            inputBase,
-            error ? "border-red-400/60 focus:ring-red-400" : "border-white/20 focus:ring-purple-400",
-          )}
+          {...fieldControlProps(id, { hint, error })}
         />
-        {endContent}
-      </div>
+        {endContent && <InputGroupAddon align="inline-end">{endContent}</InputGroupAddon>}
+      </InputGroup>
       {error ? (
-        <p className="mt-1 flex items-center gap-1 text-xs text-red-300">
-          <CircleAlert className="size-3" />
+        <FieldError id={fieldErrorId(id)} className="flex items-center gap-1">
+          <CircleAlert className="size-3.5 shrink-0" aria-hidden="true" />
           {error}
-        </p>
-      ) : (
-        hint
-      )}
-    </div>
+        </FieldError>
+      ) : hint ? (
+        <FieldDescription id={fieldHintId(id)}>{hint}</FieldDescription>
+      ) : null}
+    </Field>
   );
 }

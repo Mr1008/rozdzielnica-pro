@@ -41,7 +41,7 @@ export default function SignInForm({ serverError }: Props) {
   }
 
   return (
-    <form method="POST" action="/api/auth/signin" className="space-y-4" onSubmit={handleSubmit} noValidate>
+    <form method="POST" action="/api/auth/signin" className="flex flex-col gap-5" onSubmit={handleSubmit} noValidate>
       <FormField
         id="email"
         type="email"
@@ -53,7 +53,7 @@ export default function SignInForm({ serverError }: Props) {
         }}
         placeholder={t.auth.emailPlaceholder}
         error={errors.email}
-        icon={<Mail className="size-4" />}
+        icon={<Mail aria-hidden="true" />}
       />
 
       <FormField
@@ -67,7 +67,7 @@ export default function SignInForm({ serverError }: Props) {
         }}
         placeholder={t.auth.passwordPlaceholder}
         error={errors.password}
-        icon={<Lock className="size-4" />}
+        icon={<Lock aria-hidden="true" />}
         endContent={
           <PasswordToggle
             visible={showPassword}
@@ -80,7 +80,7 @@ export default function SignInForm({ serverError }: Props) {
 
       <ServerError message={serverError} />
 
-      <SubmitButton pendingText={t.auth.signInPending} icon={<LogIn className="size-4" />}>
+      <SubmitButton pendingText={t.auth.signInPending} icon={<LogIn aria-hidden="true" />}>
         {t.auth.signInAction}
       </SubmitButton>
     </form>

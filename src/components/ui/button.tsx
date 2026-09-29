@@ -15,6 +15,10 @@ const buttonVariants = cva(
         secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
+        // Project additions for the hero register (`.register-hero`: landing, auth side panel) — the
+        // electric-cyan "current" as the solid fill, and a light hairline outline on the night surface.
+        hero: "bg-hero-current font-semibold text-hero-background hover:bg-hero-current/90",
+        "hero-outline": "border border-hero-foreground/30 text-hero-foreground hover:bg-hero-foreground/10",
       },
       size: {
         default: "h-9 px-4 py-2 has-[>svg]:px-3",

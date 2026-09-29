@@ -2,7 +2,7 @@
 import Logo from "@/components/brand/Logo.astro";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { t } from "@/lib/i18n";
-import { ROLE_HOME } from "@/lib/route-access";
+import { roleHomeLink } from "@/lib/role-home-link";
 import { cn } from "@/lib/utils";
 
 /**
@@ -12,10 +12,8 @@ import { cn } from "@/lib/utils";
  */
 const { user, role } = Astro.locals;
 
-// Link each role at its own home. Pointing everyone at /dashboard would give an admin a dead-end
-// link: the route gate refuses it and bounces them straight back to /admin. A signed-in user with
-// no recognised role gets no panel link at all, because no gated route will let them in.
-const home = role === null ? null : { href: ROLE_HOME[role], label: role === "admin" ? t.nav.admin : t.nav.dashboard };
+// Each role links at its own home; a user with no recognised role gets none (see `roleHomeLink`).
+const home = roleHomeLink(role);
 
 // The home link marks the area the user is in: "page" on the home itself, "true" anywhere below it.
 const pathname = Astro.url.pathname.replace(/\/+$/, "") || "/";
