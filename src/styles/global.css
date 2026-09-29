@@ -1,28 +1,98 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-@custom-variant dark (&:is(.dark *));
+/*
+ * "Arkusz techniczny" — the RozdzielnicaPro design-system contract. Every colour, font and radius the
+ * UI uses is a token here; components read them through the `@theme inline` mapping below
+ * (`bg-primary`, `text-muted-foreground`, `fill-wire-pe`, …) and never through palette classes or hex.
+ * Light only: there is deliberately no dark token set (see context/changes/ui-layout-theme/plan.md).
+ * Contrast ratios quoted below are WCAG 2.x, computed from the oklch values as sRGB.
+ */
 
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  /* Radius — this project's choice: a tighter corner than shadcn's 0.625rem, for a drafting-sheet feel. */
+  --radius: 0.5rem;
+
+  /* Surfaces and ink. Source: Tailwind CSS v4 default palette, slate (50 / 950 / 100 / 600 / 200). */
+  --background: oklch(98.4% 0.003 247.858); /* slate-50 — paper */
+  --foreground: oklch(20.8% 0.042 265.755); /* slate-900 — blueprint ink, 17.1:1 on paper */
+  --card: oklch(100% 0 0);
+  --card-foreground: oklch(20.8% 0.042 265.755);
+  --popover: oklch(100% 0 0);
+  --popover-foreground: oklch(20.8% 0.042 265.755);
+  --secondary: oklch(96.8% 0.007 247.896); /* slate-100 */
+  --secondary-foreground: oklch(20.8% 0.042 265.755);
+  --muted: oklch(96.8% 0.007 247.896); /* slate-100 */
+  --muted-foreground: oklch(44.6% 0.043 257.281); /* slate-600 — 7.2:1 on paper, 7.6:1 on card, 6.9:1 on muted */
+  /* Hairlines. --border is decorative (slate-200); --input bounds a control, so it reaches 3.6:1 on card. */
+  --border: oklch(92.9% 0.013 255.508); /* slate-200 */
+  --input: oklch(62% 0.04 257); /* this project's value between slate-400 and slate-500 — 3.6:1 card, 3.5:1 paper */
+
+  /* Accent. Source: Tailwind CSS v4 default palette, indigo (700 / 800 / 50 / 900). */
+  --primary: oklch(45.7% 0.24 277.023); /* indigo-700 — blueprint indigo, 7.7:1 on paper */
+  --primary-foreground: oklch(100% 0 0); /* white — 8.1:1 on primary */
+  --ring: oklch(39.8% 0.195 277.366); /* indigo-800 — 9.6:1 on paper, 10.1:1 on card */
+  --accent: oklch(96.2% 0.018 272.314); /* indigo-50 — hover surface */
+  --accent-foreground: oklch(35.9% 0.144 278.697); /* indigo-900 */
+  /* The lightning bolt in the brand mark. Re-pointed to --hero-current by `.register-hero`. */
+  --brand-current: var(--primary);
+  /* The bolt knocked out of the small mark's solid tile. Re-pointed to --hero-background by `.register-hero`. */
+  --brand-on-current: var(--primary-foreground);
+
+  /*
+   * Status roles. `--x` is the solid colour and also the text/icon colour on `--x-muted`;
+   * `--x-foreground` is the text on the solid colour. Source: Tailwind CSS v4 default palette —
+   * green-800/50, amber-800/50, indigo-800/50, red-700/50. Info is primary-tinted, never blue, so
+   * it cannot be mistaken for the N-conductor colour.
+   */
+  --success: oklch(44.8% 0.119 151.328); /* green-800 — 6.8:1 on success-muted */
+  --success-foreground: oklch(100% 0 0); /* 7.1:1 on success */
+  --success-muted: oklch(98.2% 0.018 155.826); /* green-50 */
+  --warning: oklch(47.3% 0.137 46.201); /* amber-800 — 6.9:1 on warning-muted */
+  --warning-foreground: oklch(100% 0 0); /* 7.1:1 on warning */
+  --warning-muted: oklch(98.7% 0.022 95.277); /* amber-50 */
+  --info: oklch(39.8% 0.195 277.366); /* indigo-800 — 9.0:1 on info-muted */
+  --info-foreground: oklch(100% 0 0); /* 10.1:1 on info */
+  --info-muted: oklch(96.2% 0.018 272.314); /* indigo-50 */
+  --destructive: oklch(50.5% 0.213 27.518); /* red-700 — 5.9:1 on destructive-muted, 6.4:1 on card */
+  --destructive-foreground: oklch(100% 0 0); /* 6.4:1 on destructive */
+  --destructive-muted: oklch(97.1% 0.013 17.38); /* red-50 */
+
+  /*
+   * Conductor identification colours per PN-EN 60445 (IEC 60445): PE green-yellow, N blue, L1 brown,
+   * L2 black, L3 grey. The oklch values are this project's screen approximations, not standard values.
+   * Domain colours only — never reused for status.
+   */
+  --wire-pe: oklch(52% 0.14 145); /* green; luminance 0.15 */
+  --wire-pe-stripe: oklch(88% 0.17 98); /* yellow; luminance 0.69 */
+  --wire-n: oklch(55% 0.16 245); /* blue; white text on it 4.7:1 */
+  --wire-l1: oklch(45% 0.08 55); /* brown */
+  --wire-l2: oklch(20% 0 0); /* black */
+  --wire-l3: oklch(62% 0 0); /* grey */
+
+  /*
+   * Cabinet drawing — this project's values. Rail, entry and PE body differ in lightness as well as
+   * hue (relative luminance 0.68 / 0.40 / 0.15), so they stay distinguishable in a greyscale print.
+   */
+  --drawing-paper: oklch(99.5% 0.002 250);
+  --drawing-rail: oklch(88% 0.01 255); /* light steel */
+  --drawing-rail-stroke: oklch(55.4% 0.046 257.417); /* slate-500 */
+  --drawing-entry: oklch(74% 0.12 70); /* mid amber */
+  --drawing-entry-stroke: oklch(47.3% 0.137 46.201); /* amber-800 */
+  --drawing-frame: oklch(37.2% 0.044 257.287); /* slate-700 — 10.3:1 on card */
+  --drawing-highlight: oklch(51.1% 0.262 276.966); /* Tailwind v4 indigo-600 */
+
+  /*
+   * Hero register (landing, auth side panel): blueprint night with an electric-cyan "current".
+   * Source: this project's night blue; --hero-current is Tailwind CSS v4 cyan-400.
+   */
+  --hero-background: oklch(20% 0.05 262);
+  --hero-foreground: oklch(97% 0.01 250); /* 16.7:1 on hero-background */
+  --hero-muted: oklch(78% 0.03 255); /* 9.1:1 on hero-background */
+  --hero-current: oklch(78.9% 0.154 211.53); /* cyan-400 — 10.0:1 on hero-background */
+  --hero-grid: oklch(97% 0.01 250 / 8%);
+
+  /* Unused by the app today; kept at the shadcn "neutral" values so generated components still resolve. */
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -38,41 +108,13 @@
   --sidebar-ring: oklch(0.708 0 0);
 }
 
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
-}
-
 @theme inline {
+  /* Type. Source: IBM Plex (SIL OFL 1.1), self-hosted via @fontsource; imported in Layout.astro. */
+  --font-sans:
+    "IBM Plex Sans Variable", "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
+    "Segoe UI Emoji";
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -92,9 +134,44 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-muted: var(--destructive-muted);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-brand-current: var(--brand-current);
+
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-success-muted: var(--success-muted);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning-muted: var(--warning-muted);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-info-muted: var(--info-muted);
+
+  --color-wire-pe: var(--wire-pe);
+  --color-wire-pe-stripe: var(--wire-pe-stripe);
+  --color-wire-n: var(--wire-n);
+  --color-wire-l1: var(--wire-l1);
+  --color-wire-l2: var(--wire-l2);
+  --color-wire-l3: var(--wire-l3);
+
+  --color-drawing-paper: var(--drawing-paper);
+  --color-drawing-rail: var(--drawing-rail);
+  --color-drawing-rail-stroke: var(--drawing-rail-stroke);
+  --color-drawing-entry: var(--drawing-entry);
+  --color-drawing-entry-stroke: var(--drawing-entry-stroke);
+  --color-drawing-frame: var(--drawing-frame);
+  --color-drawing-highlight: var(--drawing-highlight);
+
+  --color-hero-background: var(--hero-background);
+  --color-hero-foreground: var(--hero-foreground);
+  --color-hero-muted: var(--hero-muted);
+  --color-hero-current: var(--hero-current);
+  --color-hero-grid: var(--hero-grid);
+
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
@@ -110,15 +187,34 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
+/*
+ * The hero register as one class: night surface, light ink, and the brand bolt in electric cyan.
+ * The focus ring switches to the cyan so it stays visible on the dark surface.
+ */
+@utility register-hero {
+  background-color: var(--hero-background);
+  color: var(--hero-foreground);
+  --brand-current: var(--hero-current);
+  --brand-on-current: var(--hero-background);
+  --ring: var(--hero-current);
+}
+
+/* Starter leftover, still used by the pages not yet migrated. Removed in Phase 5. */
 @utility bg-cosmic {
   background-image: linear-gradient(to bottom, #0a0e1a, #0f1529, #0a0e1a);
 }
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans;
+    font-variant-numeric: tabular-nums;
+  }
+  /* A real focus state for every focusable element, raw links and buttons included. */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
   }
 }

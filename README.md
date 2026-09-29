@@ -1,6 +1,6 @@
 # 10x Astro Starter
 
-![](./public/template.png)
+![RozdzielnicaPro](./public/og-image.png)
 
 A modern, opinionated starter template for building fast, accessible web applications.
 

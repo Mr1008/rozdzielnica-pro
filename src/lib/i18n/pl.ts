@@ -13,11 +13,20 @@ export const pl = {
   app: {
     name: "RozdzielnicaPro",
     tagline: "Planowanie rozdzielnic i wycena robocizny",
+    /**
+     * The logo wordmark in two parts, the second set in the accent colour. `lead + accent` must
+     * equal `name`; `Logo.astro` reads `name` for the accessible label.
+     */
+    wordmark: {
+      lead: "Rozdzielnica",
+      accent: "Pro",
+    },
   },
 
   common: {
     documentation: "Dokumentacja",
     warningPrefix: "Uwaga:",
+    loading: "Wczytywanie",
   },
 
   nav: {
@@ -595,6 +604,132 @@ export const pl = {
       `Spadek napięcia na WLZ wynosi ok. ${formatNumber(percent)} % i przekracza zalecane ${formatNumber(limitPercent)} %. Wyliczono go przy pełnym prądzie zabezpieczenia przedlicznikowego, więc jest zawyżony — to oszacowanie z zapasem.`,
     note: "Kontrole są uproszczone i mają charakter informacyjny: obciążalność pochodzi z tabel dla izolacji PVC bez współczynników poprawkowych (temperatura, grupowanie), a spadek napięcia liczony jest przy pełnym prądzie zabezpieczenia przedlicznikowego. Nie blokują zapisu i nie zastępują obliczeń projektowych.",
     none: "Uproszczone kontrole nie wykazały zastrzeżeń do parametrów przyłącza.",
+  },
+
+  /** Development-only pages (never reachable in a production build). */
+  devTools: {
+    kitchenSink: {
+      title: "Katalog stanów interfejsu",
+      description:
+        "Strona deweloperska: każdy element systemu wizualnego w każdym stanie. Służy do kontroli zrzutami ekranu i nie istnieje w buildzie produkcyjnym.",
+      sections: {
+        tokens: "Tokeny",
+        type: "Typografia",
+        buttons: "Przyciski",
+        forms: "Pola formularzy",
+        feedback: "Komunikaty i kontenery",
+        drawing: "Rysunek szafki",
+        brand: "Marka",
+      },
+      tokenGroups: {
+        surfaces: "Powierzchnie i tekst",
+        accent: "Akcent",
+        status: "Statusy",
+        wires: "Kolory przewodów (PN-EN 60445)",
+        drawing: "Rysunek",
+        hero: "Rejestr hero",
+      },
+      type: {
+        h1: "Rozdzielnica dla domu jednorodzinnego",
+        h2: "Przyłącze i WLZ",
+        h3: "Grupa różnicowoprądowa 1",
+        body: "Zabezpieczenie przedlicznikowe, wyłącznik różnicowoprądowy, szyna PE i szyna N — zażółć gęślą jaźń.",
+        muted: "Tekst pomocniczy: podpowiedzi pól, opisy sekcji i daty.",
+        mono: "B16 1P · 6 kA · 2,5 mm² · 30 mA · 1 234,50 zł",
+      },
+      buttonVariants: {
+        default: "Główny",
+        secondary: "Drugorzędny",
+        outline: "Obrys",
+        ghost: "Przezroczysty",
+        destructive: "Usuwający",
+        link: "Link",
+      },
+      states: {
+        normal: "Zwykły",
+        disabled: "Wyłączony",
+        pending: "W toku",
+        focus: "Fokus",
+        empty: "Pusty",
+        filled: "Wypełniony",
+        withHint: "Z podpowiedzią",
+        invalid: "Błędny",
+        checked: "Zaznaczony",
+        unchecked: "Niezaznaczony",
+      },
+      buttonCaption: "Zapisz",
+      buttonPendingCaption: "Zapisywanie...",
+      smallButton: "Mały",
+      controls: {
+        input: "Pole tekstowe",
+        select: "Lista wyboru",
+        checkbox: "Pole wyboru",
+        radioCard: "Karta wyboru",
+      },
+      inputLabel: "Nazwa projektu",
+      inputPlaceholder: "np. Dom Kowalskich",
+      inputValue: "Dom Kowalskich",
+      inputHint: "Widoczna tylko dla Ciebie.",
+      inputError: "Podaj nazwę projektu",
+      selectLabel: "Układ sieci",
+      selectError: "Wybierz układ sieci",
+      checkboxLabel: "Potwierdzam usunięcie projektu",
+      radioOptions: {
+        small: "Szafka natynkowa, 1 rząd",
+        smallHint: "12 modułów, wprowadzenie od góry",
+        large: "Szafka podtynkowa, 3 rzędy",
+        largeHint: "36 modułów, wprowadzenia od góry i od dołu",
+      },
+      alerts: {
+        default: { title: "Informacja", description: "Neutralny komunikat na karcie." },
+        destructive: { title: "Nie udało się zapisać", description: "Formularz zawiera nieprawidłowe dane." },
+        success: { title: "Zapisano", description: "Parametry przyłącza zostały zapisane." },
+        warning: { title: "Uwaga", description: "Nie uzupełniono jeszcze parametrów przyłącza." },
+        info: { title: "Wskazówka", description: "Projekt przechowuje kopię szafki z chwili jej wybrania." },
+      },
+      badges: {
+        default: "Główny",
+        secondary: "Drugorzędny",
+        outline: "Obrys",
+        destructive: "Błąd",
+        success: "Skonfigurowane",
+        warning: "Przyłącze nieuzupełnione",
+      },
+      card: {
+        title: "Karta sekcji",
+        description: "Nagłówek, opis i treść na białej powierzchni z cienką ramką.",
+        content: "Treść karty. Liczby w kolumnach są tabelaryczne, więc wyrównują się w pionie.",
+        action: "Edytuj",
+      },
+      table: {
+        caption: "Przykładowe aparaty",
+        device: "Aparat",
+        parameters: "Parametry",
+        price: "Cena",
+      },
+      emptyState: {
+        title: "Brak projektów",
+        description: "Załóż pierwszy projekt, aby zaplanować rozdzielnicę.",
+        action: "Nowy projekt",
+      },
+      banners: {
+        info: "Baner informacyjny w pasku strony.",
+        warning: "Baner ostrzegawczy w pasku strony.",
+        error: "Baner błędu w pasku strony.",
+      },
+      drawingStates: {
+        plain: "Bez zaznaczenia",
+        highlight: "Zaznaczony element (szyna DIN 2)",
+        invalid: "Błędne elementy (wprowadzenie 1, szyna N)",
+      },
+      brandSurfaces: {
+        paper: "Na papierze",
+        hero: "Na tle hero",
+        mono: "Monochromatycznie",
+      },
+      brandSize: (px: number) => `${String(px)} px`,
+      circuitGrid: "Wzór tła: siatka z torem obwodu",
+    },
   },
 
   config: {

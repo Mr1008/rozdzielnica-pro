@@ -1,0 +1,8 @@
+<!-- RozdzielnicaPro small mark, for 20 px and below (favicon, dense UI). The full mark's rails and
+     outline blur into noise at 16 px, so the small mark keeps only its idea: a solid cabinet tile in
+     the brand-current colour with the lightning bolt knocked out of it in the brand-on-current
+     colour. Drawn on a 16 grid so the bolt's edges land on whole pixels at 16 px. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+  <rect width="16" height="16" rx="3.5" style="fill: var(--brand-current, currentColor)" />
+  <path d="M9.5 1.5 3.5 9H7.5L6.5 14.5 12.5 7H8.5L9.5 1.5Z" style="fill: var(--brand-on-current, Canvas)" />
+</svg>
