@@ -1,0 +1,575 @@
+---
+import CircuitGrid from "@/assets/brand/circuit-grid.svg";
+import Banner from "@/components/Banner.astro";
+import Logo from "@/components/brand/Logo.astro";
+import { CabinetDrawing } from "@/components/cabinets/CabinetDrawing";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
+import Layout from "@/layouts/Layout.astro";
+import { DEMO_CABINET_GEOMETRY } from "@/lib/demo-cabinet";
+import { fieldControlProps, fieldErrorId, fieldHintId } from "@/lib/field-a11y";
+import { deviceKindLabel } from "@/lib/device-spec";
+import { formatMoney, t } from "@/lib/i18n";
+import { EARTHING_SYSTEMS } from "@/lib/supply-params";
+
+/**
+ * The design-system screenshot check: every token, primitive and state the contract has to hold,
+ * on one page. Dev only — a production build answers 404, so it needs no `PROTECTED_ROUTES` entry
+ * and can be screenshotted without signing in under `astro dev`.
+ *
+ * The 404 is a status plus an empty body rather than `return new Response(...)`: a top-level
+ * `return` in frontmatter crashes typescript-eslint's `no-misused-promises` rule.
+ */
+const enabled = import.meta.env.DEV;
+if (!enabled) Astro.response.status = 404;
+
+const k = t.devTools.kitchenSink;
+
+const tokenGroups = [
+  {
+    title: k.tokenGroups.surfaces,
+    swatches: [
+      { token: "--background", swatch: "bg-background" },
+      { token: "--card", swatch: "bg-card" },
+      { token: "--muted", swatch: "bg-muted" },
+      { token: "--foreground", swatch: "bg-foreground" },
+      { token: "--muted-foreground", swatch: "bg-muted-foreground" },
+      { token: "--border", swatch: "bg-border" },
+      { token: "--input", swatch: "bg-input" },
+    ],
+  },
+  {
+    title: k.tokenGroups.accent,
+    swatches: [
+      { token: "--primary", swatch: "bg-primary" },
+      { token: "--ring", swatch: "bg-ring" },
+      { token: "--accent", swatch: "bg-accent" },
+      { token: "--accent-foreground", swatch: "bg-accent-foreground" },
+    ],
+  },
+  {
+    title: k.tokenGroups.status,
+    swatches: [
+      { token: "--success", swatch: "bg-success" },
+      { token: "--success-muted", swatch: "bg-success-muted" },
+      { token: "--warning", swatch: "bg-warning" },
+      { token: "--warning-muted", swatch: "bg-warning-muted" },
+      { token: "--info", swatch: "bg-info" },
+      { token: "--info-muted", swatch: "bg-info-muted" },
+      { token: "--destructive", swatch: "bg-destructive" },
+      { token: "--destructive-muted", swatch: "bg-destructive-muted" },
+    ],
+  },
+  {
+    title: k.tokenGroups.wires,
+    swatches: [
+      { token: "--wire-pe", swatch: "bg-wire-pe" },
+      { token: "--wire-pe-stripe", swatch: "bg-wire-pe-stripe" },
+      { token: "--wire-n", swatch: "bg-wire-n" },
+      { token: "--wire-l1", swatch: "bg-wire-l1" },
+      { token: "--wire-l2", swatch: "bg-wire-l2" },
+      { token: "--wire-l3", swatch: "bg-wire-l3" },
+    ],
+  },
+  {
+    title: k.tokenGroups.drawing,
+    swatches: [
+      { token: "--drawing-paper", swatch: "bg-drawing-paper" },
+      { token: "--drawing-rail", swatch: "bg-drawing-rail" },
+      { token: "--drawing-entry", swatch: "bg-drawing-entry" },
+      { token: "--drawing-frame", swatch: "bg-drawing-frame" },
+      { token: "--drawing-highlight", swatch: "bg-drawing-highlight" },
+    ],
+  },
+  {
+    title: k.tokenGroups.hero,
+    swatches: [
+      { token: "--hero-background", swatch: "bg-hero-background" },
+      { token: "--hero-foreground", swatch: "bg-hero-foreground" },
+      { token: "--hero-muted", swatch: "bg-hero-muted" },
+      { token: "--hero-current", swatch: "bg-hero-current" },
+      {
+        token: "--hero-grid",
+        swatch: "bg-hero-background [background-image:linear-gradient(var(--hero-grid),var(--hero-grid))]",
+      },
+    ],
+  },
+];
+
+const buttonVariants = ["default", "secondary", "outline", "ghost", "destructive", "link"] as const;
+const alertVariants = ["default", "destructive", "success", "warning", "info"] as const;
+const badgeVariants = ["default", "secondary", "outline", "destructive", "success", "warning"] as const;
+
+const inputStates = [
+  { id: "ks-input-empty", state: k.states.empty, value: "", hint: undefined, error: undefined, disabled: false },
+  {
+    id: "ks-input-filled",
+    state: k.states.filled,
+    value: k.inputValue,
+    hint: undefined,
+    error: undefined,
+    disabled: false,
+  },
+  { id: "ks-input-hint", state: k.states.withHint, value: "", hint: k.inputHint, error: undefined, disabled: false },
+  {
+    id: "ks-input-invalid",
+    state: k.states.invalid,
+    value: "",
+    hint: k.inputHint,
+    error: k.inputError,
+    disabled: false,
+  },
+  {
+    id: "ks-input-disabled",
+    state: k.states.disabled,
+    value: k.inputValue,
+    hint: undefined,
+    error: undefined,
+    disabled: true,
+  },
+];
+
+const selectStates = [
+  { id: "ks-select-empty", state: k.states.empty, value: "", hint: undefined, error: undefined, disabled: false },
+  {
+    id: "ks-select-filled",
+    state: k.states.filled,
+    value: "TN-C-S",
+    hint: undefined,
+    error: undefined,
+    disabled: false,
+  },
+  { id: "ks-select-hint", state: k.states.withHint, value: "", hint: k.inputHint, error: undefined, disabled: false },
+  {
+    id: "ks-select-invalid",
+    state: k.states.invalid,
+    value: "",
+    hint: undefined,
+    error: k.selectError,
+    disabled: false,
+  },
+  {
+    id: "ks-select-disabled",
+    state: k.states.disabled,
+    value: "TN-S",
+    hint: undefined,
+    error: undefined,
+    disabled: true,
+  },
+];
+
+const tableRows = [
+  { kind: "mcb_b", parameters: "B16 1P, 6 kA", price: 18.5 },
+  { kind: "rcd", parameters: "40 A 4P, 30 mA, typ A", price: 189 },
+  { kind: "rcbo", parameters: "B10 1P+N, 30 mA, typ A, 6 kA", price: 142.9 },
+] as const;
+
+const radioCards = [
+  { id: "ks-radio-small", label: k.radioOptions.small, hint: k.radioOptions.smallHint, checked: true, disabled: false },
+  {
+    id: "ks-radio-large",
+    label: k.radioOptions.large,
+    hint: k.radioOptions.largeHint,
+    checked: false,
+    disabled: false,
+  },
+  { id: "ks-radio-disabled", label: k.radioOptions.large, hint: k.states.disabled, checked: false, disabled: true },
+];
+
+const brandSurfaces = [
+  { label: k.brandSurfaces.paper, surface: "bg-card text-foreground" },
+  { label: k.brandSurfaces.hero, surface: "register-hero" },
+  { label: k.brandSurfaces.mono, surface: "bg-card text-foreground [--brand-current:currentColor]" },
+];
+const brandSizes = [16, 24, 48];
+
+const sectionClass = "flex flex-col gap-4";
+const sectionTitleClass = "text-xl font-semibold tracking-tight";
+const subTitleClass = "text-sm font-medium text-muted-foreground";
+---
+
+{enabled && (
+  <Layout title={k.title}>
+    <main class="mx-auto flex max-w-7xl flex-col gap-12 px-6 py-10">
+      <header class="flex flex-col gap-2">
+        <Logo variant="full" size={32} />
+        <h1 class="mt-4 text-3xl font-semibold tracking-tight">{k.title}</h1>
+        <p class="max-w-3xl text-muted-foreground">{k.description}</p>
+      </header>
+
+      <section class:list={sectionClass} aria-labelledby="ks-tokens">
+        <h2 id="ks-tokens" class:list={sectionTitleClass}>
+          {k.sections.tokens}
+        </h2>
+        <div class="grid gap-6 lg:grid-cols-2">
+          {tokenGroups.map((group) => (
+            <div class="flex flex-col gap-2">
+              <h3 class:list={subTitleClass}>{group.title}</h3>
+              <ul class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {group.swatches.map((item) => (
+                  <li class="flex flex-col gap-1">
+                    <span class:list={["h-12 rounded-md border", item.swatch]} />
+                    <code class="font-mono text-xs text-muted-foreground">{item.token}</code>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section class:list={sectionClass} aria-labelledby="ks-type">
+        <h2 id="ks-type" class:list={sectionTitleClass}>
+          {k.sections.type}
+        </h2>
+        <Card>
+          <CardContent className="flex flex-col gap-3">
+            <p class="text-3xl font-semibold tracking-tight">{k.type.h1}</p>
+            <p class="text-2xl font-semibold tracking-tight">{k.type.h2}</p>
+            <p class="text-lg font-semibold">{k.type.h3}</p>
+            <p>{k.type.body}</p>
+            <p class="text-sm text-muted-foreground">{k.type.muted}</p>
+            <p class="font-mono text-sm">{k.type.mono}</p>
+            <p class="font-mono text-sm font-medium">{k.type.mono}</p>
+          </CardContent>
+        </Card>
+      </section>
+
+      <section class:list={sectionClass} aria-labelledby="ks-buttons">
+        <h2 id="ks-buttons" class:list={sectionTitleClass}>
+          {k.sections.buttons}
+        </h2>
+        <Card>
+          <CardContent className="overflow-x-auto">
+            <table class="w-full border-collapse text-sm">
+              <thead>
+                <tr class="text-left text-muted-foreground">
+                  <th class="py-2 pr-4 font-medium" />
+                  <th class="py-2 pr-4 font-medium">{k.states.normal}</th>
+                  <th class="py-2 pr-4 font-medium">{k.smallButton}</th>
+                  <th class="py-2 pr-4 font-medium">{k.states.disabled}</th>
+                  <th class="py-2 pr-4 font-medium">{k.states.pending}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {buttonVariants.map((variant) => (
+                  <tr class="border-t">
+                    <th scope="row" class="py-3 pr-4 text-left font-medium">
+                      {k.buttonVariants[variant]}
+                    </th>
+                    <td class="py-3 pr-4">
+                      <Button variant={variant}>{k.buttonCaption}</Button>
+                    </td>
+                    <td class="py-3 pr-4">
+                      <Button variant={variant} size="sm">
+                        {k.buttonCaption}
+                      </Button>
+                    </td>
+                    <td class="py-3 pr-4">
+                      <Button variant={variant} disabled>
+                        {k.buttonCaption}
+                      </Button>
+                    </td>
+                    <td class="py-3 pr-4">
+                      <Button variant={variant} pending>
+                        {k.buttonPendingCaption}
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div class="mt-4 flex items-center gap-3 border-t pt-4">
+              <span class:list={subTitleClass}>{k.states.focus}</span>
+              {/* eslint-disable-next-line astro/jsx-a11y/no-autofocus -- dev-only sample of the :focus-visible ring. */}
+              <Button autoFocus>{k.buttonCaption}</Button>
+            </div>
+          </CardContent>
+        </Card>
+      </section>
+
+      <section class:list={sectionClass} aria-labelledby="ks-forms">
+        <h2 id="ks-forms" class:list={sectionTitleClass}>
+          {k.sections.forms}
+        </h2>
+        <div class="grid gap-6 lg:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>{k.controls.input}</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-5">
+              {inputStates.map((item) => (
+                <div class="flex flex-col gap-1">
+                  <span class="font-mono text-xs text-muted-foreground">{item.state}</span>
+                  <Field data-invalid={item.error ? true : undefined} data-disabled={item.disabled || undefined}>
+                    <FieldLabel htmlFor={item.id}>{k.inputLabel}</FieldLabel>
+                    <Input
+                      name={item.id}
+                      placeholder={k.inputPlaceholder}
+                      defaultValue={item.value}
+                      disabled={item.disabled}
+                      {...fieldControlProps(item.id, { hint: item.hint, error: item.error })}
+                    />
+                    {item.error ? (
+                      <FieldError id={fieldErrorId(item.id)}>{item.error}</FieldError>
+                    ) : item.hint ? (
+                      <FieldDescription id={fieldHintId(item.id)}>{item.hint}</FieldDescription>
+                    ) : null}
+                  </Field>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>{k.controls.select}</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-5">
+              {selectStates.map((item) => (
+                <div class="flex flex-col gap-1">
+                  <span class="font-mono text-xs text-muted-foreground">{item.state}</span>
+                  <Field data-invalid={item.error ? true : undefined} data-disabled={item.disabled || undefined}>
+                    <FieldLabel htmlFor={item.id}>{k.selectLabel}</FieldLabel>
+                    <NativeSelect
+                      name={item.id}
+                      disabled={item.disabled}
+                      {...fieldControlProps(item.id, { hint: item.hint, error: item.error })}
+                    >
+                      <option value="" disabled selected={item.value === ""}>
+                        {t.supply.choose}
+                      </option>
+                      {EARTHING_SYSTEMS.map((system) => (
+                        <option value={system} selected={item.value === system}>
+                          {t.supply.earthingSystems[system]}
+                        </option>
+                      ))}
+                    </NativeSelect>
+                    {item.error ? (
+                      <FieldError id={fieldErrorId(item.id)}>{item.error}</FieldError>
+                    ) : item.hint ? (
+                      <FieldDescription id={fieldHintId(item.id)}>{item.hint}</FieldDescription>
+                    ) : null}
+                  </Field>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>{k.controls.checkbox}</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3">
+              <label class="flex items-center gap-2 text-sm">
+                <input type="checkbox" class="size-4 accent-primary" />
+                {k.checkboxLabel}
+                <span class="font-mono text-xs text-muted-foreground">({k.states.unchecked})</span>
+              </label>
+              <label class="flex items-center gap-2 text-sm">
+                <input type="checkbox" class="size-4 accent-primary" checked />
+                {k.checkboxLabel}
+                <span class="font-mono text-xs text-muted-foreground">({k.states.checked})</span>
+              </label>
+              <div class="flex flex-col gap-1">
+                <label class="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    class="size-4 accent-destructive"
+                    aria-invalid="true"
+                    aria-describedby="ks-checkbox-invalid-error"
+                  />
+                  {k.checkboxLabel}
+                  <span class="font-mono text-xs text-muted-foreground">({k.states.invalid})</span>
+                </label>
+                <p id="ks-checkbox-invalid-error" class="text-xs text-destructive">
+                  {k.inputError}
+                </p>
+              </div>
+              <label class="flex items-center gap-2 text-sm text-muted-foreground">
+                <input type="checkbox" class="size-4 accent-primary" disabled />
+                {k.checkboxLabel}
+                <span class="font-mono text-xs">({k.states.disabled})</span>
+              </label>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>{k.controls.radioCard}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <fieldset class="grid gap-3 sm:grid-cols-2">
+                <legend class="sr-only">{k.controls.radioCard}</legend>
+                {radioCards.map((card) => (
+                  <div
+                    class:list={[
+                      "relative flex items-start gap-3 rounded-lg border border-input p-3 text-sm",
+                      card.disabled
+                        ? "bg-muted text-muted-foreground"
+                        : "bg-card has-checked:border-primary has-checked:bg-accent",
+                    ]}
+                  >
+                    <input
+                      type="radio"
+                      id={card.id}
+                      name="ks-radio"
+                      value={card.id}
+                      class="mt-0.5 size-4 accent-primary"
+                      checked={card.checked}
+                      disabled={card.disabled}
+                      aria-describedby={`${card.id}-hint`}
+                    />
+                    <div class="flex flex-col gap-1">
+                      {/* The label's ::after covers the card, so the whole card toggles the radio. */}
+                      <label
+                        for={card.id}
+                        class:list={[
+                          "font-medium after:absolute after:inset-0",
+                          card.disabled ? "cursor-not-allowed" : "cursor-pointer",
+                        ]}
+                      >
+                        {card.label}
+                      </label>
+                      <span id={`${card.id}-hint`} class="text-xs text-muted-foreground">
+                        {card.hint}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </fieldset>
+            </CardContent>
+          </Card>
+        </div>
+      </section>
+
+      <section class:list={sectionClass} aria-labelledby="ks-feedback">
+        <h2 id="ks-feedback" class:list={sectionTitleClass}>
+          {k.sections.feedback}
+        </h2>
+        <div class="grid gap-3 lg:grid-cols-2">
+          {alertVariants.map((variant) => (
+            <Alert variant={variant}>
+              <AlertTitle>{k.alerts[variant].title}</AlertTitle>
+              <AlertDescription>{k.alerts[variant].description}</AlertDescription>
+            </Alert>
+          ))}
+        </div>
+        <div class="flex flex-wrap gap-2">
+          {badgeVariants.map((variant) => (
+            <Badge variant={variant}>{k.badges[variant]}</Badge>
+          ))}
+        </div>
+        <div class="grid gap-6 lg:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>{k.card.title}</CardTitle>
+              <CardDescription>{k.card.description}</CardDescription>
+              <CardAction>
+                <Button variant="outline" size="sm">
+                  {k.card.action}
+                </Button>
+              </CardAction>
+            </CardHeader>
+            <CardContent>
+              <p class="text-sm">{k.card.content}</p>
+            </CardContent>
+          </Card>
+          <Card className="items-center border-dashed text-center shadow-none">
+            <CardContent className="flex flex-col items-center gap-3">
+              <p class="font-medium">{k.emptyState.title}</p>
+              <p class="text-sm text-muted-foreground">{k.emptyState.description}</p>
+              <Button>{k.emptyState.action}</Button>
+            </CardContent>
+          </Card>
+        </div>
+        <Card className="py-0">
+          <table class="w-full border-collapse text-sm">
+            <caption class="px-6 pt-4 text-left font-medium">{k.table.caption}</caption>
+            <thead>
+              <tr class="border-b text-left text-muted-foreground">
+                <th class="px-6 py-3 font-medium">{k.table.device}</th>
+                <th class="px-6 py-3 font-medium">{k.table.parameters}</th>
+                <th class="px-6 py-3 text-right font-medium">{k.table.price}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tableRows.map((row) => (
+                <tr class="border-b last:border-b-0 hover:bg-muted">
+                  <td class="px-6 py-3">{deviceKindLabel(row.kind)}</td>
+                  <td class="px-6 py-3 font-mono text-xs">{row.parameters}</td>
+                  <td class="px-6 py-3 text-right font-mono">{formatMoney(row.price)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+        <div class="flex flex-col gap-2 overflow-hidden rounded-lg border">
+          <Banner variant="info">{k.banners.info}</Banner>
+          <Banner variant="warning">{k.banners.warning}</Banner>
+          <Banner variant="error">{k.banners.error}</Banner>
+        </div>
+      </section>
+
+      <section class:list={sectionClass} aria-labelledby="ks-drawing">
+        <h2 id="ks-drawing" class:list={sectionTitleClass}>
+          {k.sections.drawing}
+        </h2>
+        <div class="grid gap-6 md:grid-cols-3">
+          <figure class="flex flex-col gap-2">
+            <CabinetDrawing geometry={DEMO_CABINET_GEOMETRY} />
+            <figcaption class:list={subTitleClass}>{k.drawingStates.plain}</figcaption>
+          </figure>
+          <figure class="flex flex-col gap-2">
+            <CabinetDrawing geometry={DEMO_CABINET_GEOMETRY} highlight={{ kind: "rail", index: 1 }} />
+            <figcaption class:list={subTitleClass}>{k.drawingStates.highlight}</figcaption>
+          </figure>
+          <figure class="flex flex-col gap-2">
+            <CabinetDrawing
+              geometry={DEMO_CABINET_GEOMETRY}
+              invalid={[
+                { kind: "entry", index: 0 },
+                { kind: "bar", index: 1 },
+              ]}
+            />
+            <figcaption class:list={subTitleClass}>{k.drawingStates.invalid}</figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section class:list={sectionClass} aria-labelledby="ks-brand">
+        <h2 id="ks-brand" class:list={sectionTitleClass}>
+          {k.sections.brand}
+        </h2>
+        <div class="grid gap-4 lg:grid-cols-3">
+          {brandSurfaces.map((item) => (
+            <div class:list={["flex flex-col gap-4 rounded-lg border p-5", item.surface]}>
+              <span class="text-sm font-medium">{item.label}</span>
+              <div class="flex items-end gap-4">
+                {brandSizes.map((size) => (
+                  <div class="flex flex-col items-center gap-1">
+                    <Logo size={size} />
+                    <span class="font-mono text-xs opacity-75">{k.brandSize(size)}</span>
+                  </div>
+                ))}
+              </div>
+              <Logo variant="full" size={24} />
+              <Logo variant="full" size={48} />
+            </div>
+          ))}
+        </div>
+        <div class="flex flex-col gap-2">
+          <span class:list={subTitleClass}>{k.circuitGrid}</span>
+          <div class="register-hero relative h-48 overflow-hidden rounded-lg">
+            <CircuitGrid class="absolute inset-0 size-full" aria-hidden="true" />
+          </div>
+        </div>
+      </section>
+    </main>
+  </Layout>
+)}

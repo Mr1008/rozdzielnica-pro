@@ -203,6 +203,11 @@ shape for new form endpoints so the existing forms keep working.
   resolves from Cloudflare's `request.cf.timezone` (fallback `Europe/Warsaw`). The Workers runtime
   itself runs in UTC, so an `Intl` formatter without a zone shows the wrong day after 22:00.
 
+## UI
+
+- Tokeny: src/styles/global.css (:root, @theme inline). Nowy kolor = nowy token, nigdy literał.
+- Komponenty: src/components/ui. Zanim napiszesz nowy, sprawdź ten katalog; brakujący dodaj z rejestru shadcn.
+
 ## Commands
 
 | Command                              | Notes                                                                                         |

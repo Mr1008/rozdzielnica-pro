@@ -1,0 +1,14 @@
+<!-- RozdzielnicaPro mark: a switchboard cabinet (outline), a DIN rail with three modules, and a
+     lightning bolt as the "current" through the middle module. The single source for Logo.astro
+     and for scripts/brand-assets.mjs. Ink is currentColor; the bolt reads the brand-current token and falls
+     back to the ink colour where no page CSS defines it. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <rect x="3" y="3" width="26" height="26" rx="5" stroke="currentColor" stroke-width="2.5" />
+  <path
+    d="M4.5 10.5H9.5V21.5H4.5M27.5 10.5H22.5V21.5H27.5"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linejoin="round"
+  />
+  <path d="M18 5 11 17.5h5L14.5 27 21.5 14h-5L18 5Z" style="fill: var(--brand-current, currentColor)" />
+</svg>
