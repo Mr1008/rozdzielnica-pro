@@ -37,30 +37,25 @@ const ogImage = new URL("/og-image.png", Astro.url).href;
     <meta property="og:image:height" content="630" />
     <title>{title}</title>
   </head>
-  <body>
-    {missingConfigs.map((cfg) => (
-      <Banner variant="error">
-        <strong>{t.common.warningPrefix}</strong> {cfg.message}
-        {cfg.docsUrl && (
-          <>
-            {" "}
-            <a href={cfg.docsUrl} target="_blank" rel="noopener noreferrer">
-              {cfg.docsLabel ?? t.common.documentation}
-            </a>
-            .
-          </>
-        )}
-      </Banner>
-    ))}
+  <body class="bg-background text-foreground">
+    {missingConfigs.length > 0 && (
+      <div class="flex flex-col gap-2 p-4">
+        {missingConfigs.map((cfg) => (
+          <Banner variant="error">
+            <strong>{t.common.warningPrefix}</strong> {cfg.message}
+            {cfg.docsUrl && (
+              <>
+                {" "}
+                <a href={cfg.docsUrl} target="_blank" rel="noopener noreferrer">
+                  {cfg.docsLabel ?? t.common.documentation}
+                </a>
+                .
+              </>
+            )}
+          </Banner>
+        ))}
+      </div>
+    )}
     <slot />
   </body>
 </html>
-
-<style>
-  html,
-  body {
-    margin: 0;
-    width: 100%;
-    height: 100%;
-  }
-</style>

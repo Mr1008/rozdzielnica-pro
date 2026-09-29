@@ -17,10 +17,16 @@ type Bar = CabinetGeometry["bars"][number];
 /** Strokes stay a constant on-screen width whether the drawing is a thumbnail or full size. */
 const HAIRLINE = { vectorEffect: "non-scaling-stroke", strokeWidth: 1 } as const;
 
+/** Conductor colours per PN-EN 60445 (the `--wire-*` tokens): PE green with a yellow stripe, N blue. */
 const BAR_CLASSES: Record<Bar["kind"], { body: string; label: string }> = {
-  PE: { body: "fill-yellow-400 stroke-green-700", label: "fill-green-900" },
-  N: { body: "fill-sky-500 stroke-sky-800", label: "fill-white" },
+  PE: { body: "fill-wire-pe stroke-drawing-frame", label: "fill-wire-pe-foreground" },
+  N: { body: "fill-wire-n stroke-drawing-frame", label: "fill-wire-n-foreground" },
 };
+
+/** How far along the bar the label reaches, in label heights — the PE stripe starts beyond it. */
+const LABEL_EXTENT = 2.2;
+/** The PE stripe's share of the bar's short side, centred. */
+const STRIPE_SHARE = 0.3;
 
 /** `ref`'s rectangle cut to the interior, or `null` when it does not exist or lies wholly outside. */
 function visibleRect(geometry: CabinetGeometry, ref: ElementRef | undefined): Rect | null {
@@ -28,10 +34,33 @@ function visibleRect(geometry: CabinetGeometry, ref: ElementRef | undefined): Re
   return rect ? clipRect(rect, geometry.interior) : null;
 }
 
+function barLabelSize(bar: Bar, fontSizeMm: number): number {
+  const rect = barRect(bar);
+  return Math.min(fontSizeMm, Math.min(rect.w, rect.h) * 0.8);
+}
+
+/**
+ * The yellow band of a PE bar's green-yellow pair: along the bar's length, centred across it, and
+ * starting past the label so the label keeps its contrast on the green. `null` when the bar is too
+ * short to carry one beside its label.
+ */
+function peStripeRect(bar: Bar, fontSizeMm: number): Rect | null {
+  const rect = barRect(bar);
+  const start = barLabelSize(bar, fontSizeMm) * LABEL_EXTENT;
+  if (bar.orientation === "horizontal") {
+    const w = rect.w - start;
+    const h = rect.h * STRIPE_SHARE;
+    return w > 0 ? { x: rect.x + start, y: rect.y + (rect.h - h) / 2, w, h } : null;
+  }
+  const w = rect.w * STRIPE_SHARE;
+  const h = rect.h - start;
+  return h > 0 ? { x: rect.x + (rect.w - w) / 2, y: rect.y + start, w, h } : null;
+}
+
 /** The kind label sits at the bar's starting end, so two overlapping bars do not stack labels. */
 function BarLabel({ bar, fontSizeMm }: { bar: Bar; fontSizeMm: number }) {
   const rect = barRect(bar);
-  const size = Math.min(fontSizeMm, Math.min(rect.w, rect.h) * 0.8);
+  const size = barLabelSize(bar, fontSizeMm);
   const horizontal = bar.orientation === "horizontal";
   return (
     <text
@@ -80,7 +109,7 @@ export function CabinetDrawing({ geometry, highlight, invalid = [], className }:
       className={cn("h-auto w-full overflow-visible", className)}
     >
       <svg x={0} y={0} width={interior.widthMm} height={interior.heightMm} overflow="hidden">
-        <rect x={0} y={0} width={interior.widthMm} height={interior.heightMm} className="fill-white" />
+        <rect x={0} y={0} width={interior.widthMm} height={interior.heightMm} className="fill-drawing-paper" />
 
         {rails.map((rail, index) => {
           const rect = railRect(rail);
@@ -91,7 +120,7 @@ export function CabinetDrawing({ geometry, highlight, invalid = [], className }:
               y={rect.y}
               width={rect.w}
               height={rect.h}
-              className="fill-zinc-300 stroke-zinc-500"
+              className="fill-drawing-rail stroke-drawing-rail-stroke"
               {...HAIRLINE}
             />
           );
@@ -106,7 +135,7 @@ export function CabinetDrawing({ geometry, highlight, invalid = [], className }:
               y={rect.y}
               width={rect.w}
               height={rect.h}
-              className="fill-amber-400/70 stroke-amber-600"
+              className="fill-drawing-entry stroke-drawing-entry-stroke"
               {...HAIRLINE}
             />
           );
@@ -114,16 +143,21 @@ export function CabinetDrawing({ geometry, highlight, invalid = [], className }:
 
         {barOrder.map(({ bar, index }) => {
           const rect = barRect(bar);
+          const stripe = bar.kind === "PE" ? peStripeRect(bar, labelSizeMm) : null;
           return (
-            <rect
-              key={`bar-${String(index)}`}
-              x={rect.x}
-              y={rect.y}
-              width={rect.w}
-              height={rect.h}
-              className={BAR_CLASSES[bar.kind].body}
-              {...HAIRLINE}
-            />
+            <g key={`bar-${String(index)}`}>
+              <rect
+                x={rect.x}
+                y={rect.y}
+                width={rect.w}
+                height={rect.h}
+                className={BAR_CLASSES[bar.kind].body}
+                {...HAIRLINE}
+              />
+              {stripe && (
+                <rect x={stripe.x} y={stripe.y} width={stripe.w} height={stripe.h} className="fill-wire-pe-stripe" />
+              )}
+            </g>
           );
         })}
 
@@ -137,7 +171,7 @@ export function CabinetDrawing({ geometry, highlight, invalid = [], className }:
               y={rect.y}
               width={rect.w}
               height={rect.h}
-              className="fill-none stroke-zinc-900"
+              className="stroke-drawing-frame fill-none"
               strokeDasharray="4 3"
               {...HAIRLINE}
             />
@@ -154,7 +188,7 @@ export function CabinetDrawing({ geometry, highlight, invalid = [], className }:
         y={0}
         width={interior.widthMm}
         height={interior.heightMm}
-        className="fill-none stroke-zinc-700"
+        className="stroke-drawing-frame fill-none"
         {...HAIRLINE}
       />
 
@@ -191,7 +225,7 @@ export function CabinetDrawing({ geometry, highlight, invalid = [], className }:
           y={outline.y}
           width={outline.w}
           height={outline.h}
-          className="fill-none stroke-fuchsia-600"
+          className="stroke-drawing-highlight fill-none"
           vectorEffect="non-scaling-stroke"
           strokeWidth={3}
         />
