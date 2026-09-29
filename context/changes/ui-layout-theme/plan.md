@@ -718,40 +718,40 @@ new `t.landing` key group. The no-role redirect target (`NO_ROLE_PATH`) must sti
 
 #### Automated
 
-- [x] 1.1 Lint passes: `npm run lint`
-- [x] 1.2 Types pass: `npx astro check`
-- [x] 1.3 Unit tests pass, including the new demo-geometry test: `npm run test:unit`
-- [x] 1.4 Build passes and the kitchen-sink route is not reachable in the preview build
-- [x] 1.5 `bg-cosmic` still defined; no `.dark` block left in `global.css`
-- [x] 1.11 Brand assets regenerate with the right dimensions: `npm run brand:assets`
+- [x] 1.1 Lint passes: `npm run lint` — 0ca49b4
+- [x] 1.2 Types pass: `npx astro check` — 0ca49b4
+- [x] 1.3 Unit tests pass, including the new demo-geometry test: `npm run test:unit` — 0ca49b4
+- [x] 1.4 Build passes and the kitchen-sink route is not reachable in the preview build — 0ca49b4
+- [x] 1.5 `bg-cosmic` still defined; no `.dark` block left in `global.css` — 0ca49b4
+- [x] 1.11 Brand assets regenerate with the right dimensions: `npm run brand:assets` — 0ca49b4
 
 #### Manual
 
-- [x] 1.6 `/dev/kitchen-sink` shows every listed state; full-page screenshot taken
-- [x] 1.7 Focus ring visible on every control type when tabbing
-- [x] 1.8 Muted text, focus ring and status foregrounds meet contrast
-- [x] 1.9 Polish diacritics render in Plex Sans
-- [x] 1.10 Drawing elements distinguishable when desaturated
-- [x] 1.12 Logo legible at 16 px and 48 px on paper, hero and mono
-- [x] 1.13 og-image and apple-touch-icon eyeballed
+- [x] 1.6 `/dev/kitchen-sink` shows every listed state; full-page screenshot taken — 0ca49b4
+- [x] 1.7 Focus ring visible on every control type when tabbing — 0ca49b4
+- [x] 1.8 Muted text, focus ring and status foregrounds meet contrast — 0ca49b4
+- [x] 1.9 Polish diacritics render in Plex Sans — 0ca49b4
+- [x] 1.10 Drawing elements distinguishable when desaturated — 0ca49b4
+- [x] 1.12 Logo legible at 16 px and 48 px on paper, hero and mono — 0ca49b4
+- [x] 1.13 og-image and apple-touch-icon eyeballed — 0ca49b4
 
 ### Phase 2: App shell + reference view (`/dashboard/projects/[id]`)
 
 #### Automated
 
-- [ ] 2.1 Lint passes: `npm run lint`
-- [ ] 2.2 Types pass: `npx astro check`
-- [ ] 2.3 Unit tests pass: `npm run test:unit`
-- [ ] 2.4 Build passes: `npm run build`
-- [ ] 2.5 No palette colour classes or hex in the migrated files
+- [x] 2.1 Lint passes: `npm run lint`
+- [x] 2.2 Types pass: `npx astro check`
+- [x] 2.3 Unit tests pass: `npm run test:unit`
+- [x] 2.4 Build passes: `npm run build`
+- [x] 2.5 No palette colour classes or hex in the migrated files
 
 #### Manual
 
-- [ ] 2.6 Kitchen sink re-screenshotted with drawing and Banner on tokens
-- [ ] 2.7 Project page screenshotted at 1440×900 and 1280×800 in all four states
-- [ ] 2.8 Save details, change cabinet, save supply, delete work end to end
-- [ ] 2.9 Sticky aside and section nav work
-- [ ] 2.10 Keyboard-only pass with visible focus
+- [x] 2.6 Kitchen sink re-screenshotted with drawing and Banner on tokens
+- [x] 2.7 Project page screenshotted at 1440×900 and 1280×800 in all four states
+- [x] 2.8 Save details, change cabinet, save supply, delete work end to end
+- [x] 2.9 Sticky aside and section nav work
+- [x] 2.10 Keyboard-only pass with visible focus
 
 ### Phase 3: Electrician pages
 

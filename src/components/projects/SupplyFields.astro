@@ -1,4 +1,8 @@
 ---
+import { Field, FieldDescription, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
+import { fieldControlProps, fieldHintId } from "@/lib/field-a11y";
 import { t } from "@/lib/i18n";
 import {
   CONDUCTOR_MATERIALS,
@@ -14,12 +18,12 @@ import {
   type SupplyColumn,
   type SupplyFormDefaults,
 } from "@/lib/supply-params";
-import { cn } from "@/lib/utils";
 
 /**
  * The OSD and WLZ inputs of the project page's supply form. Every `<option value>` goes through
  * `supplyOptionValue`, because `parseSupplyForm` matches the option strings exactly. An unset supply
  * selects an empty, disabled placeholder, so `required` really blocks a submit with nothing picked.
+ * The options are plain `<option>` children: in an `.astro` file they reach `NativeSelect` as HTML.
  */
 interface Props {
   defaults: SupplyFormDefaults;
@@ -37,6 +41,8 @@ interface SelectField {
   name: SupplyColumn;
   label: string;
   hint?: string;
+  /** Values with a unit (amperes, mm²) render in mono figures. */
+  mono?: boolean;
   choices: Choice[];
 }
 
@@ -50,6 +56,7 @@ const osdFields: SelectField[] = [
     name: SUPPLY_FIELDS.premeterProtection,
     label: t.supply.fields.premeterProtection,
     hint: t.supply.protectionHint,
+    mono: true,
     choices: choices(PREMETER_PROTECTIONS_A, t.supply.protectionOption),
   },
   {
@@ -72,6 +79,7 @@ const wlzFields: SelectField[] = [
     name: SUPPLY_FIELDS.wlzCrossSection,
     label: t.supply.fields.wlzCrossSection,
     hint: t.supply.crossSectionHint,
+    mono: true,
     choices: choices(WLZ_CROSS_SECTIONS_MM2, t.supply.crossSectionOption),
   },
   {
@@ -87,103 +95,74 @@ const wlzFields: SelectField[] = [
     choices: choices(WLZ_INSTALLATIONS, (value) => t.supply.installations[value]),
   },
 ];
-
-const inputClass = cn(
-  "w-full rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-sm text-white placeholder-white/40",
-  "transition-colors focus:ring-2 focus:ring-purple-400 focus:outline-none",
-);
-// Native option lists render on the OS's light popup; dark text keeps them readable there.
-const optionClass = "text-slate-900";
-const labelClass = "mb-1 block text-xs text-blue-100/80";
-const hintClass = "mt-1 text-xs text-blue-100/50";
-const legendClass = "mb-3 text-sm font-semibold";
 ---
 
-<fieldset>
-  <legend class:list={legendClass}>{t.supply.osdSection}</legend>
-  <div class="grid gap-4 sm:grid-cols-3">
+<FieldSet className="gap-4">
+  <FieldLegend>{t.supply.osdSection}</FieldLegend>
+  <div class="grid items-start gap-4 sm:grid-cols-3">
     {osdFields.map((field) => (
-      <div>
-        <label for={field.id} class:list={labelClass}>
-          {field.label}
-        </label>
-        <select
-          id={field.id}
+      <Field>
+        <FieldLabel htmlFor={field.id}>{field.label}</FieldLabel>
+        <NativeSelect
           name={field.name}
           required
-          aria-describedby={field.hint ? `${field.id}-hint` : undefined}
-          class:list={inputClass}
+          className={field.mono ? "font-mono" : undefined}
+          {...fieldControlProps(field.id, { hint: field.hint })}
         >
-          <option value="" disabled selected={defaults[field.name] === ""} class:list={optionClass}>
+          <option value="" disabled selected={defaults[field.name] === ""}>
             {t.supply.choose}
           </option>
           {field.choices.map((choice) => (
-            <option value={choice.value} selected={defaults[field.name] === choice.value} class:list={optionClass}>
+            <option value={choice.value} selected={defaults[field.name] === choice.value}>
               {choice.label}
             </option>
           ))}
-        </select>
-        {field.hint && (
-          <p id={`${field.id}-hint`} class:list={hintClass}>
-            {field.hint}
-          </p>
-        )}
-      </div>
+        </NativeSelect>
+        {field.hint && <FieldDescription id={fieldHintId(field.id)}>{field.hint}</FieldDescription>}
+      </Field>
     ))}
   </div>
-</fieldset>
+</FieldSet>
 
-<fieldset>
-  <legend class:list={legendClass}>{t.supply.wlzSection}</legend>
-  <div class="grid gap-4 sm:grid-cols-2">
-    <div>
-      <label for="supply-length" class:list={labelClass}>
-        {t.supply.fields.wlzLength}
-      </label>
-      <input
-        id="supply-length"
+<FieldSet className="gap-4">
+  <FieldLegend>{t.supply.wlzSection}</FieldLegend>
+  <div class="grid items-start gap-4 sm:grid-cols-2">
+    <Field>
+      <FieldLabel htmlFor="supply-length">{t.supply.fields.wlzLength}</FieldLabel>
+      <Input
         name={SUPPLY_FIELDS.wlzLength}
         type="text"
-        inputmode="decimal"
-        autocomplete="off"
+        inputMode="decimal"
+        autoComplete="off"
         pattern={WLZ_LENGTH_INPUT_PATTERN}
         required
-        value={defaults.wlz_length_m}
+        defaultValue={defaults.wlz_length_m}
         placeholder={t.supply.lengthPlaceholder}
-        aria-describedby="supply-length-hint"
-        class:list={inputClass}
+        className="font-mono"
+        {...fieldControlProps("supply-length", { hint: t.supply.lengthHint(MAX_WLZ_LENGTH_M) })}
       />
-      <p id="supply-length-hint" class:list={hintClass}>
-        {t.supply.lengthHint(MAX_WLZ_LENGTH_M)}
-      </p>
-    </div>
+      <FieldDescription id={fieldHintId("supply-length")}>{t.supply.lengthHint(MAX_WLZ_LENGTH_M)}</FieldDescription>
+    </Field>
     {wlzFields.map((field) => (
-      <div>
-        <label for={field.id} class:list={labelClass}>
-          {field.label}
-        </label>
-        <select
-          id={field.id}
+      <Field>
+        <FieldLabel htmlFor={field.id}>{field.label}</FieldLabel>
+        <NativeSelect
           name={field.name}
           required
-          aria-describedby={field.hint ? `${field.id}-hint` : undefined}
-          class:list={inputClass}
+          className={field.mono ? "font-mono" : undefined}
+          {...fieldControlProps(field.id, { hint: field.hint })}
         >
-          <option value="" disabled selected={defaults[field.name] === ""} class:list={optionClass}>
+          <option value="" disabled selected={defaults[field.name] === ""}>
             {t.supply.choose}
           </option>
           {field.choices.map((choice) => (
-            <option value={choice.value} selected={defaults[field.name] === choice.value} class:list={optionClass}>
+            <option value={choice.value} selected={defaults[field.name] === choice.value}>
               {choice.label}
             </option>
           ))}
-        </select>
-        {field.hint && (
-          <p id={`${field.id}-hint`} class:list={hintClass}>
-            {field.hint}
-          </p>
-        )}
-      </div>
+        </NativeSelect>
+        {field.hint && <FieldDescription id={fieldHintId(field.id)}>{field.hint}</FieldDescription>}
+      </Field>
     ))}
   </div>
-</fieldset>
+</FieldSet>

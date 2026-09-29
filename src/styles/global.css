@@ -65,7 +65,9 @@
    */
   --wire-pe: oklch(52% 0.14 145); /* green; luminance 0.15 */
   --wire-pe-stripe: oklch(88% 0.17 98); /* yellow; luminance 0.69 */
-  --wire-n: oklch(55% 0.16 245); /* blue; white text on it 4.7:1 */
+  --wire-pe-foreground: oklch(100% 0 0); /* label text on --wire-pe — 5.2:1 */
+  --wire-n: oklch(55% 0.16 245); /* blue */
+  --wire-n-foreground: oklch(100% 0 0); /* label text on --wire-n — 4.7:1 */
   --wire-l1: oklch(45% 0.08 55); /* brown */
   --wire-l2: oklch(20% 0 0); /* black */
   --wire-l3: oklch(62% 0 0); /* grey */
@@ -153,7 +155,9 @@
 
   --color-wire-pe: var(--wire-pe);
   --color-wire-pe-stripe: var(--wire-pe-stripe);
+  --color-wire-pe-foreground: var(--wire-pe-foreground);
   --color-wire-n: var(--wire-n);
+  --color-wire-n-foreground: var(--wire-n-foreground);
   --color-wire-l1: var(--wire-l1);
   --color-wire-l2: var(--wire-l2);
   --color-wire-l3: var(--wire-l3);

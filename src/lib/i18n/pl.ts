@@ -503,6 +503,19 @@ export const pl = {
       savedCabinet: "Szafka projektu została zmieniona.",
       detailsSection: "Dane projektu",
       saveDetails: "Zapisz dane projektu",
+      /** The page header's muted line: client and site address, whichever are set. */
+      headerDescription: (parts: readonly string[]) => parts.join(" · "),
+      summary: "Podsumowanie projektu",
+      sectionNav: "Sekcje projektu",
+      supplyStatus: "Przyłącze",
+      supplyConfigured: "Uzupełnione",
+      supplyMissing: "Parametry przyłącza nie są uzupełnione.",
+      supplyMissingLink: "Uzupełnij przyłącze",
+      warningsStatus: "Kontrola przyłącza",
+      warningCount: (n: number) =>
+        n === 0
+          ? "Brak ostrzeżeń"
+          : `${String(n)} ${plural(n, { one: "ostrzeżenie", few: "ostrzeżenia", many: "ostrzeżeń" })}`,
     },
     cabinet: {
       section: "Szafka rozdzielnicy",
@@ -716,6 +729,7 @@ export const pl = {
         info: "Baner informacyjny w pasku strony.",
         warning: "Baner ostrzegawczy w pasku strony.",
         error: "Baner błędu w pasku strony.",
+        success: "Baner potwierdzenia w pasku strony.",
       },
       drawingStates: {
         plain: "Bez zaznaczenia",
