@@ -783,29 +783,29 @@ which is the correct behaviour.
 
 #### Automated
 
-- [x] 2.1 Migration applies cleanly on a fresh stack: `npx supabase db reset`
-- [x] 2.2 Types regenerate with no manual edits: `npm run db:types`
-- [x] 2.3 RLS integration tests pass: `npm run test:integration`
-- [x] 2.4 Unit tests pass: `npm run test:unit`
-- [x] 2.5 Lint and type check pass: `npm run lint` and `npx astro check`
+- [x] 2.1 Migration applies cleanly on a fresh stack: `npx supabase db reset` — 53d5b4f
+- [x] 2.2 Types regenerate with no manual edits: `npm run db:types` — 53d5b4f
+- [x] 2.3 RLS integration tests pass: `npm run test:integration` — 53d5b4f
+- [x] 2.4 Unit tests pass: `npm run test:unit` — 53d5b4f
+- [x] 2.5 Lint and type check pass: `npm run lint` and `npx astro check` — 53d5b4f
 
 #### Manual
 
-- [x] 2.6 In Supabase Studio, the three tables show RLS enabled and no admin policy
+- [x] 2.6 In Supabase Studio, the three tables show RLS enabled and no admin policy — 53d5b4f
 
 ### Phase 3: Endpoints and the server-rendered result
 
 #### Automated
 
-- [ ] 3.1 Unit tests pass (including new `project-errors` cases): `npm run test:unit`
-- [ ] 3.2 Lint, type check and build pass: `npm run lint`, `npx astro check`, `npm run build`
-- [ ] 3.3 RLS integration tests still pass: `npm run test:integration`
+- [x] 3.1 Unit tests pass (including new `project-errors` cases): `npm run test:unit`
+- [x] 3.2 Lint, type check and build pass: `npm run lint`, `npx astro check`, `npm run build`
+- [x] 3.3 RLS integration tests still pass: `npm run test:integration`
 
 #### Manual
 
-- [ ] 3.4 On the seeded stack, a project with no supply shows the "uzupełnij przyłącze" blocker linking to `#supply`
-- [ ] 3.5 A project whose circuits include B40 shows a catalog-gap error naming "B40" and the circuit, with the contact-admin line and no substitute device
-- [ ] 3.6 Changing the supply after a match shows the stale state; "Dobierz ponownie" restores a current snapshot
+- [x] 3.4 On the seeded stack, a project with no supply shows the "uzupełnij przyłącze" blocker linking to `#supply`
+- [x] 3.5 A project whose circuits include B40 shows a catalog-gap error naming "B40" and the circuit, with the contact-admin line and no substitute device
+- [x] 3.6 Changing the supply after a match shows the stale state; "Dobierz ponownie" restores a current snapshot
 
 ### Phase 4: Drag-and-drop circuit editor
 

@@ -15,6 +15,10 @@ export const PROJECT_ERROR = {
   invalidInput: "invalid_input",
   /** The picked cabinet is archived or gone — the snapshot trigger found no active cabinet. */
   cabinetUnavailable: "cabinet_unavailable",
+  /** A picked device was archived between the match and the save — the RPC's `device_unavailable`. */
+  deviceUnavailable: "device_unavailable",
+  /** The circuit editor's payload failed `parseCircuitsPayload`. */
+  circuitsInvalid: "circuits_invalid",
   unknown: "unknown",
 } as const;
 
@@ -26,6 +30,8 @@ const MESSAGES: Record<ProjectErrorCode, string> = {
   [PROJECT_ERROR.notFound]: t.projectErrors.notFound,
   [PROJECT_ERROR.invalidInput]: t.projectErrors.invalidInput,
   [PROJECT_ERROR.cabinetUnavailable]: t.projectErrors.cabinetUnavailable,
+  [PROJECT_ERROR.deviceUnavailable]: t.projectErrors.deviceUnavailable,
+  [PROJECT_ERROR.circuitsInvalid]: t.projectErrors.circuitsInvalid,
   [PROJECT_ERROR.unknown]: t.projectErrors.unknown,
 };
 

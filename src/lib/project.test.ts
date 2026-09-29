@@ -12,9 +12,11 @@ import {
   parseProjectDetailsForm,
   projectApiPath,
   projectCabinetApiPath,
+  projectCircuitsApiPath,
   projectDeleteApiPath,
   projectPath,
   projectFormErrorPath,
+  projectRematchApiPath,
   projectsErrorPath,
   projectSupplyApiPath,
 } from "./project";
@@ -54,6 +56,8 @@ describe("project paths", () => {
     expect(projectCabinetApiPath("x")).toBe("/api/projects/x/cabinet");
     expect(projectSupplyApiPath("x")).toBe("/api/projects/x/supply");
     expect(projectDeleteApiPath("x")).toBe("/api/projects/x/delete");
+    expect(projectCircuitsApiPath("x")).toBe("/api/projects/x/circuits");
+    expect(projectRematchApiPath("x")).toBe("/api/projects/x/rematch");
   });
 
   it("build the error redirects, encoding the code", () => {

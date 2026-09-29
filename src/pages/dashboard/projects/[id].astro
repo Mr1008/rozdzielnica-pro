@@ -3,6 +3,7 @@ import Banner from "@/components/Banner.astro";
 import PageHeader from "@/components/PageHeader.astro";
 import { CabinetDrawing } from "@/components/cabinets/CabinetDrawing";
 import CabinetPicker from "@/components/projects/CabinetPicker.astro";
+import MatchResult from "@/components/projects/MatchResult.astro";
 import ProjectDetailsFields from "@/components/projects/ProjectDetailsFields.astro";
 import SupplyFields from "@/components/projects/SupplyFields.astro";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -10,15 +11,19 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
 import AppLayout from "@/layouts/AppLayout.astro";
 import { parseCabinetGeometry } from "@/lib/cabinet-geometry";
 import { isUuid, sortForCatalogList } from "@/lib/catalog";
+import { CIRCUIT_FORM_FIELDS } from "@/lib/circuit-params";
+import { computeMatchView, loadMatchContext, type MatchView } from "@/lib/device-matching-server";
 import { t } from "@/lib/i18n";
 import {
   PROJECTS_PATH,
   PROJECT_FIELDS,
   projectApiPath,
   projectCabinetApiPath,
+  projectCircuitsApiPath,
   projectDeleteApiPath,
   projectSupplyApiPath,
 } from "@/lib/project";
@@ -42,7 +47,11 @@ const saved =
       ? t.projects.page.savedCabinet
       : savedParam === "supply"
         ? t.supply.saved
-        : null;
+        : savedParam === "circuits"
+          ? t.projects.page.savedCircuits
+          : savedParam === "rematch"
+            ? t.projects.page.savedRematch
+            : null;
 
 const supabase = createClient(Astro.request.headers, Astro.cookies);
 
@@ -105,6 +114,37 @@ const supply = project ? supplyFromRow(project) : null;
 const supplyDefaults = supplyFormDefaults(project);
 const warningMessages = supply ? supplyWarnings(supply).map(supplyWarningMessage) : [];
 
+// Circuits, groups, the active catalog and the stored device snapshot. A failure here shows an alert in
+// the section and leaves the rest of the page up.
+const matchLoad = project && supabase ? await loadMatchContext(supabase, project.id) : null;
+const matchContext = matchLoad?.ok ? matchLoad.context : null;
+const matchView = matchContext ? computeMatchView(matchContext) : null;
+
+/** The aside badge per match state: only a stored snapshot counts as "matched". */
+function matchingBadge(view: MatchView | null): {
+  variant: "success" | "warning" | "destructive" | "secondary";
+  text: string;
+} {
+  if (view === null) return { variant: "secondary", text: t.projects.page.matchingUnavailable };
+  switch (view.state) {
+    case "current":
+      return { variant: "success", text: t.projects.page.matchingCurrent(view.snapshot.length) };
+    case "stale":
+    case "cleared":
+      return { variant: "warning", text: t.projects.page.matchingOutdated };
+    case "gaps":
+      return { variant: "destructive", text: t.projects.page.matchingGaps };
+    case "blocked":
+      return view.fresh.status === "blocked" && view.fresh.reasons.some((reason) => reason.code === "no_circuits")
+        ? { variant: "secondary", text: t.projects.page.matchingNoCircuits }
+        : { variant: "destructive", text: t.projects.page.matchingBlocked };
+  }
+}
+const matching = matchingBadge(matchView);
+
+// The circuit input's anchor, the fix link for circuit blockers.
+const circuitsInputId = "circuits-payload";
+
 const title = project ? project.name : t.projects.page.notFoundTitle;
 const headerParts = project
   ? [project.client_name, project.site_address].flatMap((part) => (part?.trim() ? [part] : []))
@@ -117,6 +157,7 @@ const sections = [
   { id: "details", label: t.projects.page.detailsSection },
   { id: "cabinet", label: t.projects.cabinet.section },
   { id: "supply", label: t.supply.section },
+  { id: "circuits", label: t.circuitSection.section },
   { id: "delete", label: t.projects.delete.section },
 ] as const;
 
@@ -292,6 +333,67 @@ const headingClass = "scroll-mt-6 text-lg leading-none font-semibold";
           </Card>
         </section>
 
+        <section class="scroll-mt-6" aria-labelledby="circuits">
+          <Card>
+            <CardHeader>
+              <h2 id="circuits" tabindex="-1" class:list={headingClass}>
+                {t.circuitSection.section}
+              </h2>
+              <CardDescription>{t.circuitSection.description}</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-6">
+              {matchContext && matchView ? (
+                <>
+                  <MatchResult
+                    view={matchView}
+                    context={matchContext}
+                    projectId={project.id}
+                    circuitsAnchor={circuitsInputId}
+                  />
+
+                  <Separator />
+
+                  {/* TEMPORARY (Phase 3): a plain JSON field so circuits can be saved at all. Phase 4
+                      replaces it with the drag-and-drop CircuitEditor island, posting the same field. */}
+                  <form method="POST" action={projectCircuitsApiPath(project.id)} class="flex flex-col gap-4">
+                    <div class="flex flex-col gap-2">
+                      <label for={circuitsInputId} class="font-medium">
+                        {t.circuitSection.payloadLabel}
+                      </label>
+                      <p id={`${circuitsInputId}-hint`} class="text-sm text-muted-foreground">
+                        {t.circuitSection.payloadHint}
+                      </p>
+                      <Textarea
+                        id={circuitsInputId}
+                        name={CIRCUIT_FORM_FIELDS.payload}
+                        aria-describedby={`${circuitsInputId}-hint`}
+                        rows={12}
+                        spellCheck={false}
+                        className="font-mono text-xs md:text-xs"
+                        defaultValue={JSON.stringify(
+                          { groups: matchContext.groups, circuits: matchContext.circuits },
+                          null,
+                          2,
+                        )}
+                      />
+                    </div>
+                    <div>
+                      <Button type="submit">{t.circuitSection.save}</Button>
+                    </div>
+                  </form>
+                </>
+              ) : (
+                <Alert variant="destructive" role={undefined}>
+                  <CircleAlertIcon aria-hidden="true" />
+                  <AlertDescription>
+                    {supabase ? t.circuitSection.loadFailed : t.projectErrors.notConfigured}
+                  </AlertDescription>
+                </Alert>
+              )}
+            </CardContent>
+          </Card>
+        </section>
+
         <section class="scroll-mt-6" aria-labelledby="delete">
           <Card className="border-destructive/40">
             <CardHeader>
@@ -365,6 +467,12 @@ const headingClass = "scroll-mt-6 text-lg leading-none font-semibold";
                 </AlertDescription>
               </Alert>
             )}
+            <dl class="grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-2 text-sm">
+              <dt class="text-muted-foreground">{t.projects.page.matchingStatus}</dt>
+              <dd>
+                <Badge variant={matching.variant}>{matching.text}</Badge>
+              </dd>
+            </dl>
           </CardContent>
         </Card>
 

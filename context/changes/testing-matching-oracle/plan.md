@@ -472,13 +472,13 @@ None — no schema or data change.
 
 #### Automated
 
-- [x] 1.1 Unit tests pass: `npm run test:unit`
-- [x] 1.2 Lint passes: `npm run lint`
-- [x] 1.3 Mutation spot-check on matchRcd, matchMcb and the FR filter fails new tests
+- [x] 1.1 Unit tests pass: `npm run test:unit` — ef18ed9
+- [x] 1.2 Lint passes: `npm run lint` — ef18ed9
+- [x] 1.3 Mutation spot-check on matchRcd, matchMcb and the FR filter fails new tests — ef18ed9
 
 #### Manual
 
-- [x] 1.4 Each new case's expected device is justified from the rule table or PRD alone
+- [x] 1.4 Each new case's expected device is justified from the rule table or PRD alone — ef18ed9
 
 ### Phase 2: Matcher property test (risk #1)
 

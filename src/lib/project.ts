@@ -46,6 +46,16 @@ export function projectDeleteApiPath(id: string): string {
   return `${projectApiPath(id)}/delete`;
 }
 
+/** The circuit editor's save endpoint: groups, circuits and the matched device snapshot in one RPC. */
+export function projectCircuitsApiPath(id: string): string {
+  return `${projectApiPath(id)}/circuits`;
+}
+
+/** Re-runs the matcher over the stored circuits and replaces the device snapshot. */
+export function projectRematchApiPath(id: string): string {
+  return `${projectApiPath(id)}/rematch`;
+}
+
 export const MAX_PROJECT_NAME_LENGTH = 200;
 export const MAX_CLIENT_NAME_LENGTH = 200;
 export const MAX_SITE_ADDRESS_LENGTH = 300;

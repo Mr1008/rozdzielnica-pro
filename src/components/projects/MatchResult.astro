@@ -1,0 +1,271 @@
+---
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { circuitWarningMessage, circuitWarnings } from "@/lib/circuit-warnings";
+import type { MatchContext, MatchView, SnapshotRow } from "@/lib/device-matching-server";
+import {
+  blockReasonMessage,
+  catalogGapMessage,
+  selectionNoteMessage,
+  selectionRoleLabel,
+  type BlockReason,
+  type Selection,
+  type SelectionNote,
+  type SelectionRole,
+} from "@/lib/device-matching";
+import { deviceKindLabel, parseDeviceSpec } from "@/lib/device-spec";
+import { deviceParameterSummary } from "@/lib/device-summary";
+import { formatMoney, t } from "@/lib/i18n";
+import { projectRematchApiPath } from "@/lib/project";
+import { cn } from "@/lib/utils";
+import { CircleAlertIcon, TriangleAlertIcon } from "lucide-react";
+
+/**
+ * The device-matching result panel of the project page (FR-007). What is shown as "matched" comes
+ * only from the stored snapshot (`project_devices`); the fresh result is used for gaps, blockers and
+ * the stale check — and, when a supply change cleared the snapshot, as an explicitly unsaved preview.
+ * A gap is listed as exactly the missing device with the contact-admin line, never with a substitute.
+ */
+interface Props {
+  view: MatchView;
+  context: MatchContext;
+  projectId: string;
+  /** The in-page anchor of the circuit input, the fix link for circuit blockers. */
+  circuitsAnchor: string;
+}
+
+const { view, context, projectId, circuitsAnchor } = Astro.props;
+
+interface Row {
+  key: string;
+  role: string;
+  name: string;
+  manufacturer: string;
+  model: string;
+  summary: string | null;
+  priceGrosze: number;
+  notes: string[];
+  serves: string;
+}
+
+const SELECTION_ROLES: readonly string[] = ["main_switch", "rcd", "rcbo", "mcb"] satisfies SelectionRole[];
+const SELECTION_NOTES: readonly string[] = ["rcbo_fallback", "no_rcd"] satisfies SelectionNote[];
+
+function isSelectionRole(value: string): value is SelectionRole {
+  return SELECTION_ROLES.includes(value);
+}
+
+function isSelectionNote(value: string): value is SelectionNote {
+  return SELECTION_NOTES.includes(value);
+}
+
+const groupLabels = new Map(context.groups.map((group) => [group.id, group.label]));
+const circuitNames = new Map(context.circuits.map((circuit) => [circuit.id, circuit.name]));
+
+function servesText(groupId: string | null, circuitId: string | null): string {
+  const circuitName = circuitId === null ? undefined : circuitNames.get(circuitId);
+  if (circuitName !== undefined) return t.circuitSection.servesCircuit(circuitName);
+  const groupLabel = groupId === null ? undefined : groupLabels.get(groupId);
+  if (groupLabel !== undefined) return t.circuitSection.servesGroup(groupLabel);
+  return t.circuitSection.servesSupply;
+}
+
+/** A stored row carries its own copy of the device's spec; it is re-parsed, never trusted blindly. */
+function snapshotRow(row: SnapshotRow): Row {
+  const parsed = parseDeviceSpec({ ...row, terminal_groups: null });
+  return {
+    key: row.id,
+    role: isSelectionRole(row.role) ? selectionRoleLabel(row.role) : deviceKindLabel(row.kind),
+    name: row.name,
+    manufacturer: row.manufacturer,
+    model: row.model,
+    summary: parsed.ok ? deviceParameterSummary(parsed.spec) : null,
+    priceGrosze: row.price_grosze,
+    notes: row.notes.filter(isSelectionNote).map(selectionNoteMessage),
+    serves: servesText(row.rcd_group_id, row.circuit_id),
+  };
+}
+
+/** A fresh selection, for the unsaved preview only. Its device comes from the active catalog. */
+function previewRow(selection: Selection, index: number): Row | null {
+  const device = context.catalog.find((entry) => entry.id === selection.deviceId);
+  if (device === undefined) return null;
+  return {
+    key: `${String(index)}-${selection.deviceId}`,
+    role: selectionRoleLabel(selection.role),
+    name: device.name,
+    manufacturer: device.manufacturer,
+    model: device.model,
+    summary: deviceParameterSummary(device),
+    priceGrosze: device.price_grosze,
+    notes: selection.notes.map(selectionNoteMessage),
+    serves: servesText(selection.groupId, selection.circuitId),
+  };
+}
+
+const snapshotRows = [...view.snapshot].sort((a, b) => a.position - b.position).map(snapshotRow);
+const previewRows =
+  view.state === "cleared" && view.fresh.status === "matched"
+    ? view.fresh.selections.flatMap((selection, index) => {
+        const row = previewRow(selection, index);
+        return row === null ? [] : [row];
+      })
+    : [];
+
+const showSnapshot = view.state === "current" || view.state === "stale";
+const rows = showSnapshot ? snapshotRows : previewRows;
+const tableTitle = showSnapshot ? t.circuitSection.resultTitle : t.circuitSection.previewTitle;
+const outdated = view.state === "stale" || view.state === "cleared";
+
+const gapMessages = view.fresh.status === "gaps" ? view.fresh.gaps.map(catalogGapMessage) : [];
+const blockReasons = view.fresh.status === "blocked" ? view.fresh.reasons : [];
+
+/** The supply blockers are fixed in the supply section; the rest in the circuit input. */
+function fixLink(reason: BlockReason): { href: string; label: string } {
+  return reason.code === "supply_missing" || reason.code === "tn_c_with_rcd"
+    ? { href: "#supply", label: t.circuitSection.fixSupply }
+    : { href: `#${circuitsAnchor}`, label: t.circuitSection.fixCircuits };
+}
+
+// Informational, never blocking — the same markup as the supply warnings.
+const warningMessages = circuitWarnings(context.circuits, context.supply, context.geometry).map(circuitWarningMessage);
+
+const headClass = "h-9 px-3 text-xs font-medium tracking-wide text-muted-foreground uppercase";
+const cellClass = "px-3 py-2 align-top whitespace-normal";
+const linkClass = "font-semibold underline underline-offset-4";
+---
+
+<div class="flex flex-col gap-6">
+  {warningMessages.length > 0 && (
+    <div role="status" class="flex flex-col gap-3">
+      <h3 class="text-sm font-semibold">{t.circuitSection.warningsTitle}</h3>
+      <ul class="flex flex-col gap-2">
+        {warningMessages.map((message) => (
+          <li>
+            <Alert variant="warning" role={undefined}>
+              <TriangleAlertIcon aria-hidden="true" />
+              <AlertDescription className="block">
+                <strong>{t.common.warningPrefix}</strong> {message}
+              </AlertDescription>
+            </Alert>
+          </li>
+        ))}
+      </ul>
+      <p class="text-xs text-muted-foreground">{t.circuitWarnings.note}</p>
+    </div>
+  )}
+
+  {view.state === "blocked" && (
+    <div role="status" class="flex flex-col gap-3">
+      <h3 class="text-sm font-semibold">{t.circuitSection.blockedTitle}</h3>
+      <ul class="flex flex-col gap-2">
+        {blockReasons.map((reason) => {
+          const fix = fixLink(reason);
+          return (
+            <li>
+              <Alert variant="destructive" role={undefined}>
+                <CircleAlertIcon aria-hidden="true" />
+                <AlertDescription className="block">
+                  {blockReasonMessage(reason)}{" "}
+                  <a href={fix.href} class:list={linkClass}>
+                    {fix.label}
+                  </a>
+                </AlertDescription>
+              </Alert>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  )}
+
+  {view.state === "gaps" && (
+    <div role="status" class="flex flex-col gap-3">
+      <h3 class="text-sm font-semibold">{t.circuitSection.gapsTitle}</h3>
+      <ul class="flex flex-col gap-2">
+        {gapMessages.map((message) => (
+          <li>
+            <Alert variant="destructive" role={undefined}>
+              <CircleAlertIcon aria-hidden="true" />
+              <AlertDescription className="block">{message}</AlertDescription>
+            </Alert>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )}
+
+  {outdated && (
+    <Alert variant="warning" role="status">
+      <TriangleAlertIcon aria-hidden="true" />
+      <AlertDescription className="flex flex-col items-start gap-3">
+        <span>{view.state === "stale" ? t.circuitSection.stale : t.circuitSection.cleared}</span>
+        <form method="POST" action={projectRematchApiPath(projectId)}>
+          <Button type="submit" size="sm">
+            {t.circuitSection.rematch}
+          </Button>
+        </form>
+      </AlertDescription>
+    </Alert>
+  )}
+
+  {rows.length > 0 && (
+    <div class="flex flex-col gap-3">
+      <div class="flex items-baseline justify-between gap-4">
+        <h3 class="text-sm font-semibold">{tableTitle}</h3>
+        <p class="text-xs text-muted-foreground">{t.circuitSection.count(rows.length)}</p>
+      </div>
+      <div class="rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead scope="col" className={cn(headClass, "pl-4")}>
+                {t.circuitSection.columns.role}
+              </TableHead>
+              <TableHead scope="col" className={headClass}>
+                {t.circuitSection.columns.device}
+              </TableHead>
+              <TableHead scope="col" className={headClass}>
+                {t.circuitSection.columns.parameters}
+              </TableHead>
+              <TableHead scope="col" className={headClass}>
+                {t.circuitSection.columns.serves}
+              </TableHead>
+              <TableHead scope="col" className={cn(headClass, "pr-4 text-right")}>
+                {t.circuitSection.columns.price}
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map((row) => (
+              <TableRow>
+                <TableCell className={cn(cellClass, "pl-4")}>{row.role}</TableCell>
+                <TableCell className={cellClass}>
+                  <p class="font-medium text-foreground">{row.name}</p>
+                  <p class="text-xs text-muted-foreground">
+                    {t.projects.cabinet.manufacturerModel(row.manufacturer, row.model)}
+                  </p>
+                  {row.notes.map((note) => (
+                    <p class="mt-1 text-xs text-warning">{note}</p>
+                  ))}
+                </TableCell>
+                <TableCell className={cellClass}>
+                  {row.summary === null ? (
+                    <span class="text-muted-foreground">{t.circuitSection.summaryUnavailable}</span>
+                  ) : (
+                    <span class="font-mono tabular-nums">{row.summary}</span>
+                  )}
+                </TableCell>
+                <TableCell className={cellClass}>{row.serves}</TableCell>
+                <TableCell className={cn(cellClass, "pr-4 text-right font-mono whitespace-nowrap tabular-nums")}>
+                  {formatMoney(row.priceGrosze / 100)}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  )}
+</div>
