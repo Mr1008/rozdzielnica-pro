@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import type { CircuitInput, RcdGroupInput } from "./circuit-params";
+import {
+  CIRCUIT_RATED_CURRENTS_A,
+  RESIDUAL_CURRENTS_MA,
+  type CircuitInput,
+  type RcdGroupInput,
+} from "./circuit-params";
 import {
   activeCatalog,
   blockReasonMessage,
@@ -16,8 +21,8 @@ import {
   type MatchResult,
   type Selection,
 } from "./device-matching";
-import { parseDeviceSpec } from "./device-spec";
-import type { SupplyParams } from "./supply-params";
+import { parseDeviceSpec, POLES_BY_KIND, RCD_TYPES } from "./device-spec";
+import { PREMETER_PROTECTIONS_A, type SupplyParams } from "./supply-params";
 
 const common = { width_mm: 17.5, height_mm: 85, depth_mm: 70 };
 
@@ -291,12 +296,12 @@ describe("matchDevices — main switch (FR)", () => {
     expect(deviceFor(selections, "main_switch", {})).toBe(`fr-${poles.toLowerCase()}`);
   });
 
-  it("never uses an FR as circuit, RCD or RCBO protection", () => {
+  describe("never uses an FR as circuit, RCD or RCBO protection", () => {
     const frs = [
-      fr("fr-16-1p", 16, "1P"),
-      fr("fr-16-2p", 16, "2P"),
+      fr("fr-16-1p", 16, "1P", { price_grosze: 1 }),
+      fr("fr-16-2p", 16, "2P", { price_grosze: 1 }),
       fr("fr-40-2p", 40, "2P"),
-      fr("fr-40-4p", 40, "4P"),
+      fr("fr-40-4p", 40, "4P", { price_grosze: 1 }),
     ];
     const input: MatchInput = {
       supply: TN_S_1F,
@@ -308,9 +313,36 @@ describe("matchDevices — main switch (FR)", () => {
         circuit("d", 16),
       ],
     };
-    const roles = gapsOf(matchDevices(input, frs)).map((gap) => gap.role);
-    expect(roles).not.toContain("main_switch");
-    expect(roles).toEqual(["rcd", "mcb", "mcb", "rcbo", "rcd", "mcb", "mcb"]);
+    /** The rule table's kind per role, written out here — never read from the matcher. */
+    const KIND_FOR_ROLE = { main_switch: "switch_disconnector", rcd: "rcd", rcbo: "rcbo", mcb: "mcb_b" } as const;
+
+    it("with only FRs in the catalog, every protection role is a gap and the main switch is not", () => {
+      const roles = gapsOf(matchDevices(input, frs)).map((gap) => gap.role);
+      expect(roles).not.toContain("main_switch");
+      // Order-independent: two MCBs in g1, one RCBO for g2 (single circuit), one ungrouped MCB, and
+      // RCD + MCB fallback gaps for g2's missing RCBO.
+      expect([...roles].sort()).toEqual(["mcb", "mcb", "mcb", "mcb", "rcbo", "rcd", "rcd"]);
+    });
+
+    it("in a matched result an FR appears only as the main switch, and each role has its own kind", () => {
+      // Cheap FRs rated 16 A sit next to pricier compliant protection devices: price must not pull
+      // an FR into any protection role.
+      const catalog = [
+        ...frs,
+        rcd("rcd-40-30-a-2p", 40, 30, "A", "2P", { price_grosze: 5000 }),
+        rcbo("rcbo-16-30-a-1pn", 16, 30, "A", "1P+N", { price_grosze: 5000 }),
+        mcb("b16-1p", 16, "1P", { price_grosze: 5000 }),
+      ];
+      const selections = matched(matchDevices(input, catalog));
+      const kindOf = new Map(catalog.map((d) => [d.id, d.kind]));
+      expect(selections.length).toBeGreaterThan(0);
+      for (const selection of selections) {
+        const kind = kindOf.get(selection.deviceId);
+        expect(kind).toBe(KIND_FOR_ROLE[selection.role]);
+        expect(selection.role === "main_switch").toBe(kind === "switch_disconnector");
+      }
+      expect(new Set(selections.map((s) => s.role))).toEqual(new Set(["main_switch", "rcd", "rcbo", "mcb"]));
+    });
   });
 });
 
@@ -457,6 +489,7 @@ describe("matchDevices — single-circuit group (RCBO)", () => {
 });
 
 describe("matchDevices — result shape", () => {
+  // Output-contract pin, not guardrail evidence: the emission order the page and the snapshot rely on.
   it("orders selections: main switch, each group (RCD, then its MCBs in circuit order), then ungrouped", () => {
     const input: MatchInput = {
       supply: TN_S_1F,
@@ -487,6 +520,7 @@ describe("matchDevices — result shape", () => {
     expect("selections" in result).toBe(false);
   });
 
+  // Output-contract pin, not guardrail evidence: equal-priced compliant devices are interchangeable.
   it("breaks price ties by manufacturer, then model, then id", () => {
     const at = (id: string, manufacturer: string, model: string) =>
       mcb(id, 16, "1P", { manufacturer, model, price_grosze: 1500 });
@@ -500,6 +534,293 @@ describe("matchDevices — result shape", () => {
     expect(pick([at("z", "Alfa", "B"), at("y", "Alfa", "A")])).toBe("y");
     expect(pick([at("b", "Alfa", "A"), at("a", "Alfa", "A")])).toBe("a");
     expect(pick([at("a", "Alfa", "A"), at("b", "Alfa", "A")])).toBe("a");
+  });
+});
+
+/*
+ * Boundary tables (risk #1). Every expected id below follows from the S-04 rule table alone; the
+ * type rank and per-role pole sets are written out here as literals, never read from the matcher.
+ * Each catalog puts the exact/threshold device next to its list neighbours, with a cheaper
+ * non-compliant device present, so a passing test proves the filter rather than the fixture.
+ */
+
+/** Every inner value of a discrete list with its two list neighbours: [below, value, above]. */
+function neighbourTriples<T>(list: readonly T[]): [T, T, T][] {
+  const triples: [T, T, T][] = [];
+  for (let i = 1; i < list.length - 1; i++) triples.push([list[i - 1], list[i], list[i + 1]]);
+  return triples;
+}
+
+/** The rule table's residual-current type order, AC < A < F < B, as a literal. */
+const TYPE_RANK = { AC: 0, A: 1, F: 2, B: 3 } as const;
+
+describe("boundaries — MCB rated current is exact", () => {
+  it.each(neighbourTriples(CIRCUIT_RATED_CURRENTS_A))(
+    "picks the exact MCB between cheaper list neighbours (below B%i, exact B%i, above B%i)",
+    (below, exact, above) => {
+      // Both neighbours are cheaper than the exact device; In = circuit In exactly picks the exact one.
+      const catalog = [
+        fr("fr", 40, "2P"),
+        mcb("mcb-below", below, "1P", { price_grosze: 100 }),
+        mcb("mcb-exact", exact, "1P", { price_grosze: 5000 }),
+        mcb("mcb-above", above, "1P", { price_grosze: 200 }),
+      ];
+      const selections = matched(matchDevices(ungrouped(TN_S_1F, [circuit("c1", exact)]), catalog));
+      expect(deviceFor(selections, "mcb", { circuitId: "c1" })).toBe("mcb-exact");
+    },
+  );
+});
+
+describe("boundaries — RCBO rated current is exact", () => {
+  it.each(neighbourTriples(CIRCUIT_RATED_CURRENTS_A))(
+    "picks the exact RCBO between cheaper list neighbours (below B%i, exact B%i, above B%i)",
+    (below, exact, above) => {
+      const input: MatchInput = {
+        supply: TN_S_1F,
+        groups: [group("g1")],
+        circuits: [circuit("c1", exact, { rcd_group_id: "g1" })],
+      };
+      const catalog = [
+        fr("fr", 40, "2P"),
+        rcbo("rcbo-below", below, 30, "A", "1P+N", { price_grosze: 100 }),
+        rcbo("rcbo-exact", exact, 30, "A", "1P+N", { price_grosze: 5000 }),
+        rcbo("rcbo-above", above, 30, "A", "1P+N", { price_grosze: 200 }),
+      ];
+      const selections = matched(matchDevices(input, catalog));
+      expect(deviceFor(selections, "rcbo", { circuitId: "c1" })).toBe("rcbo-exact");
+    },
+  );
+});
+
+describe("boundaries — group RCD", () => {
+  it.each(neighbourTriples(CIRCUIT_RATED_CURRENTS_A))(
+    "accepts In equal to the largest circuit In; a cheaper one a step below is not chosen (below %i, largest %i, above %i)",
+    (below, largest, above) => {
+      // Group of two circuits whose largest In is `largest`. The RCD rated exactly `largest` is the
+      // cheapest compliant one (In ≥ max circuit In): the one below fails, the one above costs more.
+      const input: MatchInput = {
+        supply: TN_S_1F,
+        groups: [group("g1")],
+        circuits: [circuit("c1", below, { rcd_group_id: "g1" }), circuit("c2", largest, { rcd_group_id: "g1" })],
+      };
+      const catalog = [
+        fr("fr", 40, "2P"),
+        mcb("mcb-below", below, "1P"),
+        mcb("mcb-largest", largest, "1P"),
+        rcd("rcd-below", below, 30, "A", "2P", { price_grosze: 1 }),
+        rcd("rcd-exact", largest, 30, "A", "2P", { price_grosze: 3000 }),
+        rcd("rcd-above", above, 30, "A", "2P", { price_grosze: 5000 }),
+      ];
+      expect(deviceFor(matched(matchDevices(input, catalog)), "rcd", { groupId: "g1" })).toBe("rcd-exact");
+    },
+  );
+
+  it.each(RESIDUAL_CURRENTS_MA.map((ma) => [ma] as const))(
+    "requires IΔn exactly: a %i mA group ignores every cheaper RCD of another IΔn",
+    (groupMa) => {
+      const input: MatchInput = {
+        supply: TN_S_1F,
+        groups: [group("g1", { residual_current_ma: groupMa })],
+        circuits: [circuit("c1", 16, { rcd_group_id: "g1" }), circuit("c2", 16, { rcd_group_id: "g1" })],
+      };
+      const catalog = [
+        fr("fr", 40, "2P"),
+        mcb("b16", 16, "1P"),
+        ...RESIDUAL_CURRENTS_MA.map((ma) =>
+          rcd(`rcd-${String(ma)}`, 40, ma, "A", "2P", { price_grosze: ma === groupMa ? 9000 : 1 }),
+        ),
+      ];
+      expect(deviceFor(matched(matchDevices(input, catalog)), "rcd", { groupId: "g1" })).toBe(`rcd-${String(groupMa)}`);
+    },
+  );
+
+  it("documents today's accepted rule: on a single-phase group a cheaper 4P RCD beats the cheapest 2P", () => {
+    // The rule table allows {2P, 4P} for a group with no three-phase circuit, so the cheapest wins.
+    // Whether 1F should prefer 2P is a candidate rule change handed to S-04, not decided here.
+    const input: MatchInput = {
+      supply: TN_S_1F,
+      groups: [group("g1")],
+      circuits: [circuit("c1", 16, { rcd_group_id: "g1" }), circuit("c2", 20, { rcd_group_id: "g1" })],
+    };
+    const catalog = [
+      fr("fr", 40, "2P"),
+      mcb("b16", 16, "1P"),
+      mcb("b20", 20, "1P"),
+      rcd("rcd-2p", 40, 30, "A", "2P", { price_grosze: 3000 }),
+      rcd("rcd-4p", 40, 30, "A", "4P", { price_grosze: 2000 }),
+    ];
+    expect(deviceFor(matched(matchDevices(input, catalog)), "rcd", { groupId: "g1" })).toBe("rcd-4p");
+  });
+});
+
+describe("boundaries — FR main switch", () => {
+  it.each(neighbourTriples(PREMETER_PROTECTIONS_A))(
+    "accepts In equal to the pre-meter protection; a cheaper one a step below is not chosen (below %i, protection %i, above %i)",
+    (below, protection, above) => {
+      // In ≥ pre-meter: the one below fails, the exact one is cheaper than the one above.
+      const supply: SupplyParams = { ...TN_S_1F, premeter_protection_a: protection };
+      const catalog = [
+        fr("fr-below", below, "2P", { price_grosze: 1 }),
+        fr("fr-exact", protection, "2P", { price_grosze: 3000 }),
+        fr("fr-above", above, "2P", { price_grosze: 5000 }),
+        mcb("b16", 16, "1P"),
+      ];
+      const selections = matched(matchDevices(ungrouped(supply, [circuit("c1", 16)]), catalog));
+      expect(deviceFor(selections, "main_switch", {})).toBe("fr-exact");
+    },
+  );
+});
+
+describe("boundaries — residual-current type rank (AC < A < F < B)", () => {
+  it("the literal rank covers exactly the device RCD types", () => {
+    expect(Object.keys(TYPE_RANK).sort()).toEqual([...RCD_TYPES].sort());
+  });
+
+  // All 16 (minimum, device) pairs, including the plan's four named ones: F rejected for a B
+  // minimum, B accepted for A, AC accepted for AC, AC rejected for A.
+  const pairs = RCD_TYPES.flatMap((minimum) =>
+    RCD_TYPES.map((deviceType) => [minimum, deviceType, TYPE_RANK[deviceType] >= TYPE_RANK[minimum]] as const),
+  );
+
+  it.each(pairs)("group RCD: minimum %s, device type %s → accepted: %s", (minimum, deviceType, accepted) => {
+    const input: MatchInput = {
+      supply: TN_S_1F,
+      groups: [group("g1", { min_rcd_type: minimum })],
+      circuits: [circuit("c1", 16, { rcd_group_id: "g1" }), circuit("c2", 16, { rcd_group_id: "g1" })],
+    };
+    const catalog = [fr("fr", 40, "2P"), mcb("b16", 16, "1P"), rcd("rcd", 40, 30, deviceType, "2P")];
+    const result = matchDevices(input, catalog);
+    if (accepted) {
+      expect(deviceFor(matched(result), "rcd", { groupId: "g1" })).toBe("rcd");
+    } else {
+      expect(gapsOf(result).map((gap) => gap.role)).toEqual(["rcd"]);
+    }
+  });
+
+  it.each(pairs)("RCBO: minimum %s, device type %s → accepted: %s", (minimum, deviceType, accepted) => {
+    const input: MatchInput = {
+      supply: TN_S_1F,
+      groups: [group("g1", { min_rcd_type: minimum })],
+      circuits: [circuit("c1", 16, { rcd_group_id: "g1" })],
+    };
+    const catalog = [fr("fr", 40, "2P"), rcbo("rcbo", 16, 30, deviceType, "1P+N")];
+    const result = matchDevices(input, catalog);
+    if (accepted) {
+      expect(deviceFor(matched(result), "rcbo", { circuitId: "c1" })).toBe("rcbo");
+    } else {
+      // No RCD or MCB in the catalog either, so the fallback fails too.
+      expect(gapsOf(result).map((gap) => gap.role)).toContain("rcbo");
+    }
+  });
+});
+
+describe("boundaries — three-phase single-circuit group", () => {
+  const input: MatchInput = {
+    supply: TN_C_S_3F,
+    groups: [group("g1")],
+    circuits: [circuit("c1", 16, { rcd_group_id: "g1", phase_count: 3 })],
+  };
+  /** Rule table: a three-phase RCBO is 3P+N or 4P. */
+  const ACCEPTED_3F_RCBO_POLES: readonly string[] = ["3P+N", "4P"];
+
+  it.each(POLES_BY_KIND.rcbo.map((poles) => [poles, ACCEPTED_3F_RCBO_POLES.includes(poles)] as const))(
+    "RCBO %s → accepted: %s",
+    (poles, accepted) => {
+      const result = matchDevices(input, [fr("fr", 40, "4P"), rcbo("rcbo", 16, 30, "A", poles)]);
+      if (accepted) {
+        expect(deviceFor(matched(result), "rcbo", { circuitId: "c1" })).toBe("rcbo");
+      } else {
+        expect(gapsOf(result).find((gap) => gap.role === "rcbo")).toMatchObject({ poles: ["3P+N", "4P"] });
+      }
+    },
+  );
+
+  it("cheaper 1P+N and 2P RCBOs are not chosen over a 3P+N", () => {
+    const catalog = [
+      fr("fr", 40, "4P"),
+      rcbo("rcbo-1pn", 16, 30, "A", "1P+N", { price_grosze: 1 }),
+      rcbo("rcbo-2p", 16, 30, "A", "2P", { price_grosze: 1 }),
+      rcbo("rcbo-3pn", 16, 30, "A", "3P+N", { price_grosze: 5000 }),
+    ];
+    expect(deviceFor(matched(matchDevices(input, catalog)), "rcbo", { circuitId: "c1" })).toBe("rcbo-3pn");
+  });
+
+  it.each(["3P", "3P+N", "4P"] as const)(
+    "falls back to a 4P RCD and a %s MCB, never the cheaper single-phase parts",
+    (mcbPoles) => {
+      // No RCBO at all. The RCD must be 4P (the group has a three-phase circuit); the MCB must be
+      // one of {3P, 3P+N, 4P}. Every single-phase part is cheaper and must be ignored.
+      const catalog = [
+        fr("fr", 40, "4P"),
+        rcd("rcd-2p", 40, 30, "A", "2P", { price_grosze: 1 }),
+        rcd("rcd-4p", 40, 30, "A", "4P", { price_grosze: 5000 }),
+        mcb("mcb-1p", 16, "1P", { price_grosze: 1 }),
+        mcb("mcb-1pn", 16, "1P+N", { price_grosze: 1 }),
+        mcb("mcb-2p", 16, "2P", { price_grosze: 1 }),
+        mcb("mcb-3f", 16, mcbPoles, { price_grosze: 5000 }),
+      ];
+      const selections = matched(matchDevices(input, catalog));
+      expect(selections).toHaveLength(3);
+      expect(selections).toContainEqual({
+        role: "main_switch",
+        deviceId: "fr",
+        groupId: null,
+        circuitId: null,
+        notes: [],
+      });
+      expect(selections).toContainEqual({
+        role: "rcd",
+        deviceId: "rcd-4p",
+        groupId: "g1",
+        circuitId: null,
+        notes: ["rcbo_fallback"],
+      });
+      expect(selections).toContainEqual({
+        role: "mcb",
+        deviceId: "mcb-3f",
+        groupId: "g1",
+        circuitId: "c1",
+        notes: ["rcbo_fallback"],
+      });
+    },
+  );
+});
+
+describe("boundaries — RCBO fallback with only the MCB half missing", () => {
+  it("is a gap: the RCBO gap plus the MCB gap marked fallback, and no selections", () => {
+    const input: MatchInput = {
+      supply: TN_S_1F,
+      groups: [group("g1")],
+      circuits: [circuit("c1", 16, { rcd_group_id: "g1", name: "Łazienka" })],
+    };
+    // A compliant RCD is present; the only MCB is a B20, which a B16 circuit must never get.
+    const catalog = [fr("fr", 40, "2P"), rcd("rcd", 40, 30, "A", "2P"), mcb("b20", 20, "1P", { price_grosze: 1 })];
+    const result = matchDevices(input, catalog);
+    const gaps = gapsOf(result);
+    expect("selections" in result).toBe(false);
+    expect(gaps).toHaveLength(2);
+    expect(gaps).toContainEqual({
+      role: "rcbo",
+      kind: "rcbo",
+      poles: ["1P+N", "2P"],
+      ratedCurrentA: 16,
+      residualCurrentMa: 30,
+      minRcdType: "A",
+      groupId: "g1",
+      groupLabel: "g1",
+      circuitId: "c1",
+      circuitName: "Łazienka",
+    });
+    expect(gaps).toContainEqual({
+      role: "mcb",
+      kind: "mcb_b",
+      poles: ["1P", "1P+N", "2P"],
+      ratedCurrentA: 16,
+      groupId: "g1",
+      circuitId: "c1",
+      circuitName: "Łazienka",
+      fallback: true,
+    });
   });
 });
 
