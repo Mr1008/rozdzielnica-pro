@@ -1,43 +1,64 @@
 ---
+import Logo from "@/components/brand/Logo.astro";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { t } from "@/lib/i18n";
-import { ROLE_HOME } from "@/lib/route-access";
+import { roleHomeLink } from "@/lib/role-home-link";
+import { cn } from "@/lib/utils";
 
+/**
+ * The app header bar: the brand, the signed-in role's home link, the user's email and sign-out — or,
+ * signed out, the sign-in and sign-up links. `AppLayout` renders it; the default slot adds actions
+ * before the account controls.
+ */
 const { user, role } = Astro.locals;
 
-// Link each role at its own home. Pointing everyone at /dashboard would give an admin a dead-end
-// link: the route gate refuses it and bounces them straight back to /admin. A signed-in user with
-// no recognised role gets no panel link at all, because no gated route will let them in.
-const home = role === null ? null : { href: ROLE_HOME[role], label: role === "admin" ? t.nav.admin : t.nav.dashboard };
+// Each role links at its own home; a user with no recognised role gets none (see `roleHomeLink`).
+const home = roleHomeLink(role);
+
+// The home link marks the area the user is in: "page" on the home itself, "true" anywhere below it.
+const pathname = Astro.url.pathname.replace(/\/+$/, "") || "/";
+function currentArea(href: string): "page" | "true" | undefined {
+  if (pathname === href) return "page";
+  return pathname.startsWith(`${href}/`) ? "true" : undefined;
+}
+const homeCurrent = home === null ? undefined : currentArea(home.href);
+
+const linkClass = cn(
+  buttonVariants({ variant: "ghost", size: "sm" }),
+  "text-muted-foreground hover:text-foreground aria-[current]:text-foreground aria-[current]:font-semibold",
+);
 ---
 
-<div class="mb-4 flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/80">
-  {user ? (
-    <>
-      <span class="text-blue-100/70">{user.email}</span>
-      <div class="flex items-center gap-3">
-        {home && (
-          <a href={home.href} class="text-purple-300 transition-colors hover:text-purple-100 hover:underline">
-            {home.label}
+<header class="border-b bg-card">
+  <div class="flex h-14 items-center justify-between gap-4 px-4 sm:px-6">
+    <Logo variant="full" size={24} />
+    <div class="flex items-center gap-2 text-sm">
+      <slot />
+      {user ? (
+        <>
+          {home && (
+            <a href={home.href} class:list={linkClass} aria-current={homeCurrent}>
+              {home.label}
+            </a>
+          )}
+          <span class="truncate px-2 text-muted-foreground">{user.email}</span>
+          <form method="POST" action="/api/auth/signout">
+            <Button type="submit" variant="ghost" size="sm">
+              {t.nav.signOut}
+            </Button>
+          </form>
+        </>
+      ) : (
+        <>
+          <span class="px-2 text-muted-foreground">{t.nav.notSignedIn}</span>
+          <a href="/auth/signin" class:list={linkClass}>
+            {t.nav.signIn}
           </a>
-        )}
-        <form method="POST" action="/api/auth/signout">
-          <button type="submit" class="text-purple-300 transition-colors hover:text-purple-100 hover:underline">
-            {t.nav.signOut}
-          </button>
-        </form>
-      </div>
-    </>
-  ) : (
-    <>
-      <span class="text-blue-100/70">{t.nav.notSignedIn}</span>
-      <div class="flex gap-3">
-        <a href="/auth/signin" class="text-purple-300 transition-colors hover:text-purple-100 hover:underline">
-          {t.nav.signIn}
-        </a>
-        <a href="/auth/signup" class="text-purple-300 transition-colors hover:text-purple-100 hover:underline">
-          {t.nav.signUp}
-        </a>
-      </div>
-    </>
-  )}
-</div>
+          <a href="/auth/signup" class:list={buttonVariants({ variant: "outline", size: "sm" })}>
+            {t.nav.signUp}
+          </a>
+        </>
+      )}
+    </div>
+  </div>
+</header>

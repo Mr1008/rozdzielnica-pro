@@ -56,12 +56,12 @@ export default function SignUpForm({ serverError }: Props) {
   }
 
   const passwordHint =
-    !errors.password && password.length > 0 && password.length < MIN_PASSWORD_LENGTH ? (
-      <p className="mt-1 text-xs text-blue-100/50">{t.auth.charactersMissing(MIN_PASSWORD_LENGTH - password.length)}</p>
-    ) : undefined;
+    password.length > 0 && password.length < MIN_PASSWORD_LENGTH
+      ? t.auth.charactersMissing(MIN_PASSWORD_LENGTH - password.length)
+      : undefined;
 
   return (
-    <form method="POST" action="/api/auth/signup" className="space-y-4" onSubmit={handleSubmit} noValidate>
+    <form method="POST" action="/api/auth/signup" className="flex flex-col gap-5" onSubmit={handleSubmit} noValidate>
       <FormField
         id="email"
         type="email"
@@ -73,7 +73,7 @@ export default function SignUpForm({ serverError }: Props) {
         }}
         placeholder={t.auth.emailPlaceholder}
         error={errors.email}
-        icon={<Mail className="size-4" />}
+        icon={<Mail aria-hidden="true" />}
       />
 
       <FormField
@@ -88,7 +88,7 @@ export default function SignUpForm({ serverError }: Props) {
         placeholder={t.auth.passwordPlaceholderMin(MIN_PASSWORD_LENGTH)}
         error={errors.password}
         hint={passwordHint}
-        icon={<Lock className="size-4" />}
+        icon={<Lock aria-hidden="true" />}
         endContent={
           <PasswordToggle
             visible={showPassword}
@@ -111,7 +111,7 @@ export default function SignUpForm({ serverError }: Props) {
         }}
         placeholder={t.auth.confirmPasswordPlaceholder}
         error={errors.confirmPassword}
-        icon={<Lock className="size-4" />}
+        icon={<Lock aria-hidden="true" />}
         endContent={
           <PasswordToggle
             visible={showConfirmPassword}
@@ -124,7 +124,7 @@ export default function SignUpForm({ serverError }: Props) {
 
       <ServerError message={serverError} />
 
-      <SubmitButton pendingText={t.auth.signUpPending} icon={<UserPlus className="size-4" />}>
+      <SubmitButton pendingText={t.auth.signUpPending} icon={<UserPlus aria-hidden="true" />}>
         {t.auth.signUpAction}
       </SubmitButton>
     </form>

@@ -1,19 +1,18 @@
 import { CircleAlert } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface ServerErrorProps {
   message?: string | null;
 }
 
+/** The `?error=` message inside an auth form: a destructive `Alert`, styled like the error `Banner`. */
 export function ServerError({ message }: ServerErrorProps) {
   if (!message) return null;
 
   return (
-    <p
-      role="alert"
-      className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-900/30 px-3 py-2 text-sm text-red-300"
-    >
-      <CircleAlert className="size-4 shrink-0" />
-      {message}
-    </p>
+    <Alert variant="destructive" className="border-destructive/40 bg-destructive-muted">
+      <CircleAlert aria-hidden="true" />
+      <AlertDescription>{message}</AlertDescription>
+    </Alert>
   );
 }

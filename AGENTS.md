@@ -7,7 +7,9 @@ snapshot, OSD/WLZ supply and its warnings) — `src/pages/auth/*`, `src/pages/ad
 `src/pages/admin/devices/`), `src/pages/api/admin/`, `src/pages/dashboard.astro`,
 `src/pages/dashboard/profile.astro`, `src/pages/dashboard/projects/`, `src/pages/api/profile/`,
 `src/pages/api/projects/`, `src/components/cabinets/`, `src/components/devices/`,
-`src/components/forms/`, `src/components/projects/`, most of `src/lib/`, and all of `supabase/`. The rest is still starter code.
+`src/components/forms/`, `src/components/projects/`, the landing page and auth shell, the design
+system (`src/styles/global.css`, `src/components/ui/`, `src/components/brand/`, `/dev/kitchen-sink`),
+most of `src/lib/`, and all of `supabase/`. Only tooling and config remain from the starter.
 
 Product spec: @context/foundation/prd.md · Stack rationale: @context/foundation/tech-stack.md ·
 Setup/deploy: @README.md
@@ -202,6 +204,13 @@ shape for new form endpoints so the existing forms keep working.
   `formatDate`/`formatDateTime` require a zone — pass `Astro.locals.timeZone`, which the middleware
   resolves from Cloudflare's `request.cf.timezone` (fallback `Europe/Warsaw`). The Workers runtime
   itself runs in UTC, so an `Intl` formatter without a zone shows the wrong day after 22:00.
+
+## UI
+
+- Tokeny: src/styles/global.css (:root, @theme inline). Nowy kolor = nowy token, nigdy literał.
+- Komponenty: src/components/ui. Zanim napiszesz nowy, sprawdź ten katalog; brakujący dodaj z rejestru shadcn.
+- Żadnych klas z palety Tailwinda (`text-white`, `bg-blue-500` …), hexów ani `rgba()` w komponentach i stronach — tylko klasy tokenów.
+- Każdy nowy stan UI (wariant, komponent, stan pola) najpierw trafia na `/dev/kitchen-sink`.
 
 ## Commands
 

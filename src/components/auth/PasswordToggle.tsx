@@ -1,4 +1,5 @@
 import { Eye, EyeOff } from "lucide-react";
+import { InputGroupButton } from "@/components/ui/input-group";
 import { t } from "@/lib/i18n";
 
 interface PasswordToggleProps {
@@ -6,15 +7,15 @@ interface PasswordToggleProps {
   onToggle: () => void;
 }
 
+/** A ghost icon button in the field's trailing addon; focus shows the global `:focus-visible` ring. */
 export function PasswordToggle({ visible, onToggle }: PasswordToggleProps) {
   return (
-    <button
-      type="button"
+    <InputGroupButton
+      size="icon-xs"
       onClick={onToggle}
-      className="absolute top-1/2 right-3 -translate-y-1/2 text-white/40 transition-colors hover:text-white/70"
       aria-label={visible ? t.auth.hidePassword : t.auth.showPassword}
     >
-      {visible ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-    </button>
+      {visible ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
+    </InputGroupButton>
   );
 }

@@ -1,0 +1,47 @@
+---
+import MarkFull from "@/assets/brand/mark.svg";
+import MarkSmall from "@/assets/brand/mark-small.svg";
+import { t } from "@/lib/i18n";
+import { cn } from "@/lib/utils";
+
+/**
+ * The brand mark (`src/assets/brand/mark.svg`, inlined) and, with `variant="full"`, the live-text
+ * wordmark beside it. The mark draws in `currentColor` with its bolt in `--brand-current`, so it
+ * themes by context: ink + indigo on paper, hero foreground + cyan inside `.register-hero`, and mono
+ * where the caller sets `[--brand-current:currentColor]`.
+ *
+ * At `SMALL_MARK_MAX_PX` and below the small mark (`mark-small.svg`) replaces the full one: its
+ * outline and rails turn to noise at favicon size, so it keeps only a solid tile in `--brand-current`
+ * with the bolt knocked out in `--brand-on-current`.
+ *
+ * The mark alone is the image (`role="img"`, labelled with the app name); next to the wordmark it is
+ * decorative, because the wordmark text already says the name. The wordmark span is a flex box so
+ * the line break between its two parts (formatting only) never renders as a space.
+ */
+interface Props {
+  variant?: "mark" | "full";
+  /** Mark height in px; the wordmark scales with it. */
+  size?: number;
+  class?: string;
+}
+
+const { variant = "mark", size = 24, class: className } = Astro.props;
+
+const SMALL_MARK_MAX_PX = 20;
+const Mark = size <= SMALL_MARK_MAX_PX ? MarkSmall : MarkFull;
+---
+
+{variant === "mark" ? (
+  <Mark width={size} height={size} role="img" aria-label={t.app.name} class:list={cn("shrink-0", className)} />
+) : (
+  <span
+    class:list={cn("inline-flex items-center gap-[0.35em] leading-none", className)}
+    style={{ fontSize: `${String(size * 0.75)}px` }}
+  >
+    <Mark width={size} height={size} aria-hidden="true" class="shrink-0" />
+    <span class="inline-flex font-semibold tracking-tight">
+      {t.app.wordmark.lead}
+      <span class="text-brand-current">{t.app.wordmark.accent}</span>
+    </span>
+  </span>
+)}

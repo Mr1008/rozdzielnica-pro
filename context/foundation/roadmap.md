@@ -3,7 +3,7 @@ project: "RozdzielnicaPro"
 version: 1
 status: draft
 created: 2026-09-21
-updated: 2026-09-25
+updated: 2026-09-29
 prd_version: 2
 main_goal: low-complexity
 top_blocker: decisions
@@ -44,18 +44,19 @@ Uwaga: S-05 jest dziś `blocked` — Otwarte pytanie #2 (pierwszeństwo reguł r
 
 ## At a glance
 
-| ID   | Change ID                           | Outcome (elektryk / admin może …)                                                          | Prerequisites | PRD refs                      | Status   |
-| ---- | ----------------------------------- | ------------------------------------------------------------------------------------------ | ------------- | ----------------------------- | -------- |
-| F-01 | `roles-and-rls-baseline`            | (foundation) role `admin` / `elektryk` rozróżnialne, dane elektryka izolowane przez RLS    | —             | Access Control, NFR-izolacja  | done     |
-| S-01 | `admin-device-catalog`              | Admin prowadzi katalog aparatów z wymiarami, ceną i parametrami elektrycznymi              | F-01          | FR-001                        | done     |
-| S-02 | `admin-cabinet-catalog`             | Admin prowadzi katalog szafek z wymiarami i układem szyn                                   | F-01          | FR-002                        | done     |
-| S-03 | `project-setup-and-supply-params`   | Elektryk zakłada projekt, wybiera szafkę i opisuje przyłącze OSD/WLZ                       | F-01, S-02    | FR-003, FR-004, FR-005, US-01 | done     |
-| S-04 | `circuit-input-and-device-matching` | Elektryk podaje obwody i grupy RCD i dostaje dobrane aparaty (albo błąd o luce w katalogu) | S-01, S-03    | FR-006, FR-007, US-01         | proposed |
-| S-05 | `cabinet-layout-proposal`           | Elektryk widzi zaproponowany układ aparatów w swojej szafce                                | S-02, S-04    | FR-008, US-01                 | blocked  |
-| S-06 | `manual-layout-editing`             | Elektryk poprawia zaproponowany układ przed wyceną                                         | S-05          | FR-009, US-01                 | proposed |
-| S-07 | `electrician-pricing-profile`       | Elektryk ustawia w profilu stawkę, średni czas montażu i narzut na projekt                 | F-01          | FR-010                        | done     |
-| S-08 | `quote-cost-estimate`               | Elektryk widzi koszt materiału i robocizny i nadpisuje estymowany czas                     | S-04, S-07    | FR-011, FR-013, US-01         | proposed |
-| S-09 | `printable-quote-export`            | Elektryk drukuje/eksportuje wycenę z wizualizacją układu szafki                            | S-06, S-08    | FR-012, US-01                 | proposed |
+| ID   | Change ID                           | Outcome (elektryk / admin może …)                                                          | Prerequisites | PRD refs                             | Status      |
+| ---- | ----------------------------------- | ------------------------------------------------------------------------------------------ | ------------- | ------------------------------------ | ----------- |
+| F-01 | `roles-and-rls-baseline`            | (foundation) role `admin` / `elektryk` rozróżnialne, dane elektryka izolowane przez RLS    | —             | Access Control, NFR-izolacja         | done        |
+| S-01 | `admin-device-catalog`              | Admin prowadzi katalog aparatów z wymiarami, ceną i parametrami elektrycznymi              | F-01          | FR-001                               | done        |
+| S-02 | `admin-cabinet-catalog`             | Admin prowadzi katalog szafek z wymiarami i układem szyn                                   | F-01          | FR-002                               | done        |
+| S-03 | `project-setup-and-supply-params`   | Elektryk zakłada projekt, wybiera szafkę i opisuje przyłącze OSD/WLZ                       | F-01, S-02    | FR-003, FR-004, FR-005, US-01        | done        |
+| S-04 | `circuit-input-and-device-matching` | Elektryk podaje obwody i grupy RCD i dostaje dobrane aparaty (albo błąd o luce w katalogu) | S-01, S-03    | FR-006, FR-007, US-01                | proposed    |
+| S-05 | `cabinet-layout-proposal`           | Elektryk widzi zaproponowany układ aparatów w swojej szafce                                | S-02, S-04    | FR-008, US-01                        | blocked     |
+| S-06 | `manual-layout-editing`             | Elektryk poprawia zaproponowany układ przed wyceną                                         | S-05          | FR-009, US-01                        | proposed    |
+| S-07 | `electrician-pricing-profile`       | Elektryk ustawia w profilu stawkę, średni czas montażu i narzut na projekt                 | F-01          | FR-010                               | done        |
+| S-08 | `quote-cost-estimate`               | Elektryk widzi koszt materiału i robocizny i nadpisuje estymowany czas                     | S-04, S-07    | FR-011, FR-013, US-01                | proposed    |
+| S-09 | `printable-quote-export`            | Elektryk drukuje/eksportuje wycenę z wizualizacją układu szafki                            | S-06, S-08    | FR-012, US-01                        | proposed    |
+| S-10 | `ui-layout-theme`                   | Elektryk i admin pracują w spójnym, jasnym interfejsie „Arkusz techniczny" pod desktop     | S-03, S-07    | NFR (UI po polsku), FR-012 pośrednio | in-progress |
 
 ## Streams
 
@@ -218,6 +219,20 @@ Foundations poniżej zakładają, że to istnieje, i **nie** budują tego od now
 - **Risk:** Domyka główne Kryterium sukcesu — bez tego elektryk nie wynosi z narzędzia żadnego artefaktu. Twarde ograniczenie środowiska: dokument musi powstać po stronie przeglądarki (patrz `context/foundation/infrastructure.md`), więc wizualizacja układu musi być drukowalna, a nie tylko interaktywna. Wizualizacja jest wymaganą częścią dokumentu, nie dodatkiem — sam cennik degraduje wydruk do zwykłej listy pozycji.
 - **Status:** proposed
 
+### S-10: Elektryk i admin pracują w spójnym interfejsie „Arkusz techniczny"
+
+- **Outcome:** Elektryk i admin pracują w spójnym, jasnym interfejsie „Arkusz techniczny" — jedno źródło tokenów (papier, tusz, indygo, kolory żył wg IEC 60445), komponenty shadcn, wspólna powłoka aplikacji z paskiem nagłówka, własne logo i favicon — zoptymalizowanym pod pracę na komputerze.
+- **Change ID:** `ui-layout-theme`
+- **Issue:** #16
+- **PRD refs:** `## Non-Functional Requirements` (cały interfejs po polsku, teksty z warstwy tłumaczeń), FR-012 pośrednio (jasny rysunek szafki zbiega się z drukowalną wizualizacją w S-09), `## Non-Goals` (bez UI dotykowego/mobilnego)
+- **Prerequisites:** S-03, S-07
+- **Parallel with:** S-04, S-05
+- **Blockers:** —
+- **Unknowns:**
+  - Czy jasny rysunek szafki pozostanie czytelny w wydruku w skali szarości, zanim S-09 doda style druku? — Owner: user. Block: no.
+- **Risk:** Zmiana przekracza zalecenie „jeden widok + globalne tokeny" i obejmuje wszystkie strony naraz — świadoma decyzja użytkownika, więc żyje na osobnej gałęzi `ui-layout-theme` z jednym scaleniem, bo `master` wdraża się automatycznie, a między fazami aplikacja jest celowo niespójna. Ryzyko regresji: zmienia się wyłącznie warstwa prezentacji — endpointy, nazwy pól formularzy, bramki tras i baza danych zostają nietknięte; bez testów wizualnych jedynym sprawdzianem jest kitchen sink `/dev/kitchen-sink` i ręczne zrzuty ekranu. Tryb ciemny i projekt mobilny są poza zakresem.
+- **Status:** in-progress
+
 ## Backlog Handoff
 
 | Roadmap ID | Change ID                           | Suggested issue title                                      | Ready for `/10x-plan` | Notes                                                                                     |
@@ -232,6 +247,7 @@ Foundations poniżej zakładają, że to istnieje, i **nie** budują tego od now
 | S-07       | `electrician-pricing-profile`       | Parametry wyceny w profilu elektryka                       | yes                   | Uruchom `/10x-plan electrician-pricing-profile`; może iść równolegle do toru projektowego |
 | S-08       | `quote-cost-estimate`               | Koszt materiału i robocizny z możliwością nadpisania czasu | no                    | Czeka na S-04, S-07                                                                       |
 | S-09       | `printable-quote-export`            | Wydruk wyceny z wizualizacją układu szafki                 | no                    | Czeka na S-06, S-08                                                                       |
+| S-10       | `ui-layout-theme`                   | Spójny, jasny interfejs „Arkusz techniczny"                | in-progress           | W realizacji na gałęzi `ui-layout-theme` → `context/changes/ui-layout-theme/`             |
 
 ## Open Roadmap Questions
 

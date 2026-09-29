@@ -1,35 +1,34 @@
 ---
-import Layout from "@/layouts/Layout.astro";
+import { CircleCheckIcon, MailCheckIcon } from "lucide-react";
+import { buttonVariants } from "@/components/ui/button";
+import AuthLayout from "@/layouts/AuthLayout.astro";
 import { t } from "@/lib/i18n";
+import { cn } from "@/lib/utils";
 
 const isAutoConfirmed = import.meta.env.DEV;
 
 const content = isAutoConfirmed
   ? {
-      emoji: "✅",
+      Icon: CircleCheckIcon,
+      tone: "bg-success-muted text-success",
       heading: t.confirmEmail.confirmedHeading,
       description: t.confirmEmail.confirmedDescription,
       linkText: t.confirmEmail.confirmedLink,
     }
   : {
-      emoji: "📧",
+      Icon: MailCheckIcon,
+      tone: "bg-info-muted text-info",
       heading: t.confirmEmail.pendingHeading,
       description: t.confirmEmail.pendingDescription,
       linkText: t.confirmEmail.pendingLink,
     };
 ---
 
-<Layout title={content.heading}>
-  <div class="bg-cosmic flex min-h-screen items-center justify-center p-4">
-    <div class="w-full max-w-sm rounded-2xl border border-white/10 bg-white/10 p-8 text-center text-white backdrop-blur-xl">
-      <div class="mb-4 text-5xl">{content.emoji}</div>
-      <h1 class="mb-3 bg-gradient-to-r from-blue-200 to-purple-200 bg-clip-text text-2xl font-bold text-transparent">
-        {content.heading}
-      </h1>
-      <p class="mb-6 text-blue-100/80">{content.description}</p>
-      <a href="/auth/signin" class="text-sm text-purple-300 hover:underline">
-        {content.linkText}
-      </a>
-    </div>
-  </div>
-</Layout>
+<AuthLayout title={content.heading} description={content.description} centered>
+  <span slot="icon" class:list={cn("mb-2 flex size-12 items-center justify-center rounded-full", content.tone)}>
+    <content.Icon className="size-6" aria-hidden="true" />
+  </span>
+  <a href="/auth/signin" class:list={cn(buttonVariants({ variant: "default" }), "w-full")}>
+    {content.linkText}
+  </a>
+</AuthLayout>
