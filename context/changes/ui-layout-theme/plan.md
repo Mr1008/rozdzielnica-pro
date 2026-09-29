@@ -773,34 +773,34 @@ new `t.landing` key group. The no-role redirect target (`NO_ROLE_PATH`) must sti
 
 #### Automated
 
-- [x] 4.1 Lint passes: `npm run lint`
-- [x] 4.2 Types pass: `npx astro check`
-- [x] 4.3 Unit tests pass: `npm run test:unit`
-- [x] 4.4 Build passes: `npm run build`
-- [x] 4.5 Palette grep over admin pages and editors returns nothing
-- [x] 4.6 No Button colour overrides remain
+- [x] 4.1 Lint passes: `npm run lint` — ff620d0
+- [x] 4.2 Types pass: `npx astro check` — ff620d0
+- [x] 4.3 Unit tests pass: `npm run test:unit` — ff620d0
+- [x] 4.4 Build passes: `npm run build` — ff620d0
+- [x] 4.5 Palette grep over admin pages and editors returns nothing — ff620d0
+- [x] 4.6 No Button colour overrides remain — ff620d0
 
 #### Manual
 
-- [x] 4.7 Admin screenshots of home, catalogs and editors in all listed states
-- [x] 4.8 Create, edit, archive, restore work; rejected save restores the draft
+- [x] 4.7 Admin screenshots of home, catalogs and editors in all listed states — ff620d0
+- [x] 4.8 Create, edit, archive, restore work; rejected save restores the draft — ff620d0
 
 ### Phase 5: Auth, landing, cleanup
 
 #### Automated
 
-- [ ] 5.1 Lint passes: `npm run lint`
-- [ ] 5.2 Types pass: `npx astro check`
-- [ ] 5.3 Unit tests pass: `npm run test:unit`
-- [ ] 5.4 Build passes: `npm run build`
-- [ ] 5.5 Repo-wide palette check returns nothing
-- [ ] 5.6 No hex/rgba colours in components, pages or layouts
-- [ ] 5.7 No `Welcome` or `LibBadge` references left
-- [ ] 5.8 Smoke passes against the preview build on the local stack
+- [x] 5.1 Lint passes: `npm run lint`
+- [x] 5.2 Types pass: `npx astro check`
+- [x] 5.3 Unit tests pass: `npm run test:unit`
+- [x] 5.4 Build passes: `npm run build`
+- [x] 5.5 Repo-wide palette check returns nothing
+- [x] 5.6 No hex/rgba colours in components, pages or layouts
+- [x] 5.7 No `Welcome` or `LibBadge` references left
+- [x] 5.8 Smoke passes against the preview build on the local stack
 
 #### Manual
 
-- [ ] 5.9 Screenshots of landing and auth pages in all listed states
-- [ ] 5.10 Landing animation stops under reduced motion
-- [ ] 5.11 Final re-screenshot of every page and the kitchen sink
-- [ ] 5.12 Sign-up → sign-in → dashboard → project flow works end to end
+- [x] 5.9 Screenshots of landing and auth pages in all listed states
+- [x] 5.10 Landing animation stops under reduced motion
+- [x] 5.11 Final re-screenshot of every page and the kitchen sink
+- [x] 5.12 Sign-up → sign-in → dashboard → project flow works end to end

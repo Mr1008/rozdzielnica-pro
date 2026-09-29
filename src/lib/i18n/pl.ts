@@ -100,6 +100,47 @@ export const pl = {
     pendingLink: "Wróć do logowania",
   },
 
+  /** The split auth shell (sign-in, sign-up, confirm-email): the hero side panel next to the form. */
+  authShell: {
+    panelHeadline: "Rozdzielnica zaplanowana, zanim pojedziesz do klienta",
+    panelDescription:
+      "Obwody i grupy RCD, dobór aparatów z katalogu, układ w szafce i wycena robocizny według Twojej stawki — w jednym miejscu.",
+    homeLink: "Strona główna RozdzielnicaPro",
+  },
+
+  /** The public landing page (`/`). */
+  landing: {
+    navLabel: "Konto",
+    eyebrow: "Asystent elektryka instalatora",
+    headline: "Zaplanuj rozdzielnicę",
+    headlineAccent: "i wyceń robociznę w kilka minut",
+    subline:
+      "Podajesz obwody i grupy RCD, a RozdzielnicaPro dobiera aparaty z katalogu, proponuje ich układ w wybranej szafce i liczy koszt materiału oraz robocizny według Twojej stawki.",
+    drawingCaption: "Przykładowa szafka: trzy szyny DIN, szyna PE pod aparatami i szyna N z boku.",
+    stepsTitle: "Od obwodów do wyceny w trzech krokach",
+    steps: {
+      circuits: {
+        title: "Obwody",
+        description:
+          "Podajesz obwody z ich parametrami i wskazujesz, które z nich dzielą wspólny wyłącznik różnicowoprądowy.",
+      },
+      layout: {
+        title: "Układ w szafce",
+        description:
+          "System dobiera najtańsze aparaty spełniające parametry i rozmieszcza je w szafce z katalogu. Układ możesz poprawić.",
+      },
+      quote: {
+        title: "Wycena",
+        description:
+          "Liczba aparatów × średni czas montażu + narzut na projekt, razy Twoja stawka — obok koszt materiału z cen katalogowych.",
+      },
+    },
+    guaranteeTitle: "Nigdy aparat o za niskich parametrach",
+    guaranteeDescription:
+      "Gdy w katalogu nie ma aparatu spełniającego parametry obwodu, zobaczysz błąd z prośbą o kontakt z administratorem — a nie zamiennik o za niskich parametrach.",
+    footerNote: "Proste instalacje w domach jednorodzinnych i mieszkaniach, jedno- i trójfazowe.",
+  },
+
   dashboard: {
     title: "Panel",
     greeting: "Witaj,",
@@ -753,6 +794,8 @@ export const pl = {
       },
       brandSize: (px: number) => `${String(px)} px`,
       circuitGrid: "Wzór tła: siatka z torem obwodu",
+      heroButtons: "Przyciski na tle hero",
+      draftingSheet: "Arkusz rysunkowy z przepływem prądu",
     },
   },
 

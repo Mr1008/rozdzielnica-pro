@@ -1,0 +1,166 @@
+---
+import { ArrowRightIcon, CableIcon, CalculatorIcon, PanelsTopLeftIcon, ShieldCheckIcon } from "lucide-react";
+import CircuitGrid from "@/assets/brand/circuit-grid.svg";
+import DraftingSheet from "@/components/brand/DraftingSheet.astro";
+import Logo from "@/components/brand/Logo.astro";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { t } from "@/lib/i18n";
+import { roleHomeLink } from "@/lib/role-home-link";
+import { cn } from "@/lib/utils";
+
+/**
+ * The public landing page — the app's one expressive surface, on the hero register ("blueprint
+ * night" with the electric-cyan current). The `banner` slot renders under the header, so a message
+ * such as the no-role error from `index.astro` is the first thing on the page.
+ *
+ * Signed in, the header and the hero point at the role's own home instead of sign-in/sign-up; a
+ * signed-in user with no recognised role gets no home link (no gated route lets them in), only
+ * sign-out.
+ */
+const { user, role } = Astro.locals;
+const home = roleHomeLink(role);
+const hasBanner = Astro.slots.has("banner");
+
+const l = t.landing;
+
+const steps = [
+  { icon: CableIcon, ...l.steps.circuits },
+  { icon: PanelsTopLeftIcon, ...l.steps.layout },
+  { icon: CalculatorIcon, ...l.steps.quote },
+];
+
+const navLinkClass = cn(
+  buttonVariants({ variant: "ghost", size: "sm" }),
+  "text-hero-muted hover:bg-hero-foreground/10 hover:text-hero-foreground",
+);
+---
+
+<div class="register-hero relative isolate min-h-screen overflow-hidden">
+  <CircuitGrid
+    class="pointer-events-none absolute inset-0 -z-10 size-full opacity-80 [mask-image:radial-gradient(ellipse_at_70%_40%,var(--hero-background)_20%,transparent_80%)]"
+    aria-hidden="true"
+  />
+  <div
+    class="pointer-events-none absolute top-1/4 right-0 -z-10 size-[36rem] translate-x-1/4 rounded-full bg-hero-current/10 blur-3xl"
+    aria-hidden="true"
+  ></div>
+
+  <div class="mx-auto flex min-h-screen max-w-7xl flex-col px-4 sm:px-8">
+    <header class="flex h-20 items-center justify-between gap-4">
+      <a href="/" class="rounded-md">
+        <Logo variant="full" size={32} />
+      </a>
+      <nav aria-label={l.navLabel} class="flex items-center gap-2 text-sm">
+        {user ? (
+          <>
+            {home && (
+              <a href={home.href} class:list={navLinkClass}>
+                {home.label}
+              </a>
+            )}
+            <form method="POST" action="/api/auth/signout">
+              <Button type="submit" variant="hero-outline" size="sm">
+                {t.nav.signOut}
+              </Button>
+            </form>
+          </>
+        ) : (
+          <>
+            <a href="/auth/signin" class:list={navLinkClass}>
+              {t.nav.signIn}
+            </a>
+            <a href="/auth/signup" class:list={buttonVariants({ variant: "hero-outline", size: "sm" })}>
+              {t.nav.signUp}
+            </a>
+          </>
+        )}
+      </nav>
+    </header>
+
+    {hasBanner && (
+      <div class="flex flex-col gap-2 pt-2">
+        <slot name="banner" />
+      </div>
+    )}
+
+    <main class="flex flex-1 flex-col gap-20 py-12 lg:gap-24 lg:py-16">
+      <section class="grid items-center gap-12 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:gap-16">
+        <div class="flex flex-col gap-6">
+          <p class="flex w-fit items-center gap-2 rounded-full border border-hero-current/40 bg-hero-current/10 px-3 py-1 font-mono text-xs tracking-wide text-hero-current uppercase">
+            <span class="size-1.5 animate-current-pulse rounded-full bg-hero-current" aria-hidden="true"></span>
+            {l.eyebrow}
+          </p>
+          <h1 class="text-4xl leading-[1.1] font-semibold tracking-tight text-balance sm:text-5xl xl:text-6xl">
+            {l.headline} <span class="text-hero-current">{l.headlineAccent}</span>
+          </h1>
+          <p class="max-w-xl text-lg leading-relaxed text-hero-muted">{l.subline}</p>
+          <div class="flex flex-wrap gap-3 pt-2">
+            {user ? (
+              home && (
+                <a href={home.href} class:list={buttonVariants({ variant: "hero", size: "lg" })}>
+                  {home.label}
+                  <ArrowRightIcon aria-hidden="true" />
+                </a>
+              )
+            ) : (
+              <>
+                <a href="/auth/signup" class:list={buttonVariants({ variant: "hero", size: "lg" })}>
+                  {t.nav.signUp}
+                  <ArrowRightIcon aria-hidden="true" />
+                </a>
+                <a href="/auth/signin" class:list={buttonVariants({ variant: "hero-outline", size: "lg" })}>
+                  {t.nav.signIn}
+                </a>
+              </>
+            )}
+          </div>
+        </div>
+
+        <DraftingSheet caption={l.drawingCaption} class="mx-auto w-full max-w-md" />
+      </section>
+
+      <section aria-labelledby="landing-steps" class="flex flex-col gap-8">
+        <h2 id="landing-steps" class="text-2xl font-semibold tracking-tight">
+          {l.stepsTitle}
+        </h2>
+        <ol class="grid gap-4 lg:grid-cols-3">
+          {steps.map((step, index) => (
+            <li class="relative flex flex-col gap-3 rounded-xl border border-hero-foreground/15 bg-hero-foreground/5 p-6">
+              <div class="flex items-center justify-between">
+                <span class="flex size-10 items-center justify-center rounded-lg bg-hero-current/15 text-hero-current">
+                  <step.icon className="size-5" aria-hidden="true" />
+                </span>
+                <span class="font-mono text-sm text-hero-muted">{String(index + 1).padStart(2, "0")}</span>
+              </div>
+              <h3 class="text-lg font-semibold">{step.title}</h3>
+              <p class="text-sm leading-relaxed text-hero-muted">{step.description}</p>
+              {index < steps.length - 1 && (
+                <ArrowRightIcon
+                  className="absolute top-1/2 -right-4 z-10 hidden size-4 -translate-y-1/2 text-hero-current lg:block"
+                  aria-hidden="true"
+                />
+              )}
+            </li>
+          ))}
+        </ol>
+        <div class="flex items-start gap-4 rounded-xl border border-hero-current/40 bg-hero-current/10 p-6">
+          <ShieldCheckIcon className="mt-0.5 size-6 shrink-0 text-hero-current" aria-hidden="true" />
+          <div class="flex flex-col gap-1">
+            <p class="font-semibold">{l.guaranteeTitle}</p>
+            <p class="text-sm leading-relaxed text-hero-muted">{l.guaranteeDescription}</p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="flex flex-col gap-2 border-t border-hero-foreground/15 py-6 text-sm text-hero-muted sm:flex-row sm:items-center sm:justify-between">
+      <span class="flex items-center gap-2">
+        <span aria-hidden="true">
+          <Logo size={16} />
+        </span>
+        {t.app.name} · {t.app.tagline}
+      </span>
+      <span>{l.footerNote}</span>
+    </footer>
+  </div>
+</div>

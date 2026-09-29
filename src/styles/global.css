@@ -83,6 +83,7 @@
   --drawing-entry-stroke: oklch(47.3% 0.137 46.201); /* amber-800 */
   --drawing-frame: oklch(37.2% 0.044 257.287); /* slate-700 — 10.3:1 on card */
   --drawing-highlight: oklch(51.1% 0.262 276.966); /* Tailwind v4 indigo-600 */
+  --drawing-grid: oklch(55.4% 0.046 257.417 / 14%); /* slate-500 at 14% — the drafting-sheet ruling */
 
   /*
    * Hero register (landing, auth side panel): blueprint night with an electric-cyan "current".
@@ -169,6 +170,7 @@
   --color-drawing-entry-stroke: var(--drawing-entry-stroke);
   --color-drawing-frame: var(--drawing-frame);
   --color-drawing-highlight: var(--drawing-highlight);
+  --color-drawing-grid: var(--drawing-grid);
 
   --color-hero-background: var(--hero-background);
   --color-hero-foreground: var(--hero-foreground);
@@ -203,9 +205,52 @@
   --ring: var(--hero-current);
 }
 
-/* Starter leftover, still used by the pages not yet migrated. Removed in Phase 5. */
-@utility bg-cosmic {
-  background-image: linear-gradient(to bottom, #0a0e1a, #0f1529, #0a0e1a);
+/*
+ * A drafting sheet: drawing paper ruled with a faint 20 px grid, for a drawing shown as a technical
+ * sheet (the landing page). Colours are the --drawing-paper and --drawing-grid tokens.
+ */
+@utility bg-drafting-grid {
+  background-color: var(--drawing-paper);
+  background-image:
+    linear-gradient(var(--drawing-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--drawing-grid) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/*
+ * The landing page's "current": a dashed trace whose dashes flow along the path, and a node that
+ * pulses. Only stroke-dashoffset and opacity animate, and both stop under prefers-reduced-motion.
+ * The flow distance equals one dash period, so the loop is seamless — pair it with a dash array
+ * summing to 48 (e.g. `16 32`).
+ */
+@keyframes current-flow {
+  to {
+    stroke-dashoffset: -48;
+  }
+}
+
+@keyframes current-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@utility animate-current-flow {
+  animation: current-flow 1.2s linear infinite;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+@utility animate-current-pulse {
+  animation: current-pulse 2.4s ease-in-out infinite;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
 }
 
 @layer base {

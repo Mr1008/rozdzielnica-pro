@@ -1,0 +1,61 @@
+---
+import CircuitGrid from "@/assets/brand/circuit-grid.svg";
+import Logo from "@/components/brand/Logo.astro";
+import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
+import Layout from "@/layouts/Layout.astro";
+import { t } from "@/lib/i18n";
+
+/**
+ * The shell of the public auth pages (sign-in, sign-up, confirm-email). From `lg` up it is split: a
+ * hero-register side panel (logo, tagline, the circuit-grid pattern) and the form on a paper card.
+ * Below `lg` only the card shows, with the logo moved into it. `title` is the card's `h1`; the
+ * `icon` slot goes above it, `footer` below the content.
+ */
+interface Props {
+  title: string;
+  description?: string;
+  /** Centre the card's header and footer, for a message page such as confirm-email. */
+  centered?: boolean;
+}
+
+const { title, description, centered = false } = Astro.props;
+const hasIcon = Astro.slots.has("icon");
+const hasFooter = Astro.slots.has("footer");
+---
+
+<Layout title={title}>
+  <div class="grid min-h-screen lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+    <aside class="register-hero relative isolate hidden flex-col justify-between overflow-hidden p-10 lg:flex xl:p-14">
+      <CircuitGrid class="pointer-events-none absolute inset-0 -z-10 size-full opacity-70" aria-hidden="true" />
+      <a href="/" class="w-fit rounded-md" aria-label={t.authShell.homeLink}>
+        <Logo variant="full" size={32} />
+      </a>
+      <div class="flex max-w-md flex-col gap-4">
+        <p class="text-3xl leading-tight font-semibold tracking-tight text-balance">{t.authShell.panelHeadline}</p>
+        <p class="leading-relaxed text-hero-muted">{t.authShell.panelDescription}</p>
+      </div>
+      <p class="font-mono text-xs text-hero-muted">{t.app.tagline}</p>
+    </aside>
+
+    <main class="flex items-center justify-center px-4 py-10 sm:px-8">
+      <Card className="w-full max-w-sm gap-5">
+        <CardHeader className={centered ? "justify-items-center text-center" : undefined}>
+          <a href="/" class="mb-4 w-fit rounded-md lg:hidden" aria-label={t.authShell.homeLink}>
+            <Logo variant="full" size={28} />
+          </a>
+          {hasIcon && <slot name="icon" />}
+          <h1 class="text-2xl font-semibold tracking-tight">{title}</h1>
+          {description && <p class="text-sm text-muted-foreground">{description}</p>}
+        </CardHeader>
+        <CardContent>
+          <slot />
+        </CardContent>
+        {hasFooter && (
+          <CardFooter className={centered ? "justify-center text-center" : "justify-center"}>
+            <slot name="footer" />
+          </CardFooter>
+        )}
+      </Card>
+    </main>
+  </div>
+</Layout>
