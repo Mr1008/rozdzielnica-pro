@@ -1,15 +1,19 @@
 ---
 import Banner from "@/components/Banner.astro";
-import Topbar from "@/components/Topbar.astro";
+import PageHeader from "@/components/PageHeader.astro";
 import CabinetPicker from "@/components/projects/CabinetPicker.astro";
 import ProjectDetailsFields from "@/components/projects/ProjectDetailsFields.astro";
-import Layout from "@/layouts/Layout.astro";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
+import AppLayout from "@/layouts/AppLayout.astro";
 import { parseCabinetGeometry } from "@/lib/cabinet-geometry";
 import { sortForCatalogList } from "@/lib/catalog";
 import { t } from "@/lib/i18n";
 import { PROJECTS_API_PATH, PROJECTS_PATH } from "@/lib/project";
 import { projectErrorMessage } from "@/lib/project-errors";
 import { createClient } from "@/lib/supabase";
+import { TriangleAlertIcon } from "lucide-react";
 
 // No role check here on purpose: `/dashboard/*` is gated to electricians in
 // `src/lib/route-access.ts`, and RLS shows an electrician only the active cabinets.
@@ -42,54 +46,61 @@ async function loadCabinets() {
 
 const { cabinets, loadError } = await loadCabinets();
 
-const sectionClass = "flex flex-col gap-5 rounded-2xl border border-white/10 bg-white/10 p-6 backdrop-blur-xl";
+const headingClass = "text-lg leading-none font-semibold";
 ---
 
-<Layout title={t.projects.new.title}>
-  {loadError && <Banner variant="error">{loadError}</Banner>}
-  {error && <Banner variant="error">{error}</Banner>}
-  <div class="bg-cosmic min-h-screen p-4 text-white sm:p-8">
-    <div class="mx-auto max-w-4xl">
-      <Topbar />
-      <a href={PROJECTS_PATH} class="text-sm text-purple-300 transition-colors hover:text-purple-100 hover:underline">
-        {t.projects.new.backToList}
-      </a>
-      <h1 class="mt-2 mb-6 bg-gradient-to-r from-blue-200 to-purple-200 bg-clip-text text-3xl font-bold text-transparent">
-        {t.projects.new.title}
-      </h1>
+<AppLayout title={t.projects.new.title}>
+  {loadError && (
+    <Banner slot="banners" variant="error">
+      {loadError}
+    </Banner>
+  )}
+  {error && (
+    <Banner slot="banners" variant="error">
+      {error}
+    </Banner>
+  )}
 
-      {!loadError && cabinets.length === 0 && (
-        <p class="rounded-2xl border border-amber-300/40 bg-amber-300/10 p-8 text-center text-amber-100">
-          {t.projects.new.noCabinets}
-        </p>
-      )}
+  <PageHeader title={t.projects.new.title} backHref={PROJECTS_PATH} backLabel={t.projects.new.backToList} />
 
-      {cabinets.length > 0 && (
-        <form method="POST" action={PROJECTS_API_PATH} class="flex flex-col gap-6">
-          <section class:list={sectionClass}>
-            <h2 class="text-lg font-semibold">{t.projects.new.detailsSection}</h2>
+  {!loadError && cabinets.length === 0 && (
+    <Alert variant="warning" role={undefined}>
+      <TriangleAlertIcon aria-hidden="true" />
+      <AlertDescription>{t.projects.new.noCabinets}</AlertDescription>
+    </Alert>
+  )}
+
+  {cabinets.length > 0 && (
+    <form method="POST" action={PROJECTS_API_PATH} class="flex flex-col gap-6">
+      <Card>
+        <CardHeader>
+          <h2 class:list={headingClass}>{t.projects.new.detailsSection}</h2>
+        </CardHeader>
+        <CardContent>
+          <div class="grid items-start gap-4 md:grid-cols-3">
             <ProjectDetailsFields />
-          </section>
+          </div>
+        </CardContent>
+      </Card>
 
-          <fieldset class:list={sectionClass}>
+      <Card>
+        <CardHeader>
+          <h2 class:list={headingClass} aria-hidden="true">
+            {t.projects.new.cabinetSection}
+          </h2>
+          <CardDescription id="new-cabinet-hint">{t.projects.new.cabinetHint}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <fieldset aria-describedby="new-cabinet-hint">
             <legend class="sr-only">{t.projects.new.cabinetSection}</legend>
-            <h2 class="text-lg font-semibold" aria-hidden="true">
-              {t.projects.new.cabinetSection}
-            </h2>
-            <p class="text-sm text-blue-100/70">{t.projects.new.cabinetHint}</p>
             <CabinetPicker cabinets={cabinets} idPrefix="new-cabinet" />
           </fieldset>
+        </CardContent>
+      </Card>
 
-          <div>
-            <button
-              type="submit"
-              class="rounded-lg bg-purple-500/80 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-purple-500"
-            >
-              {t.projects.new.create}
-            </button>
-          </div>
-        </form>
-      )}
-    </div>
-  </div>
-</Layout>
+      <div>
+        <Button type="submit">{t.projects.new.create}</Button>
+      </div>
+    </form>
+  )}
+</AppLayout>
