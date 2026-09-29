@@ -1,51 +1,59 @@
 ---
-import Layout from "@/layouts/Layout.astro";
+import PageHeader from "@/components/PageHeader.astro";
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import AppLayout from "@/layouts/AppLayout.astro";
 import { CABINETS_PATH } from "@/lib/cabinet-catalog";
 import { DEVICES_PATH } from "@/lib/device-catalog";
 import { t } from "@/lib/i18n";
+import { ChevronRightIcon, CpuIcon, PanelsTopLeftIcon } from "lucide-react";
 
 // No role check here on purpose: `/admin` is gated in `src/lib/route-access.ts`, which the
 // middleware applies to every request. This is the catalog hub.
 const { user } = Astro.locals;
+
+const destinations = [
+  {
+    href: CABINETS_PATH,
+    icon: PanelsTopLeftIcon,
+    title: t.admin.cabinetCatalogLink,
+    description: t.admin.cabinetCatalogDescription,
+  },
+  {
+    href: DEVICES_PATH,
+    icon: CpuIcon,
+    title: t.admin.deviceCatalogLink,
+    description: t.admin.deviceCatalogDescription,
+  },
+];
 ---
 
-<Layout title={t.admin.title}>
-  <div class="bg-cosmic flex min-h-screen items-center justify-center p-4">
-    <div class="w-full max-w-lg rounded-2xl border border-white/10 bg-white/10 p-8 text-center text-white backdrop-blur-xl">
-      <h1 class="mb-4 bg-gradient-to-r from-blue-200 to-purple-200 bg-clip-text text-3xl font-bold text-transparent">
-        {t.admin.title}
-      </h1>
-      <p class="text-blue-100/80">
-        {t.dashboard.greeting} <span class="font-semibold text-white">{user?.email}</span>
-      </p>
-      <p class="mt-2 text-blue-100/70">{t.admin.description}</p>
+<AppLayout title={t.admin.title}>
+  <PageHeader
+    title={user?.email ? t.dashboard.greetingTitle(user.email) : t.admin.title}
+    description={t.admin.description}
+  />
 
-      <nav class="mt-6 flex flex-col gap-3 text-left">
-        <a
-          href={CABINETS_PATH}
-          class="block rounded-xl border border-white/20 bg-white/10 p-4 transition-colors hover:bg-white/20"
-        >
-          <span class="font-semibold text-white">{t.admin.cabinetCatalogLink}</span>
-          <span class="mt-1 block text-sm text-blue-100/70">{t.admin.cabinetCatalogDescription}</span>
-        </a>
-        <a
-          href={DEVICES_PATH}
-          class="block rounded-xl border border-white/20 bg-white/10 p-4 transition-colors hover:bg-white/20"
-        >
-          <span class="font-semibold text-white">{t.admin.deviceCatalogLink}</span>
-          <span class="mt-1 block text-sm text-blue-100/70">{t.admin.deviceCatalogDescription}</span>
-        </a>
-      </nav>
-
-      <p class="mt-6 text-sm text-blue-100/50">{t.admin.restricted}</p>
-      <form method="POST" action="/api/auth/signout" class="mt-6">
-        <button
-          type="submit"
-          class="rounded-lg border border-white/20 bg-white/10 px-4 py-2 text-sm transition-colors hover:bg-white/20"
-        >
-          {t.nav.signOut}
-        </button>
-      </form>
-    </div>
-  </div>
-</Layout>
+  <nav aria-label={t.admin.destinationsLabel}>
+    <ul class="grid gap-4 md:grid-cols-2">
+      {destinations.map(({ href, icon: Icon, title, description }) => (
+        <li>
+          <a href={href} class="group block h-full rounded-xl">
+            <Card className="h-full flex-row items-center gap-4 px-6 transition-colors group-hover:border-primary/60 group-hover:bg-accent">
+              <span class="flex size-12 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <Icon className="size-6" aria-hidden="true" />
+              </span>
+              <CardHeader className="flex-1 px-0">
+                <CardTitle className="text-lg">{title}</CardTitle>
+                <CardDescription>{description}</CardDescription>
+              </CardHeader>
+              <ChevronRightIcon
+                className="size-5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5"
+                aria-hidden="true"
+              />
+            </Card>
+          </a>
+        </li>
+      ))}
+    </ul>
+  </nav>
+</AppLayout>

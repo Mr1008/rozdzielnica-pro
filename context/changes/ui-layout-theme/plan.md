@@ -757,33 +757,33 @@ new `t.landing` key group. The no-role redirect target (`NO_ROLE_PATH`) must sti
 
 #### Automated
 
-- [x] 3.1 Lint passes: `npm run lint`
-- [x] 3.2 Types pass: `npx astro check`
-- [x] 3.3 Unit tests pass: `npm run test:unit`
-- [x] 3.4 Build passes: `npm run build`
-- [x] 3.5 Palette grep over electrician pages returns nothing
+- [x] 3.1 Lint passes: `npm run lint` — 2cf49df
+- [x] 3.2 Types pass: `npx astro check` — 2cf49df
+- [x] 3.3 Unit tests pass: `npm run test:unit` — 2cf49df
+- [x] 3.4 Build passes: `npm run build` — 2cf49df
+- [x] 3.5 Palette grep over electrician pages returns nothing — 2cf49df
 
 #### Manual
 
-- [x] 3.6 Screenshots of dashboard, profile, projects list, new project in all listed states
-- [x] 3.7 Create project, save profile, list navigation work end to end
-- [x] 3.8 Header shows home link and sign-out on every page
+- [x] 3.6 Screenshots of dashboard, profile, projects list, new project in all listed states — 2cf49df
+- [x] 3.7 Create project, save profile, list navigation work end to end — 2cf49df
+- [x] 3.8 Header shows home link and sign-out on every page — 2cf49df
 
 ### Phase 4: Admin pages and editor islands
 
 #### Automated
 
-- [ ] 4.1 Lint passes: `npm run lint`
-- [ ] 4.2 Types pass: `npx astro check`
-- [ ] 4.3 Unit tests pass: `npm run test:unit`
-- [ ] 4.4 Build passes: `npm run build`
-- [ ] 4.5 Palette grep over admin pages and editors returns nothing
-- [ ] 4.6 No Button colour overrides remain
+- [x] 4.1 Lint passes: `npm run lint`
+- [x] 4.2 Types pass: `npx astro check`
+- [x] 4.3 Unit tests pass: `npm run test:unit`
+- [x] 4.4 Build passes: `npm run build`
+- [x] 4.5 Palette grep over admin pages and editors returns nothing
+- [x] 4.6 No Button colour overrides remain
 
 #### Manual
 
-- [ ] 4.7 Admin screenshots of home, catalogs and editors in all listed states
-- [ ] 4.8 Create, edit, archive, restore work; rejected save restores the draft
+- [x] 4.7 Admin screenshots of home, catalogs and editors in all listed states
+- [x] 4.8 Create, edit, archive, restore work; rejected save restores the draft
 
 ### Phase 5: Auth, landing, cleanup
 

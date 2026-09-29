@@ -1,38 +1,44 @@
 import type { ReactNode } from "react";
 import { CircleAlert, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
+import { Field, FieldDescription, FieldLabel, FieldError as RegistryFieldError } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { fieldControlProps, fieldErrorId, fieldHintId } from "@/lib/field-a11y";
 import { cn } from "@/lib/utils";
 
 /**
- * The presentational form pieces shared by the admin editors (cabinets, devices). Native inputs
- * styled with Tailwind; every text comes from the caller, which reads it from `t`.
+ * The presentational form pieces shared by the admin editors (cabinets, devices), on the registry
+ * `Field`, `Input`, `NativeSelect`, `Card` and `Button`. Every text comes from the caller, which
+ * reads it from `t`. The hint/error ids and the `aria-invalid`/`aria-describedby` wiring come from
+ * `@/lib/field-a11y`, so they match the `.astro` forms.
  */
 
-export const inputClass =
-  "w-full rounded-lg border bg-white/10 px-3 py-2 text-sm text-white placeholder-white/40 transition-colors focus:ring-2 focus:outline-none";
-
+/**
+ * A field's error text. Not an alert: it updates on every keystroke, and the control's
+ * `aria-describedby` already points screen readers at it.
+ */
 export function FieldError({ id, message }: { id: string; message: string }) {
   return (
-    <p id={id} className="mt-1 flex items-center gap-1 text-xs text-red-300">
-      <CircleAlert className="size-3 shrink-0" />
+    <RegistryFieldError id={id} role={undefined} className="flex items-start gap-1 text-xs">
+      <CircleAlert className="mt-0.5 size-3 shrink-0" aria-hidden="true" />
       {message}
-    </p>
+    </RegistryFieldError>
   );
 }
 
 function FieldHelp({ id, error, hint }: { id: string; error?: string; hint?: string }) {
-  if (error) return <FieldError id={`${id}-error`} message={error} />;
+  if (error) return <FieldError id={fieldErrorId(id)} message={error} />;
   if (!hint) return null;
   return (
-    <p id={`${id}-hint`} className="mt-1 text-xs text-blue-100/50">
+    <FieldDescription id={fieldHintId(id)} className="text-xs">
       {hint}
-    </p>
+    </FieldDescription>
   );
 }
 
-function describedBy(id: string, error?: string, hint?: string): string | undefined {
-  return error ? `${id}-error` : hint ? `${id}-hint` : undefined;
-}
+const fieldClass = "gap-1.5";
 
 export interface TextFieldProps {
   id: string;
@@ -59,32 +65,27 @@ export function TextField({
   placeholder,
   inputMode,
 }: TextFieldProps) {
+  // Numbers read as figures: mono and tabular, like every other measured value in the app.
+  const numeric = inputMode === "numeric" || inputMode === "decimal";
   return (
-    <div>
-      <label htmlFor={id} className="mb-1 block text-xs text-blue-100/80">
-        {label}
-      </label>
-      <input
-        id={id}
+    <Field data-invalid={error ? true : undefined} className={fieldClass}>
+      <FieldLabel htmlFor={id}>{label}</FieldLabel>
+      <Input
         name={name}
         type="text"
         inputMode={inputMode}
         autoComplete="off"
         value={value}
         placeholder={placeholder}
-        aria-invalid={error ? true : undefined}
-        aria-describedby={describedBy(id, error, hint)}
+        {...fieldControlProps(id, { hint, error })}
         onChange={(e) => {
           onChange(e.target.value);
         }}
         onBlur={onBlur}
-        className={cn(
-          inputClass,
-          error ? "border-red-400/60 focus:ring-red-400" : "border-white/20 focus:ring-purple-400",
-        )}
+        className={cn(numeric && "font-mono tabular-nums")}
       />
       <FieldHelp id={id} error={error} hint={hint} />
-    </div>
+    </Field>
   );
 }
 
@@ -121,59 +122,51 @@ export function SelectField<T extends string>({
   hint,
 }: SelectFieldProps<T>) {
   return (
-    <div>
-      <label htmlFor={id} className="mb-1 block text-xs text-blue-100/80">
-        {label}
-      </label>
-      <select
-        id={id}
+    <Field data-invalid={error ? true : undefined} className={fieldClass}>
+      <FieldLabel htmlFor={id}>{label}</FieldLabel>
+      <NativeSelect
         name={name}
         value={value}
-        aria-invalid={error ? true : undefined}
-        aria-describedby={describedBy(id, error, hint)}
+        {...fieldControlProps(id, { hint, error })}
         onChange={(e) => {
           const next = options.find((option) => option === e.target.value);
           if (next !== undefined) onChange(next);
         }}
-        className={cn(
-          inputClass,
-          "[&>option]:text-zinc-900",
-          error ? "border-red-400/60 focus:ring-red-400" : "border-white/20 focus:ring-purple-400",
-        )}
       >
         {placeholder !== undefined && (
-          <option value="" disabled>
+          <NativeSelectOption value="" disabled>
             {placeholder}
-          </option>
+          </NativeSelectOption>
         )}
         {options.map((option) => (
-          <option key={option} value={option}>
+          <NativeSelectOption key={option} value={option}>
             {labels[option]}
-          </option>
+          </NativeSelectOption>
         ))}
-      </select>
+      </NativeSelect>
       <FieldHelp id={id} error={error} hint={hint} />
-    </div>
+    </Field>
   );
 }
 
 export function Section({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
   return (
-    <section className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur-xl">
-      <h2 className="text-lg font-semibold text-white">{title}</h2>
-      {hint && <p className="mt-1 text-xs text-blue-100/60">{hint}</p>}
-      <div className="mt-4 flex flex-col gap-3">{children}</div>
+    <section>
+      <Card className="gap-4 py-5">
+        <CardHeader className="px-5">
+          <h2 className="text-lg leading-none font-semibold">{title}</h2>
+          {hint && <CardDescription className="text-xs">{hint}</CardDescription>}
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3 px-5">{children}</CardContent>
+      </Card>
     </section>
   );
 }
 
-const smallButtonClass =
-  "rounded-lg border border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white focus-visible:ring-purple-400";
-
 export function AddButton({ onClick, children }: { onClick: () => void; children: ReactNode }) {
   return (
-    <Button type="button" variant="ghost" size="sm" onClick={onClick} className={cn(smallButtonClass, "self-start")}>
-      <Plus className="size-4" />
+    <Button type="button" variant="outline" size="sm" onClick={onClick} className="self-start">
+      <Plus aria-hidden="true" />
       {children}
     </Button>
   );
@@ -182,16 +175,8 @@ export function AddButton({ onClick, children }: { onClick: () => void; children
 /** `label` names what is removed (screen readers, tooltip); `text` is the short visible caption. */
 export function RemoveButton({ label, text, onClick }: { label: string; text: string; onClick: () => void }) {
   return (
-    <Button
-      type="button"
-      variant="ghost"
-      size="sm"
-      onClick={onClick}
-      aria-label={label}
-      title={label}
-      className={smallButtonClass}
-    >
-      <Trash2 className="size-4" />
+    <Button type="button" variant="ghost" size="sm" onClick={onClick} aria-label={label} title={label}>
+      <Trash2 aria-hidden="true" />
       <span className="sr-only sm:not-sr-only">{text}</span>
     </Button>
   );
