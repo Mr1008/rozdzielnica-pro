@@ -21,6 +21,8 @@ describe("projectErrorMessage", () => {
     expect(projectErrorMessage(PROJECT_ERROR.notFound)).toBe(t.projectErrors.notFound);
     expect(projectErrorMessage(PROJECT_ERROR.invalidInput)).toBe(t.projectErrors.invalidInput);
     expect(projectErrorMessage(PROJECT_ERROR.cabinetUnavailable)).toBe(t.projectErrors.cabinetUnavailable);
+    expect(projectErrorMessage(PROJECT_ERROR.deviceUnavailable)).toBe(t.projectErrors.deviceUnavailable);
+    expect(projectErrorMessage(PROJECT_ERROR.circuitsInvalid)).toBe(t.projectErrors.circuitsInvalid);
   });
 
   it("shows the generic message for an unrecognised code, including inherited object keys", () => {
@@ -38,7 +40,7 @@ describe("projectErrorFromPostgrest", () => {
     expect(projectErrorFromPostgrest({ code: "23514" })).toBe(PROJECT_ERROR.invalidInput);
   });
 
-  it("maps a missing or archived cabinet to cabinet unavailable", () => {
+  it("keeps P0002 as cabinet unavailable globally — the circuits RPC maps its own messages", () => {
     expect(projectErrorFromPostgrest({ code: "P0002" })).toBe(PROJECT_ERROR.cabinetUnavailable);
   });
 

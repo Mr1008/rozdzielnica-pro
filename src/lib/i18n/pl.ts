@@ -567,6 +567,17 @@ export const pl = {
         n === 0
           ? "Brak ostrzeżeń"
           : `${String(n)} ${plural(n, { one: "ostrzeżenie", few: "ostrzeżenia", many: "ostrzeżeń" })}`,
+      savedCircuits: "Obwody zostały zapisane. Wynik doboru aparatów znajdziesz poniżej.",
+      savedRematch: "Dobór aparatów został wykonany ponownie. Wynik znajdziesz poniżej.",
+      /** The aside's device-matching row: its label and one badge text per `MatchViewState`. */
+      matchingStatus: "Dobór aparatów",
+      matchingCurrent: (n: number) =>
+        `Dobrano ${String(n)} ${plural(n, { one: "aparat", few: "aparaty", many: "aparatów" })}`,
+      matchingGaps: "Luka w katalogu",
+      matchingOutdated: "Nieaktualny",
+      matchingNoCircuits: "Brak obwodów",
+      matchingBlocked: "Zablokowany",
+      matchingUnavailable: "Niedostępny",
     },
     cabinet: {
       section: "Szafka rozdzielnicy",
@@ -598,6 +609,8 @@ export const pl = {
     notFound: "Nie znaleziono tego projektu",
     invalidInput: "Formularz zawiera nieprawidłowe dane",
     cabinetUnavailable: "Wybrana szafka nie jest już dostępna w katalogu — wybierz inną",
+    deviceUnavailable: "Katalog aparatów zmienił się w trakcie zapisu — spróbuj ponownie",
+    circuitsInvalid: "Lista obwodów zawiera nieprawidłowe dane",
     unknown: "Coś poszło nie tak. Spróbuj ponownie",
   },
 
@@ -668,6 +681,43 @@ export const pl = {
       `Spadek napięcia na WLZ wynosi ok. ${formatNumber(percent)} % i przekracza zalecane ${formatNumber(limitPercent)} %. Wyliczono go przy pełnym prądzie zabezpieczenia przedlicznikowego, więc jest zawyżony — to oszacowanie z zapasem.`,
     note: "Kontrole są uproszczone i mają charakter informacyjny: obciążalność pochodzi z tabel dla izolacji PVC bez współczynników poprawkowych (temperatura, grupowanie), a spadek napięcia liczony jest przy pełnym prądzie zabezpieczenia przedlicznikowego. Nie blokują zapisu i nie zastępują obliczeń projektowych.",
     none: "Uproszczone kontrole nie wykazały zastrzeżeń do parametrów przyłącza.",
+  },
+
+  /** The project page's "Obwody i dobór aparatów" section. See `src/components/projects/MatchResult.astro`. */
+  circuitSection: {
+    section: "Obwody i dobór aparatów",
+    description:
+      "Obwody doprowadzone do szafki i ich grupy RCD. Po zapisie system dobiera najtańsze aparaty spełniające parametry każdego obwodu.",
+    loadFailed: "Nie udało się wczytać obwodów i doboru aparatów. Spróbuj ponownie",
+    /** Temporary until the circuit editor island replaces the JSON field. */
+    payloadLabel: "Obwody i grupy RCD (JSON)",
+    payloadHint: "Tymczasowe pole: lista grup RCD i obwodów w formacie JSON. Zostanie zastąpione edytorem obwodów.",
+    save: "Zapisz obwody i dobierz aparaty",
+    warningsTitle: "Kontrola obwodów",
+    resultTitle: "Dobrane aparaty",
+    previewTitle: "Podgląd nowego doboru (niezapisany)",
+    gapsTitle: "Luki w katalogu aparatów",
+    blockedTitle: "Nie można dobrać aparatów",
+    stale:
+      "Katalog aparatów albo parametry projektu zmieniły się od ostatniego doboru — zapisany zestaw jest nieaktualny. Dobierz aparaty ponownie.",
+    cleared:
+      "Projekt nie ma zapisanego doboru aparatów — na przykład po zmianie parametrów przyłącza. Poniżej widać podgląd doboru, który zostanie zapisany dopiero po kliknięciu „Dobierz ponownie”.",
+    rematch: "Dobierz ponownie",
+    fixSupply: "Uzupełnij przyłącze",
+    fixCircuits: "Popraw obwody",
+    columns: {
+      role: "Funkcja",
+      device: "Aparat",
+      parameters: "Parametry",
+      price: "Cena katalogowa",
+      serves: "Zabezpiecza",
+    },
+    /** What a selection serves: the whole supply (main switch), a group or one circuit. */
+    servesSupply: "Całą instalację",
+    servesGroup: (label: string) => `Grupa „${label}"`,
+    servesCircuit: (name: string) => `Obwód „${name}"`,
+    summaryUnavailable: "Parametry niedostępne",
+    count: (n: number) => `${String(n)} ${plural(n, { one: "aparat", few: "aparaty", many: "aparatów" })}`,
   },
 
   /** Circuit editor labels and defaults (S-04). */
