@@ -116,6 +116,7 @@ export const pl = {
     cabinetCatalogDescription: "Szafki rozdzielnic z wymiarami, szynami DIN, wprowadzeniami i szynami PE/N.",
     deviceCatalogLink: "Katalog aparatów",
     deviceCatalogDescription: "Aparaty modułowe i szyny PE/N z wymiarami, ceną i parametrami elektrycznymi.",
+    destinationsLabel: "Katalogi",
   },
 
   cabinets: {

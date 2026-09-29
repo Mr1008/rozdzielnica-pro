@@ -1,9 +1,11 @@
 import { useEffect, useState, type SubmitEvent } from "react";
 import { CircleAlert, Save } from "lucide-react";
-import { ServerError } from "@/components/auth/ServerError";
 import { clearStoredDraft, readStoredDraft, writeStoredDraft } from "@/components/forms/draft-storage";
 import { AddButton, NumberField, RemoveButton, Section, SelectField, TextField } from "@/components/forms/fields";
-import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { DEVICES_PATH } from "@/lib/device-catalog";
 import {
   WIDTH_UNITS,
@@ -36,7 +38,6 @@ import {
 } from "@/lib/device-spec";
 import { numberFromField } from "@/lib/draft-fields";
 import { t } from "@/lib/i18n";
-import { cn } from "@/lib/utils";
 
 interface DeviceEditorProps {
   /** The row being edited; omitted for a new device. */
@@ -75,8 +76,8 @@ function IssueList({ id, messages }: { id: string; messages: readonly string[] }
   return (
     <ul id={id} className="flex flex-col gap-1" aria-live="polite">
       {messages.map((message) => (
-        <li key={message} className="flex items-start gap-1 text-xs text-red-300">
-          <CircleAlert className="mt-0.5 size-3 shrink-0" />
+        <li key={message} className="text-destructive flex items-start gap-1 text-xs">
+          <CircleAlert className="mt-0.5 size-3 shrink-0" aria-hidden="true" />
           {message}
         </li>
       ))}
@@ -186,14 +187,19 @@ export default function DeviceEditor({ initial, action, error }: DeviceEditorPro
       )}
       {initial && <input type="hidden" name={DEVICE_FORM_FIELDS.kind} value={initial.kind} />}
 
-      <ServerError message={error} />
+      {error && (
+        <Alert variant="destructive" role="alert" className="border-destructive/40 bg-destructive-muted">
+          <CircleAlert aria-hidden="true" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
       <Section title={e.catalogSection}>
         {initial ? (
-          <div>
-            <p className="mb-1 text-xs text-blue-100/80">{f.kind}</p>
-            <p className="text-sm font-semibold text-white">{deviceKindLabel(initial.kind)}</p>
-            <p className="mt-1 text-xs text-blue-100/50">{e.kindLocked}</p>
+          <div className="flex flex-col gap-1">
+            <p className="text-sm font-medium">{f.kind}</p>
+            <p className="text-sm font-semibold">{deviceKindLabel(initial.kind)}</p>
+            <p className="text-muted-foreground text-xs">{e.kindLocked}</p>
           </div>
         ) : (
           <SelectField
@@ -271,35 +277,34 @@ export default function DeviceEditor({ initial, action, error }: DeviceEditorPro
       </Section>
 
       <Section title={e.dimensionsSection} hint={e.dimensionsHint}>
-        <fieldset>
-          <legend className="mb-1 block text-xs text-blue-100/80">{t.devices.widthUnit.label}</legend>
-          <div className="flex gap-2">
+        <div className="flex flex-col gap-1.5">
+          <Label id="device-width-unit-label">{t.devices.widthUnit.label}</Label>
+          {/* Not submitted: the hidden `width_mm` input carries the width, and the parser ignores the unit. */}
+          <ToggleGroup
+            type="single"
+            variant="outline"
+            size="sm"
+            aria-labelledby="device-width-unit-label"
+            value={draft.widthUnit}
+            onValueChange={(next) => {
+              // A single toggle group reports "" when the pressed item is clicked again; one unit is
+              // always chosen, so that is ignored.
+              const unit = WIDTH_UNITS.find((candidate) => candidate === next);
+              if (unit !== undefined) setDraft((previous) => withWidthUnit(previous, unit));
+            }}
+          >
             {WIDTH_UNITS.map((unit) => (
-              <label
+              <ToggleGroupItem
                 key={unit}
-                className={cn(
-                  "cursor-pointer rounded-lg border px-3 py-1.5 text-sm transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-purple-400",
-                  draft.widthUnit === unit
-                    ? "border-purple-400/70 bg-purple-500/30 text-white"
-                    : "border-white/20 bg-white/10 text-blue-100/80 hover:bg-white/20",
-                )}
+                value={unit}
+                // The registry marks the pressed item with the hover surface; the primary fill makes the chosen unit unmistakable.
+                className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
               >
-                {/* Named only so the two radios form one keyboard group; the form parser ignores it. */}
-                <input
-                  type="radio"
-                  name="width_unit"
-                  value={unit}
-                  className="sr-only"
-                  checked={draft.widthUnit === unit}
-                  onChange={() => {
-                    setDraft((previous) => withWidthUnit(previous, unit));
-                  }}
-                />
                 {WIDTH_UNIT_LABELS[unit]}
-              </label>
+              </ToggleGroupItem>
             ))}
-          </div>
-        </fieldset>
+          </ToggleGroup>
+        </div>
         <div className="grid gap-3 sm:grid-cols-3">
           {/* Unnamed: the hidden `width_mm` input above carries the width, always in millimetres. */}
           <NumberField
@@ -349,7 +354,7 @@ export default function DeviceEditor({ initial, action, error }: DeviceEditorPro
 
       {kind === "" && (
         <Section title={e.parametersSection}>
-          <p className="text-sm text-blue-100/60">{e.chooseKindFirst}</p>
+          <p className="text-muted-foreground text-sm">{e.chooseKindFirst}</p>
         </Section>
       )}
 
@@ -450,7 +455,7 @@ export default function DeviceEditor({ initial, action, error }: DeviceEditorPro
                   key={group.key}
                   role="group"
                   aria-label={groupLabel}
-                  className="grid items-end gap-3 rounded-lg border border-white/10 p-2 sm:grid-cols-[1fr_1fr_1fr_auto]"
+                  className="bg-muted/40 grid items-end gap-3 rounded-md border p-2 sm:grid-cols-[1fr_1fr_1fr_auto]"
                 >
                   <NumberField
                     id={`${groupId}-count`}
@@ -509,28 +514,17 @@ export default function DeviceEditor({ initial, action, error }: DeviceEditorPro
 
       <div className="flex flex-col gap-4">
         {!canSubmit && (
-          <p className="flex items-start gap-2 text-sm text-amber-200" role="status">
-            <CircleAlert className="mt-0.5 size-4 shrink-0" />
-            {e.blocked}
-          </p>
+          <Alert variant="warning" role="status">
+            <CircleAlert aria-hidden="true" />
+            <AlertDescription>{e.blocked}</AlertDescription>
+          </Alert>
         )}
         <div className="flex gap-3">
-          <Button
-            type="submit"
-            disabled={!canSubmit || submitting}
-            className="rounded-lg bg-purple-600 px-4 py-2 font-medium text-white transition-colors hover:bg-purple-500"
-          >
-            {submitting ? (
-              <span className="size-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-            ) : (
-              <Save className="size-4" />
-            )}
+          <Button type="submit" disabled={!canSubmit} pending={submitting}>
+            {!submitting && <Save aria-hidden="true" />}
             {submitting ? e.saving : e.save}
           </Button>
-          <a
-            href={DEVICES_PATH}
-            className="rounded-lg border border-white/20 bg-white/10 px-4 py-2 text-sm text-white transition-colors hover:bg-white/20"
-          >
+          <a href={DEVICES_PATH} className={buttonVariants({ variant: "outline" })}>
             {e.cancel}
           </a>
         </div>

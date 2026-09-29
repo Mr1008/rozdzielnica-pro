@@ -1,8 +1,9 @@
 ---
 import Banner from "@/components/Banner.astro";
-import Topbar from "@/components/Topbar.astro";
+import PageHeader from "@/components/PageHeader.astro";
 import DeviceEditor from "@/components/devices/DeviceEditor";
-import Layout from "@/layouts/Layout.astro";
+import { Card, CardContent } from "@/components/ui/card";
+import AppLayout from "@/layouts/AppLayout.astro";
 import { isUuid } from "@/lib/catalog";
 import { DEVICES_PATH, deviceApiPath } from "@/lib/device-catalog";
 import { deviceErrorMessage } from "@/lib/device-errors";
@@ -46,27 +47,27 @@ if (!row && !loadError) Astro.response.status = 404;
 const title = row ? t.devices.editor.editTitle : t.devices.editor.notFoundTitle;
 ---
 
-<Layout title={title}>
-  {loadError && <Banner variant="error">{loadError}</Banner>}
-  <div class="bg-cosmic min-h-screen p-4 text-white sm:p-8">
-    <div class="mx-auto max-w-6xl">
-      <Topbar />
-      <a href={DEVICES_PATH} class="text-sm text-purple-300 transition-colors hover:text-purple-100 hover:underline">
-        {t.devices.editor.backToCatalog}
-      </a>
-      <h1 class="mt-2 mb-6 bg-gradient-to-r from-blue-200 to-purple-200 bg-clip-text text-3xl font-bold text-transparent">
-        {row ? t.devices.editor.editTitleFor(row.name) : title}
-      </h1>
-      {row ? (
-        // `client:only`: the editor restores a rejected draft from sessionStorage on its first render.
-        <DeviceEditor initial={row} action={deviceApiPath(row.id)} error={error} client:only="react" />
-      ) : (
-        !loadError && (
-          <p class="rounded-2xl border border-white/10 bg-white/10 p-8 text-center text-blue-100/70">
-            {t.deviceErrors.notFound}
-          </p>
-        )
-      )}
-    </div>
-  </div>
-</Layout>
+<AppLayout title={title} width="wide">
+  {loadError && (
+    <Banner slot="banners" variant="error">
+      {loadError}
+    </Banner>
+  )}
+  <PageHeader
+    title={row ? t.devices.editor.editTitleFor(row.name) : title}
+    backHref={DEVICES_PATH}
+    backLabel={t.devices.editor.backToCatalog}
+  />
+  {row ? (
+    // `client:only`: the editor restores a rejected draft from sessionStorage on its first render.
+    <DeviceEditor initial={row} action={deviceApiPath(row.id)} error={error} client:only="react" />
+  ) : (
+    !loadError && (
+      <Card className="items-center border-dashed text-center shadow-none">
+        <CardContent>
+          <p class="text-muted-foreground">{t.deviceErrors.notFound}</p>
+        </CardContent>
+      </Card>
+    )
+  )}
+</AppLayout>

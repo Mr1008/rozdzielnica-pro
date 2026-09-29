@@ -1,10 +1,11 @@
 import { useEffect, useState, type ReactNode, type SubmitEvent } from "react";
 import { CircleAlert, Save } from "lucide-react";
-import { ServerError } from "@/components/auth/ServerError";
 import { CabinetDrawing } from "@/components/cabinets/CabinetDrawing";
 import { clearStoredDraft, readStoredDraft, writeStoredDraft } from "@/components/forms/draft-storage";
 import { AddButton, NumberField, RemoveButton, Section, SelectField, TextField } from "@/components/forms/fields";
-import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { CABINETS_PATH } from "@/lib/cabinet-catalog";
 import { issueElements } from "@/lib/cabinet-drawing";
 import {
@@ -111,9 +112,9 @@ function IssueList({ issues }: { issues: readonly GeometryIssue[] }) {
       {issues.map((issue) => (
         <li
           key={`${issue.code}-${issue.element?.kind ?? ""}-${String(issue.element?.index ?? "")}`}
-          className="flex items-start gap-1 text-xs text-red-300"
+          className="text-destructive flex items-start gap-1 text-xs"
         >
-          <CircleAlert className="mt-0.5 size-3 shrink-0" />
+          <CircleAlert className="mt-0.5 size-3 shrink-0" aria-hidden="true" />
           {geometryIssueMessage(issue)}
         </li>
       ))}
@@ -137,13 +138,13 @@ function ElementCard({ legend, active, invalid, issues, onFocus, onRemove, child
     <fieldset
       onFocus={onFocus}
       className={cn(
-        "rounded-xl border bg-white/5 p-3 transition-colors",
-        invalid ? "border-red-400/50" : active ? "border-fuchsia-400/70" : "border-white/10",
+        "bg-background rounded-lg border p-3 transition-colors",
+        invalid ? "border-destructive/60" : active ? "border-primary ring-primary ring-1" : "border-border",
       )}
     >
       <legend className="sr-only">{legend}</legend>
       <div className="mb-2 flex items-center justify-between gap-2">
-        <span aria-hidden="true" className="text-sm font-semibold text-white">
+        <span aria-hidden="true" className="text-sm font-semibold">
           {legend}
         </span>
         <RemoveButton
@@ -314,7 +315,12 @@ export default function CabinetEditor({ initial, action, error }: CabinetEditorP
       <input type="hidden" name={CABINET_FORM_FIELDS.geometry} value={JSON.stringify(candidate)} />
 
       <div className="flex min-w-0 flex-col gap-6">
-        <ServerError message={error} />
+        {error && (
+          <Alert variant="destructive" role="alert" className="border-destructive/40 bg-destructive-muted">
+            <CircleAlert aria-hidden="true" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
 
         <Section title={e.catalogSection}>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -528,7 +534,7 @@ export default function CabinetEditor({ initial, action, error }: CabinetEditorP
         </Section>
 
         <Section title={e.barsSection} hint={e.barsHint}>
-          {draft.geometry.bars.length === 0 && <p className="text-sm text-blue-100/60">{e.noBars}</p>}
+          {draft.geometry.bars.length === 0 && <p className="text-muted-foreground text-sm">{e.noBars}</p>}
           {draft.geometry.bars.map((bar, index) => {
             const barIssues = issuesOf(issues, "bar", index);
             const id = `cabinet-bar-${String(index)}`;
@@ -611,7 +617,7 @@ export default function CabinetEditor({ initial, action, error }: CabinetEditorP
                   />
                 </div>
 
-                <h3 className="mt-4 text-sm font-semibold text-white">{f.terminalGroups}</h3>
+                <h3 className="mt-4 text-sm font-semibold">{f.terminalGroups}</h3>
                 <div className="mt-2 flex flex-col gap-2">
                   {bar.terminalGroups.map((group, groupIndex) => {
                     const groupId = `${id}-group-${String(groupIndex)}`;
@@ -621,7 +627,7 @@ export default function CabinetEditor({ initial, action, error }: CabinetEditorP
                         key={group.key}
                         role="group"
                         aria-label={groupLabel}
-                        className="grid items-end gap-3 rounded-lg border border-white/10 p-2 sm:grid-cols-[1fr_1fr_1fr_auto]"
+                        className="bg-muted/40 grid items-end gap-3 rounded-md border p-2 sm:grid-cols-[1fr_1fr_1fr_auto]"
                       >
                         <NumberField
                           id={`${groupId}-count`}
@@ -680,10 +686,12 @@ export default function CabinetEditor({ initial, action, error }: CabinetEditorP
         </Section>
       </div>
 
-      <aside className="flex flex-col gap-4 self-start lg:sticky lg:top-4">
-        <section className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur-xl">
-          <h2 className="mb-3 text-lg font-semibold text-white">{e.preview}</h2>
-          <div className="rounded-lg bg-white/90 p-3">
+      <aside className="flex flex-col gap-4 self-start lg:sticky lg:top-6" aria-label={e.preview}>
+        <Card className="gap-3 py-4">
+          <CardHeader className="px-4">
+            <h2 className="text-lg leading-none font-semibold">{e.preview}</h2>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-2 px-4">
             {preview ? (
               <CabinetDrawing
                 geometry={preview}
@@ -693,35 +701,24 @@ export default function CabinetEditor({ initial, action, error }: CabinetEditorP
                 className="max-h-[70vh]"
               />
             ) : (
-              <p className="py-8 text-center text-sm text-zinc-700">{e.previewUnavailable}</p>
+              <p className="text-muted-foreground py-8 text-center text-sm">{e.previewUnavailable}</p>
             )}
-          </div>
-          {preview && !candidateDrawable && <p className="mt-2 text-xs text-amber-200">{e.previewStale}</p>}
-        </section>
+            {preview && !candidateDrawable && <p className="text-warning text-xs">{e.previewStale}</p>}
+          </CardContent>
+        </Card>
 
         {!canSubmit && (
-          <p className="flex items-start gap-2 text-sm text-amber-200" role="status">
-            <CircleAlert className="mt-0.5 size-4 shrink-0" />
-            {e.blocked}
-          </p>
+          <Alert variant="warning" role="status">
+            <CircleAlert aria-hidden="true" />
+            <AlertDescription>{e.blocked}</AlertDescription>
+          </Alert>
         )}
         <div className="flex gap-3">
-          <Button
-            type="submit"
-            disabled={!canSubmit || submitting}
-            className="flex-1 rounded-lg bg-purple-600 px-4 py-2 font-medium text-white transition-colors hover:bg-purple-500"
-          >
-            {submitting ? (
-              <span className="size-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-            ) : (
-              <Save className="size-4" />
-            )}
+          <Button type="submit" disabled={!canSubmit} pending={submitting} className="flex-1">
+            {!submitting && <Save aria-hidden="true" />}
             {submitting ? e.saving : e.save}
           </Button>
-          <a
-            href={CABINETS_PATH}
-            className="rounded-lg border border-white/20 bg-white/10 px-4 py-2 text-sm text-white transition-colors hover:bg-white/20"
-          >
+          <a href={CABINETS_PATH} className={buttonVariants({ variant: "outline" })}>
             {e.cancel}
           </a>
         </div>
