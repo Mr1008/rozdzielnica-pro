@@ -670,6 +670,108 @@ export const pl = {
     none: "Uproszczone kontrole nie wykazały zastrzeżeń do parametrów przyłącza.",
   },
 
+  /** Circuit editor labels and defaults (S-04). */
+  circuits: {
+    /** The label a new RCD group gets: the lowest unused n. See `nextGroupLabel` in `src/lib/circuit-draft.ts`. */
+    defaultGroupLabel: (n: number) => `RCD ${String(n)}`,
+    /** The name a new circuit gets; the electrician renames it. */
+    defaultCircuitName: (n: number) => `Obwód ${String(n)}`,
+  },
+
+  /**
+   * Keyed by `CircuitIssueCode` (camelCased). See `circuitIssueMessage` in `src/lib/circuit-params.ts`.
+   */
+  circuitIssues: {
+    payload: "Lista obwodów",
+    groupList: "Grupy RCD",
+    circuitList: "Obwody",
+    groupNumbered: (n: number) => `Grupa RCD ${String(n)}`,
+    circuitNumbered: (n: number) => `Obwód ${String(n)}`,
+    /** "Obwód 3" + "Prąd znamionowy" → "Obwód 3, Prąd znamionowy". */
+    subject: (owner: string, field: string) => `${owner}, ${field}`,
+    /** Keyed by `CircuitField` (camelCased). */
+    fields: {
+      id: "Identyfikator",
+      label: "Nazwa grupy",
+      residualCurrentMa: "Prąd różnicowy",
+      minRcdType: "Minimalny typ wyłącznika różnicowoprądowego",
+      rcdGroupId: "Grupa RCD",
+      name: "Nazwa obwodu",
+      ratedCurrentA: "Prąd znamionowy",
+      phaseCount: "Liczba faz",
+      crossSectionMm2: "Przekrój przewodu",
+      installation: "Sposób ułożenia",
+      entrySide: "Strona wprowadzenia przewodów",
+    },
+    malformed: (subject: string) => `${subject}: dane są niekompletne lub nieprawidłowe`,
+    required: (subject: string) => `${subject}: pole jest wymagane`,
+    notInList: (subject: string) => `${subject}: wybierz wartość z listy`,
+    tooLong: (subject: string, max: number) =>
+      `${subject}: najwyżej ${String(max)} ${plural(max, { one: "znak", few: "znaki", many: "znaków" })}`,
+    unknownGroup: (subject: string) => `${subject}: wskazana grupa RCD nie istnieje`,
+    duplicateId: (subject: string) => `${subject}: identyfikator powtarza się w formularzu`,
+    tooMany: (subject: string, max: number) => `${subject}: za dużo pozycji (maks. ${String(max)})`,
+  },
+
+  /**
+   * Keyed by `CircuitWarningCode` (camelCased). See `circuitWarningMessage` in
+   * `src/lib/circuit-warnings.ts`.
+   */
+  circuitWarnings: {
+    cableAmpacityBelowIn: (circuitName: string, ampacityA: number, ratedA: number) =>
+      `Obwód „${circuitName}": obciążalność prądowa długotrwała przewodu (${formatNumber(ampacityA)} A dla tego przekroju i sposobu ułożenia) jest mniejsza niż prąd znamionowy zabezpieczenia (${formatNumber(ratedA)} A). Rozważ większy przekrój albo mniejsze zabezpieczenie.`,
+    barsMissing: "Wybrana szafka nie ma szyn PE ani N — przewody ochronne i neutralne nie mają gdzie się podłączyć.",
+    barTerminalsInsufficient: (kind: string, needed: number, available: number) =>
+      `Szyna ${kind}: potrzeba ${formatNumber(needed)} ${plural(needed, { one: "zacisku", few: "zacisków", many: "zacisków", other: "zacisku" })} o pasującym przekroju (obwody i WLZ), a pasuje tylko ${formatNumber(available)}.`,
+    entrySideNotInCabinet: (circuitName: string, side: string) =>
+      `Obwód „${circuitName}": szafka nie ma wprowadzenia przewodów od strony „${side}".`,
+    note: "Kontrole są uproszczone i mają charakter informacyjny: obciążalność pochodzi z tabel dla przewodów miedzianych w izolacji PVC bez współczynników poprawkowych (temperatura, grupowanie). Nie blokują zapisu i nie zastępują obliczeń projektowych.",
+  },
+
+  /** Device matching: roles, catalog gaps and blockers. See `src/lib/device-matching.ts`. */
+  matching: {
+    /** Keyed by `SelectionRole` (camelCased). */
+    roles: {
+      mainSwitch: "Rozłącznik główny (FR)",
+      rcd: "Wyłącznik różnicowoprądowy (RCD)",
+      rcbo: "Wyłącznik różnicowonadprądowy (RCBO)",
+      mcb: "Wyłącznik nadprądowy B (MCB)",
+    },
+    /** Keyed by `SelectionNote` (camelCased). */
+    notes: {
+      rcboFallback:
+        "W katalogu nie ma pasującego wyłącznika RCBO — zamiast niego dobrano wyłącznik różnicowoprądowy i wyłącznik nadprądowy.",
+      noRcd: "Ten obwód nie ma ochrony różnicowoprądowej.",
+    },
+    /** A pole set as the gap text shows it: "1P / 1P+N / 2P". */
+    polesSeparator: " / ",
+    /** Keyed by the gap's `role`. Each names exactly the device the catalog is missing. */
+    gaps: {
+      mainSwitch: (minRatedA: number, poles: string) =>
+        `Brak w katalogu: rozłącznik izolacyjny (FR) o prądzie znamionowym co najmniej ${formatNumber(minRatedA)} A, ${poles} — rozłącznik główny.`,
+      rcd: (minRatedA: number, residualMa: number, minType: string, poles: string, groupLabel: string) =>
+        `Brak w katalogu: wyłącznik różnicowoprądowy o prądzie znamionowym co najmniej ${formatNumber(minRatedA)} A, ${formatNumber(residualMa)} mA, typ ${minType} lub wyższy, ${poles} — grupa: „${groupLabel}".`,
+      rcbo: (ratedA: number, residualMa: number, minType: string, poles: string, circuitName: string) =>
+        `Brak w katalogu: wyłącznik różnicowonadprądowy B${String(ratedA)}, ${formatNumber(residualMa)} mA, typ ${minType} lub wyższy, ${poles} — obwód: „${circuitName}".`,
+      mcb: (ratedA: number, poles: string, circuitName: string) =>
+        `Brak w katalogu: wyłącznik nadprądowy B${String(ratedA)}, ${poles} — obwód: „${circuitName}".`,
+      /** Appended to an RCD or MCB gap that is part of the RCD + MCB alternative to a missing RCBO. */
+      fallbackSuffix: " To alternatywa dla brakującego wyłącznika RCBO tego obwodu.",
+      contactAdmin: "Skontaktuj się z administratorem, aby uzupełnił katalog aparatów.",
+    },
+    /** Keyed by `BlockReason["code"]` (camelCased). */
+    blockReasons: {
+      supplyMissing: "Uzupełnij parametry przyłącza, zanim system dobierze aparaty.",
+      noCircuits: "Dodaj co najmniej jeden obwód, zanim system dobierze aparaty.",
+      tnCWithRcd:
+        "W układzie TN-C nie można stosować wyłączników różnicowoprądowych. Jeśli PEN jest rozdzielany w rozdzielnicy, wybierz w przyłączu układ TN-C-S, albo usuń obwody z grup RCD.",
+      circuitPhaseExceedsSupply: (circuitName: string) =>
+        `Obwód „${circuitName}" jest trójfazowy, a przyłącze jest jednofazowe.`,
+      circuitGroupUnknown: (circuitName: string) =>
+        `Obwód „${circuitName}" jest przypisany do grupy RCD, która nie istnieje — przypisz go ponownie.`,
+    },
+  },
+
   /** Development-only pages (never reachable in a production build). */
   devTools: {
     kitchenSink: {
