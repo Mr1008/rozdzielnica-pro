@@ -789,18 +789,18 @@ new `t.landing` key group. The no-role redirect target (`NO_ROLE_PATH`) must sti
 
 #### Automated
 
-- [x] 5.1 Lint passes: `npm run lint`
-- [x] 5.2 Types pass: `npx astro check`
-- [x] 5.3 Unit tests pass: `npm run test:unit`
-- [x] 5.4 Build passes: `npm run build`
-- [x] 5.5 Repo-wide palette check returns nothing
-- [x] 5.6 No hex/rgba colours in components, pages or layouts
-- [x] 5.7 No `Welcome` or `LibBadge` references left
-- [x] 5.8 Smoke passes against the preview build on the local stack
+- [x] 5.1 Lint passes: `npm run lint` — fe84693
+- [x] 5.2 Types pass: `npx astro check` — fe84693
+- [x] 5.3 Unit tests pass: `npm run test:unit` — fe84693
+- [x] 5.4 Build passes: `npm run build` — fe84693
+- [x] 5.5 Repo-wide palette check returns nothing — fe84693
+- [x] 5.6 No hex/rgba colours in components, pages or layouts — fe84693
+- [x] 5.7 No `Welcome` or `LibBadge` references left — fe84693
+- [x] 5.8 Smoke passes against the preview build on the local stack — fe84693
 
 #### Manual
 
-- [x] 5.9 Screenshots of landing and auth pages in all listed states
-- [x] 5.10 Landing animation stops under reduced motion
-- [x] 5.11 Final re-screenshot of every page and the kitchen sink
-- [x] 5.12 Sign-up → sign-in → dashboard → project flow works end to end
+- [x] 5.9 Screenshots of landing and auth pages in all listed states — fe84693
+- [x] 5.10 Landing animation stops under reduced motion — fe84693
+- [x] 5.11 Final re-screenshot of every page and the kitchen sink — fe84693
+- [x] 5.12 Sign-up → sign-in → dashboard → project flow works end to end — fe84693

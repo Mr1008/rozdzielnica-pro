@@ -1,7 +1,7 @@
 ---
 change_id: ui-layout-theme
 title: Ui layout theme
-status: implementing
+status: implemented
 created: 2026-09-25
 updated: 2026-09-29
 archived_at: null
