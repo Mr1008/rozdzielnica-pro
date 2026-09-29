@@ -770,28 +770,28 @@ which is the correct behaviour.
 
 #### Automated
 
-- [x] 1.1 Unit tests pass: `npm run test:unit`
-- [x] 1.2 Lint passes: `npm run lint`
-- [x] 1.3 Type check passes: `npx astro check`
+- [x] 1.1 Unit tests pass: `npm run test:unit` — 648219f
+- [x] 1.2 Lint passes: `npm run lint` — 648219f
+- [x] 1.3 Type check passes: `npx astro check` — 648219f
 
 #### Manual
 
-- [x] 1.4 Electrician verifies the 1.5 mm² Cu ampacity values against PN-HD 60364-5-52 tables B.52.2 / B.52.4 and the comment is updated with the verification date
-- [x] 1.5 Electrician reviews the matching rule table (poles per system, exact In, IΔn exact, type rank, RCD In ≥ max MCB, FR ≥ premeter) and confirms it matches practice
+- [x] 1.4 Electrician verifies the 1.5 mm² Cu ampacity values against PN-HD 60364-5-52 tables B.52.2 / B.52.4 and the comment is updated with the verification date — 648219f
+- [x] 1.5 Electrician reviews the matching rule table (poles per system, exact In, IΔn exact, type rank, RCD In ≥ max MCB, FR ≥ premeter) and confirms it matches practice — 648219f
 
 ### Phase 2: Database — circuits, groups, device snapshot
 
 #### Automated
 
-- [ ] 2.1 Migration applies cleanly on a fresh stack: `npx supabase db reset`
-- [ ] 2.2 Types regenerate with no manual edits: `npm run db:types`
-- [ ] 2.3 RLS integration tests pass: `npm run test:integration`
-- [ ] 2.4 Unit tests pass: `npm run test:unit`
-- [ ] 2.5 Lint and type check pass: `npm run lint` and `npx astro check`
+- [x] 2.1 Migration applies cleanly on a fresh stack: `npx supabase db reset`
+- [x] 2.2 Types regenerate with no manual edits: `npm run db:types`
+- [x] 2.3 RLS integration tests pass: `npm run test:integration`
+- [x] 2.4 Unit tests pass: `npm run test:unit`
+- [x] 2.5 Lint and type check pass: `npm run lint` and `npx astro check`
 
 #### Manual
 
-- [ ] 2.6 In Supabase Studio, the three tables show RLS enabled and no admin policy
+- [x] 2.6 In Supabase Studio, the three tables show RLS enabled and no admin policy
 
 ### Phase 3: Endpoints and the server-rendered result
 

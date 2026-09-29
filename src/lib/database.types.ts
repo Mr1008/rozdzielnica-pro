@@ -70,6 +70,66 @@ export type Database = {
         }
         Relationships: []
       }
+      circuits: {
+        Row: {
+          created_at: string
+          cross_section_mm2: number
+          entry_side: Database["public"]["Enums"]["entry_side"]
+          id: string
+          installation: Database["public"]["Enums"]["wlz_installation"]
+          name: string
+          phase_count: number
+          position: number
+          project_id: string
+          rated_current_a: number
+          rcd_group_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          cross_section_mm2: number
+          entry_side: Database["public"]["Enums"]["entry_side"]
+          id: string
+          installation: Database["public"]["Enums"]["wlz_installation"]
+          name: string
+          phase_count: number
+          position: number
+          project_id: string
+          rated_current_a: number
+          rcd_group_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          cross_section_mm2?: number
+          entry_side?: Database["public"]["Enums"]["entry_side"]
+          id?: string
+          installation?: Database["public"]["Enums"]["wlz_installation"]
+          name?: string
+          phase_count?: number
+          position?: number
+          project_id?: string
+          rated_current_a?: number
+          rcd_group_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "circuits_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "circuits_rcd_group_fkey"
+            columns: ["project_id", "rcd_group_id"]
+            isOneToOne: false
+            referencedRelation: "rcd_groups"
+            referencedColumns: ["project_id", "id"]
+          },
+        ]
+      }
       devices: {
         Row: {
           archived_at: string | null
@@ -192,6 +252,110 @@ export type Database = {
         }
         Relationships: []
       }
+      project_devices: {
+        Row: {
+          breaking_capacity_ka: number | null
+          circuit_id: string | null
+          created_at: string
+          depth_mm: number
+          device_id: string
+          height_mm: number
+          id: string
+          kind: Database["public"]["Enums"]["device_kind"]
+          manufacturer: string
+          model: string
+          name: string
+          notes: string[]
+          poles: Database["public"]["Enums"]["pole_config"] | null
+          position: number
+          price_grosze: number
+          project_id: string
+          rated_current_a: number | null
+          rcd_group_id: string | null
+          rcd_type: Database["public"]["Enums"]["rcd_type"] | null
+          residual_current_ma: number | null
+          role: string
+          width_mm: number
+        }
+        Insert: {
+          breaking_capacity_ka?: number | null
+          circuit_id?: string | null
+          created_at?: string
+          depth_mm?: number
+          device_id: string
+          height_mm?: number
+          id?: string
+          kind?: Database["public"]["Enums"]["device_kind"]
+          manufacturer?: string
+          model?: string
+          name?: string
+          notes?: string[]
+          poles?: Database["public"]["Enums"]["pole_config"] | null
+          position: number
+          price_grosze?: number
+          project_id: string
+          rated_current_a?: number | null
+          rcd_group_id?: string | null
+          rcd_type?: Database["public"]["Enums"]["rcd_type"] | null
+          residual_current_ma?: number | null
+          role: string
+          width_mm?: number
+        }
+        Update: {
+          breaking_capacity_ka?: number | null
+          circuit_id?: string | null
+          created_at?: string
+          depth_mm?: number
+          device_id?: string
+          height_mm?: number
+          id?: string
+          kind?: Database["public"]["Enums"]["device_kind"]
+          manufacturer?: string
+          model?: string
+          name?: string
+          notes?: string[]
+          poles?: Database["public"]["Enums"]["pole_config"] | null
+          position?: number
+          price_grosze?: number
+          project_id?: string
+          rated_current_a?: number | null
+          rcd_group_id?: string | null
+          rcd_type?: Database["public"]["Enums"]["rcd_type"] | null
+          residual_current_ma?: number | null
+          role?: string
+          width_mm?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_devices_circuit_fkey"
+            columns: ["project_id", "circuit_id"]
+            isOneToOne: false
+            referencedRelation: "circuits"
+            referencedColumns: ["project_id", "id"]
+          },
+          {
+            foreignKeyName: "project_devices_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_devices_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_devices_rcd_group_fkey"
+            columns: ["project_id", "rcd_group_id"]
+            isOneToOne: false
+            referencedRelation: "rcd_groups"
+            referencedColumns: ["project_id", "id"]
+          },
+        ]
+      }
       projects: {
         Row: {
           cabinet_geometry: Json
@@ -290,6 +454,47 @@ export type Database = {
           },
         ]
       }
+      rcd_groups: {
+        Row: {
+          created_at: string
+          id: string
+          label: string
+          min_rcd_type: Database["public"]["Enums"]["rcd_type"]
+          position: number
+          project_id: string
+          residual_current_ma: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id: string
+          label: string
+          min_rcd_type: Database["public"]["Enums"]["rcd_type"]
+          position: number
+          project_id: string
+          residual_current_ma: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          label?: string
+          min_rcd_type?: Database["public"]["Enums"]["rcd_type"]
+          position?: number
+          project_id?: string
+          residual_current_ma?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rcd_groups_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -297,6 +502,15 @@ export type Database = {
     Functions: {
       custom_access_token_hook: { Args: { event: Json }; Returns: Json }
       is_admin: { Args: never; Returns: boolean }
+      save_project_circuits: {
+        Args: {
+          p_circuits: Json
+          p_device_ids: Json
+          p_groups: Json
+          p_project_id: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       conductor_material: "Cu" | "Al"
@@ -308,6 +522,7 @@ export type Database = {
         | "pe_bar"
         | "n_bar"
       earthing_system: "TN-C" | "TN-S" | "TN-C-S" | "TT"
+      entry_side: "top" | "bottom" | "left" | "right"
       pole_config: "1P" | "1P+N" | "2P" | "3P" | "3P+N" | "4P"
       rcd_type: "AC" | "A" | "F" | "B"
       user_role: "admin" | "elektryk"
@@ -457,6 +672,7 @@ export const Constants = {
         "n_bar",
       ],
       earthing_system: ["TN-C", "TN-S", "TN-C-S", "TT"],
+      entry_side: ["top", "bottom", "left", "right"],
       pole_config: ["1P", "1P+N", "2P", "3P", "3P+N", "4P"],
       rcd_type: ["AC", "A", "F", "B"],
       user_role: ["admin", "elektryk"],

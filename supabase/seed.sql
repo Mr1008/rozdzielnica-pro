@@ -121,7 +121,9 @@ on conflict ((lower(manufacturer)), (lower(model))) do nothing;
 --   * MCB type B, 6 kA: B6–B32 in 1P, and B16/B20/B25 in 3P;
 --   * the same MCB B16 1P from two manufacturers at two prices — the cheapest-match case;
 --   * RCD 40 A 30 mA in 2P and 4P, types A and AC; RCBO B10 and B16 1P+N 30 mA type A, 6 kA;
---   * switch-disconnectors (FR, no fuse links) 1P and 3P; one PE bar and one N bar;
+--   * switch-disconnectors (FR, no fuse links) 1P 63 A, and 2P, 3P and 4P at 40 A and 63 A — so the
+--     single-phase (2P) and three-phase TN-S/TN-C-S (4P) main-switch paths all match; one PE bar and
+--     one N bar;
 --   * NO B40 in any pole configuration — the catalog-gap case (a circuit needing 40 A gets the
 --     "contact the admin" error, never an under-rated MCB).
 -- Widths are real DIN module multiples (17.5 mm per module). Every row must pass `parseDeviceSpec`;
@@ -152,6 +154,10 @@ values
   ('switch_disconnector', 'Rozłącznik izolacyjny 1P 63 A', 'Przykładowy producent', 'PRZ-FR-1P-63', 3990, 17.5, 85, 70, '1P', 63, null, null, null, null),
   ('switch_disconnector', 'Rozłącznik izolacyjny 3P 40 A', 'Przykładowy producent', 'PRZ-FR-3P-40', 9990, 52.5, 85, 70, '3P', 40, null, null, null, null),
   ('switch_disconnector', 'Rozłącznik izolacyjny 3P 63 A', 'Przykładowy producent', 'PRZ-FR-3P-63', 11990, 52.5, 85, 70, '3P', 63, null, null, null, null),
+  ('switch_disconnector', 'Rozłącznik izolacyjny 2P 40 A', 'Przykładowy producent', 'PRZ-FR-2P-40', 6990, 35, 85, 70, '2P', 40, null, null, null, null),
+  ('switch_disconnector', 'Rozłącznik izolacyjny 2P 63 A', 'Przykładowy producent', 'PRZ-FR-2P-63', 7990, 35, 85, 70, '2P', 63, null, null, null, null),
+  ('switch_disconnector', 'Rozłącznik izolacyjny 4P 40 A', 'Przykładowy producent', 'PRZ-FR-4P-40', 12990, 70, 85, 70, '4P', 40, null, null, null, null),
+  ('switch_disconnector', 'Rozłącznik izolacyjny 4P 63 A', 'Przykładowy producent', 'PRZ-FR-4P-63', 14990, 70, 85, 70, '4P', 63, null, null, null, null),
   ('pe_bar', 'Szyna PE 12-torowa', 'Przykładowy producent', 'PRZ-PE-12', 2490, 70, 15, 20, null, null, null, null, null,
     '[{"count":10,"minMm2":1.5,"maxMm2":16},{"count":2,"minMm2":6,"maxMm2":25}]'::jsonb),
   ('n_bar', 'Szyna N 12-torowa', 'Przykładowy producent', 'PRZ-N-12', 2490, 70, 15, 20, null, null, null, null, null,
