@@ -1,4 +1,11 @@
 ---
+// Fonts are imported once, here. Plex Sans ships as one variable file per subset; Plex Mono only in
+// the two weights the UI uses, and only the latin + latin-ext subsets Polish text needs.
+import "@fontsource-variable/ibm-plex-sans/wght.css";
+import "@fontsource/ibm-plex-mono/latin-400.css";
+import "@fontsource/ibm-plex-mono/latin-ext-400.css";
+import "@fontsource/ibm-plex-mono/latin-500.css";
+import "@fontsource/ibm-plex-mono/latin-ext-500.css";
 import "../styles/global.css";
 import Banner from "@/components/Banner.astro";
 import { missingConfigs } from "@/lib/config-status";
@@ -9,6 +16,7 @@ interface Props {
 }
 
 const { title = t.app.name } = Astro.props;
+const ogImage = new URL("/og-image.png", Astro.url).href;
 ---
 
 <!doctype html>
@@ -16,33 +24,38 @@ const { title = t.app.name } = Astro.props;
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width" />
-    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="description" content={t.app.tagline} />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content={t.app.name} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={t.app.tagline} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
     <title>{title}</title>
   </head>
-  <body>
-    {missingConfigs.map((cfg) => (
-      <Banner variant="error">
-        <strong>{t.common.warningPrefix}</strong> {cfg.message}
-        {cfg.docsUrl && (
-          <>
-            {" "}
-            <a href={cfg.docsUrl} target="_blank" rel="noopener noreferrer">
-              {cfg.docsLabel ?? t.common.documentation}
-            </a>
-            .
-          </>
-        )}
-      </Banner>
-    ))}
+  <body class="bg-background text-foreground">
+    {missingConfigs.length > 0 && (
+      <div class="flex flex-col gap-2 p-4">
+        {missingConfigs.map((cfg) => (
+          <Banner variant="error">
+            <strong>{t.common.warningPrefix}</strong> {cfg.message}
+            {cfg.docsUrl && (
+              <>
+                {" "}
+                <a href={cfg.docsUrl} target="_blank" rel="noopener noreferrer">
+                  {cfg.docsLabel ?? t.common.documentation}
+                </a>
+                .
+              </>
+            )}
+          </Banner>
+        ))}
+      </div>
+    )}
     <slot />
   </body>
 </html>
-
-<style>
-  html,
-  body {
-    margin: 0;
-    width: 100%;
-    height: 100%;
-  }
-</style>

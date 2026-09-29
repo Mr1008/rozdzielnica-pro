@@ -1,6 +1,6 @@
 ---
 import Banner from "@/components/Banner.astro";
-import Welcome from "@/components/Welcome.astro";
+import Landing from "@/components/Landing.astro";
 import Layout from "@/layouts/Layout.astro";
 import { authErrorMessage } from "@/lib/auth-errors";
 
@@ -8,11 +8,17 @@ import { authErrorMessage } from "@/lib/auth-errors";
 // (`NO_ROLE_PATH` in `@/lib/route-access`). Without this the bounce would be silent: the user
 // would be pushed off every gated route with nothing on screen explaining why. Same code-not-
 // message pattern as `auth/signin.astro` — an unmapped code still reaches the URL, so it stays
-// diagnosable while the user sees Polish.
+// diagnosable while the user sees Polish. The banner sits at the top of the landing page, under
+// its header.
 const error = authErrorMessage(Astro.url.searchParams.get("error"));
 ---
 
 <Layout>
-  {error && <Banner variant="error">{error}</Banner>}
-  <Welcome />
+  <Landing>
+    {error && (
+      <Banner slot="banner" variant="error">
+        {error}
+      </Banner>
+    )}
+  </Landing>
 </Layout>

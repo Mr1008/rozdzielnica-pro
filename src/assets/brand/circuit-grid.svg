@@ -1,0 +1,24 @@
+<!-- Tileable drafting grid with a sparse circuit trace, for hero-register backgrounds. Inline it (it is
+     an Astro SVG component) inside a positioned hero surface and size it with CSS (e.g. size-full). It
+     has no viewBox, so the 320 px tile never scales and the pattern repeats it: a 40 px drafting grid,
+     and one faint trace per tile so the texture stays quiet behind text. Colours are the hero grid and
+     hero current tokens from global.css, read through CSS custom properties, so the file carries no
+     colour of its own. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320" fill="none">
+  <defs>
+    <pattern id="brand-circuit-grid" width="320" height="320" patternUnits="userSpaceOnUse">
+      <path
+        d="M0 .5H320M0 40.5H320M0 80.5H320M0 120.5H320M0 160.5H320M0 200.5H320M0 240.5H320M0 280.5H320M.5 0V320M40.5 0V320M80.5 0V320M120.5 0V320M160.5 0V320M200.5 0V320M240.5 0V320M280.5 0V320"
+        style="stroke: var(--hero-grid)"
+      />
+      <path
+        d="M0 80.5H120.5V200.5H240.5V120.5H320"
+        style="stroke: var(--hero-current); stroke-opacity: 0.22"
+        stroke-width="1.5"
+      />
+      <circle cx="120.5" cy="80.5" r="2.5" style="fill: var(--hero-current); fill-opacity: 0.3" />
+      <circle cx="240.5" cy="200.5" r="2.5" style="fill: var(--hero-current); fill-opacity: 0.3" />
+    </pattern>
+  </defs>
+  <rect width="100%" height="100%" fill="url(#brand-circuit-grid)" />
+</svg>

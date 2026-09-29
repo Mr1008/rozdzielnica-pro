@@ -1,13 +1,17 @@
 ---
 import Banner from "@/components/Banner.astro";
-import Topbar from "@/components/Topbar.astro";
-import Layout from "@/layouts/Layout.astro";
+import PageHeader from "@/components/PageHeader.astro";
+import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import AppLayout from "@/layouts/AppLayout.astro";
 import { formatDate, t } from "@/lib/i18n";
 import { NEW_PROJECT_PATH, projectPath } from "@/lib/project";
 import { projectErrorMessage } from "@/lib/project-errors";
 import { ROLE_HOME } from "@/lib/route-access";
 import { createClient } from "@/lib/supabase";
 import { supplyFromRow } from "@/lib/supply-params";
+import { PlusIcon } from "lucide-react";
 
 // No role check here on purpose: `/dashboard/*` is gated to electricians in
 // `src/lib/route-access.ts`, and RLS returns only the caller's own projects.
@@ -40,68 +44,94 @@ const { rows, loadError } = await loadProjects();
 const projects = rows.map((row) => ({ ...row, supplyMissing: supplyFromRow(row) === null }));
 ---
 
-<Layout title={t.projects.list.title}>
-  {actionError && <Banner variant="error">{actionError}</Banner>}
-  {loadError && <Banner variant="error">{loadError}</Banner>}
-  {deleted && <Banner variant="info">{t.projects.list.deleted}</Banner>}
-  <div class="bg-cosmic min-h-screen p-4 text-white sm:p-8">
-    <div class="mx-auto max-w-4xl">
-      <Topbar />
+<AppLayout title={t.projects.list.title}>
+  {actionError && (
+    <Banner slot="banners" variant="error">
+      {actionError}
+    </Banner>
+  )}
+  {loadError && (
+    <Banner slot="banners" variant="error">
+      {loadError}
+    </Banner>
+  )}
+  {deleted && (
+    <Banner slot="banners" variant="success">
+      {t.projects.list.deleted}
+    </Banner>
+  )}
 
-      <div class="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <a
-            href={ROLE_HOME.elektryk}
-            class="text-sm text-purple-300 transition-colors hover:text-purple-100 hover:underline"
-          >
-            {t.projects.list.backToDashboard}
-          </a>
-          <h1 class="mt-2 bg-gradient-to-r from-blue-200 to-purple-200 bg-clip-text text-3xl font-bold text-transparent">
-            {t.projects.list.title}
-          </h1>
-          <p class="mt-1 text-blue-100/70">{t.projects.list.description}</p>
-          {!loadError && projects.length > 0 && (
-            <p class="mt-1 text-sm text-blue-100/50">{t.projects.list.count(projects.length)}</p>
-          )}
-        </div>
-        <a
-          href={NEW_PROJECT_PATH}
-          class="rounded-lg bg-purple-500/80 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-purple-500"
-        >
+  <PageHeader
+    title={t.projects.list.title}
+    backHref={ROLE_HOME.elektryk}
+    backLabel={t.projects.list.backToDashboard}
+    description={t.projects.list.description}
+  >
+    <a slot="actions" href={NEW_PROJECT_PATH} class:list={buttonVariants()}>
+      <PlusIcon aria-hidden="true" />
+      {t.projects.list.newProject}
+    </a>
+  </PageHeader>
+
+  {!loadError && projects.length === 0 && (
+    <Card className="items-center border-dashed text-center shadow-none">
+      <CardContent className="flex flex-col items-center gap-4">
+        <p class="max-w-md text-muted-foreground">{t.projects.list.empty}</p>
+        <a href={NEW_PROJECT_PATH} class:list={buttonVariants()}>
+          <PlusIcon aria-hidden="true" />
           {t.projects.list.newProject}
         </a>
-      </div>
+      </CardContent>
+    </Card>
+  )}
 
-      {!loadError && projects.length === 0 && (
-        <p class="rounded-2xl border border-white/10 bg-white/10 p-8 text-center text-blue-100/70">
-          {t.projects.list.empty}
-        </p>
-      )}
-
-      <ul class="flex flex-col gap-3">
-        {projects.map((project) => (
-          <li>
-            <a
-              href={projectPath(project.id)}
-              class="flex flex-col gap-1 rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur-xl transition-colors hover:bg-white/20"
-            >
-              <span class="flex flex-wrap items-center gap-2">
-                <span class="text-lg font-semibold">{project.name}</span>
-                {project.supplyMissing && (
-                  <span class="rounded-full border border-amber-300/40 bg-amber-400/20 px-2 py-0.5 text-xs text-amber-100">
-                    {t.projects.list.supplyMissingBadge}
-                  </span>
-                )}
-              </span>
-              <span class="text-sm text-blue-100/80">{project.client_name ?? t.projects.list.noClient}</span>
-              <span class="text-sm text-blue-100/60">{t.projects.list.cabinet(project.cabinet_name)}</span>
-              <span class="text-xs text-blue-100/50">
-                {t.projects.list.updatedAt(formatDate(project.updated_at, Astro.locals.timeZone))}
-              </span>
-            </a>
-          </li>
-        ))}
-      </ul>
-    </div>
-  </div>
-</Layout>
+  {projects.length > 0 && (
+    <Card className="gap-0 overflow-x-auto py-0">
+      <table class="w-full border-collapse text-sm">
+        <caption class="px-6 pt-4 pb-2 text-left text-muted-foreground">
+          {t.projects.list.count(projects.length)}
+        </caption>
+        <thead>
+          <tr class="border-b text-left text-muted-foreground">
+            <th scope="col" class="px-6 py-3 font-medium">
+              {t.projects.list.columns.name}
+            </th>
+            <th scope="col" class="px-6 py-3 font-medium">
+              {t.projects.list.columns.client}
+            </th>
+            <th scope="col" class="px-6 py-3 font-medium">
+              {t.projects.list.columns.cabinet}
+            </th>
+            <th scope="col" class="px-6 py-3 text-right font-medium">
+              {t.projects.list.columns.updatedAt}
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {projects.map((project) => (
+            <tr class="border-b last:border-b-0 hover:bg-muted">
+              <th scope="row" class="px-6 py-3 text-left font-normal">
+                <span class="flex flex-wrap items-center gap-2">
+                  <a
+                    href={projectPath(project.id)}
+                    class="font-semibold text-foreground underline-offset-4 hover:text-primary hover:underline"
+                  >
+                    {project.name}
+                  </a>
+                  {project.supplyMissing && <Badge variant="warning">{t.projects.list.supplyMissingBadge}</Badge>}
+                </span>
+              </th>
+              <td class:list={["px-6 py-3", project.client_name === null && "text-muted-foreground"]}>
+                {project.client_name ?? t.projects.list.noClient}
+              </td>
+              <td class="px-6 py-3">{project.cabinet_name}</td>
+              <td class="px-6 py-3 text-right font-mono whitespace-nowrap text-muted-foreground">
+                {formatDate(project.updated_at, Astro.locals.timeZone)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </Card>
+  )}
+</AppLayout>

@@ -7,7 +7,8 @@ import { PROJECT_FIELDS } from "@/lib/project";
 /**
  * The radio list of active catalog cabinets, shared by the new-project form and the project page's
  * cabinet change. Server-rendered: the drawing is static SVG, no island. A cabinet whose stored
- * geometry no longer parses is still listed, just without a drawing.
+ * geometry no longer parses is still listed, just without a drawing. The checked card takes the
+ * accent; focus shows on the radio itself through the global `:focus-visible` outline.
  */
 interface CabinetOption {
   id: string;
@@ -35,7 +36,7 @@ const { cabinets, selectedId = null, idPrefix } = Astro.props;
       <li>
         <label
           for={inputId}
-          class="flex h-full cursor-pointer gap-3 rounded-xl border border-white/20 bg-white/5 p-3 transition-colors hover:bg-white/10 has-checked:border-purple-300 has-checked:bg-purple-500/20 has-focus-visible:ring-2 has-focus-visible:ring-purple-400"
+          class="flex h-full cursor-pointer gap-3 rounded-lg border border-input bg-card p-3 text-card-foreground transition-colors hover:border-primary/60 has-checked:border-primary has-checked:bg-accent"
         >
           <input
             id={inputId}
@@ -46,22 +47,22 @@ const { cabinets, selectedId = null, idPrefix } = Astro.props;
             checked={cabinet.id === selectedId}
             aria-labelledby={`${inputId}-name`}
             aria-describedby={`${inputId}-model`}
-            class="mt-1 shrink-0 accent-purple-400"
+            class="mt-0.5 size-4 shrink-0 accent-primary"
           />
           <span class="flex min-w-0 flex-1 flex-col gap-2">
             <span>
-              <span id={`${inputId}-name`} class="block font-semibold text-white">
+              <span id={`${inputId}-name`} class="block font-medium">
                 {cabinet.name}
               </span>
-              <span id={`${inputId}-model`} class="block text-sm text-blue-100/70">
+              <span id={`${inputId}-model`} class="block text-sm text-muted-foreground">
                 {t.projects.cabinet.manufacturerModel(cabinet.manufacturer, cabinet.model)}
               </span>
             </span>
-            <span class="flex h-32 w-full items-center justify-center rounded-lg bg-white/90 p-2">
+            <span class="flex h-32 w-full items-center justify-center">
               {cabinet.geometry ? (
                 <CabinetDrawing geometry={cabinet.geometry} className="h-full w-full" />
               ) : (
-                <span class="text-center text-xs text-slate-700">{t.projects.cabinet.drawingUnavailable}</span>
+                <span class="text-center text-xs text-muted-foreground">{t.projects.cabinet.drawingUnavailable}</span>
               )}
             </span>
           </span>

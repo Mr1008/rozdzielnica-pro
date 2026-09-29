@@ -1,0 +1,36 @@
+---
+import Topbar from "@/components/Topbar.astro";
+import Layout from "@/layouts/Layout.astro";
+import { cn } from "@/lib/utils";
+
+/**
+ * The signed-in shell: the app header bar across the full width, then a desktop-first content
+ * column. Page messages go in the `banners` slot, so they render inside the shell under the header
+ * rather than above the page; `header-actions` adds controls to the header bar.
+ */
+interface Props {
+  title: string;
+  width?: "default" | "wide";
+}
+
+const { title, width = "default" } = Astro.props;
+const hasBanners = Astro.slots.has("banners");
+---
+
+<Layout title={title}>
+  <div class="flex min-h-screen flex-col">
+    <Topbar>
+      <slot name="header-actions" />
+    </Topbar>
+    <main
+      class:list={cn("mx-auto w-full flex-1 px-4 py-6 sm:px-6 lg:py-8", width === "wide" ? "max-w-7xl" : "max-w-6xl")}
+    >
+      {hasBanners && (
+        <div class="mb-6 flex flex-col gap-2">
+          <slot name="banners" />
+        </div>
+      )}
+      <slot />
+    </main>
+  </div>
+</Layout>
