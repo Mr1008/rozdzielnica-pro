@@ -1,7 +1,12 @@
 ---
 import Banner from "@/components/Banner.astro";
-import Topbar from "@/components/Topbar.astro";
-import Layout from "@/layouts/Layout.astro";
+import PageHeader from "@/components/PageHeader.astro";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
+import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from "@/components/ui/input-group";
+import AppLayout from "@/layouts/AppLayout.astro";
+import { fieldControlProps, fieldHintId } from "@/lib/field-a11y";
 import { t } from "@/lib/i18n";
 import { PRICE_INPUT_PATTERN } from "@/lib/price-input";
 import { pricingErrorMessage } from "@/lib/pricing-errors";
@@ -16,7 +21,6 @@ import {
   type PricingFormDefaults,
 } from "@/lib/pricing-profile";
 import { createClient } from "@/lib/supabase";
-import { cn } from "@/lib/utils";
 
 // No role check here on purpose: `/dashboard/*` is gated to electricians in
 // `src/lib/route-access.ts`, and RLS returns only the caller's own `pricing_profiles` row.
@@ -48,107 +52,130 @@ async function loadDefaults(): Promise<{ defaults: PricingFormDefaults | null; l
 
 const { defaults, loadError } = await loadDefaults();
 
-const inputClass = cn(
-  "w-full rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-sm text-white placeholder-white/40",
-  "transition-colors focus:ring-2 focus:ring-purple-400 focus:outline-none",
-);
-const labelClass = "mb-1 block text-xs text-blue-100/80";
-const hintClass = "mt-1 text-xs text-blue-100/50";
+const fields = [
+  {
+    id: "hourly-rate",
+    label: t.pricingProfile.hourlyRateLabel,
+    hint: t.pricingProfile.hourlyRateHint,
+    unit: t.pricingProfile.hourlyRateUnit,
+  },
+  {
+    id: "mount-minutes",
+    label: t.pricingProfile.mountMinutesLabel,
+    hint: t.pricingProfile.mountMinutesHint(MIN_MOUNT_MINUTES, MAX_MOUNT_MINUTES),
+    unit: t.pricingProfile.minutesUnit,
+  },
+  {
+    id: "overhead-minutes",
+    label: t.pricingProfile.overheadMinutesLabel,
+    hint: t.pricingProfile.overheadMinutesHint(MIN_OVERHEAD_MINUTES, MAX_OVERHEAD_MINUTES),
+    unit: t.pricingProfile.minutesUnit,
+  },
+] as const;
+const [rateField, mountField, overheadField] = fields;
+
+// Each value carries its unit as an inline-end addon of the registry `InputGroup`.
+const inputClass = "font-mono";
 ---
 
-<Layout title={t.pricingProfile.title}>
-  {loadError && <Banner variant="error">{loadError}</Banner>}
-  {error && <Banner variant="error">{error}</Banner>}
-  {saved && <Banner variant="info">{t.pricingProfile.saved}</Banner>}
-  <div class="bg-cosmic min-h-screen p-4 text-white sm:p-8">
-    <div class="mx-auto max-w-2xl">
-      <Topbar />
-      <a href="/dashboard" class="text-sm text-purple-300 transition-colors hover:text-purple-100 hover:underline">
-        {t.pricingProfile.backToDashboard}
-      </a>
-      <h1 class="mt-2 mb-2 bg-gradient-to-r from-blue-200 to-purple-200 bg-clip-text text-3xl font-bold text-transparent">
-        {t.pricingProfile.title}
-      </h1>
-      <p class="mb-6 text-sm text-blue-100/70">{t.pricingProfile.description}</p>
-      {defaults && (
-        <form
-          method="POST"
-          action={PRICING_API_PATH}
-          class="flex flex-col gap-5 rounded-2xl border border-white/10 bg-white/10 p-6 backdrop-blur-xl"
-        >
-          <div>
-            <label for="hourly-rate" class:list={labelClass}>
-              {t.pricingProfile.hourlyRateLabel}
-            </label>
-            <input
-              id="hourly-rate"
-              name={PRICING_FIELDS.hourlyRate}
-              type="text"
-              inputmode="decimal"
-              autocomplete="off"
-              pattern={PRICE_INPUT_PATTERN}
-              required
-              value={defaults.hourly_rate}
-              placeholder={t.pricingProfile.hourlyRatePlaceholder}
-              aria-describedby="hourly-rate-hint"
-              class:list={inputClass}
-            />
-            <p id="hourly-rate-hint" class:list={hintClass}>
-              {t.pricingProfile.hourlyRateHint}
-            </p>
+<AppLayout title={t.pricingProfile.title}>
+  {loadError && (
+    <Banner slot="banners" variant="error">
+      {loadError}
+    </Banner>
+  )}
+  {error && (
+    <Banner slot="banners" variant="error">
+      {error}
+    </Banner>
+  )}
+  {saved && (
+    <Banner slot="banners" variant="success">
+      {t.pricingProfile.saved}
+    </Banner>
+  )}
+
+  <PageHeader
+    title={t.pricingProfile.title}
+    backHref="/dashboard"
+    backLabel={t.pricingProfile.backToDashboard}
+    description={t.pricingProfile.description}
+  />
+
+  {defaults && (
+    <Card className="max-w-2xl">
+      <CardContent>
+        <form method="POST" action={PRICING_API_PATH} class="flex flex-col gap-5">
+          <Field>
+            <FieldLabel htmlFor={rateField.id}>{rateField.label}</FieldLabel>
+            <InputGroup>
+              <InputGroupInput
+                name={PRICING_FIELDS.hourlyRate}
+                type="text"
+                inputMode="decimal"
+                autoComplete="off"
+                pattern={PRICE_INPUT_PATTERN}
+                required
+                defaultValue={defaults.hourly_rate}
+                placeholder={t.pricingProfile.hourlyRatePlaceholder}
+                className={inputClass}
+                {...fieldControlProps(rateField.id, { hint: rateField.hint })}
+              />
+              <InputGroupAddon align="inline-end" aria-hidden="true">
+                <InputGroupText className="font-mono">{rateField.unit}</InputGroupText>
+              </InputGroupAddon>
+            </InputGroup>
+            <FieldDescription id={fieldHintId(rateField.id)}>{rateField.hint}</FieldDescription>
+          </Field>
+          <div class="grid items-start gap-5 sm:grid-cols-2">
+            <Field>
+              <FieldLabel htmlFor={mountField.id}>{mountField.label}</FieldLabel>
+              <InputGroup>
+                <InputGroupInput
+                  name={PRICING_FIELDS.mountMinutes}
+                  type="number"
+                  inputMode="numeric"
+                  step="1"
+                  min={MIN_MOUNT_MINUTES}
+                  max={MAX_MOUNT_MINUTES}
+                  required
+                  defaultValue={defaults.mount_minutes_per_device}
+                  className={inputClass}
+                  {...fieldControlProps(mountField.id, { hint: mountField.hint })}
+                />
+                <InputGroupAddon align="inline-end" aria-hidden="true">
+                  <InputGroupText className="font-mono">{mountField.unit}</InputGroupText>
+                </InputGroupAddon>
+              </InputGroup>
+              <FieldDescription id={fieldHintId(mountField.id)}>{mountField.hint}</FieldDescription>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor={overheadField.id}>{overheadField.label}</FieldLabel>
+              <InputGroup>
+                <InputGroupInput
+                  name={PRICING_FIELDS.overheadMinutes}
+                  type="number"
+                  inputMode="numeric"
+                  step="1"
+                  min={MIN_OVERHEAD_MINUTES}
+                  max={MAX_OVERHEAD_MINUTES}
+                  required
+                  defaultValue={defaults.project_overhead_minutes}
+                  className={inputClass}
+                  {...fieldControlProps(overheadField.id, { hint: overheadField.hint })}
+                />
+                <InputGroupAddon align="inline-end" aria-hidden="true">
+                  <InputGroupText className="font-mono">{overheadField.unit}</InputGroupText>
+                </InputGroupAddon>
+              </InputGroup>
+              <FieldDescription id={fieldHintId(overheadField.id)}>{overheadField.hint}</FieldDescription>
+            </Field>
           </div>
           <div>
-            <label for="mount-minutes" class:list={labelClass}>
-              {t.pricingProfile.mountMinutesLabel}
-            </label>
-            <input
-              id="mount-minutes"
-              name={PRICING_FIELDS.mountMinutes}
-              type="number"
-              inputmode="numeric"
-              step="1"
-              min={MIN_MOUNT_MINUTES}
-              max={MAX_MOUNT_MINUTES}
-              required
-              value={defaults.mount_minutes_per_device}
-              aria-describedby="mount-minutes-hint"
-              class:list={inputClass}
-            />
-            <p id="mount-minutes-hint" class:list={hintClass}>
-              {t.pricingProfile.mountMinutesHint(MIN_MOUNT_MINUTES, MAX_MOUNT_MINUTES)}
-            </p>
-          </div>
-          <div>
-            <label for="overhead-minutes" class:list={labelClass}>
-              {t.pricingProfile.overheadMinutesLabel}
-            </label>
-            <input
-              id="overhead-minutes"
-              name={PRICING_FIELDS.overheadMinutes}
-              type="number"
-              inputmode="numeric"
-              step="1"
-              min={MIN_OVERHEAD_MINUTES}
-              max={MAX_OVERHEAD_MINUTES}
-              required
-              value={defaults.project_overhead_minutes}
-              aria-describedby="overhead-minutes-hint"
-              class:list={inputClass}
-            />
-            <p id="overhead-minutes-hint" class:list={hintClass}>
-              {t.pricingProfile.overheadMinutesHint(MIN_OVERHEAD_MINUTES, MAX_OVERHEAD_MINUTES)}
-            </p>
-          </div>
-          <div>
-            <button
-              type="submit"
-              class="rounded-lg border border-white/20 bg-white/10 px-4 py-2 text-sm transition-colors hover:bg-white/20"
-            >
-              {t.pricingProfile.save}
-            </button>
+            <Button type="submit">{t.pricingProfile.save}</Button>
           </div>
         </form>
-      )}
-    </div>
-  </div>
-</Layout>
+      </CardContent>
+    </Card>
+  )}
+</AppLayout>

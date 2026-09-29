@@ -739,35 +739,35 @@ new `t.landing` key group. The no-role redirect target (`NO_ROLE_PATH`) must sti
 
 #### Automated
 
-- [x] 2.1 Lint passes: `npm run lint`
-- [x] 2.2 Types pass: `npx astro check`
-- [x] 2.3 Unit tests pass: `npm run test:unit`
-- [x] 2.4 Build passes: `npm run build`
-- [x] 2.5 No palette colour classes or hex in the migrated files
+- [x] 2.1 Lint passes: `npm run lint` — 421f6bc
+- [x] 2.2 Types pass: `npx astro check` — 421f6bc
+- [x] 2.3 Unit tests pass: `npm run test:unit` — 421f6bc
+- [x] 2.4 Build passes: `npm run build` — 421f6bc
+- [x] 2.5 No palette colour classes or hex in the migrated files — 421f6bc
 
 #### Manual
 
-- [x] 2.6 Kitchen sink re-screenshotted with drawing and Banner on tokens
-- [x] 2.7 Project page screenshotted at 1440×900 and 1280×800 in all four states
-- [x] 2.8 Save details, change cabinet, save supply, delete work end to end
-- [x] 2.9 Sticky aside and section nav work
-- [x] 2.10 Keyboard-only pass with visible focus
+- [x] 2.6 Kitchen sink re-screenshotted with drawing and Banner on tokens — 421f6bc
+- [x] 2.7 Project page screenshotted at 1440×900 and 1280×800 in all four states — 421f6bc
+- [x] 2.8 Save details, change cabinet, save supply, delete work end to end — 421f6bc
+- [x] 2.9 Sticky aside and section nav work — 421f6bc
+- [x] 2.10 Keyboard-only pass with visible focus — 421f6bc
 
 ### Phase 3: Electrician pages
 
 #### Automated
 
-- [ ] 3.1 Lint passes: `npm run lint`
-- [ ] 3.2 Types pass: `npx astro check`
-- [ ] 3.3 Unit tests pass: `npm run test:unit`
-- [ ] 3.4 Build passes: `npm run build`
-- [ ] 3.5 Palette grep over electrician pages returns nothing
+- [x] 3.1 Lint passes: `npm run lint`
+- [x] 3.2 Types pass: `npx astro check`
+- [x] 3.3 Unit tests pass: `npm run test:unit`
+- [x] 3.4 Build passes: `npm run build`
+- [x] 3.5 Palette grep over electrician pages returns nothing
 
 #### Manual
 
-- [ ] 3.6 Screenshots of dashboard, profile, projects list, new project in all listed states
-- [ ] 3.7 Create project, save profile, list navigation work end to end
-- [ ] 3.8 Header shows home link and sign-out on every page
+- [x] 3.6 Screenshots of dashboard, profile, projects list, new project in all listed states
+- [x] 3.7 Create project, save profile, list navigation work end to end
+- [x] 3.8 Header shows home link and sign-out on every page
 
 ### Phase 4: Admin pages and editor islands
 

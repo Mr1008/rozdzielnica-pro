@@ -103,7 +103,9 @@ export const pl = {
   dashboard: {
     title: "Panel",
     greeting: "Witaj,",
-    restricted: "Ta strona jest dostępna tylko dla zalogowanych użytkowników.",
+    greetingTitle: (email: string) => `Witaj, ${email}`,
+    description: "Zaplanuj rozdzielnicę dla klienta albo zaktualizuj parametry swojej wyceny.",
+    destinationsLabel: "Skróty",
   },
 
   admin: {
@@ -445,6 +447,9 @@ export const pl = {
     dashboardLink: "Parametry wyceny",
     dashboardLinkDescription: "Stawka godzinowa, średni czas montażu aparatu i stały narzut na projekt.",
     notConfigured: "Nie ustawiono jeszcze parametrów wyceny — uzupełnij je, zanim przygotujesz pierwszą wycenę.",
+    notConfiguredLink: "Uzupełnij parametry wyceny",
+    hourlyRateUnit: "zł/h",
+    minutesUnit: "min",
   },
 
   /**
@@ -477,9 +482,13 @@ export const pl = {
       loadFailed: "Nie udało się wczytać projektów. Spróbuj ponownie",
       count: (n: number) => `${String(n)} ${plural(n, { one: "projekt", few: "projekty", many: "projektów" })}`,
       supplyMissingBadge: "Przyłącze nieuzupełnione",
+      columns: {
+        name: "Projekt",
+        client: "Klient",
+        cabinet: "Szafka",
+        updatedAt: "Zmieniono",
+      },
       noClient: "Bez klienta",
-      cabinet: (name: string) => `Szafka: ${name}`,
-      updatedAt: (date: string) => `Zmieniono ${date}`,
       deleted: "Projekt został usunięty.",
     },
     new: {
