@@ -166,6 +166,18 @@ describe("matchDevices — blockers", () => {
     expect(reasonsOf(matchDevices(input, BASE))).toEqual([{ code: "tn_c_with_rcd" }]);
   });
 
+  // Only TN-C forbids an RCD; TN-C-S (PEN split in the switchboard), TN-S and TT all need one.
+  it.each(["TN-S", "TN-C-S", "TT"] as const)("does not block %s with a group that has a circuit", (earthing) => {
+    const input: MatchInput = {
+      supply: { ...TN_S_1F, earthing_system: earthing },
+      groups: [group("g1")],
+      circuits: [circuit("c1", 16, { rcd_group_id: "g1" })],
+    };
+    const result = matchDevices(input, BASE);
+    expect(result.status).not.toBe("blocked");
+    expect(result.status).toBe("matched");
+  });
+
   it("does not block TN-C for an empty group", () => {
     const input: MatchInput = { supply: TN_C_1F, groups: [group("g1")], circuits: [circuit("c1", 16)] };
     expect(matchDevices(input, [fr("fr-1p", 40, "1P"), mcb("b16", 16, "1P")]).status).toBe("matched");

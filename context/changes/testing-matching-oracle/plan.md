@@ -484,29 +484,29 @@ None — no schema or data change.
 
 #### Automated
 
-- [x] 2.1 Unit tests pass: `npm run test:unit`
-- [x] 2.2 Lint passes: `npm run lint`
-- [x] 2.3 Build passes: `npm run build`
-- [x] 2.4 Mutation spot-check on cheapest and the RCD mA check fails the property
-- [x] 2.5 Property test imports only matchDevices and types from device-matching
+- [x] 2.1 Unit tests pass: `npm run test:unit` — 8f2c778
+- [x] 2.2 Lint passes: `npm run lint` — 8f2c778
+- [x] 2.3 Build passes: `npm run build` — 8f2c778
+- [x] 2.4 Mutation spot-check on cheapest and the RCD mA check fails the property — 8f2c778
+- [x] 2.5 Property test imports only matchDevices and types from device-matching — 8f2c778
 
 #### Manual
 
-- [x] 2.6 Oracle rule literals read as a transcription of the S-04 rule table
+- [x] 2.6 Oracle rule literals read as a transcription of the S-04 rule table — 8f2c778
 
 ### Phase 3: Blocker and warning boundaries (risk #3)
 
 #### Automated
 
-- [ ] 3.1 Unit tests pass: `npm run test:unit`
-- [ ] 3.2 Lint passes: `npm run lint`
-- [ ] 3.3 Type check passes: `npx astro check`
-- [ ] 3.4 Mutation spot-check on the mapping, the ampacity operator and the TN-C check fails tests
+- [x] 3.1 Unit tests pass: `npm run test:unit`
+- [x] 3.2 Lint passes: `npm run lint`
+- [x] 3.3 Type check passes: `npx astro check`
+- [x] 3.4 Mutation spot-check on the mapping, the ampacity operator and the TN-C check fails tests
 
 #### Manual
 
-- [ ] 3.5 Electrician confirms the mapping rows against PN-HD 60364-5-52 Annex B
-- [ ] 3.6 Exact-0.5 % supply shows no voltage-drop warning on the project page
+- [x] 3.5 Electrician confirms the mapping rows against PN-HD 60364-5-52 Annex B
+- [x] 3.6 Exact-0.5 % supply shows no voltage-drop warning on the project page
 
 ### Phase 4: Cookbook, negative space and handoff
 
