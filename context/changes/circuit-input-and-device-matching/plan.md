@@ -762,6 +762,37 @@ which is the correct behaviour.
 - Endpoint pattern: `src/pages/api/projects/[id]/supply.ts`
 - Ampacity source: `src/lib/supply-warnings.ts` (`AMPACITY_A`, `REFERENCE_METHOD_BY_INSTALLATION`)
 
+## Addendum (implementation and impl-review, 2026-09-30)
+
+Behaviour that landed beyond the phases above. Everything except the last group came from implementation.
+
+- **Matcher.** A circuit that points at a group missing from the payload is blocked
+  (`circuit_group_unknown`); it is not treated as ungrouped. An empty RCD group is skipped and gets
+  no RCD.
+- **View states.** There is a fifth state, `cleared`: a fresh match succeeds, the snapshot is
+  empty, and the fresh result is shown as a labelled, unsaved preview. The aside also has
+  "Zablokowany" and "Niedostępny" badges.
+- **RPC.** A group or circuit id that belongs to another project of the **same** owner is refused
+  with 42501 and rolled back. The endpoints map 42501 to `forbidden`. AGENTS.md has a fifth
+  tripwire: upsert by stable id via `saveCircuitsArgs`.
+- **impl-review F5 — the group RCD rule changed.** The rule table's `rated_current_a ≥ max(In of
+the group's circuits)` is replaced:
+  - The rule is now `rated_current_a × 100 ≥ ΣIn × (100 + rcd_margin_percent)`. It is compared in
+    integers, and the RCD of an RCBO fallback is sized the same way.
+  - `rcd_margin_percent` is a per-group field: list `0, 5, 10, 15, 20, 25, 30, 40, 50`, default 15,
+    selectable in the group card.
+  - It is guarded twice: in `RCD_MARGINS_PERCENT` in `circuit-params.ts` and in the
+    `rcd_groups_margin_valid` CHECK in `20260930120000_rcd_group_margin.sql`.
+  - For forward compatibility, the RPC falls back to 15 when a group arrives without the field.
+  - The sum ignores how single-phase circuits spread across phases, so it errs on the high side.
+  - With only 40 A RCDs in the seed, a group whose ΣIn × margin exceeds 40 A is a catalog gap.
+    The gap text names the sum and the margin.
+- **impl-review F2 / F7.** Devices dropped as unparseable are now logged by id. `loadMatchBase`
+  (supply + cabinet + catalog) is split out: the save endpoint uses it, and the page passes its
+  already-loaded project row.
+- **impl-review F1.** S-08 and S-09 act only on view state `current`; see the AGENTS.md
+  `project_devices` tripwire and change.md.
+
 ## Progress
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles. See `references/progress-format.md`.

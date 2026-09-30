@@ -71,6 +71,7 @@ describe("nextGroupLabel", () => {
     label,
     residual_current_ma: 30,
     min_rcd_type: "A",
+    rcd_margin_percent: 15,
   });
 
   it("starts at RCD 1", () => {

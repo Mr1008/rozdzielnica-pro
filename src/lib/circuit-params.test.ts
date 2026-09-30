@@ -20,7 +20,7 @@ function uuid(n: number): string {
   return `00000000-0000-4000-8000-${n.toString(16).padStart(12, "0")}`;
 }
 
-const GROUP = { id: GROUP_ID, label: "RCD 1", residual_current_ma: 30, min_rcd_type: "A" };
+const GROUP = { id: GROUP_ID, label: "RCD 1", residual_current_ma: 30, min_rcd_type: "A", rcd_margin_percent: 15 };
 const CIRCUIT = {
   id: CIRCUIT_ID,
   rcd_group_id: GROUP_ID,
@@ -116,6 +116,7 @@ describe("parseCircuitsPayload", () => {
     it.each([
       ["residual_current_ma", [20, 0, "30"]],
       ["min_rcd_type", ["C", "a", 1]],
+      ["rcd_margin_percent", [7, -5, "15", 100]],
     ])("rejects a group %s outside its list", (field, values) => {
       for (const value of values) {
         expect(codesOn(payload({ groups: [{ ...GROUP, [field]: value }] }), field)).toEqual(["not_in_list"]);

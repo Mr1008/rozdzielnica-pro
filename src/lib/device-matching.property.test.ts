@@ -2,6 +2,7 @@ import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import {
   CIRCUIT_RATED_CURRENTS_A,
+  RCD_MARGINS_PERCENT,
   RESIDUAL_CURRENTS_MA,
   type CircuitInput,
   type CircuitRatedCurrentA,
@@ -69,11 +70,12 @@ function compliantMcb(catalog: readonly Device[], circuit: CircuitInput, supply:
 
 function compliantRcd(catalog: readonly Device[], group: RcdGroupInput, members: readonly CircuitInput[]): Device[] {
   const poles = rcdPolesFor(members);
-  const minIn = Math.max(...members.map((c) => c.rated_current_a));
+  // In ≥ ΣIn × (1 + margin), stated in integers so the oracle has no float rounding of its own.
+  const sum = members.reduce((total, c) => total + c.rated_current_a, 0);
   return catalog.filter(
     (d) =>
       d.kind === "rcd" &&
-      d.rated_current_a >= minIn &&
+      d.rated_current_a * 100 >= sum * (100 + group.rcd_margin_percent) &&
       d.residual_current_ma === group.residual_current_ma &&
       TYPE_RANK[d.rcd_type] >= TYPE_RANK[group.min_rcd_type] &&
       poles.includes(d.poles),
@@ -277,6 +279,7 @@ const supplyArb: fc.Arbitrary<SupplyParams> = fc.record({
 const groupSpecArb = fc.record({
   residual_current_ma: fc.constantFrom(...RESIDUAL_CURRENTS_MA),
   min_rcd_type: fc.constantFrom(...RCD_TYPES),
+  rcd_margin_percent: fc.constantFrom(...RCD_MARGINS_PERCENT),
 });
 
 const circuitSpecArb = fc.record({
@@ -330,7 +333,7 @@ function buildDevice(id: string, row: Record<string, unknown>): Device {
 
 /**
  * A catalog biased toward the input's requirements and their list neighbours: ratings are drawn from
- * the circuit currents, the groups' largest currents and the pre-meter protection (each with the list
+ * the circuit currents, the groups' required RCD ratings and the pre-meter protection (each with the list
  * values beside it), and IΔn mostly from the groups — so compliant, near-miss and cheaper-but-wrong
  * devices all show up next to each other.
  */
@@ -340,11 +343,16 @@ function catalogArb(input: MatchInput): fc.Arbitrary<Device[]> {
     ...new Set(circuitIns.flatMap((v) => withNeighbours(CIRCUIT_RATED_CURRENTS_A, v))),
   ] as CircuitRatedCurrentA[];
   const mcbIns = nearCircuit.length > 0 ? nearCircuit : [...CIRCUIT_RATED_CURRENTS_A];
-  const groupMaxIns = input.groups.flatMap((g) => {
-    const ins = input.circuits.filter((c) => c.rcd_group_id === g.id).map((c) => c.rated_current_a);
-    return ins.length === 0 ? [] : withNeighbours(CIRCUIT_RATED_CURRENTS_A, Math.max(...ins) as CircuitRatedCurrentA);
+  // The whole amperes on either side of each group's required RCD rating (ΣIn × (1 + margin)), so the
+  // exact boundary and its near misses both show up.
+  const groupNeeds = input.groups.flatMap((g) => {
+    const sum = input.circuits.filter((c) => c.rcd_group_id === g.id).reduce((t, c) => t + c.rated_current_a, 0);
+    if (sum === 0) return [];
+    const required = (sum * (100 + g.rcd_margin_percent)) / 100;
+    const [below, above] = [Math.floor(required), Math.ceil(required)];
+    return [below - 1, below, above, above + 1].filter((v) => v > 0);
   });
-  const rcdIns = [...new Set([...groupMaxIns, ...mcbIns])];
+  const rcdIns = [...new Set([...groupNeeds, ...mcbIns])];
   const premeter = input.supply?.premeter_protection_a ?? 25;
   const frIns = withNeighbours(PREMETER_PROTECTIONS_A, premeter);
   const groupMas = input.groups.map((g) => g.residual_current_ma);

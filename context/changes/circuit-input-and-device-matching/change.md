@@ -1,7 +1,7 @@
 ---
 change_id: circuit-input-and-device-matching
 title: Obwody, grupy RCD i dobór aparatów z guardrailem
-status: implemented
+status: impl_reviewed
 created: 2026-09-29
 updated: 2026-09-30
 ---
@@ -22,4 +22,9 @@ szafka, przyłącze). Odblokowuje S-05 (układ w szafce) i S-08 (wycena).
 - **S-08:** czyta wyłącznie snapshot `project_devices` (cena, parametry, wymiary skopiowane
   triggerem). Pusty snapshot przy niepustych obwodach = dobór nieaktualny/niemożliwy → blokada,
   nigdy przeliczanie z żywego katalogu.
+  **Wycena i wydruk tylko przy stanie `current`** (`computeMatchView`): zapisany snapshot nie jest
+  dowodem zgodności — trigger kopiuje wiersz katalogu z chwili zapisu, więc edycja aparatu przez
+  admina albo zmiana przyłącza w trakcie zapisu mogą zostawić aparat niezgodny z obwodem. Stan
+  `stale`/`cleared`/`gaps`/`blocked` blokuje wycenę i odsyła do „Dobierz ponownie"
+  (impl-review F1, 2026-09-30).
 - **Zmiana przyłącza czyści snapshot** (`project_devices`) — dobór trzeba zatwierdzić ponownie.

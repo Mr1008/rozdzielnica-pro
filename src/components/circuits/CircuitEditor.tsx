@@ -423,6 +423,7 @@ export default function CircuitEditor({
                       group={group}
                       displayName={groupName(draft, group.id)}
                       circuitCount={circuitsIn(draft, group.id).length}
+                      circuitsSumA={circuitsIn(draft, group.id).reduce((sum, c) => sum + c.rated_current_a, 0)}
                       issueFor={issueFor("group", group.id)}
                       dropDisabled={draggingCircuit}
                       canMoveUp={index > 0}

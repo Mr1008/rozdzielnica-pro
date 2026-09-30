@@ -9,7 +9,7 @@ import { TextField } from "@/components/forms/fields";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { GroupDraft, GroupPatch } from "@/lib/circuit-draft";
-import { RESIDUAL_CURRENTS_MA, type CircuitField } from "@/lib/circuit-params";
+import { RCD_MARGINS_PERCENT, RESIDUAL_CURRENTS_MA, type CircuitField } from "@/lib/circuit-params";
 import { RCD_TYPES } from "@/lib/device-spec";
 import { t } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
@@ -21,12 +21,15 @@ const RESIDUAL_CURRENT_CHOICES = RESIDUAL_CURRENTS_MA.map((value) => ({
   label: e.residualCurrentOption(value),
 }));
 const RCD_TYPE_CHOICES = RCD_TYPES.map((value) => ({ value, label: t.devices.rcdTypes[value] }));
+const MARGIN_CHOICES = RCD_MARGINS_PERCENT.map((value) => ({ value, label: e.marginOption(value) }));
 
 export interface GroupCardProps {
   group: GroupDraft;
   /** The typed label, or "Grupa RCD n" while it is empty. */
   displayName: string;
   circuitCount: number;
+  /** The summed In of the group's circuits, for the RCD requirement hint. */
+  circuitsSumA: number;
   issueFor: (field: CircuitField) => string | undefined;
   /** A circuit is being dragged: the card must not act as a drop target (its list does). */
   dropDisabled: boolean;
@@ -46,6 +49,7 @@ export function GroupCard({
   group,
   displayName,
   circuitCount,
+  circuitsSumA,
   issueFor,
   dropDisabled,
   canMoveUp,
@@ -65,7 +69,9 @@ export function GroupCard({
   const f = e.groupFields;
   const id = `group-${group.id}`;
   const labelIssue = issueFor("label");
-  const invalid = labelIssue !== undefined || issueFor("residual_current_ma") !== undefined;
+  const invalid = (["label", "residual_current_ma", "min_rcd_type", "rcd_margin_percent"] as const).some(
+    (field) => issueFor(field) !== undefined,
+  );
 
   return (
     <li
@@ -86,7 +92,7 @@ export function GroupCard({
           setActivatorNodeRef={setActivatorNodeRef}
           className="mt-6"
         />
-        <div className="grid min-w-0 flex-1 gap-3 sm:grid-cols-3">
+        <div className="grid min-w-0 flex-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <TextField
             id={`${id}-label`}
             label={f.label}
@@ -117,6 +123,16 @@ export function GroupCard({
             }}
             error={issueFor("min_rcd_type")}
           />
+          <ChoiceField
+            id={`${id}-rcd-margin`}
+            label={f.rcdMargin}
+            value={group.rcd_margin_percent}
+            choices={MARGIN_CHOICES}
+            onChange={(rcd_margin_percent) => {
+              onChange({ rcd_margin_percent });
+            }}
+            error={issueFor("rcd_margin_percent")}
+          />
         </div>
         <RowActions
           subject={e.groupCard(displayName)}
@@ -142,6 +158,15 @@ export function GroupCard({
           <p className="text-info flex items-center gap-1 text-xs">
             <Info className="size-3" aria-hidden="true" />
             {e.rcboHint}
+          </p>
+        )}
+        {circuitCount > 1 && (
+          <p className="text-muted-foreground text-xs tabular-nums">
+            {e.rcdRequirement(
+              (circuitsSumA * (100 + group.rcd_margin_percent)) / 100,
+              circuitsSumA,
+              group.rcd_margin_percent,
+            )}
           </p>
         )}
       </div>

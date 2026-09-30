@@ -29,9 +29,17 @@ export type CircuitCrossSectionMm2 = (typeof CIRCUIT_CROSS_SECTIONS_MM2)[number]
 export const RESIDUAL_CURRENTS_MA = [10, 30, 100, 300] as const;
 export type ResidualCurrentMa = (typeof RESIDUAL_CURRENTS_MA)[number];
 
+/**
+ * The safety margin on a group RCD's rating, in percent: the RCD must carry the group's summed
+ * circuit In × (100 + margin) / 100. Set per group by the electrician.
+ */
+export const RCD_MARGINS_PERCENT = [0, 5, 10, 15, 20, 25, 30, 40, 50] as const;
+export type RcdMarginPercent = (typeof RCD_MARGINS_PERCENT)[number];
+
 /** What a new RCD group starts with in the editor. */
 export const DEFAULT_RESIDUAL_CURRENT_MA: ResidualCurrentMa = 30;
 export const DEFAULT_MIN_RCD_TYPE: RcdType = "A";
+export const DEFAULT_RCD_MARGIN_PERCENT: RcdMarginPercent = 15;
 
 export const MAX_CIRCUITS = 60;
 export const MAX_GROUPS = 20;
@@ -54,6 +62,7 @@ export interface RcdGroupInput {
   label: string;
   residual_current_ma: ResidualCurrentMa;
   min_rcd_type: RcdType;
+  rcd_margin_percent: RcdMarginPercent;
 }
 
 export interface CircuitInput {
@@ -90,7 +99,7 @@ export const CIRCUIT_ISSUE_CODES = [
 ] as const;
 export type CircuitIssueCode = (typeof CIRCUIT_ISSUE_CODES)[number];
 
-export const GROUP_FIELDS = ["id", "label", "residual_current_ma", "min_rcd_type"] as const;
+export const GROUP_FIELDS = ["id", "label", "residual_current_ma", "min_rcd_type", "rcd_margin_percent"] as const;
 export const CIRCUIT_FIELDS = [
   "id",
   "rcd_group_id",
@@ -164,6 +173,7 @@ const GROUP_CHECKS: Record<(typeof GROUP_FIELDS)[number], Check> = {
   label: checkText(MAX_GROUP_LABEL_LENGTH),
   residual_current_ma: checkList(RESIDUAL_CURRENTS_MA),
   min_rcd_type: checkList(RCD_TYPES),
+  rcd_margin_percent: checkList(RCD_MARGINS_PERCENT),
 };
 
 const CIRCUIT_CHECKS: Record<(typeof CIRCUIT_FIELDS)[number], Check> = {
@@ -255,6 +265,7 @@ export function parseCircuitsPayload(raw: unknown): CircuitsPayloadResult {
         label: (group.label as string).trim(),
         residual_current_ma: group.residual_current_ma as ResidualCurrentMa,
         min_rcd_type: group.min_rcd_type as RcdType,
+        rcd_margin_percent: group.rcd_margin_percent as RcdMarginPercent,
       })),
       circuits: circuits.map((circuit) => ({
         id: circuit.id as string,
@@ -275,6 +286,7 @@ const FIELD_LABEL_KEYS: Record<CircuitField, keyof typeof t.circuitIssues.fields
   label: "label",
   residual_current_ma: "residualCurrentMa",
   min_rcd_type: "minRcdType",
+  rcd_margin_percent: "rcdMarginPercent",
   rcd_group_id: "rcdGroupId",
   name: "name",
   rated_current_a: "ratedCurrentA",

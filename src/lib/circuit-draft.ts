@@ -5,9 +5,11 @@ import {
   CIRCUIT_PHASE_COUNTS,
   CIRCUIT_RATED_CURRENTS_A,
   DEFAULT_MIN_RCD_TYPE,
+  DEFAULT_RCD_MARGIN_PERCENT,
   DEFAULT_RESIDUAL_CURRENT_MA,
   MAX_CIRCUITS,
   MAX_GROUPS,
+  RCD_MARGINS_PERCENT,
   RESIDUAL_CURRENTS_MA,
   type CircuitInput,
   type CircuitsPayload,
@@ -72,6 +74,8 @@ export const circuitDraftSchema = z.object({
       label: z.string(),
       residual_current_ma: oneOf(RESIDUAL_CURRENTS_MA),
       min_rcd_type: oneOf(RCD_TYPES),
+      // A draft stored before the margin existed restores with the default rather than being dropped.
+      rcd_margin_percent: oneOf(RCD_MARGINS_PERCENT).default(DEFAULT_RCD_MARGIN_PERCENT),
     }),
   ),
   circuits: z.array(
@@ -133,6 +137,7 @@ export function addGroup(draft: CircuitDraftState, newId: IdFactory = defaultId)
     label: nextGroupLabel(draft.groups),
     residual_current_ma: DEFAULT_RESIDUAL_CURRENT_MA,
     min_rcd_type: DEFAULT_MIN_RCD_TYPE,
+    rcd_margin_percent: DEFAULT_RCD_MARGIN_PERCENT,
   };
   return { ...draft, groups: [...draft.groups, group] };
 }
@@ -290,12 +295,15 @@ function byPosition<T extends { position?: number | null }>(rows: readonly T[]):
  */
 export function payloadToDraft(rows: StoredCircuitRows | null): CircuitDraftState {
   if (rows === null) return EMPTY_CIRCUIT_DRAFT;
-  const groups = byPosition(rows.groups).map(({ id, label, residual_current_ma, min_rcd_type }): GroupDraft => ({
-    id,
-    label,
-    residual_current_ma,
-    min_rcd_type,
-  }));
+  const groups = byPosition(rows.groups).map(
+    ({ id, label, residual_current_ma, min_rcd_type, rcd_margin_percent }): GroupDraft => ({
+      id,
+      label,
+      residual_current_ma,
+      min_rcd_type,
+      rcd_margin_percent,
+    }),
+  );
   const circuits = byPosition(rows.circuits).map(
     ({
       id,
