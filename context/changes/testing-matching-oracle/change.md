@@ -1,9 +1,9 @@
 ---
 change_id: testing-matching-oracle
 title: Test-plan phase 1 — matching and validation oracle
-status: implementing
+status: implemented
 created: 2026-09-29
-updated: 2026-09-29
+updated: 2026-09-30
 archived_at: null
 ---
 
