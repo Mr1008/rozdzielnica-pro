@@ -484,15 +484,15 @@ None — no schema or data change.
 
 #### Automated
 
-- [ ] 2.1 Unit tests pass: `npm run test:unit`
-- [ ] 2.2 Lint passes: `npm run lint`
-- [ ] 2.3 Build passes: `npm run build`
-- [ ] 2.4 Mutation spot-check on cheapest and the RCD mA check fails the property
-- [ ] 2.5 Property test imports only matchDevices and types from device-matching
+- [x] 2.1 Unit tests pass: `npm run test:unit`
+- [x] 2.2 Lint passes: `npm run lint`
+- [x] 2.3 Build passes: `npm run build`
+- [x] 2.4 Mutation spot-check on cheapest and the RCD mA check fails the property
+- [x] 2.5 Property test imports only matchDevices and types from device-matching
 
 #### Manual
 
-- [ ] 2.6 Oracle rule literals read as a transcription of the S-04 rule table
+- [x] 2.6 Oracle rule literals read as a transcription of the S-04 rule table
 
 ### Phase 3: Blocker and warning boundaries (risk #3)
 
