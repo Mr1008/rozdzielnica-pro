@@ -512,11 +512,11 @@ None — no schema or data change.
 
 #### Automated
 
-- [x] 4.1 Format passes on test-plan.md and roadmap.md
-- [x] 4.2 Roadmap-to-GitHub plan mode reports no pending changes after apply
-- [x] 4.3 Full CI reproduction passes
+- [x] 4.1 Format passes on test-plan.md and roadmap.md — b8a36a2
+- [x] 4.2 Roadmap-to-GitHub plan mode reports no pending changes after apply — b8a36a2
+- [x] 4.3 Full CI reproduction passes — b8a36a2
 
 #### Manual
 
-- [x] 4.4 §6.1 is enough on its own to add a boundary test for a new warning
-- [x] 4.5 The three S-04 unknowns are visible on GitHub
+- [x] 4.4 §6.1 is enough on its own to add a boundary test for a new warning — b8a36a2
+- [x] 4.5 The three S-04 unknowns are visible on GitHub — b8a36a2
