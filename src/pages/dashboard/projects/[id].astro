@@ -3,6 +3,7 @@ import Banner from "@/components/Banner.astro";
 import PageHeader from "@/components/PageHeader.astro";
 import { CabinetDrawing } from "@/components/cabinets/CabinetDrawing";
 import CabinetPicker from "@/components/projects/CabinetPicker.astro";
+import CircuitEditor from "@/components/circuits/CircuitEditor";
 import MatchResult from "@/components/projects/MatchResult.astro";
 import ProjectDetailsFields from "@/components/projects/ProjectDetailsFields.astro";
 import SupplyFields from "@/components/projects/SupplyFields.astro";
@@ -11,11 +12,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Textarea } from "@/components/ui/textarea";
 import AppLayout from "@/layouts/AppLayout.astro";
-import { parseCabinetGeometry } from "@/lib/cabinet-geometry";
+import { ENTRY_SIDES, parseCabinetGeometry } from "@/lib/cabinet-geometry";
 import { isUuid, sortForCatalogList } from "@/lib/catalog";
-import { CIRCUIT_FORM_FIELDS } from "@/lib/circuit-params";
+import { payloadToDraft } from "@/lib/circuit-draft";
 import { computeMatchView, loadMatchContext, type MatchView } from "@/lib/device-matching-server";
 import { t } from "@/lib/i18n";
 import {
@@ -142,8 +142,17 @@ function matchingBadge(view: MatchView | null): {
 }
 const matching = matchingBadge(matchView);
 
-// The circuit input's anchor, the fix link for circuit blockers.
-const circuitsInputId = "circuits-payload";
+// The circuit editor's anchor, the fix link for circuit blockers.
+const circuitsEditorId = "circuit-editor";
+
+// The editor starts from the saved rows; the entry sides it lists first are the snapshot's own.
+const circuitDraft = payloadToDraft(
+  matchContext ? { groups: matchContext.groups, circuits: matchContext.circuits } : null,
+);
+const cabinetEntrySides = snapshotGeometry?.ok
+  ? ENTRY_SIDES.filter((side) => snapshotGeometry.geometry.entries.some((entry) => entry.side === side))
+  : [];
+const restoreCircuitDraft = Astro.url.searchParams.has("error");
 
 const title = project ? project.name : t.projects.page.notFoundTitle;
 const headerParts = project
@@ -344,43 +353,31 @@ const headingClass = "scroll-mt-6 text-lg leading-none font-semibold";
             <CardContent className="flex flex-col gap-6">
               {matchContext && matchView ? (
                 <>
+                  {/* `client:only`: the editor restores a rejected draft from sessionStorage on its first render.
+                      The wrapper carries the anchor, so the fix links work before the island hydrates. */}
+                  <div id={circuitsEditorId} tabindex="-1" class="scroll-mt-6">
+                    <CircuitEditor
+                      action={projectCircuitsApiPath(project.id)}
+                      initial={circuitDraft}
+                      cabinetEntrySides={cabinetEntrySides}
+                      draftKey={`circuit-draft:${project.id}`}
+                      restoreDraft={restoreCircuitDraft}
+                      client:only="react"
+                    >
+                      <p slot="fallback" class="text-sm text-muted-foreground">
+                        {t.common.loading}
+                      </p>
+                    </CircuitEditor>
+                  </div>
+
+                  <Separator />
+
                   <MatchResult
                     view={matchView}
                     context={matchContext}
                     projectId={project.id}
-                    circuitsAnchor={circuitsInputId}
+                    circuitsAnchor={circuitsEditorId}
                   />
-
-                  <Separator />
-
-                  {/* TEMPORARY (Phase 3): a plain JSON field so circuits can be saved at all. Phase 4
-                      replaces it with the drag-and-drop CircuitEditor island, posting the same field. */}
-                  <form method="POST" action={projectCircuitsApiPath(project.id)} class="flex flex-col gap-4">
-                    <div class="flex flex-col gap-2">
-                      <label for={circuitsInputId} class="font-medium">
-                        {t.circuitSection.payloadLabel}
-                      </label>
-                      <p id={`${circuitsInputId}-hint`} class="text-sm text-muted-foreground">
-                        {t.circuitSection.payloadHint}
-                      </p>
-                      <Textarea
-                        id={circuitsInputId}
-                        name={CIRCUIT_FORM_FIELDS.payload}
-                        aria-describedby={`${circuitsInputId}-hint`}
-                        rows={12}
-                        spellCheck={false}
-                        className="font-mono text-xs md:text-xs"
-                        defaultValue={JSON.stringify(
-                          { groups: matchContext.groups, circuits: matchContext.circuits },
-                          null,
-                          2,
-                        )}
-                      />
-                    </div>
-                    <div>
-                      <Button type="submit">{t.circuitSection.save}</Button>
-                    </div>
-                  </form>
                 </>
               ) : (
                 <Alert variant="destructive" role={undefined}>

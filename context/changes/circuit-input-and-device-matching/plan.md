@@ -797,29 +797,29 @@ which is the correct behaviour.
 
 #### Automated
 
-- [x] 3.1 Unit tests pass (including new `project-errors` cases): `npm run test:unit`
-- [x] 3.2 Lint, type check and build pass: `npm run lint`, `npx astro check`, `npm run build`
-- [x] 3.3 RLS integration tests still pass: `npm run test:integration`
+- [x] 3.1 Unit tests pass (including new `project-errors` cases): `npm run test:unit` — 389442a
+- [x] 3.2 Lint, type check and build pass: `npm run lint`, `npx astro check`, `npm run build` — 389442a
+- [x] 3.3 RLS integration tests still pass: `npm run test:integration` — 389442a
 
 #### Manual
 
-- [x] 3.4 On the seeded stack, a project with no supply shows the "uzupełnij przyłącze" blocker linking to `#supply`
-- [x] 3.5 A project whose circuits include B40 shows a catalog-gap error naming "B40" and the circuit, with the contact-admin line and no substitute device
-- [x] 3.6 Changing the supply after a match shows the stale state; "Dobierz ponownie" restores a current snapshot
+- [x] 3.4 On the seeded stack, a project with no supply shows the "uzupełnij przyłącze" blocker linking to `#supply` — 389442a
+- [x] 3.5 A project whose circuits include B40 shows a catalog-gap error naming "B40" and the circuit, with the contact-admin line and no substitute device — 389442a
+- [x] 3.6 Changing the supply after a match shows the stale state; "Dobierz ponownie" restores a current snapshot — 389442a
 
 ### Phase 4: Drag-and-drop circuit editor
 
 #### Automated
 
-- [ ] 4.1 Unit tests pass: `npm run test:unit`
-- [ ] 4.2 Lint, type check and build pass: `npm run lint`, `npx astro check`, `npm run build`
-- [ ] 4.3 RLS integration tests pass: `npm run test:integration`
-- [ ] 4.4 Smoke passes against the dev server: `npm run smoke`
+- [x] 4.1 Unit tests pass: `npm run test:unit`
+- [x] 4.2 Lint, type check and build pass: `npm run lint`, `npx astro check`, `npm run build`
+- [x] 4.3 RLS integration tests pass: `npm run test:integration`
+- [x] 4.4 Smoke passes against the dev server: `npm run smoke`
 
 #### Manual
 
-- [ ] 4.5 Kitchen sink renders every editor and result state listed above; screenshot captured
-- [ ] 4.6 In the browser: drag a circuit from group 1 to group 2, reorder groups, drag a circuit to "Bez grupy"; after save the order and membership persist on reload
-- [ ] 4.7 Keyboard only: pick up a circuit with Space, move with arrows, drop with Space; the move is announced; the select and up/down buttons reach the same result
-- [ ] 4.8 A seeded single-phase project with two groups (B16 + B10 circuits, 30 mA type A) and one single-circuit group matches FR 2P, RCD 2P type A (never AC), the cheaper B16, and an RCBO; the prices shown equal the catalog prices
-- [ ] 4.9 After an `?error=` redirect the editor restores the unsaved draft
+- [x] 4.5 Kitchen sink renders every editor and result state listed above; screenshot captured
+- [x] 4.6 In the browser: drag a circuit from group 1 to group 2, reorder groups, drag a circuit to "Bez grupy"; after save the order and membership persist on reload
+- [x] 4.7 Keyboard only: pick up a circuit with Space, move with arrows, drop with Space; the move is announced; the select and up/down buttons reach the same result
+- [x] 4.8 A seeded single-phase project with two groups (B16 + B10 circuits, 30 mA type A) and one single-circuit group matches FR 2P, RCD 2P type A (never AC), the cheaper B16, and an RCBO; the prices shown equal the catalog prices
+- [x] 4.9 After an `?error=` redirect the editor restores the unsaved draft
