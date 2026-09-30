@@ -498,25 +498,25 @@ None — no schema or data change.
 
 #### Automated
 
-- [x] 3.1 Unit tests pass: `npm run test:unit`
-- [x] 3.2 Lint passes: `npm run lint`
-- [x] 3.3 Type check passes: `npx astro check`
-- [x] 3.4 Mutation spot-check on the mapping, the ampacity operator and the TN-C check fails tests
+- [x] 3.1 Unit tests pass: `npm run test:unit` — 18516f5
+- [x] 3.2 Lint passes: `npm run lint` — 18516f5
+- [x] 3.3 Type check passes: `npx astro check` — 18516f5
+- [x] 3.4 Mutation spot-check on the mapping, the ampacity operator and the TN-C check fails tests — 18516f5
 
 #### Manual
 
-- [x] 3.5 Electrician confirms the mapping rows against PN-HD 60364-5-52 Annex B
-- [x] 3.6 Exact-0.5 % supply shows no voltage-drop warning on the project page
+- [x] 3.5 Electrician confirms the mapping rows against PN-HD 60364-5-52 Annex B — 18516f5
+- [x] 3.6 Exact-0.5 % supply shows no voltage-drop warning on the project page — 18516f5
 
 ### Phase 4: Cookbook, negative space and handoff
 
 #### Automated
 
-- [ ] 4.1 Format passes on test-plan.md and roadmap.md
-- [ ] 4.2 Roadmap-to-GitHub plan mode reports no pending changes after apply
-- [ ] 4.3 Full CI reproduction passes
+- [x] 4.1 Format passes on test-plan.md and roadmap.md
+- [x] 4.2 Roadmap-to-GitHub plan mode reports no pending changes after apply
+- [x] 4.3 Full CI reproduction passes
 
 #### Manual
 
-- [ ] 4.4 §6.1 is enough on its own to add a boundary test for a new warning
-- [ ] 4.5 The three S-04 unknowns are visible on GitHub
+- [x] 4.4 §6.1 is enough on its own to add a boundary test for a new warning
+- [x] 4.5 The three S-04 unknowns are visible on GitHub
