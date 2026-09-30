@@ -764,8 +764,12 @@ describe("boundaries — residual-current type rank (AC < A < F < B)", () => {
     if (accepted) {
       expect(deviceFor(matched(result), "rcbo", { circuitId: "c1" })).toBe("rcbo");
     } else {
-      // No RCD or MCB in the catalog either, so the fallback fails too.
-      expect(gapsOf(result).map((gap) => gap.role)).toContain("rcbo");
+      // No RCD or MCB in the catalog either, so the fallback fails too: the RCBO gap plus both fallback parts.
+      expect(
+        gapsOf(result)
+          .map((gap) => gap.role)
+          .sort(),
+      ).toEqual(["mcb", "rcbo", "rcd"]);
     }
   });
 });
