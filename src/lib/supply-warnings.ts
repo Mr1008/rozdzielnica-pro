@@ -162,7 +162,18 @@ function ceilTo2(value: number): number {
   return Math.ceil(value * 100) / 100;
 }
 
-/** Every warning the supply raises, in a stable order: ampacity, aluminium, PEN, voltage drop. */
+/**
+ * Decimal places the voltage drop is rounded to before it is compared and displayed. Far below any
+ * meaningful drop, but enough to absorb floating-point noise: 16.1 m of Cu 10 mm² at 20 A single-phase
+ * is exactly 0.5 % by hand, yet evaluates to 0.5000000000000001.
+ */
+const VOLTAGE_DROP_DECIMAL_PLACES = 9;
+
+/**
+ * Every warning the supply raises, in a stable order: ampacity, aluminium, PEN, voltage drop. Like
+ * every other check, equality never warns — so the voltage drop is rounded to
+ * `VOLTAGE_DROP_DECIMAL_PLACES` first, and a drop of exactly the limit does not warn.
+ */
 export function supplyWarnings(params: SupplyParams): SupplyWarning[] {
   const warnings: SupplyWarning[] = [];
 
@@ -181,8 +192,9 @@ export function supplyWarnings(params: SupplyParams): SupplyWarning[] {
     warnings.push({ code: "pen_below_minimum", minimumMm2: penMinimum });
   }
 
-  // The raw value is compared, so no drop above the limit is rounded away; only the display rounds.
-  const percent = voltageDropPercent(params);
+  // Rounded to 9 places only, to drop floating-point noise at the limit: any drop genuinely above
+  // 0.5 % stays above it, and the display then rounds up to 0.01 on top of this value.
+  const percent = Number(voltageDropPercent(params).toFixed(VOLTAGE_DROP_DECIMAL_PLACES));
   if (percent > VOLTAGE_DROP_LIMIT_PERCENT) {
     warnings.push({ code: "voltage_drop_high", percent: ceilTo2(percent), limitPercent: VOLTAGE_DROP_LIMIT_PERCENT });
   }

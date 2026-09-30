@@ -114,6 +114,32 @@ describe("circuitWarnings", () => {
       ]);
     });
 
+    // Every In that equals a tabulated copper ampacity (B.52.2 / B.52.4, PVC), with the next In on the
+    // list (6, 10, 13, 16, 20, 25, 32, 40, 50, 63) where one exists.
+    it.each([
+      [3, "conduit_flush", 2.5, 20, 25], // B2
+      [3, "surface", 4, 32, 40], // C
+      [3, "in_ground", 10, 50, 63], // D1
+      [1, "surface", 10, 63, null], // C, 2 loaded; nothing above B63
+    ] as const)(
+      "%s-phase %s on Cu %s mm² carries %s A: B at the ampacity does not warn, the next B%s does",
+      (phaseCount, installation, section, ampacityA, next) => {
+        const cable = { ...CIRCUIT, phase_count: phaseCount, installation, cross_section_mm2: section };
+        expect(circuitWarnings([{ ...cable, rated_current_a: ampacityA }], null, null)).toEqual([]);
+        if (next !== null) {
+          expect(circuitWarnings([{ ...cable, rated_current_a: next }], null, null)).toEqual([
+            {
+              code: "cable_ampacity_below_in",
+              circuitId: "c1",
+              circuitName: "Gniazda kuchnia",
+              ampacityA,
+              ratedA: next,
+            },
+          ]);
+        }
+      },
+    );
+
     it("warns for B16 on 1.5 mm² in a conduit (16.5 A is fine, 15 A three-phase is not)", () => {
       const thin = { ...CIRCUIT, cross_section_mm2: 1.5 as const };
       expect(circuitWarnings([thin], null, null)).toEqual([]);

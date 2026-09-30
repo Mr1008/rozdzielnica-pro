@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import type { CircuitInput } from "./circuit-params";
+import { circuitAmpacityA } from "./circuit-warnings";
 import { CONDUCTOR_MATERIALS, WLZ_CROSS_SECTIONS_MM2, WLZ_INSTALLATIONS, type SupplyParams } from "./supply-params";
 import {
   AMPACITY_A,
@@ -6,9 +8,11 @@ import {
   REFERENCE_METHODS,
   REFERENCE_METHOD_BY_INSTALLATION,
   VOLTAGE_DROP_LIMIT_PERCENT,
+  loadedConductors,
   supplyWarningMessage,
   supplyWarnings,
   voltageDropPercent,
+  wlzAmpacityA,
   type SupplyWarning,
 } from "./supply-warnings";
 
@@ -76,6 +80,43 @@ describe("AMPACITY_A", () => {
     expect(WLZ_CROSS_SECTIONS_MM2.map((section) => AMPACITY_A[material][3][method][section])).toEqual(expected);
   });
 
+  // PN-HD 60364-5-52:2011 Annex B, table B.52.1: a multi-core cable in conduit is B2, clipped direct
+  // or embedded in the wall is C, in a duct in the ground is D1. The expected methods and the Cu 4 mm²
+  // ampacities (B.52.2 two loaded: B2 30, C 36, D1 37; B.52.4 three loaded: B2 27, C 32, D1 30) are
+  // literals, so a wrong mapping fails here even though every table cell is pinned.
+  it.each([
+    ["surface", "C", 36, 32],
+    ["conduit_surface", "B2", 30, 27],
+    ["conduit_flush", "B2", 30, 27],
+    ["in_wall", "C", 36, 32],
+    ["in_ground", "D1", 37, 30],
+  ] as const)(
+    "maps %s to reference method %s (Cu 4 mm²: %s A single-phase, %s A three-phase)",
+    (installation, method, singlePhaseA, threePhaseA) => {
+      expect(REFERENCE_METHOD_BY_INSTALLATION[installation]).toBe(method);
+      const params: SupplyParams = { ...COMPLIANT, wlz_installation: installation, wlz_cross_section_mm2: 4 };
+      expect(wlzAmpacityA({ ...params, phase_count: 1 })).toBe(singlePhaseA);
+      expect(wlzAmpacityA({ ...params, phase_count: 3 })).toBe(threePhaseA);
+      const circuit: CircuitInput = {
+        id: "c1",
+        rcd_group_id: null,
+        name: "c1",
+        rated_current_a: 16,
+        phase_count: 1,
+        cross_section_mm2: 4,
+        installation,
+        entry_side: "top",
+      };
+      expect(circuitAmpacityA(circuit)).toBe(singlePhaseA);
+      expect(circuitAmpacityA({ ...circuit, phase_count: 3 })).toBe(threePhaseA);
+    },
+  );
+
+  it("loads two conductors single-phase (L + N) and three three-phase (L1–L3)", () => {
+    expect(loadedConductors(1)).toBe(2);
+    expect(loadedConductors(3)).toBe(3);
+  });
+
   it("grows with the cross-section in every column", () => {
     for (const material of CONDUCTOR_MATERIALS) {
       for (const loaded of LOADED_CONDUCTOR_COUNTS) {
@@ -112,6 +153,38 @@ describe("supplyWarnings", () => {
         { code: "wlz_ampacity_below_protection", ampacityA: 20, protectionA: 25 },
       ]);
     });
+
+    // Every pre-meter value that equals a tabulated ampacity (B.52.2 / B.52.4, PVC), with the next
+    // pre-meter value on the list (16, 20, 25, 32, 40, 50, 63) where one exists. 1 m keeps ΔU out.
+    // Only the ampacity code is asserted: Al below 16 mm² also raises its own warning.
+    it.each([
+      ["Cu", 3, "conduit_surface", 2.5, 20, 25], // B2
+      ["Cu", 3, "surface", 4, 32, 40], // C
+      ["Cu", 3, "in_ground", 10, 50, 63], // D1
+      ["Cu", 1, "surface", 10, 63, null], // C, 2 loaded; nothing above 63 A
+      ["Al", 3, "surface", 4, 25, 32], // C
+      ["Al", 3, "surface", 6, 32, 40], // C
+      ["Al", 3, "in_ground", 16, 50, 63], // D1
+    ] as const)(
+      "%s %s-phase %s %s mm² carries %s A: equal does not warn, next %s A does",
+      (material, phaseCount, installation, section, ampacityA, next) => {
+        const params: SupplyParams = {
+          ...base,
+          wlz_material: material,
+          phase_count: phaseCount,
+          wlz_installation: installation,
+          wlz_cross_section_mm2: section,
+        };
+        expect(codes({ ...params, premeter_protection_a: ampacityA })).not.toContain("wlz_ampacity_below_protection");
+        if (next !== null) {
+          expect(supplyWarnings({ ...params, premeter_protection_a: next })).toContainEqual({
+            code: "wlz_ampacity_below_protection",
+            ampacityA,
+            protectionA: next,
+          });
+        }
+      },
+    );
 
     it("uses two loaded conductors for a single-phase WLZ", () => {
       // Cu 2.5 mm² B2 with two loaded conductors carries 23 A, so 20 A does not warn either way.
@@ -187,6 +260,13 @@ describe("supplyWarnings", () => {
       ]);
     });
 
+    it("does not warn at exactly the limit: 200·16.1·20 / (56·10·230) = 64400 / 128800 = 0.5 %", () => {
+      // In IEEE-754 this evaluates to 0.5000000000000001, so it must be rounded before the comparison.
+      const atLimit: SupplyParams = { ...reference, wlz_length_m: 16.1, premeter_protection_a: 20 };
+      expect(voltageDropPercent(atLimit)).toBeCloseTo(0.5, 9);
+      expect(codes(atLimit)).not.toContain("voltage_drop_high");
+    });
+
     it("is ≈ 0.29 % for the same WLZ three-phase, and does not warn", () => {
       expect(voltageDropPercent(COMPLIANT)).toBeCloseTo(0.29, 2);
       expect(codes(COMPLIANT)).not.toContain("voltage_drop_high");
@@ -195,7 +275,10 @@ describe("supplyWarnings", () => {
     it("uses the lower conductivity of aluminium", () => {
       const aluminium = { ...COMPLIANT, wlz_material: "Al" as const, wlz_cross_section_mm2: 16 as const };
       const copper = { ...aluminium, wlz_material: "Cu" as const };
-      expect(voltageDropPercent(aluminium) / voltageDropPercent(copper)).toBeCloseTo(56 / 34, 6);
+      // Three-phase, 15 m, 25 A, 16 mm²: ΔU% = 100·√3·15·25 / (γ·16·400) = 37500·√3 / (γ·6400).
+      // Al, γ = 34: 64951.905 / 217600 ≈ 0.298492. Cu, γ = 56: 64951.905 / 358400 ≈ 0.181227.
+      expect(voltageDropPercent(aluminium)).toBeCloseTo(0.298492, 6);
+      expect(voltageDropPercent(copper)).toBeCloseTo(0.181227, 6);
     });
   });
 
