@@ -108,7 +108,7 @@ wdrożenia, nie do testów.
 - **Wyrocznia:** oczekiwane wartości są literałami z PRD, normy lub obliczenia ręcznego. Test nie importuje reguł implementacji (list, tabel, predykatów) — predykat w teście property-based jest napisany od nowa z tabeli reguł S-04.
 - **Granica:** wartości są dyskretne (listy In, przekrojów, zabezpieczeń), więc „±1 A” nie istnieje. Granica to „równe” kontra „następna wartość z listy”; równość nigdy nie ostrzega ani nie odrzuca aparatu.
 - **Testy wzorcowe:**
-  - `src/lib/device-matching.test.ts`, blok „Boundary tables (risk #1)” (aparaty tuż poniżej i tuż powyżej wymagania w jednym katalogu),
+  - `src/lib/device-matching.test.ts`, bloki `describe("boundaries — …")` pod komentarzem „Boundary tables (risk #1)” (aparaty tuż poniżej i tuż powyżej wymagania w jednym katalogu),
   - `src/lib/device-matching.property.test.ts` (niezależny predykat, „najtańszy spośród zgodnych”, dokładna lista luk, strażnik rozkładu statusów),
   - tabela równości `it.each` w `src/lib/supply-warnings.test.ts` (blok `wlz_ampacity_below_protection`).
 - **Jak dodać test graniczny dla nowego ostrzeżenia (bez czytania planu):**
@@ -137,14 +137,13 @@ wdrożenia, nie do testów.
 
 ### 6.6 Per-rollout-phase notes
 
-**Phase 1 — Matching and validation oracle (complete, 2026-09-30).** Dostarczono: tabele graniczne doboru aparatów (`device-matching.test.ts`), test property-based doboru (`device-matching.property.test.ts`, `fast-check`), tabele równości obciążalności, przypięcie mapowania sposobu ułożenia na metodę referencyjną (`supply-warnings.test.ts`, `circuit-warnings.test.ts`) oraz przypadki „TN-S / TN-C-S / TT nie blokuje” (`device-matching.test.ts`). Znalezisko: spadek napięcia dla 1F, Cu 10 mm², 16,1 m, 20 A to dokładnie 0,5 %, ale w IEEE-754 wychodziło 0,5000000000000001 i `supplyWarnings` ostrzegało fałszywie. Poprawka: spadek jest zaokrąglany do 9 miejsc po przecinku przed porównaniem i wyświetleniem. Wniosek: testy graniczne na wartościach obliczanych zmiennoprzecinkowo muszą zawierać przypadek dokładnie na progu.
+**Phase 1 — Matching and validation oracle (complete, 2026-09-30).** Dostarczono: tabele graniczne doboru aparatów (`device-matching.test.ts`), test property-based doboru (`device-matching.property.test.ts`, `fast-check`), tabele równości obciążalności, przypięcie mapowania sposobu ułożenia na metodę referencyjną (`supply-warnings.test.ts`, `circuit-warnings.test.ts`) oraz przypadki „TN-S / TN-C-S / TT nie blokuje” (`device-matching.test.ts`). Znalezisko: spadek napięcia dla 1F, Cu 10 mm², 16,1 m, 20 A to dokładnie 0,5 %, ale w IEEE-754 wychodziło 0,5000000000000001 i `supplyWarnings` ostrzegało fałszywie. Poprawka: spadek jest zaokrąglany do 9 miejsc po przecinku przed porównaniem i wyświetleniem. Wniosek: testy graniczne na wartościach obliczanych zmiennoprzecinkowo muszą zawierać przypadek dokładnie na progu. Po domknięciu S-04 RCD grupy jest dobierany do ΣIn × (1 + zapas grupy), a nie do największego In — tabele graniczne i predykat testu property-based zostały przepięte na tę regułę, więc wpis o tym zniknął z §7.
 
 ## 7. What We Deliberately Don't Test
 
 - **Wygląd panelu admina** — jedynym użytkownikiem jest autor, toporny UI jest akceptowalny. Poprawność _danych_ katalogu nadal jest testowana (#7). Re-evaluate, gdy pojawi się drugi admin. (Source: Phase 2 interview Q5.)
 - **UI dotykowe i mobilne** — poza zakresem MVP. (Source: PRD `## Non-Goals`.)
 - **Zdolność zwarciowa (Icn) aparatów** — nigdy nie jest porównywana, bo aplikacja nie ma wejścia z poziomem zwarcia, więc żaden test nie udaje, że to pokrywa. Re-evaluate, gdy pojawi się pole poziomu zwarcia w przyłączu. (Source: research `testing-matching-oracle`, Open Question 1.)
-- **Dobór RCD do obciążenia grupy** — RCD jest oceniany względem największego prądu znamionowego obwodu w grupie, nie sumy obciążenia grupy (B16+B20+B20 przechodzi na RCD 25 A). Test przypina tę regułę, nie jej słuszność. Re-evaluate, gdy elektryk zakwestionuje regułę albo pojawi się obciążenie obwodu w amperach. (Source: research `testing-matching-oracle`, Open Question 2.)
 - **Pełne obliczenia normowe** — testujemy tylko uproszczone kontrole i przepisane tabele, nie zgodność z normą w całości. (Source: PRD `## Non-Goals`.)
 
 ## 8. Freshness Ledger

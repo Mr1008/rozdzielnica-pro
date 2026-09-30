@@ -267,6 +267,36 @@ describe("supplyWarnings", () => {
       expect(codes(atLimit)).not.toContain("voltage_drop_high");
     });
 
+    it("displays 1.6 %, not 1.61 %: 200·16.1·16 / (56·2.5·230) = 51520 / 32200 = 1.6 %", () => {
+      // Unrounded, this evaluates just above 1.6 and would be shown rounded up to 1.61.
+      const drop = supplyWarnings({
+        ...reference,
+        wlz_cross_section_mm2: 2.5,
+        wlz_length_m: 16.1,
+        premeter_protection_a: 16,
+      });
+      expect(drop.find((w) => w.code === "voltage_drop_high")).toEqual({
+        code: "voltage_drop_high",
+        percent: 1.6,
+        limitPercent: VOLTAGE_DROP_LIMIT_PERCENT,
+      });
+    });
+
+    it("displays 17.6 %, not 17.61 %: 200·177.1·16 / (56·2.5·230) = 566720 / 32200 = 17.6 %", () => {
+      // 17.6 · 100 is 1760.0000000000002 in IEEE-754; a bare Math.ceil would show 17.61.
+      const drop = supplyWarnings({
+        ...reference,
+        wlz_cross_section_mm2: 2.5,
+        wlz_length_m: 177.1,
+        premeter_protection_a: 16,
+      });
+      expect(drop.find((w) => w.code === "voltage_drop_high")).toEqual({
+        code: "voltage_drop_high",
+        percent: 17.6,
+        limitPercent: VOLTAGE_DROP_LIMIT_PERCENT,
+      });
+    });
+
     it("is ≈ 0.29 % for the same WLZ three-phase, and does not warn", () => {
       expect(voltageDropPercent(COMPLIANT)).toBeCloseTo(0.29, 2);
       expect(codes(COMPLIANT)).not.toContain("voltage_drop_high");

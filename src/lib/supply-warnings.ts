@@ -157,9 +157,12 @@ export type SupplyWarning =
 
 export type SupplyWarningCode = SupplyWarning["code"];
 
-/** Rounded up to 0.01, so a displayed drop is never at or below the limit it exceeds. */
+/**
+ * Rounded up to 0.01, so a displayed drop is never at or below the limit it exceeds. `value * 100` is
+ * cleaned to 6 places first: `17.6 * 100` is 1760.0000000000002, which a bare `Math.ceil` shows as 17.61.
+ */
 function ceilTo2(value: number): number {
-  return Math.ceil(value * 100) / 100;
+  return Math.ceil(Number((value * 100).toFixed(6))) / 100;
 }
 
 /**
@@ -192,8 +195,10 @@ export function supplyWarnings(params: SupplyParams): SupplyWarning[] {
     warnings.push({ code: "pen_below_minimum", minimumMm2: penMinimum });
   }
 
-  // Rounded to 9 places only, to drop floating-point noise at the limit: any drop genuinely above
-  // 0.5 % stays above it, and the display then rounds up to 0.01 on top of this value.
+  // Rounded to 9 places only, to drop floating-point noise at the limit. No real drop above 0.5 % is
+  // rounded away because the inputs are discrete (0.1 m lengths, fixed protection and section lists):
+  // the smallest real excess over the limit is ≈ 2.7e-5, far above the 5e-10 rounding window. A finer
+  // input step must re-check that. The display then rounds up to 0.01 on top of this value.
   const percent = Number(voltageDropPercent(params).toFixed(VOLTAGE_DROP_DECIMAL_PLACES));
   if (percent > VOLTAGE_DROP_LIMIT_PERCENT) {
     warnings.push({ code: "voltage_drop_high", percent: ceilTo2(percent), limitPercent: VOLTAGE_DROP_LIMIT_PERCENT });

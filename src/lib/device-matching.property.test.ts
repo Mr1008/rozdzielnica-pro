@@ -421,7 +421,7 @@ function catalogArb(input: MatchInput): fc.Arbitrary<Device[]> {
     { weight: 2, arbitrary: fc.oneof(rcbo) },
   );
   return fc
-    .array(row as fc.Arbitrary<Record<string, unknown>>, { minLength: 4, maxLength: 15, size: "max" })
+    .array(row as fc.Arbitrary<Record<string, unknown>>, { minLength: 0, maxLength: 15, size: "max" })
     .map((rows) => rows.map((r, i) => buildDevice(deviceId(i), r)));
 }
 

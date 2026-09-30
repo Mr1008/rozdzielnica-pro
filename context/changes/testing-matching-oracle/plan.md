@@ -516,6 +516,11 @@ None — no schema or data change.
 - [x] 4.2 Roadmap-to-GitHub plan mode reports no pending changes after apply — b8a36a2
 - [x] 4.3 Full CI reproduction passes — b8a36a2
 
+> Adaptation (4.2): `roadmap-to-github.mjs` plan mode never reads GitHub, so it always lists every
+> operation and cannot report "no pending changes". The sync was verified instead by the `--apply` run
+> ("już istnieje" for every relation and the project, exit 0) and by reading issue #5's body, which
+> shows the three S-04 questions.
+
 #### Manual
 
 - [x] 4.4 §6.1 is enough on its own to add a boundary test for a new warning — b8a36a2
