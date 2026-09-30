@@ -3,13 +3,13 @@
 **RozdzielnicaPro** — a switchboard (rozdzielnica) planning and labour-quoting tool for a solo
 electrician. Scaffolded from `10x-astro-starter`. Product code so far is auth, i18n, the role/RLS
 baseline, the admin cabinet and device catalogs, the electrician pricing profile and projects (cabinet
-snapshot, OSD/WLZ supply and its warnings) — `src/pages/auth/*`, `src/pages/admin/` (including
+snapshot, OSD/WLZ supply and its warnings, circuits with RCD groups and device matching) — `src/pages/auth/*`, `src/pages/admin/` (including
 `src/pages/admin/devices/`), `src/pages/api/admin/`, `src/pages/dashboard.astro`,
 `src/pages/dashboard/profile.astro`, `src/pages/dashboard/projects/`, `src/pages/api/profile/`,
 `src/pages/api/projects/`, `src/components/cabinets/`, `src/components/devices/`,
-`src/components/forms/`, `src/components/projects/`, the landing page and auth shell, the design
-system (`src/styles/global.css`, `src/components/ui/`, `src/components/brand/`, `/dev/kitchen-sink`),
-most of `src/lib/`, and all of `supabase/`. Only tooling and config remain from the starter.
+`src/components/circuits/`, `src/components/forms/`, `src/components/projects/`, the landing page and
+auth shell, the design system (`src/styles/global.css`, `src/components/ui/`, `src/components/brand/`,
+`/dev/kitchen-sink`), most of `src/lib/`, and all of `supabase/`. Only tooling and config remain from the starter.
 
 Product spec: @context/foundation/prd.md · Stack rationale: @context/foundation/tech-stack.md ·
 Setup/deploy: @README.md
@@ -106,6 +106,20 @@ These are correctness requirements, not preferences.
   invented defaults. The warnings in @src/lib/supply-warnings.ts are informational and never block a
   save; `AMPACITY_A` is transcribed from PN-HD 60364-5-52 and its completeness test must keep every
   combination present.
+- **Circuit value lists are guarded twice, and the two guards must change together.** The CHECKs on
+  `rcd_groups` / `circuits` in `supabase/migrations/20260929120000_circuits_and_device_matching.sql`
+  and the lists in @src/lib/circuit-params.ts encode the same values.
+- **The matcher filters for correctness before price** (@src/lib/device-matching.ts): only compliant
+  devices are ever sorted, "cheapest" is picked among them, and no compliant device is a catalog gap.
+  Exact `In` for overcurrent protection is deliberate — never relax it to "≥". A partial match is
+  never stored: a gap or blocker saves an empty snapshot.
+- **`project_devices` snapshot columns are written only by the `project_devices_snapshot_device`
+  trigger** — send `device_id` alone, never the snapshot columns. S-08 reads the snapshot, never the
+  live catalog. A supply change (`projects_clear_device_snapshot`) deletes the whole snapshot, so the
+  project reads "not matched" until the circuits are saved or re-matched.
+- **`save_project_circuits` upserts groups and circuits by their stable client ids** — S-05/S-06
+  reference circuits by id, so never replace-all. Call it via `saveCircuitsArgs` in
+  @src/lib/device-matching-server.ts.
 - **Never run `supabase config push`.** `supabase/config.toml` carries
   `site_url = "http://127.0.0.1:3000"`, which would break production auth redirects. Migrations reach
   the cloud project through `.github/workflows/db-migrate.yml`; config does not go up at all, and the

@@ -689,9 +689,7 @@ export const pl = {
     description:
       "Obwody doprowadzone do szafki i ich grupy RCD. Po zapisie system dobiera najtańsze aparaty spełniające parametry każdego obwodu.",
     loadFailed: "Nie udało się wczytać obwodów i doboru aparatów. Spróbuj ponownie",
-    /** Temporary until the circuit editor island replaces the JSON field. */
-    payloadLabel: "Obwody i grupy RCD (JSON)",
-    payloadHint: "Tymczasowe pole: lista grup RCD i obwodów w formacie JSON. Zostanie zastąpione edytorem obwodów.",
+    /** The circuit editor's submit button. */
     save: "Zapisz obwody i dobierz aparaty",
     warningsTitle: "Kontrola obwodów",
     resultTitle: "Dobrane aparaty",
@@ -726,6 +724,69 @@ export const pl = {
     defaultGroupLabel: (n: number) => `RCD ${String(n)}`,
     /** The name a new circuit gets; the electrician renames it. */
     defaultCircuitName: (n: number) => `Obwód ${String(n)}`,
+    /** The editor island, `src/components/circuits/CircuitEditor.tsx`. */
+    editor: {
+      label: "Edytor obwodów i grup RCD",
+      hint: "Przeciągnij obwód za uchwyt do innej grupy albo zmień jego grupę na liście „Grupa”. Każda grupa RCD dostaje własny wyłącznik różnicowoprądowy.",
+      empty: "Nie dodano jeszcze żadnego obwodu. Dodaj grupę RCD albo obwód bez grupy.",
+      emptyContainer: "Brak obwodów — przeciągnij tu obwód albo dodaj nowy.",
+      ungrouped: "Bez grupy",
+      ungroupedHint: "Obwody bez wyłącznika różnicowoprądowego.",
+      addGroup: "Dodaj grupę RCD",
+      addCircuit: "Dodaj obwód",
+      addCircuitTo: (container: string) => `Dodaj obwód: ${container}`,
+      maxGroups: (max: number) => `Osiągnięto limit ${String(max)} grup RCD.`,
+      maxCircuits: (max: number) => `Osiągnięto limit ${String(max)} obwodów.`,
+      groupCard: (label: string) => `Grupa RCD „${label}”`,
+      circuitRow: (name: string) => `Obwód „${name}”`,
+      circuitCount: (n: number) => `${String(n)} ${plural(n, { one: "obwód", few: "obwody", many: "obwodów" })}`,
+      rcboHint: "1 obwód → zostanie dobrany RCBO",
+      groupFields: {
+        label: "Nazwa grupy",
+        residualCurrent: "Prąd różnicowy IΔn",
+        minRcdType: "Minimalny typ RCD",
+      },
+      circuitFields: {
+        name: "Nazwa obwodu",
+        ratedCurrent: "Prąd znamionowy In",
+        phaseCount: "Liczba faz",
+        crossSection: "Przekrój przewodu",
+        installation: "Sposób ułożenia",
+        entrySide: "Wprowadzenie przewodów",
+        group: "Grupa",
+      },
+      ratedCurrentOption: (amperes: number) => `${String(amperes)} A`,
+      residualCurrentOption: (milliamperes: number) => `${String(milliamperes)} mA`,
+      /** An entry side the cabinet snapshot has no cable entry on. */
+      entrySideMissing: (side: string) => `${side} (brak w szafce)`,
+      dragGroup: (label: string) => `Przeciągnij grupę „${label}”`,
+      dragCircuit: (name: string) => `Przeciągnij obwód „${name}”`,
+      moveUp: (subject: string) => `Przesuń w górę: ${subject}`,
+      moveDown: (subject: string) => `Przesuń w dół: ${subject}`,
+      remove: "Usuń",
+      removeGroup: (label: string) => `Usuń grupę „${label}” (jej obwody trafią do „Bez grupy”)`,
+      removeCircuit: (name: string) => `Usuń obwód „${name}”`,
+      blocked: "Popraw zaznaczone błędy, aby zapisać obwody.",
+      saving: "Zapisywanie...",
+    },
+    /** Screen-reader instructions and announcements for drag and drop (dnd-kit `accessibility`). */
+    dnd: {
+      instructions:
+        "Aby podnieść element, naciśnij spację albo Enter. Strzałkami przesuwasz go, spacją albo Enterem upuszczasz, a klawiszem Escape anulujesz przenoszenie.",
+      /** Accusative subjects: "Podniesiono obwód „Gniazda kuchnia”." */
+      circuitSubject: (name: string) => `obwód „${name}”`,
+      groupSubject: (label: string) => `grupę „${label}”`,
+      groupList: "lista grup RCD",
+      groupContainer: (label: string) => `grupa „${label}”`,
+      ungroupedContainer: "bez grupy",
+      pickedUp: (subject: string) => `Podniesiono ${subject}.`,
+      movedOver: (subject: string, position: number, total: number, container: string) =>
+        `Przesunięto ${subject} na pozycję ${String(position)} z ${String(total)}: ${container}.`,
+      dropped: (subject: string, position: number, total: number, container: string) =>
+        `Upuszczono ${subject} na pozycji ${String(position)} z ${String(total)}: ${container}.`,
+      droppedNowhere: (subject: string) => `Upuszczono ${subject} poza listą — bez zmian.`,
+      cancelled: (subject: string) => `Anulowano przenoszenie. Przywrócono ${subject} na poprzednie miejsce.`,
+    },
   },
 
   /**
@@ -835,6 +896,7 @@ export const pl = {
         forms: "Pola formularzy",
         feedback: "Komunikaty i kontenery",
         drawing: "Rysunek szafki",
+        circuits: "Obwody i dobór aparatów",
         brand: "Marka",
       },
       tokenGroups: {
@@ -948,6 +1010,35 @@ export const pl = {
       circuitGrid: "Wzór tła: siatka z torem obwodu",
       heroButtons: "Przyciski na tle hero",
       draftingSheet: "Arkusz rysunkowy z przepływem prądu",
+      circuitEditorTitle: "Edytor obwodów",
+      matchResultTitle: "Wynik doboru aparatów",
+      /** Fixture data and state captions for the circuit section; see `src/lib/kitchen-sink-circuits.ts`. */
+      circuitFixtures: {
+        manufacturer: "Przykładowy producent",
+        circuits: {
+          kitchen: "Gniazda kuchnia",
+          living: "Gniazda salon",
+          bathroom: "Łazienka",
+          lighting: "Oświetlenie",
+          oven: "Piekarnik",
+          heater: "Podgrzewacz wody",
+        },
+        editorStates: {
+          empty: "Pusty (brak obwodów)",
+          filled: "Wypełniony: dwie grupy RCD i obwód bez grupy",
+          singleCircuitGroup: "Grupa z jednym obwodem (podpowiedź RCBO)",
+          invalidRow: "Błędny wiersz (pusta nazwa obwodu)",
+          entrySideMissing: "Strona wprowadzenia, której szafka nie ma (lewo)",
+        },
+        matchStates: {
+          matched: "Dobrane aparaty (z zamiennikiem RCD + MCB zamiast RCBO)",
+          gaps: "Luki w katalogu",
+          blockedSupply: "Zablokowane: brak parametrów przyłącza",
+          blockedTnC: "Zablokowane: układ TN-C z grupą RCD",
+          stale: "Nieaktualny zapisany dobór",
+          warnings: "Ostrzeżenia obwodów (przekrój, strona wprowadzenia, brak szyn PE/N) i niezapisany podgląd",
+        },
+      },
     },
   },
 

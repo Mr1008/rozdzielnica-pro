@@ -4,6 +4,8 @@ import Banner from "@/components/Banner.astro";
 import DraftingSheet from "@/components/brand/DraftingSheet.astro";
 import Logo from "@/components/brand/Logo.astro";
 import { CabinetDrawing } from "@/components/cabinets/CabinetDrawing";
+import CircuitEditor from "@/components/circuits/CircuitEditor";
+import MatchResult from "@/components/projects/MatchResult.astro";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,6 +18,7 @@ import { DEMO_CABINET_GEOMETRY } from "@/lib/demo-cabinet";
 import { fieldControlProps, fieldErrorId, fieldHintId } from "@/lib/field-a11y";
 import { deviceKindLabel } from "@/lib/device-spec";
 import { formatMoney, t } from "@/lib/i18n";
+import { KS_EDITOR_STATES, KS_PROJECT_ID, kitchenSinkMatchStates } from "@/lib/kitchen-sink-circuits";
 import { EARTHING_SYSTEMS } from "@/lib/supply-params";
 
 /**
@@ -188,6 +191,10 @@ const brandSurfaces = [
   { label: k.brandSurfaces.mono, surface: "bg-card text-foreground [--brand-current:currentColor]" },
 ];
 const brandSizes = [16, 24, 48];
+
+// Only computed when the page renders at all: the fixtures run the real matcher.
+const matchStates = enabled ? kitchenSinkMatchStates() : [];
+const circuitsAnchor = "ks-circuits";
 
 const sectionClass = "flex flex-col gap-4";
 const sectionTitleClass = "text-xl font-semibold tracking-tight";
@@ -541,6 +548,51 @@ const subTitleClass = "text-sm font-medium text-muted-foreground";
             />
             <figcaption class:list={subTitleClass}>{k.drawingStates.invalid}</figcaption>
           </figure>
+        </div>
+      </section>
+
+      <section class:list={sectionClass} aria-labelledby={circuitsAnchor}>
+        <h2 id={circuitsAnchor} class:list={sectionTitleClass}>
+          {k.sections.circuits}
+        </h2>
+        <h3 class="text-lg font-semibold">{k.circuitEditorTitle}</h3>
+        <div class="flex flex-col gap-6">
+          {KS_EDITOR_STATES.map((state) => (
+            <figure class="flex flex-col gap-2">
+              <figcaption class:list={subTitleClass}>{state.caption}</figcaption>
+              <Card>
+                <CardContent>
+                  <CircuitEditor
+                    client:only="react"
+                    action="#"
+                    initial={state.initial}
+                    cabinetEntrySides={state.cabinetEntrySides}
+                    draftKey={`ks-circuits-${state.key}`}
+                    restoreDraft={false}
+                    validateOnMount={state.validateOnMount}
+                  />
+                </CardContent>
+              </Card>
+            </figure>
+          ))}
+        </div>
+        <h3 class="text-lg font-semibold">{k.matchResultTitle}</h3>
+        <div class="flex flex-col gap-6">
+          {matchStates.map((state) => (
+            <figure class="flex flex-col gap-2">
+              <figcaption class:list={subTitleClass}>{state.caption}</figcaption>
+              <Card>
+                <CardContent>
+                  <MatchResult
+                    view={state.view}
+                    context={state.context}
+                    projectId={KS_PROJECT_ID}
+                    circuitsAnchor={circuitsAnchor}
+                  />
+                </CardContent>
+              </Card>
+            </figure>
+          ))}
         </div>
       </section>
 
