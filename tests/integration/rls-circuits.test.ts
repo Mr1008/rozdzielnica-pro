@@ -56,6 +56,8 @@ interface GroupPayload {
   label: string;
   residual_current_ma: number;
   min_rcd_type: "AC" | "A" | "F" | "B";
+  /** Optional: the RPC falls back to the column default (15) for a caller that predates it. */
+  rcd_margin_percent?: number;
 }
 
 interface CircuitPayload {
@@ -89,7 +91,14 @@ function toJson(rows: readonly object[]): Json {
 }
 
 function group(overrides: Partial<GroupPayload> = {}): GroupPayload {
-  return { id: randomUUID(), label: "Grupa 1", residual_current_ma: 30, min_rcd_type: "A", ...overrides };
+  return {
+    id: randomUUID(),
+    label: "Grupa 1",
+    residual_current_ma: 30,
+    min_rcd_type: "A",
+    rcd_margin_percent: 15,
+    ...overrides,
+  };
 }
 
 function circuit(overrides: Partial<CircuitPayload> = {}): CircuitPayload {
@@ -319,6 +328,54 @@ describe("row level security and the device snapshot on circuits, groups and pro
       const after = await readAll(projectId);
       expect(after.projectDevices).toEqual([]);
       expect(after.circuits).toHaveLength(payload.circuits.length);
+    });
+
+    it("stores a group's RCD margin, defaults an absent one to 15, and refuses one off the list", async () => {
+      const projectId = await insertProject(clientA, electricianA.id);
+      const set = group({ rcd_margin_percent: 25 });
+      const { rcd_margin_percent: _omitted, ...legacy } = group();
+      await saveOrThrow(clientA, projectId, { groups: [set, legacy], circuits: [], devices: [] });
+      const { groups } = await readAll(projectId);
+      expect(groups.map((row) => [row.id, row.rcd_margin_percent])).toEqual([
+        [set.id, 25],
+        [legacy.id, 15],
+      ]);
+
+      const { error } = await save(clientA, projectId, {
+        groups: [{ ...set, rcd_margin_percent: 7 }],
+        circuits: [],
+        devices: [],
+      });
+      expect(error?.code).toBe("23514");
+      expect((await readAll(projectId)).groups.map((row) => row.rcd_margin_percent)).toEqual([25, 15]);
+    });
+
+    it("reusing a group or circuit id from the owner's other project raises 42501 and rolls back", async () => {
+      // The upsert has already overwritten the other project's row when the guard raises, so this
+      // pins that the exception rolls the whole call back.
+      const source = await insertProject(clientA, electricianA.id);
+      const target = await insertProject(clientA, electricianA.id);
+      const sourceGroup = group({ label: "Źródłowa" });
+      const sourceCircuit = circuit({ rcd_group_id: sourceGroup.id, name: "Źródłowy" });
+      await saveOrThrow(clientA, source, { groups: [sourceGroup], circuits: [sourceCircuit], devices: [] });
+      const before = await readAll(source);
+
+      const groupReuse = await save(clientA, target, {
+        groups: [{ ...sourceGroup, label: "Przejęta" }],
+        circuits: [],
+        devices: [],
+      });
+      expect(groupReuse.error?.code).toBe("42501");
+
+      const circuitReuse = await save(clientA, target, {
+        groups: [],
+        circuits: [{ ...sourceCircuit, rcd_group_id: null, name: "Przejęty" }],
+        devices: [],
+      });
+      expect(circuitReuse.error?.code).toBe("42501");
+
+      expect(await readAll(source)).toEqual(before);
+      expect(await readAll(target)).toEqual({ groups: [], circuits: [], projectDevices: [] });
     });
 
     it("cannot update a project device — there is no UPDATE grant — 42501", async () => {

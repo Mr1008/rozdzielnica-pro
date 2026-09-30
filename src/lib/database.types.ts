@@ -462,6 +462,7 @@ export type Database = {
           min_rcd_type: Database["public"]["Enums"]["rcd_type"]
           position: number
           project_id: string
+          rcd_margin_percent: number
           residual_current_ma: number
           updated_at: string
         }
@@ -472,6 +473,7 @@ export type Database = {
           min_rcd_type: Database["public"]["Enums"]["rcd_type"]
           position: number
           project_id: string
+          rcd_margin_percent?: number
           residual_current_ma: number
           updated_at?: string
         }
@@ -482,6 +484,7 @@ export type Database = {
           min_rcd_type?: Database["public"]["Enums"]["rcd_type"]
           position?: number
           project_id?: string
+          rcd_margin_percent?: number
           residual_current_ma?: number
           updated_at?: string
         }

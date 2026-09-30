@@ -116,7 +116,7 @@ const warningMessages = supply ? supplyWarnings(supply).map(supplyWarningMessage
 
 // Circuits, groups, the active catalog and the stored device snapshot. A failure here shows an alert in
 // the section and leaves the rest of the page up.
-const matchLoad = project && supabase ? await loadMatchContext(supabase, project.id) : null;
+const matchLoad = project && supabase ? await loadMatchContext(supabase, project.id, project) : null;
 const matchContext = matchLoad?.ok ? matchLoad.context : null;
 const matchView = matchContext ? computeMatchView(matchContext) : null;
 

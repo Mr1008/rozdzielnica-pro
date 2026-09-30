@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   CIRCUIT_RATED_CURRENTS_A,
+  RCD_MARGINS_PERCENT,
   RESIDUAL_CURRENTS_MA,
   type CircuitInput,
   type RcdGroupInput,
@@ -91,7 +92,7 @@ function circuit(id: string, rated: CircuitInput["rated_current_a"], extra: Part
 }
 
 function group(id: string, extra: Partial<RcdGroupInput> = {}): RcdGroupInput {
-  return { id, label: id, residual_current_ma: 30, min_rcd_type: "A", ...extra };
+  return { id, label: id, residual_current_ma: 30, min_rcd_type: "A", rcd_margin_percent: 15, ...extra };
 }
 
 /** A catalog with one of everything a simple single-phase TN-S project needs. */
@@ -362,7 +363,8 @@ describe("matchDevices — group RCD", () => {
   const twoCircuits = (extra: Partial<CircuitInput> = {}): MatchInput => ({
     supply: TN_S_1F,
     groups: [group("g1")],
-    circuits: [circuit("c1", 16, { rcd_group_id: "g1" }), circuit("c2", 20, { rcd_group_id: "g1", ...extra })],
+    // ΣIn 26 A × 1.15 = 29.9 A, so the 40 A RCDs below are all rated enough.
+    circuits: [circuit("c1", 16, { rcd_group_id: "g1" }), circuit("c2", 10, { rcd_group_id: "g1", ...extra })],
   });
 
   it("never picks a type AC RCD when type A is required", () => {
@@ -390,7 +392,9 @@ describe("matchDevices — group RCD", () => {
         role: "rcd",
         kind: "rcd",
         poles: ["2P", "4P"],
-        minRatedCurrentA: 20,
+        minRatedCurrentA: 29.9,
+        circuitsSumA: 26,
+        marginPercent: 15,
         residualCurrentMa: 30,
         minRcdType: "A",
         groupId: "g1",
@@ -400,15 +404,54 @@ describe("matchDevices — group RCD", () => {
     ]);
   });
 
-  it("rejects an RCD whose In is below the largest MCB in the group", () => {
+  it("rejects an RCD rated for the largest circuit but not the group's summed In plus margin", () => {
+    // 26 A covers the sum without the margin, and 16 A covers the largest circuit: neither is enough.
     const catalog = [
       ...BASE.filter((d) => d.kind !== "rcd"),
       rcd("16", 16, 30, "A", "2P", { price_grosze: 1 }),
-      rcd("25", 25, 30, "A", "2P"),
+      rcd("26", 26, 30, "A", "2P", { price_grosze: 2 }),
+      rcd("32", 32, 30, "A", "2P"),
     ];
-    expect(deviceFor(matched(matchDevices(twoCircuits(), catalog)), "rcd", { groupId: "g1" })).toBe("25");
-    const onlySmall = [...BASE.filter((d) => d.kind !== "rcd"), rcd("16", 16, 30, "A", "2P")];
-    expect(gapsOf(matchDevices(twoCircuits(), onlySmall))[0]).toMatchObject({ role: "rcd", minRatedCurrentA: 20 });
+    expect(deviceFor(matched(matchDevices(twoCircuits(), catalog)), "rcd", { groupId: "g1" })).toBe("32");
+    const onlySmall = [...BASE.filter((d) => d.kind !== "rcd"), rcd("26", 26, 30, "A", "2P")];
+    expect(gapsOf(matchDevices(twoCircuits(), onlySmall))[0]).toMatchObject({
+      role: "rcd",
+      minRatedCurrentA: 29.9,
+      circuitsSumA: 26,
+      marginPercent: 15,
+    });
+  });
+
+  it("applies each group's own margin", () => {
+    // Two B16 each: ΣIn 32 A. At 25 % the 40 A RCD is exactly enough; at 30 % (41.6 A) it is not.
+    const input: MatchInput = {
+      supply: TN_S_1F,
+      groups: [group("g25", { rcd_margin_percent: 25 }), group("g30", { rcd_margin_percent: 30 })],
+      circuits: [
+        circuit("a1", 16, { rcd_group_id: "g25" }),
+        circuit("a2", 16, { rcd_group_id: "g25" }),
+        circuit("b1", 16, { rcd_group_id: "g30" }),
+        circuit("b2", 16, { rcd_group_id: "g30" }),
+      ],
+    };
+    const gaps = gapsOf(matchDevices(input, BASE));
+    expect(gaps).toHaveLength(1);
+    expect(gaps[0]).toMatchObject({ role: "rcd", groupId: "g30", minRatedCurrentA: 41.6 });
+  });
+
+  it("sizes the RCD of an RCBO fallback with the margin too", () => {
+    // One B16 with no RCBO in the catalog: the fallback RCD needs 16 × 1.15 = 18.4 A.
+    const input: MatchInput = {
+      supply: TN_S_1F,
+      groups: [group("g1")],
+      circuits: [circuit("c1", 16, { rcd_group_id: "g1" })],
+    };
+    const catalog = [
+      ...BASE.filter((d) => d.kind !== "rcd"),
+      rcd("16", 16, 30, "A", "2P", { price_grosze: 1 }),
+      rcd("20", 20, 30, "A", "2P"),
+    ];
+    expect(deviceFor(matched(matchDevices(input, catalog)), "rcd", { groupId: "g1" })).toBe("20");
   });
 
   it("requires a 4P RCD when any circuit of the group is three-phase", () => {
@@ -508,7 +551,7 @@ describe("matchDevices — result shape", () => {
       groups: [group("g1"), group("g2")],
       circuits: [
         circuit("u1", 10),
-        circuit("a2", 20, { rcd_group_id: "g1" }),
+        circuit("a2", 10, { rcd_group_id: "g1" }),
         circuit("s1", 16, { rcd_group_id: "g2" }),
         circuit("a1", 16, { rcd_group_id: "g1" }),
       ],
@@ -605,23 +648,24 @@ describe("boundaries — RCBO rated current is exact", () => {
 });
 
 describe("boundaries — group RCD", () => {
-  it.each(neighbourTriples(CIRCUIT_RATED_CURRENTS_A))(
-    "accepts In equal to the largest circuit In; a cheaper one a step below is not chosen (below %i, largest %i, above %i)",
-    (below, largest, above) => {
-      // Group of two circuits whose largest In is `largest`. The RCD rated exactly `largest` is the
-      // cheapest compliant one (In ≥ max circuit In): the one below fails, the one above costs more.
+  it.each(RCD_MARGINS_PERCENT.map((margin) => [margin] as const))(
+    "accepts the smallest whole In ≥ ΣIn × (1 + margin); a cheaper one an ampere below is not chosen (margin %i %%)",
+    (margin) => {
+      // Two B16: ΣIn 32 A. `exact` is the smallest whole rating that reaches the requirement — equal
+      // to it at 0, 25 and 50 %, so equality is pinned as accepted.
+      const required = (32 * (100 + margin)) / 100;
+      const exact = Math.ceil(required);
       const input: MatchInput = {
         supply: TN_S_1F,
-        groups: [group("g1")],
-        circuits: [circuit("c1", below, { rcd_group_id: "g1" }), circuit("c2", largest, { rcd_group_id: "g1" })],
+        groups: [group("g1", { rcd_margin_percent: margin })],
+        circuits: [circuit("c1", 16, { rcd_group_id: "g1" }), circuit("c2", 16, { rcd_group_id: "g1" })],
       };
       const catalog = [
         fr("fr", 40, "2P"),
-        mcb("mcb-below", below, "1P"),
-        mcb("mcb-largest", largest, "1P"),
-        rcd("rcd-below", below, 30, "A", "2P", { price_grosze: 1 }),
-        rcd("rcd-exact", largest, 30, "A", "2P", { price_grosze: 3000 }),
-        rcd("rcd-above", above, 30, "A", "2P", { price_grosze: 5000 }),
+        mcb("b16", 16, "1P"),
+        rcd("rcd-below", exact - 1, 30, "A", "2P", { price_grosze: 1 }),
+        rcd("rcd-exact", exact, 30, "A", "2P", { price_grosze: 3000 }),
+        rcd("rcd-above", exact + 1, 30, "A", "2P", { price_grosze: 5000 }),
       ];
       expect(deviceFor(matched(matchDevices(input, catalog)), "rcd", { groupId: "g1" })).toBe("rcd-exact");
     },
@@ -652,12 +696,12 @@ describe("boundaries — group RCD", () => {
     const input: MatchInput = {
       supply: TN_S_1F,
       groups: [group("g1")],
-      circuits: [circuit("c1", 16, { rcd_group_id: "g1" }), circuit("c2", 20, { rcd_group_id: "g1" })],
+      circuits: [circuit("c1", 16, { rcd_group_id: "g1" }), circuit("c2", 10, { rcd_group_id: "g1" })],
     };
     const catalog = [
       fr("fr", 40, "2P"),
       mcb("b16", 16, "1P"),
-      mcb("b20", 20, "1P"),
+      mcb("b10", 10, "1P"),
       rcd("rcd-2p", 40, 30, "A", "2P", { price_grosze: 3000 }),
       rcd("rcd-4p", 40, 30, "A", "4P", { price_grosze: 2000 }),
     ];
@@ -913,7 +957,9 @@ describe("messages", () => {
       role: "rcd",
       kind: "rcd",
       poles: ["2P", "4P"],
-      minRatedCurrentA: 20,
+      minRatedCurrentA: 29.9,
+      circuitsSumA: 26,
+      marginPercent: 15,
       residualCurrentMa: 30,
       minRcdType: "A",
       groupId: "g1",
@@ -951,12 +997,14 @@ describe("messages", () => {
     expect(texts[0]).toContain("2P");
     expect(texts[1]).toContain("30 mA");
     expect(texts[1]).toContain("typ A");
-    expect(texts[1]).toContain('„RCD 1"');
+    expect(texts[1]).toContain("29,9 A");
+    expect(texts[1]).toContain("26 A + 15 %");
+    expect(texts[1]).toContain("„RCD 1”");
     expect(texts[2]).toContain("B16");
     expect(texts[2]).toContain("1P+N / 2P");
     expect(texts[3]).toContain("B40");
     expect(texts[3]).toContain("1P / 1P+N / 2P");
-    expect(texts[3]).toContain('obwód: „Piekarnik"');
+    expect(texts[3]).toContain("obwód: „Piekarnik”");
   });
 
   it("marks a fallback gap as the alternative to the RCBO", () => {

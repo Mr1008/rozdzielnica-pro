@@ -2,7 +2,7 @@ import type { APIRoute } from "astro";
 import { isUuid } from "@/lib/catalog";
 import { CIRCUIT_FORM_FIELDS, parseCircuitsPayload } from "@/lib/circuit-params";
 import { matchDevices } from "@/lib/device-matching";
-import { circuitsRpcErrorCode, loadMatchContext, saveCircuitsArgs } from "@/lib/device-matching-server";
+import { circuitsRpcErrorCode, loadMatchBase, saveCircuitsArgs } from "@/lib/device-matching-server";
 import { projectFormErrorPath, projectPath, projectsErrorPath } from "@/lib/project";
 import { PROJECT_ERROR } from "@/lib/project-errors";
 import { SIGN_IN_PATH } from "@/lib/route-access";
@@ -48,13 +48,13 @@ export const POST: APIRoute = async (context) => {
   const supabase = createClient(context.request.headers, context.cookies);
   if (!supabase) return back(PROJECT_ERROR.notConfigured);
 
-  // Only the supply and the catalog are used: the match runs on the submitted groups and circuits.
-  const loaded = await loadMatchContext(supabase, id);
+  // The stored rows are not needed: the match runs on the submitted groups and circuits.
+  const loaded = await loadMatchBase(supabase, id);
   if (!loaded.ok) return loaded.code === "not_found" ? notFound() : back(PROJECT_ERROR.unknown);
 
   const result = matchDevices(
-    { supply: loaded.context.supply, groups: parsed.value.groups, circuits: parsed.value.circuits },
-    loaded.context.catalog,
+    { supply: loaded.base.supply, groups: parsed.value.groups, circuits: parsed.value.circuits },
+    loaded.base.catalog,
   );
 
   const { error } = await supabase.rpc("save_project_circuits", saveCircuitsArgs(id, parsed.value, result));

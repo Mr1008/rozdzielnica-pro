@@ -712,8 +712,8 @@ export const pl = {
     },
     /** What a selection serves: the whole supply (main switch), a group or one circuit. */
     servesSupply: "Całą instalację",
-    servesGroup: (label: string) => `Grupa „${label}"`,
-    servesCircuit: (name: string) => `Obwód „${name}"`,
+    servesGroup: (label: string) => `Grupa „${label}”`,
+    servesCircuit: (name: string) => `Obwód „${name}”`,
     summaryUnavailable: "Parametry niedostępne",
     count: (n: number) => `${String(n)} ${plural(n, { one: "aparat", few: "aparaty", many: "aparatów" })}`,
   },
@@ -745,6 +745,7 @@ export const pl = {
         label: "Nazwa grupy",
         residualCurrent: "Prąd różnicowy IΔn",
         minRcdType: "Minimalny typ RCD",
+        rcdMargin: "Zapas prądu RCD",
       },
       circuitFields: {
         name: "Nazwa obwodu",
@@ -757,6 +758,10 @@ export const pl = {
       },
       ratedCurrentOption: (amperes: number) => `${String(amperes)} A`,
       residualCurrentOption: (milliamperes: number) => `${String(milliamperes)} mA`,
+      marginOption: (percent: number) => `${String(percent)} %`,
+      /** Under the margin select: the rating the group's RCD must reach. */
+      rcdRequirement: (minRatedA: number, circuitsSumA: number, marginPercent: number) =>
+        `RCD co najmniej ${formatNumber(minRatedA)} A (suma prądów obwodów ${formatNumber(circuitsSumA)} A + ${formatNumber(marginPercent)} % zapasu).`,
       /** An entry side the cabinet snapshot has no cable entry on. */
       entrySideMissing: (side: string) => `${side} (brak w szafce)`,
       dragGroup: (label: string) => `Przeciągnij grupę „${label}”`,
@@ -806,6 +811,7 @@ export const pl = {
       label: "Nazwa grupy",
       residualCurrentMa: "Prąd różnicowy",
       minRcdType: "Minimalny typ wyłącznika różnicowoprądowego",
+      rcdMarginPercent: "Zapas prądu wyłącznika różnicowoprądowego",
       rcdGroupId: "Grupa RCD",
       name: "Nazwa obwodu",
       ratedCurrentA: "Prąd znamionowy",
@@ -830,12 +836,12 @@ export const pl = {
    */
   circuitWarnings: {
     cableAmpacityBelowIn: (circuitName: string, ampacityA: number, ratedA: number) =>
-      `Obwód „${circuitName}": obciążalność prądowa długotrwała przewodu (${formatNumber(ampacityA)} A dla tego przekroju i sposobu ułożenia) jest mniejsza niż prąd znamionowy zabezpieczenia (${formatNumber(ratedA)} A). Rozważ większy przekrój albo mniejsze zabezpieczenie.`,
+      `Obwód „${circuitName}”: obciążalność prądowa długotrwała przewodu (${formatNumber(ampacityA)} A dla tego przekroju i sposobu ułożenia) jest mniejsza niż prąd znamionowy zabezpieczenia (${formatNumber(ratedA)} A). Rozważ większy przekrój albo mniejsze zabezpieczenie.`,
     barsMissing: "Wybrana szafka nie ma szyn PE ani N — przewody ochronne i neutralne nie mają gdzie się podłączyć.",
     barTerminalsInsufficient: (kind: string, needed: number, available: number) =>
       `Szyna ${kind}: potrzeba ${formatNumber(needed)} ${plural(needed, { one: "zacisku", few: "zacisków", many: "zacisków", other: "zacisku" })} o pasującym przekroju (obwody i WLZ), a pasuje tylko ${formatNumber(available)}.`,
     entrySideNotInCabinet: (circuitName: string, side: string) =>
-      `Obwód „${circuitName}": szafka nie ma wprowadzenia przewodów od strony „${side}".`,
+      `Obwód „${circuitName}”: szafka nie ma wprowadzenia przewodów od strony „${side}”.`,
     note: "Kontrole są uproszczone i mają charakter informacyjny: obciążalność pochodzi z tabel dla przewodów miedzianych w izolacji PVC bez współczynników poprawkowych (temperatura, grupowanie). Nie blokują zapisu i nie zastępują obliczeń projektowych.",
   },
 
@@ -860,12 +866,20 @@ export const pl = {
     gaps: {
       mainSwitch: (minRatedA: number, poles: string) =>
         `Brak w katalogu: rozłącznik izolacyjny (FR) o prądzie znamionowym co najmniej ${formatNumber(minRatedA)} A, ${poles} — rozłącznik główny.`,
-      rcd: (minRatedA: number, residualMa: number, minType: string, poles: string, groupLabel: string) =>
-        `Brak w katalogu: wyłącznik różnicowoprądowy o prądzie znamionowym co najmniej ${formatNumber(minRatedA)} A, ${formatNumber(residualMa)} mA, typ ${minType} lub wyższy, ${poles} — grupa: „${groupLabel}".`,
+      rcd: (
+        minRatedA: number,
+        circuitsSumA: number,
+        marginPercent: number,
+        residualMa: number,
+        minType: string,
+        poles: string,
+        groupLabel: string,
+      ) =>
+        `Brak w katalogu: wyłącznik różnicowoprądowy o prądzie znamionowym co najmniej ${formatNumber(minRatedA)} A (suma prądów obwodów ${formatNumber(circuitsSumA)} A + ${formatNumber(marginPercent)} % zapasu), ${formatNumber(residualMa)} mA, typ ${minType} lub wyższy, ${poles} — grupa: „${groupLabel}”.`,
       rcbo: (ratedA: number, residualMa: number, minType: string, poles: string, circuitName: string) =>
-        `Brak w katalogu: wyłącznik różnicowonadprądowy B${String(ratedA)}, ${formatNumber(residualMa)} mA, typ ${minType} lub wyższy, ${poles} — obwód: „${circuitName}".`,
+        `Brak w katalogu: wyłącznik różnicowonadprądowy B${String(ratedA)}, ${formatNumber(residualMa)} mA, typ ${minType} lub wyższy, ${poles} — obwód: „${circuitName}”.`,
       mcb: (ratedA: number, poles: string, circuitName: string) =>
-        `Brak w katalogu: wyłącznik nadprądowy B${String(ratedA)}, ${poles} — obwód: „${circuitName}".`,
+        `Brak w katalogu: wyłącznik nadprądowy B${String(ratedA)}, ${poles} — obwód: „${circuitName}”.`,
       /** Appended to an RCD or MCB gap that is part of the RCD + MCB alternative to a missing RCBO. */
       fallbackSuffix: " To alternatywa dla brakującego wyłącznika RCBO tego obwodu.",
       contactAdmin: "Skontaktuj się z administratorem, aby uzupełnił katalog aparatów.",
@@ -877,9 +891,9 @@ export const pl = {
       tnCWithRcd:
         "W układzie TN-C nie można stosować wyłączników różnicowoprądowych. Jeśli PEN jest rozdzielany w rozdzielnicy, wybierz w przyłączu układ TN-C-S, albo usuń obwody z grup RCD.",
       circuitPhaseExceedsSupply: (circuitName: string) =>
-        `Obwód „${circuitName}" jest trójfazowy, a przyłącze jest jednofazowe.`,
+        `Obwód „${circuitName}” jest trójfazowy, a przyłącze jest jednofazowe.`,
       circuitGroupUnknown: (circuitName: string) =>
-        `Obwód „${circuitName}" jest przypisany do grupy RCD, która nie istnieje — przypisz go ponownie.`,
+        `Obwód „${circuitName}” jest przypisany do grupy RCD, która nie istnieje — przypisz go ponownie.`,
     },
   },
 

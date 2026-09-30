@@ -108,7 +108,10 @@ These are correctness requirements, not preferences.
   combination present.
 - **Circuit value lists are guarded twice, and the two guards must change together.** The CHECKs on
   `rcd_groups` / `circuits` in `supabase/migrations/20260929120000_circuits_and_device_matching.sql`
-  and the lists in @src/lib/circuit-params.ts encode the same values.
+  (plus `rcd_groups_margin_valid` in `20260930120000_rcd_group_margin.sql`) and the lists in
+  @src/lib/circuit-params.ts encode the same values. A group RCD must satisfy
+  `In ≥ ΣIn × (100 + rcd_margin_percent) / 100`, compared in integers; never go back to "≥ the
+  largest circuit".
 - **The matcher filters for correctness before price** (@src/lib/device-matching.ts): only compliant
   devices are ever sorted, "cheapest" is picked among them, and no compliant device is a catalog gap.
   Exact `In` for overcurrent protection is deliberate — never relax it to "≥". A partial match is
@@ -117,6 +120,11 @@ These are correctness requirements, not preferences.
   trigger** — send `device_id` alone, never the snapshot columns. S-08 reads the snapshot, never the
   live catalog. A supply change (`projects_clear_device_snapshot`) deletes the whole snapshot, so the
   project reads "not matched" until the circuits are saved or re-matched.
+  **A stored snapshot is not proof of compliance**: the trigger copies whatever the catalog row holds
+  at save time and checks only `archived_at`, so an admin editing a device in place, or a supply
+  change racing the save, can leave a row that fails its circuit. S-08 and S-09 therefore quote and
+  print only when `computeMatchView(...).state === "current"` (@src/lib/device-matching-server.ts);
+  any other state blocks and sends the electrician to "Dobierz ponownie".
 - **`save_project_circuits` upserts groups and circuits by their stable client ids** — S-05/S-06
   reference circuits by id, so never replace-all. Call it via `saveCircuitsArgs` in
   @src/lib/device-matching-server.ts.

@@ -1,6 +1,11 @@
 import type { CabinetGeometry } from "@/lib/cabinet-geometry";
 import { payloadToDraft, type CircuitDraftState } from "@/lib/circuit-draft";
-import type { CircuitInput, EntrySide, RcdGroupInput } from "@/lib/circuit-params";
+import {
+  DEFAULT_RCD_MARGIN_PERCENT,
+  type CircuitInput,
+  type EntrySide,
+  type RcdGroupInput,
+} from "@/lib/circuit-params";
 import { DEMO_CABINET_GEOMETRY } from "@/lib/demo-cabinet";
 import { computeMatchView, type MatchContext, type MatchView, type SnapshotRow } from "@/lib/device-matching-server";
 import { activeCatalog, type DeviceSpecWithId, type Selection } from "@/lib/device-matching";
@@ -160,6 +165,7 @@ function group(index: number): RcdGroupInput {
     label: t.circuits.defaultGroupLabel(index),
     residual_current_ma: 30,
     min_rcd_type: "A",
+    rcd_margin_percent: DEFAULT_RCD_MARGIN_PERCENT,
   };
 }
 

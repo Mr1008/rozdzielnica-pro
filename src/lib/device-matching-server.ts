@@ -18,7 +18,7 @@ import {
   type SelectionRole,
 } from "@/lib/device-matching";
 import { PROJECT_ERROR, projectErrorFromPostgrest } from "@/lib/project-errors";
-import { supplyFromRow, type SupplyParams } from "@/lib/supply-params";
+import { supplyFromRow, type SupplyParams, type SupplyRow } from "@/lib/supply-params";
 
 /**
  * The server side of the device matcher: loading everything `matchDevices` needs for one project,
@@ -30,21 +30,34 @@ import { supplyFromRow, type SupplyParams } from "@/lib/supply-params";
 
 export type SnapshotRow = Tables<"project_devices">;
 
-export interface MatchContext {
+/** What matching a submitted set needs: the supply, the cabinet snapshot and the catalog. */
+export interface MatchBase {
   supply: SupplyParams | null;
-  /** Ordered by position. */
-  groups: RcdGroupInput[];
-  /** Ordered by stored position. */
-  circuits: CircuitInput[];
   /** The project's parsed `cabinet_geometry` snapshot, or null if it does not parse. */
   geometry: CabinetGeometry | null;
   /** The active, well-formed catalog. */
   catalog: DeviceSpecWithId[];
+}
+
+/** The base plus the project's stored groups, circuits and device snapshot. */
+export interface MatchContext extends MatchBase {
+  /** Ordered by position. */
+  groups: RcdGroupInput[];
+  /** Ordered by stored position. */
+  circuits: CircuitInput[];
   /** Ordered by position. */
   snapshot: SnapshotRow[];
 }
 
-export type LoadMatchContextResult = { ok: true; context: MatchContext } | { ok: false; code: "not_found" | "unknown" };
+/** The project columns the base reads. A caller that already loaded them passes the row in. */
+export type ProjectMatchRow = SupplyRow & Pick<Tables<"projects">, "cabinet_geometry">;
+
+interface LoadFailure {
+  ok: false;
+  code: "not_found" | "unknown";
+}
+export type LoadMatchBaseResult = { ok: true; base: MatchBase } | LoadFailure;
+export type LoadMatchContextResult = { ok: true; context: MatchContext } | LoadFailure;
 
 const SUPPLY_COLUMNS =
   "premeter_protection_a, earthing_system, phase_count, wlz_length_m, wlz_cross_section_mm2, wlz_material, wlz_installation";
@@ -55,36 +68,86 @@ function logLoadFailure(what: string, code: string | null | undefined): void {
   console.error(`match context load failed: ${what}`, code);
 }
 
+function hasId(row: unknown): row is { id: unknown } {
+  return typeof row === "object" && row !== null && "id" in row;
+}
+
 /**
- * Everything the matcher needs for one project, read as the signed-in user (RLS decides visibility:
- * a project that is not the caller's reads as `not_found`). Any PostgREST error is `unknown`.
+ * The active catalog, parsed. A row `activeCatalog` drops is logged by id only: a malformed catalog
+ * device otherwise surfaces as an unexplained catalog gap, and `wrangler tail` is the only trace.
  */
-export async function loadMatchContext(
+function parseCatalog(rows: readonly unknown[]): DeviceSpecWithId[] {
+  const catalog = activeCatalog(rows);
+  if (catalog.length < rows.length) {
+    const kept = new Set(catalog.map((device) => device.id));
+    const dropped = rows.flatMap((row) => (hasId(row) && !kept.has(row.id as string) ? [String(row.id)] : []));
+    // eslint-disable-next-line no-console
+    console.error("match catalog: devices dropped as unparseable", dropped);
+  }
+  return catalog;
+}
+
+/**
+ * The supply, cabinet snapshot and active catalog for one project, read as the signed-in user (RLS
+ * decides visibility: a project that is not the caller's reads as `not_found`). Pass `project` when
+ * the row is already loaded, to skip re-reading it. Any PostgREST error is `unknown`.
+ */
+export async function loadMatchBase(
   supabase: SupabaseClient<Database>,
   projectId: string,
-): Promise<LoadMatchContextResult> {
-  const [project, groups, circuits, snapshot, devices] = await Promise.all([
-    supabase.from("projects").select(`${SUPPLY_COLUMNS}, cabinet_geometry`).eq("id", projectId).maybeSingle(),
-    supabase.from("rcd_groups").select("*").eq("project_id", projectId).order("position"),
-    supabase.from("circuits").select("*").eq("project_id", projectId).order("position"),
-    supabase.from("project_devices").select("*").eq("project_id", projectId).order("position"),
+  project?: ProjectMatchRow,
+): Promise<LoadMatchBaseResult> {
+  const [projectRow, devices] = await Promise.all([
+    project
+      ? Promise.resolve({ data: project, error: null })
+      : supabase.from("projects").select(`${SUPPLY_COLUMNS}, cabinet_geometry`).eq("id", projectId).maybeSingle(),
     supabase.from("devices").select("*").is("archived_at", null),
   ]);
-
-  const failures: [string, { code?: string | null } | null][] = [
-    ["projects", project.error],
-    ["rcd_groups", groups.error],
-    ["circuits", circuits.error],
-    ["project_devices", snapshot.error],
+  for (const [what, error] of [
+    ["projects", projectRow.error],
     ["devices", devices.error],
-  ];
-  for (const [what, error] of failures) {
+  ] as const) {
     if (error !== null) {
       logLoadFailure(what, error.code);
       return { ok: false, code: "unknown" };
     }
   }
-  if (project.data === null) return { ok: false, code: "not_found" };
+  if (projectRow.data === null) return { ok: false, code: "not_found" };
+
+  const geometry = parseCabinetGeometry(projectRow.data.cabinet_geometry);
+  return {
+    ok: true,
+    base: {
+      supply: supplyFromRow(projectRow.data),
+      geometry: geometry.ok ? geometry.geometry : null,
+      catalog: parseCatalog(devices.data ?? []),
+    },
+  };
+}
+
+/** Everything the page and the re-match need: the base plus the stored rows. */
+export async function loadMatchContext(
+  supabase: SupabaseClient<Database>,
+  projectId: string,
+  project?: ProjectMatchRow,
+): Promise<LoadMatchContextResult> {
+  const [base, groups, circuits, snapshot] = await Promise.all([
+    loadMatchBase(supabase, projectId, project),
+    supabase.from("rcd_groups").select("*").eq("project_id", projectId).order("position"),
+    supabase.from("circuits").select("*").eq("project_id", projectId).order("position"),
+    supabase.from("project_devices").select("*").eq("project_id", projectId).order("position"),
+  ]);
+  if (!base.ok) return base;
+  for (const [what, error] of [
+    ["rcd_groups", groups.error],
+    ["circuits", circuits.error],
+    ["project_devices", snapshot.error],
+  ] as const) {
+    if (error !== null) {
+      logLoadFailure(what, error.code);
+      return { ok: false, code: "unknown" };
+    }
+  }
 
   // Stored rows passed the table CHECKs; the parser narrows them to the input types (and drops
   // `position`, `project_id`, …). A failure here is unreachable in practice and never guessed around.
@@ -94,15 +157,12 @@ export async function loadMatchContext(
     return { ok: false, code: "unknown" };
   }
 
-  const geometry = parseCabinetGeometry(project.data.cabinet_geometry);
   return {
     ok: true,
     context: {
-      supply: supplyFromRow(project.data),
+      ...base.base,
       groups: parsed.value.groups,
       circuits: parsed.value.circuits,
-      geometry: geometry.ok ? geometry.geometry : null,
-      catalog: activeCatalog(devices.data ?? []),
       snapshot: snapshot.data ?? [],
     },
   };

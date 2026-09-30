@@ -1,5 +1,5 @@
 import { isUuid } from "@/lib/catalog";
-import type { CircuitInput, RcdGroupInput, ResidualCurrentMa } from "@/lib/circuit-params";
+import type { CircuitInput, RcdGroupInput, RcdMarginPercent, ResidualCurrentMa } from "@/lib/circuit-params";
 import { parseDeviceSpec, type DeviceKind, type DeviceSpec, type PoleConfig, type RcdType } from "@/lib/device-spec";
 import { t } from "@/lib/i18n";
 import type { SupplyParams } from "@/lib/supply-params";
@@ -21,8 +21,10 @@ import type { SupplyParams } from "@/lib/supply-params";
  *   TN-C), 4P three-phase (3P in TN-C);
  * - MCB: `mcb_b`, In = circuit In exactly; poles {1P, 1P+N, 2P} single-phase, {3P, 3P+N, 4P}
  *   three-phase, only 1P / 3P in TN-C (the PEN is never switched);
- * - group RCD (≥ 2 circuits): `rcd`, In ≥ the largest circuit In, IΔn exact, type rank ≥ the group
- *   minimum; 4P when any circuit is three-phase, else {2P, 4P};
+ * - group RCD (≥ 2 circuits, and the RCD of an RCBO fallback): `rcd`, In ≥ the sum of the group's
+ *   circuit In × (100 + the group's `rcd_margin_percent`) / 100, IΔn exact, type rank ≥ the group
+ *   minimum; 4P when any circuit is three-phase, else {2P, 4P}. The sum ignores how single-phase
+ *   circuits spread across phases — it errs on the high side;
  * - single-circuit group: `rcbo`, In exact, IΔn exact, type rank ≥ minimum; poles {1P+N, 2P} or
  *   {3P+N, 4P}. With no compliant RCBO, a compliant RCD + MCB pair (note `rcbo_fallback`);
  * - ungrouped circuit: MCB as above, note `no_rcd`.
@@ -70,7 +72,10 @@ export type CatalogGap =
       role: "rcd";
       kind: "rcd";
       poles: readonly PoleConfig[];
+      /** `circuitsSumA` × (100 + `marginPercent`) / 100 — not necessarily a whole number. */
       minRatedCurrentA: number;
+      circuitsSumA: number;
+      marginPercent: RcdMarginPercent;
       residualCurrentMa: ResidualCurrentMa;
       minRcdType: RcdType;
       groupId: string;
@@ -201,20 +206,28 @@ function matchRcd(
   catalog: readonly DeviceSpecWithId[],
   group: RcdGroupInput,
   circuits: readonly CircuitInput[],
-): { device: OfKind<"rcd"> | null; poles: readonly PoleConfig[]; minRatedCurrentA: number } {
+): {
+  device: OfKind<"rcd"> | null;
+  poles: readonly PoleConfig[];
+  minRatedCurrentA: number;
+  circuitsSumA: number;
+} {
   const poles = rcdPoles(circuits);
-  const minRatedCurrentA = Math.max(...circuits.map((circuit) => circuit.rated_current_a));
+  // The RCD carries the whole group's load plus the electrician's safety margin. Compared in
+  // integers (In × 100 ≥ ΣIn × (100 + margin)), so no float rounding can let an under-rated RCD in.
+  const circuitsSumA = circuits.reduce((sum, circuit) => sum + circuit.rated_current_a, 0);
+  const requiredTimes100 = circuitsSumA * (100 + group.rcd_margin_percent);
   const minRank = rcdTypeRank(group.min_rcd_type);
   const device = cheapest(
     ofKind(catalog, "rcd").filter(
       (rcd) =>
-        rcd.rated_current_a >= minRatedCurrentA &&
+        rcd.rated_current_a * 100 >= requiredTimes100 &&
         rcd.residual_current_ma === group.residual_current_ma &&
         rcdTypeRank(rcd.rcd_type) >= minRank &&
         polesAllowed(rcd.poles, poles),
     ),
   );
-  return { device, poles, minRatedCurrentA };
+  return { device, poles, minRatedCurrentA: requiredTimes100 / 100, circuitsSumA };
 }
 
 function matchRcbo(
@@ -369,6 +382,8 @@ export function matchDevices(input: MatchInput, catalog: readonly DeviceSpecWith
           kind: "rcd",
           poles: rcd.poles,
           minRatedCurrentA: rcd.minRatedCurrentA,
+          circuitsSumA: rcd.circuitsSumA,
+          marginPercent: group.rcd_margin_percent,
           residualCurrentMa: group.residual_current_ma,
           minRcdType: group.min_rcd_type,
           groupId: group.id,
@@ -398,6 +413,8 @@ export function matchDevices(input: MatchInput, catalog: readonly DeviceSpecWith
         kind: "rcd",
         poles: rcd.poles,
         minRatedCurrentA: rcd.minRatedCurrentA,
+        circuitsSumA: rcd.circuitsSumA,
+        marginPercent: group.rcd_margin_percent,
         residualCurrentMa: group.residual_current_ma,
         minRcdType: group.min_rcd_type,
         groupId: group.id,
@@ -452,8 +469,15 @@ export function catalogGapMessage(gap: CatalogGap): string {
       break;
     case "rcd":
       text =
-        m.rcd(gap.minRatedCurrentA, gap.residualCurrentMa, gap.minRcdType, polesText(gap.poles), gap.groupLabel) +
-        (gap.fallback ? m.fallbackSuffix : "");
+        m.rcd(
+          gap.minRatedCurrentA,
+          gap.circuitsSumA,
+          gap.marginPercent,
+          gap.residualCurrentMa,
+          gap.minRcdType,
+          polesText(gap.poles),
+          gap.groupLabel,
+        ) + (gap.fallback ? m.fallbackSuffix : "");
       break;
     case "rcbo":
       text = m.rcbo(gap.ratedCurrentA, gap.residualCurrentMa, gap.minRcdType, polesText(gap.poles), gap.circuitName);

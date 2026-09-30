@@ -52,7 +52,13 @@ const SUPPLY: SupplyParams = {
   wlz_installation: "conduit_flush",
 };
 
-const GROUP: RcdGroupInput = { id: GROUP_ID, label: "Grupa 1", residual_current_ma: 30, min_rcd_type: "A" };
+const GROUP: RcdGroupInput = {
+  id: GROUP_ID,
+  label: "Grupa 1",
+  residual_current_ma: 30,
+  min_rcd_type: "A",
+  rcd_margin_percent: 15,
+};
 
 function circuit(id: string, overrides: Partial<CircuitInput> = {}): CircuitInput {
   return {
