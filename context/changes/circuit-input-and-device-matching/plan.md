@@ -811,15 +811,15 @@ which is the correct behaviour.
 
 #### Automated
 
-- [x] 4.1 Unit tests pass: `npm run test:unit`
-- [x] 4.2 Lint, type check and build pass: `npm run lint`, `npx astro check`, `npm run build`
-- [x] 4.3 RLS integration tests pass: `npm run test:integration`
-- [x] 4.4 Smoke passes against the dev server: `npm run smoke`
+- [x] 4.1 Unit tests pass: `npm run test:unit` — 8f9ac8a
+- [x] 4.2 Lint, type check and build pass: `npm run lint`, `npx astro check`, `npm run build` — 8f9ac8a
+- [x] 4.3 RLS integration tests pass: `npm run test:integration` — 8f9ac8a
+- [x] 4.4 Smoke passes against the dev server: `npm run smoke` — 8f9ac8a
 
 #### Manual
 
-- [x] 4.5 Kitchen sink renders every editor and result state listed above; screenshot captured
-- [x] 4.6 In the browser: drag a circuit from group 1 to group 2, reorder groups, drag a circuit to "Bez grupy"; after save the order and membership persist on reload
-- [x] 4.7 Keyboard only: pick up a circuit with Space, move with arrows, drop with Space; the move is announced; the select and up/down buttons reach the same result
-- [x] 4.8 A seeded single-phase project with two groups (B16 + B10 circuits, 30 mA type A) and one single-circuit group matches FR 2P, RCD 2P type A (never AC), the cheaper B16, and an RCBO; the prices shown equal the catalog prices
-- [x] 4.9 After an `?error=` redirect the editor restores the unsaved draft
+- [x] 4.5 Kitchen sink renders every editor and result state listed above; screenshot captured — 8f9ac8a
+- [x] 4.6 In the browser: drag a circuit from group 1 to group 2, reorder groups, drag a circuit to "Bez grupy"; after save the order and membership persist on reload — 8f9ac8a
+- [x] 4.7 Keyboard only: pick up a circuit with Space, move with arrows, drop with Space; the move is announced; the select and up/down buttons reach the same result — 8f9ac8a
+- [x] 4.8 A seeded single-phase project with two groups (B16 + B10 circuits, 30 mA type A) and one single-circuit group matches FR 2P, RCD 2P type A (never AC), the cheaper B16, and an RCBO; the prices shown equal the catalog prices — 8f9ac8a
+- [x] 4.9 After an `?error=` redirect the editor restores the unsaved draft — 8f9ac8a

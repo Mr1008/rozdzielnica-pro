@@ -1,9 +1,9 @@
 ---
 change_id: circuit-input-and-device-matching
 title: Obwody, grupy RCD i dobór aparatów z guardrailem
-status: implementing
+status: implemented
 created: 2026-09-29
-updated: 2026-09-29
+updated: 2026-09-30
 ---
 
 ## Notes
