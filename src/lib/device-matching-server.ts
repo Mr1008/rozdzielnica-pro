@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { parseCabinetGeometry, type CabinetGeometry } from "@/lib/cabinet-geometry";
+import type { Placement } from "@/lib/cabinet-layout";
 import {
   parseCircuitsPayload,
   type CircuitInput,
@@ -231,23 +232,37 @@ function toJson(rows: readonly object[]): Json {
 }
 
 /**
+ * A proposed layout for a fresh match, aligned with `result.selections` by index (the RPC stores
+ * selection i at position i). The `project_devices` ids do not exist before the insert, so the
+ * placements travel by position. `null` leaves that device unplaced.
+ */
+export type SelectionPlacements = readonly (Pick<Placement, "railIndex" | "xMm"> | null)[];
+
+/**
  * The `save_project_circuits` arguments. Only a `matched` result stores a snapshot; a gap or a block
- * stores none (`p_device_ids: []`), so a partial or unguarded device set is never persisted.
+ * stores none (`p_device_ids: []`), so a partial or unguarded device set is never persisted. With a
+ * `layout` (from `proposeSelectionLayout` in `src/lib/layout-server.ts`), each placed item also
+ * carries `rail_index` / `x_mm` and the RPC stores its placement in the same transaction.
  */
 export function saveCircuitsArgs(
   projectId: string,
   payload: CircuitsPayload,
   result: MatchResult,
+  layout?: SelectionPlacements,
 ): Database["public"]["Functions"]["save_project_circuits"]["Args"] {
   const devices =
     result.status === "matched"
-      ? result.selections.map((selection) => ({
-          device_id: selection.deviceId,
-          role: selection.role,
-          rcd_group_id: selection.groupId,
-          circuit_id: selection.circuitId,
-          notes: selection.notes,
-        }))
+      ? result.selections.map((selection, index) => {
+          const placement = layout?.[index] ?? null;
+          return {
+            device_id: selection.deviceId,
+            role: selection.role,
+            rcd_group_id: selection.groupId,
+            circuit_id: selection.circuitId,
+            notes: selection.notes,
+            ...(placement === null ? {} : { rail_index: placement.railIndex, x_mm: placement.xMm }),
+          };
+        })
       : [];
   return {
     p_project_id: projectId,

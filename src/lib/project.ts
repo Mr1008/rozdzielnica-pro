@@ -56,6 +56,11 @@ export function projectRematchApiPath(id: string): string {
   return `${projectApiPath(id)}/rematch`;
 }
 
+/** Re-proposes the cabinet layout from the stored device snapshot ("Zaproponuj układ"). */
+export function projectLayoutApiPath(id: string): string {
+  return `${projectApiPath(id)}/layout`;
+}
+
 export const MAX_PROJECT_NAME_LENGTH = 200;
 export const MAX_CLIENT_NAME_LENGTH = 200;
 export const MAX_SITE_ADDRESS_LENGTH = 300;
