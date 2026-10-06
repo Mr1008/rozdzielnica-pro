@@ -909,6 +909,20 @@ export const pl = {
     },
   },
 
+  /** The cabinet layout proposal (S-05). See `src/lib/cabinet-layout.ts`. */
+  layout: {
+    /** Block names a `does_not_fit` failure reports. A group block uses `circuitSection.servesGroup`. */
+    blocks: {
+      mainSwitch: "Rozłącznik główny (FR)",
+      ungrouped: "Obwody bez grupy RCD",
+    },
+    /** Keyed by `LayoutFailure["code"]` (camelCased). */
+    failures: {
+      doesNotFit: (requiredModules: number, availableModules: number, blockLabel: string) =>
+        `Dobrane aparaty nie mieszczą się na szynach DIN tej szafki: potrzeba ${formatNumber(requiredModules)} TE, a szyny mają łącznie ${formatNumber(availableModules)} TE. Pierwszy blok, który się nie zmieścił: ${blockLabel}. Wybierz większą szafkę albo zmniejsz liczbę obwodów.`,
+    },
+  },
+
   /** Development-only pages (never reachable in a production build). */
   devTools: {
     kitchenSink: {
