@@ -789,27 +789,27 @@ the admin should review them. Existing projects get no placements until their ne
 
 #### Automated
 
-- [x] 1.1 Migration applies on a fresh local stack: `npx supabase db reset`
-- [x] 1.2 Types regenerated and committed: `npm run db:types` shows no further diff
-- [x] 1.3 Lint passes: `npm run lint`
-- [x] 1.4 Type check passes: `npx astro check`
-- [x] 1.5 Unit tests pass: `npm run test:unit`
-- [x] 1.6 Integration tests pass: `npm run test:integration`
-- [x] 1.7 Build passes: `npm run build`
+- [x] 1.1 Migration applies on a fresh local stack: `npx supabase db reset` — 95fe3e5
+- [x] 1.2 Types regenerated and committed: `npm run db:types` shows no further diff — 95fe3e5
+- [x] 1.3 Lint passes: `npm run lint` — 95fe3e5
+- [x] 1.4 Type check passes: `npx astro check` — 95fe3e5
+- [x] 1.5 Unit tests pass: `npm run test:unit` — 95fe3e5
+- [x] 1.6 Integration tests pass: `npm run test:integration` — 95fe3e5
+- [x] 1.7 Build passes: `npm run build` — 95fe3e5
 
 #### Manual
 
-- [x] 1.8 Admin can set and change the N side on a 2P RCD; the field is absent for a 1P MCB and for bars
-- [x] 1.9 Catalog list shows the N side in the parameter summary
-- [x] 1.10 Kitchen sink shows the new editor field states
+- [x] 1.8 Admin can set and change the N side on a 2P RCD; the field is absent for a 1P MCB and for bars — 95fe3e5
+- [x] 1.9 Catalog list shows the N side in the parameter summary — 95fe3e5
+- [x] 1.10 Kitchen sink shows the new editor field states — 95fe3e5
 
 ### Phase 2: Placement logic (pure)
 
 #### Automated
 
-- [ ] 2.1 Unit and property tests pass: `npm run test:unit`
-- [ ] 2.2 Lint passes: `npm run lint`
-- [ ] 2.3 Type check passes: `npx astro check`
+- [x] 2.1 Unit and property tests pass: `npm run test:unit`
+- [x] 2.2 Lint passes: `npm run lint`
+- [x] 2.3 Type check passes: `npx astro check`
 
 ### Phase 3: Storage and write path
 
