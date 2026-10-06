@@ -3,6 +3,7 @@ import { isUuid } from "@/lib/catalog";
 import { CIRCUIT_FORM_FIELDS, parseCircuitsPayload } from "@/lib/circuit-params";
 import { matchDevices } from "@/lib/device-matching";
 import { circuitsRpcErrorCode, loadMatchBase, saveCircuitsArgs } from "@/lib/device-matching-server";
+import { proposeSelectionLayout } from "@/lib/layout-server";
 import { projectFormErrorPath, projectPath, projectsErrorPath } from "@/lib/project";
 import { PROJECT_ERROR } from "@/lib/project-errors";
 import { SIGN_IN_PATH } from "@/lib/route-access";
@@ -23,9 +24,10 @@ function readPayload(form: FormData): unknown {
 }
 
 /**
- * Saves a project's RCD groups and circuits and replaces its device snapshot in one RPC
- * (`save_project_circuits`). Matching runs on the submitted set against the caller's supply and the
- * active catalog; a gap or a blocker is stored as an empty snapshot, never as a substitute device.
+ * Saves a project's RCD groups and circuits and replaces its device snapshot — and, for a match,
+ * its proposed layout — in one RPC (`save_project_circuits`). Matching runs on the submitted set
+ * against the caller's supply and the active catalog; a gap or a blocker is stored as an empty
+ * snapshot, never as a substitute device.
  * `/api/projects` is elektryk-gated in `src/lib/route-access.ts`; RLS on the circuit tables is still
  * the real boundary.
  */
@@ -57,7 +59,10 @@ export const POST: APIRoute = async (context) => {
     loaded.base.catalog,
   );
 
-  const { error } = await supabase.rpc("save_project_circuits", saveCircuitsArgs(id, parsed.value, result));
+  // The layout is proposed on the same match and stored in the same RPC; one that does not fit
+  // stores the devices with no placements, and the page reports it.
+  const layout = proposeSelectionLayout(result, loaded.base.catalog, parsed.value, loaded.base.geometry);
+  const { error } = await supabase.rpc("save_project_circuits", saveCircuitsArgs(id, parsed.value, result, layout));
   if (error) {
     const code = circuitsRpcErrorCode(error);
     return code === PROJECT_ERROR.notFound ? notFound() : back(code);

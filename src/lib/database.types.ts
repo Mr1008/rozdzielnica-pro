@@ -259,6 +259,45 @@ export type Database = {
         }
         Relationships: []
       }
+      project_device_placements: {
+        Row: {
+          created_at: string
+          project_device_id: string
+          project_id: string
+          rail_index: number
+          x_mm: number
+        }
+        Insert: {
+          created_at?: string
+          project_device_id: string
+          project_id: string
+          rail_index: number
+          x_mm: number
+        }
+        Update: {
+          created_at?: string
+          project_device_id?: string
+          project_id?: string
+          rail_index?: number
+          x_mm?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_device_placements_device_fkey"
+            columns: ["project_id", "project_device_id"]
+            isOneToOne: false
+            referencedRelation: "project_devices"
+            referencedColumns: ["project_id", "id"]
+          },
+          {
+            foreignKeyName: "project_device_placements_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_devices: {
         Row: {
           breaking_capacity_ka: number | null
@@ -526,6 +565,10 @@ export type Database = {
           p_groups: Json
           p_project_id: string
         }
+        Returns: undefined
+      }
+      save_project_layout: {
+        Args: { p_placements: Json; p_project_id: string }
         Returns: undefined
       }
     }

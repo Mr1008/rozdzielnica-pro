@@ -807,27 +807,27 @@ the admin should review them. Existing projects get no placements until their ne
 
 #### Automated
 
-- [x] 2.1 Unit and property tests pass: `npm run test:unit`
-- [x] 2.2 Lint passes: `npm run lint`
-- [x] 2.3 Type check passes: `npx astro check`
+- [x] 2.1 Unit and property tests pass: `npm run test:unit` — e1b507f
+- [x] 2.2 Lint passes: `npm run lint` — e1b507f
+- [x] 2.3 Type check passes: `npx astro check` — e1b507f
 
 ### Phase 3: Storage and write path
 
 #### Automated
 
-- [ ] 3.1 Migration applies: `npx supabase db reset`
-- [ ] 3.2 Types regenerated: `npm run db:types`
-- [ ] 3.3 Lint passes: `npm run lint`
-- [ ] 3.4 Type check passes: `npx astro check`
-- [ ] 3.5 Unit tests pass: `npm run test:unit`
-- [ ] 3.6 Integration tests pass: `npm run test:integration`
-- [ ] 3.7 Build passes: `npm run build`
+- [x] 3.1 Migration applies: `npx supabase db reset`
+- [x] 3.2 Types regenerated: `npm run db:types`
+- [x] 3.3 Lint passes: `npm run lint`
+- [x] 3.4 Type check passes: `npx astro check`
+- [x] 3.5 Unit tests pass: `npm run test:unit`
+- [x] 3.6 Integration tests pass: `npm run test:integration`
+- [x] 3.7 Build passes: `npm run build`
 
 #### Manual
 
-- [ ] 3.8 Saving circuits on a seed (b) project stores placements (visible in Studio) in the same save
-- [ ] 3.9 Changing the project's cabinet clears placements and the page reports `missing`
-- [ ] 3.10 Worst-case layout timing recorded in `change.md` notes and within budget
+- [x] 3.8 Saving circuits on a seed (b) project stores placements (visible in Studio) in the same save
+- [x] 3.9 Changing the project's cabinet clears placements and the page reports `missing`
+- [x] 3.10 Worst-case layout timing recorded in `change.md` notes and within budget
 
 ### Phase 4: Drawing the layout
 

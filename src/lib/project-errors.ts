@@ -19,6 +19,12 @@ export const PROJECT_ERROR = {
   deviceUnavailable: "device_unavailable",
   /** The circuit editor's payload failed `parseCircuitsPayload`. */
   circuitsInvalid: "circuits_invalid",
+  /** `/layout` was posted while the match is not `current` — a layout is only proposed for a current match. */
+  layoutMatchNotCurrent: "layout_match_not_current",
+  /** `/layout`: the stored devices do not fit this cabinet's rails. */
+  layoutDoesNotFit: "layout_does_not_fit",
+  /** `save_project_layout`'s `project_device_unavailable`: the device set changed since the proposal. */
+  layoutDeviceUnavailable: "layout_device_unavailable",
   unknown: "unknown",
 } as const;
 
@@ -32,6 +38,9 @@ const MESSAGES: Record<ProjectErrorCode, string> = {
   [PROJECT_ERROR.cabinetUnavailable]: t.projectErrors.cabinetUnavailable,
   [PROJECT_ERROR.deviceUnavailable]: t.projectErrors.deviceUnavailable,
   [PROJECT_ERROR.circuitsInvalid]: t.projectErrors.circuitsInvalid,
+  [PROJECT_ERROR.layoutMatchNotCurrent]: t.projectErrors.layoutMatchNotCurrent,
+  [PROJECT_ERROR.layoutDoesNotFit]: t.projectErrors.layoutDoesNotFit,
+  [PROJECT_ERROR.layoutDeviceUnavailable]: t.projectErrors.layoutDeviceUnavailable,
   [PROJECT_ERROR.unknown]: t.projectErrors.unknown,
 };
 

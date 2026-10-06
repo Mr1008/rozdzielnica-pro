@@ -23,6 +23,9 @@ describe("projectErrorMessage", () => {
     expect(projectErrorMessage(PROJECT_ERROR.cabinetUnavailable)).toBe(t.projectErrors.cabinetUnavailable);
     expect(projectErrorMessage(PROJECT_ERROR.deviceUnavailable)).toBe(t.projectErrors.deviceUnavailable);
     expect(projectErrorMessage(PROJECT_ERROR.circuitsInvalid)).toBe(t.projectErrors.circuitsInvalid);
+    expect(projectErrorMessage(PROJECT_ERROR.layoutMatchNotCurrent)).toBe(t.projectErrors.layoutMatchNotCurrent);
+    expect(projectErrorMessage(PROJECT_ERROR.layoutDoesNotFit)).toBe(t.projectErrors.layoutDoesNotFit);
+    expect(projectErrorMessage(PROJECT_ERROR.layoutDeviceUnavailable)).toBe(t.projectErrors.layoutDeviceUnavailable);
   });
 
   it("shows the generic message for an unrecognised code, including inherited object keys", () => {

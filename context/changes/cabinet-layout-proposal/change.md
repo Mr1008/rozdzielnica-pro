@@ -28,3 +28,13 @@ Zakres poszerzony przy planowaniu (decyzje użytkownika 2026-10-06):
   poprawki mają przetrwać ponowny dobór. Zmiana szafki projektu kasuje rozmieszczenie.
 - **S-08 / S-09:** zapisany układ nie jest dowodem poprawności — czytaj go przez
   `computeLayoutView` (stan `placed`), nigdy wprost z tabeli.
+
+### Pomiar CPU (Faza 3, 2026-10-06)
+
+`proposeLayout` + `validateLayout` na najgorszym przypadku planu (60 obwodów, 20 grup RCD, 81 aparatów,
+szafka seed (c)), test „layout CPU budget” w `src/lib/layout-server.test.ts`, 30 przebiegów po
+rozgrzewce, 3 lokalne uruchomienia (Node, nie workerd): mediana 1,22 / 1,36 / 2,88 ms, maksimum
+15,19 / 12,13 / 5,03 ms. Mediana mieści się z zapasem w budżecie 10 ms CPU Workera. Pojedyncze
+maksima powyżej 10 ms wyglądają na skoki GC/JIT w Node; limit Workers liczy CPU na żądanie, więc
+Faza 5 mierzy całą ścieżkę renderu jeszcze raz — przy przekroczeniu stosujemy fallback z
+`## Performance Considerations` planu. Realne projekty są o rząd wielkości mniejsze niż ten przypadek.

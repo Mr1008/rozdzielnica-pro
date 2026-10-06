@@ -77,6 +77,9 @@ interface DevicePayload {
   rcd_group_id: string | null;
   circuit_id: string | null;
   notes: string[];
+  /** Optional (S-05): an item carrying both gets a placement row; one without them gets none. */
+  rail_index?: number;
+  x_mm?: number;
 }
 
 interface Payload {
@@ -328,6 +331,36 @@ describe("row level security and the device snapshot on circuits, groups and pro
       const after = await readAll(projectId);
       expect(after.projectDevices).toEqual([]);
       expect(after.circuits).toHaveLength(payload.circuits.length);
+    });
+
+    it("stores placements for device items that carry rail_index / x_mm, and none for the rest", async () => {
+      const projectId = await insertProject(clientA, electricianA.id);
+      const payload = samplePayload();
+      payload.devices[0] = { ...payload.devices[0], rail_index: 0, x_mm: 0 };
+      payload.devices[2] = { ...payload.devices[2], rail_index: 1, x_mm: 52.5 };
+      await saveOrThrow(clientA, projectId, payload);
+
+      const { projectDevices } = await readAll(projectId);
+      const placements = await service
+        .from("project_device_placements")
+        .select("project_device_id, rail_index, x_mm")
+        .eq("project_id", projectId);
+      expect(placements.error).toBeNull();
+      const byDevice = new Map((placements.data ?? []).map((row) => [row.project_device_id, row]));
+      expect(projectDevices.map((row) => byDevice.get(row.id) ?? null)).toEqual([
+        { project_device_id: projectDevices[0].id, rail_index: 0, x_mm: 0 },
+        null,
+        { project_device_id: projectDevices[2].id, rail_index: 1, x_mm: 52.5 },
+        null,
+      ]);
+
+      // The sample payload itself carries no placement fields: the devices are saved, unplaced.
+      expect(savedA.devices.every((d) => d.rail_index === undefined)).toBe(true);
+      const unplaced = await service
+        .from("project_device_placements")
+        .select("project_device_id")
+        .eq("project_id", projectA);
+      expect(unplaced.data).toEqual([]);
     });
 
     it("stores a group's RCD margin, defaults an absent one to 15, and refuses one off the list", async () => {

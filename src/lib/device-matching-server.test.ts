@@ -205,6 +205,25 @@ describe("saveCircuitsArgs", () => {
     });
   });
 
+  it("adds rail_index / x_mm to each item a layout places, and nothing to an unplaced one", () => {
+    const result: MatchResult = { status: "matched", selections: EXPECTED };
+    const layout = [{ railIndex: 0, xMm: 285 }, { railIndex: 1, xMm: 0 }, null, { railIndex: 1, xMm: 52.5 }];
+    const items = saveCircuitsArgs(PROJECT_ID, PAYLOAD, result, layout).p_device_ids as Record<string, unknown>[];
+    expect(items.map((item) => [item.rail_index, item.x_mm])).toEqual([
+      [0, 285],
+      [1, 0],
+      [undefined, undefined],
+      [1, 52.5],
+    ]);
+    expect(items[2]).not.toHaveProperty("rail_index");
+    expect(items[0]).toMatchObject({ device_id: FR_ID, role: "main_switch" });
+  });
+
+  it("ignores a layout for a match that stores no snapshot", () => {
+    const result: MatchResult = { status: "blocked", reasons: [{ code: "no_circuits" }] };
+    expect(saveCircuitsArgs(PROJECT_ID, PAYLOAD, result, [{ railIndex: 0, xMm: 0 }]).p_device_ids).toEqual([]);
+  });
+
   it("stores no snapshot for a catalog gap", () => {
     const result: MatchResult = {
       status: "gaps",

@@ -581,6 +581,7 @@ export const pl = {
           : `${String(n)} ${plural(n, { one: "ostrzeżenie", few: "ostrzeżenia", many: "ostrzeżeń" })}`,
       savedCircuits: "Obwody zostały zapisane. Wynik doboru aparatów znajdziesz poniżej.",
       savedRematch: "Dobór aparatów został wykonany ponownie. Wynik znajdziesz poniżej.",
+      savedLayout: "Zaproponowano nowy układ aparatów w szafce.",
       /** The aside's device-matching row: its label and one badge text per `MatchViewState`. */
       matchingStatus: "Dobór aparatów",
       matchingCurrent: (n: number) =>
@@ -623,6 +624,11 @@ export const pl = {
     cabinetUnavailable: "Wybrana szafka nie jest już dostępna w katalogu — wybierz inną",
     deviceUnavailable: "Katalog aparatów zmienił się w trakcie zapisu — spróbuj ponownie",
     circuitsInvalid: "Lista obwodów zawiera nieprawidłowe dane",
+    layoutMatchNotCurrent:
+      "Układ można zaproponować tylko dla aktualnego doboru aparatów — najpierw dobierz aparaty ponownie",
+    layoutDoesNotFit:
+      "Dobrane aparaty nie mieszczą się na szynach DIN tej szafki — wybierz większą szafkę albo zmniejsz liczbę obwodów",
+    layoutDeviceUnavailable: "Dobór aparatów zmienił się w trakcie zapisu układu — spróbuj ponownie",
     unknown: "Coś poszło nie tak. Spróbuj ponownie",
   },
 
