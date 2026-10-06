@@ -201,7 +201,7 @@ function roundMm(value: number): number {
 // Rule 3 — the N + PE score
 // ---------------------------------------------------------------------------------------------
 
-interface Point {
+export interface Point {
   x: number;
   y: number;
 }
@@ -220,9 +220,9 @@ function distanceToRect(point: Point, rect: Rect): number {
  * Where each terminal group of a bar sits: the bar's length is split among its groups in proportion
  * to their terminal counts, and a group's point is its segment's centre on the bar's centre line.
  * The geometry records only counts, not positions, so this is the simplest reading of "the nearest
- * N-bar terminal group".
+ * N-bar terminal group". The wiring (`src/lib/cabinet-wiring.ts`) lands its bar conductors here too.
  */
-function terminalGroupPoints(bar: Bar): Point[] {
+export function terminalGroupPoints(bar: Bar): Point[] {
   const rect = barRect(bar);
   const total = bar.terminalGroups.reduce((sum, group) => sum + group.count, 0);
   const points: Point[] = [];

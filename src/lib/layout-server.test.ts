@@ -1,13 +1,22 @@
 import { performance } from "node:perf_hooks";
 import { describe, expect, it } from "vitest";
+import { buildDrawnWires } from "./cabinet-drawing";
 import { proposeLayout, validateLayout, type Placement } from "./cabinet-layout";
+import { wireLengthsBySection } from "./cabinet-wiring";
 import { SEED_A, SEED_B, SEED_C } from "./cabinet-layout.fixtures";
 import type { CircuitInput, CircuitsPayload, RcdGroupInput } from "./circuit-params";
 import type { DeviceSpecWithId, MatchResult, Selection } from "./device-matching";
-import type { MatchView, MatchViewState, SnapshotRow } from "./device-matching-server";
+import {
+  computeMatchView,
+  type MatchContext,
+  type MatchView,
+  type MatchViewState,
+  type SnapshotRow,
+} from "./device-matching-server";
 import { parseDeviceSpec, polesCarryN, type DeviceKind, type PoleConfig } from "./device-spec";
 import {
   computeLayoutView,
+  computeWiring,
   layoutRpcErrorCode,
   placementsFromRows,
   proposeSelectionLayout,
@@ -187,7 +196,13 @@ describe("computeLayoutView", () => {
 // proposeSelectionLayout
 // ---------------------------------------------------------------------------------------------
 
-function catalogDevice(id: string, kind: DeviceKind, poles: PoleConfig, widthMm: number): DeviceSpecWithId {
+function catalogDevice(
+  id: string,
+  kind: DeviceKind,
+  poles: PoleConfig,
+  widthMm: number,
+  overrides: Record<string, unknown> = {},
+): DeviceSpecWithId {
   const parameters: Record<DeviceKind, Record<string, unknown>> = {
     switch_disconnector: { rated_current_a: 40 },
     rcd: { rated_current_a: 40, residual_current_ma: 30, rcd_type: "A" },
@@ -208,6 +223,7 @@ function catalogDevice(id: string, kind: DeviceKind, poles: PoleConfig, widthMm:
     poles,
     n_terminal_side: polesCarryN(poles) ? "right" : null,
     ...parameters[kind],
+    ...overrides,
   });
   if (!parsed.ok) throw new Error(`fixture ${id} does not parse: ${JSON.stringify(parsed.issues)}`);
   return { ...parsed.spec, id };
@@ -340,6 +356,87 @@ describe("layout CPU budget", () => {
     // eslint-disable-next-line no-console
     console.info(
       `layout CPU budget: propose + validate, ${String(worst.snapshot.length)} devices on seed (c): median ${median.toFixed(2)} ms, max ${max.toFixed(2)} ms`,
+    );
+    // Generous on purpose so a slow CI runner never flakes; the recorded median is the real signal.
+    expect(median).toBeLessThan(100);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------
+// CPU budget, second measurement (plan Phase 5 §1a) — the full render path
+// ---------------------------------------------------------------------------------------------
+
+describe("render path CPU budget", () => {
+  it("matches, validates the stored layout and routes the wires (60 circuits, 20 groups) inside the budget", () => {
+    const worst = project(20, 3);
+    const catalog = [
+      catalogDevice(FR_ID, "switch_disconnector", "2P", 35),
+      // 3 × 16 A × 1.15 = 55.2 A: the groups need a 63 A RCD.
+      catalogDevice(RCD_ID, "rcd", "2P", 35, { rated_current_a: 63 }),
+      catalogDevice(MCB_ID, "mcb_b", "1P", 17.5),
+    ];
+    const base: MatchContext = {
+      supply: {
+        premeter_protection_a: 25,
+        earthing_system: "TN-C-S",
+        phase_count: 1,
+        wlz_length_m: 12,
+        wlz_cross_section_mm2: 10,
+        wlz_material: "Cu",
+        wlz_installation: "conduit_flush",
+      },
+      geometry: SEED_C,
+      catalog,
+      groups: worst.groups,
+      circuits: worst.circuits,
+      snapshot: [],
+    };
+    const fresh = computeMatchView(base).fresh;
+    if (fresh.status !== "matched") throw new Error("worst-case fixture must match");
+    const snapshot: SnapshotRow[] = fresh.selections.map((selection, position) => {
+      const spec = catalog.find((device) => device.id === selection.deviceId);
+      if (spec === undefined) throw new Error("unknown device");
+      return {
+        ...row(position, selection.role, spec.poles ?? "1P", spec.width_mm, {
+          group: selection.groupId,
+          circuit: selection.circuitId,
+        }),
+        device_id: spec.id,
+        notes: [...selection.notes],
+        poles: spec.poles,
+        rated_current_a: spec.rated_current_a,
+        n_terminal_side: spec.n_terminal_side,
+      };
+    });
+    const context: MatchContext = { ...base, snapshot };
+    const missing = computeLayoutView(computeMatchView(context), context, []);
+    if (missing?.state !== "missing") throw new Error(`worst-case fixture must fit: ${String(missing?.state)}`);
+    const stored = missing.proposal;
+
+    const run = () => {
+      const match = computeMatchView(context);
+      const layout = computeLayoutView(match, context, stored);
+      const conductors = computeWiring(layout, match, context);
+      return { layout, conductors, wires: buildDrawnWires(conductors), lengths: wireLengthsBySection(conductors) };
+    };
+    const once = run();
+    expect(once.layout?.state).toBe("placed");
+    // 60 circuits × (L, N, PE) + WLZ (L, N, PE) + feeds (N to the bar, 20 RCDs × (L, N), 60 MCBs × L).
+    expect(once.conductors).toHaveLength(60 * 3 + 3 + 1 + 20 * 2 + 60);
+
+    for (let i = 0; i < 5; i++) run(); // warm-up
+    const samples: number[] = [];
+    for (let i = 0; i < 30; i++) {
+      const start = performance.now();
+      run();
+      samples.push(performance.now() - start);
+    }
+    samples.sort((a, b) => a - b);
+    const median = samples[Math.floor(samples.length / 2)];
+    const max = samples[samples.length - 1];
+    // eslint-disable-next-line no-console
+    console.info(
+      `render path CPU budget: match + layout state + wiring, ${String(snapshot.length)} devices, ${String(once.conductors.length)} conductors on seed (c): median ${median.toFixed(2)} ms, max ${max.toFixed(2)} ms`,
     );
     // Generous on purpose so a slow CI runner never flakes; the recorded median is the real signal.
     expect(median).toBeLessThan(100);

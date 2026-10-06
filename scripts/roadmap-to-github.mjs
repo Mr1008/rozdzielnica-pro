@@ -7,6 +7,11 @@
  * communication surface. Re-running the script syncs GitHub to the file — it never
  * invents work and never deletes anything.
  *
+ * `## Parked` entries are mirrored too: each becomes an open issue labelled `odłożone`
+ * (no milestone), placed on the board in the `Odłożone` column. An entry that already links its issue
+ * ("Śledzone w GitHub [#N](…)") keeps it; any other gets a "Pomysł: …" issue. The script
+ * rewrites only the bodies it wrote itself (marked with PARKED_MARKER), never a hand-written one.
+ *
  *   node scripts/roadmap-to-github.mjs            # plan only, touches nothing
  *   node scripts/roadmap-to-github.mjs --apply    # create/update on GitHub
  *
@@ -70,6 +75,7 @@ const STATUS_COLOR = {
   "W planowaniu": "BLUE",
   "W realizacji": "YELLOW",
   Zrobione: "PURPLE",
+  Odłożone: "PINK",
 };
 
 /** Writes `body` to a temp file so no shell quoting or encoding can mangle it. */
@@ -166,6 +172,25 @@ for (const it of items) {
 
 if (items.length === 0) throw new Error(`No F-NN/S-NN items parsed from ${ROADMAP}`);
 
+/**
+ * `## Parked` entries: `- **Title** — Why parked: reason`, continued on indented lines. `issue` is
+ * the number of a GitHub issue the entry already links, or null.
+ */
+const parked = (() => {
+  const section = md.match(/\n## Parked\n([\s\S]*?)(?=\n## |$)/)?.[1] ?? "";
+  const entries = [];
+  for (const line of section.split("\n")) {
+    if (line.startsWith("- **")) entries.push(line.slice(2));
+    else if (/^\s+\S/.test(line) && entries.length > 0) entries[entries.length - 1] += ` ${line.trim()}`;
+  }
+  return entries.map((text) => {
+    const title = text.match(/^\*\*(.+?)\*\*/)[1].trim();
+    const rest = text.slice(text.indexOf("**", 2) + 2).trim();
+    const issue = text.match(new RegExp(`github\\.com/${REPO}/issues/(\\d+)`))?.[1];
+    return { title, rest: rest.replace(/^\s*—\s*/, ""), issue: issue ? Number(issue) : null };
+  });
+})();
+
 /* ── presentation: labels + issue bodies (Polish, readable without dev context) ─ */
 
 const STATUS_PL = {
@@ -220,6 +245,11 @@ const LABELS = [
   },
   { name: "gotowe do planowania", color: "C2E0C6", description: "Wszystkie zależności spełnione — można zaczynać" },
   { name: "kamień milowy", color: "1D76DB", description: "Zbiorcze zadanie z całym planem kamienia milowego" },
+  {
+    name: "odłożone",
+    color: "BFD4F2",
+    description: "Pomysł odłożony w roadmapie (## Parked) — poza bieżącym kamieniem milowym",
+  },
 ];
 
 function labelsFor(it) {
@@ -565,13 +595,13 @@ function syncRelations({ numbers, parent }) {
   }
 }
 
-function syncProject({ numbers, parent }) {
+function syncProject({ numbers, parent }, parkedNumbers) {
   console.log("\nProject");
   const title = `RozdzielnicaPro — ${milestone.tag}: ${milestone.name}`;
   if (!APPLY) {
     step += 1;
     console.log(
-      `  ${String(step).padStart(2)}. [plan] projekt "${title}" + pola (Roadmap ID, Strumień, Rodzaj) + stany na wbudowanym Status + 3 widoki + README + ${items.length + 1} pozycji`,
+      `  ${String(step).padStart(2)}. [plan] projekt "${title}" + pola (Roadmap ID, Strumień, Rodzaj) + stany na wbudowanym Status + 3 widoki + README + ${items.length + 1 + parked.length} pozycji (w tym odłożone)`,
     );
     return;
   }
@@ -628,7 +658,15 @@ function syncProject({ numbers, parent }) {
   // The board groups by the BUILT-IN Status field, so the roadmap states have to live
   // there — a parallel custom field would leave every card in "No Status".
   const statusField = fields.find((f) => f.name === "Status");
-  const boardOrder = ["Zablokowane", "Propozycja", "Gotowe do planowania", "W planowaniu", "W realizacji", "Zrobione"];
+  const boardOrder = [
+    "Zablokowane",
+    "Propozycja",
+    "Gotowe do planowania",
+    "W planowaniu",
+    "W realizacji",
+    "Zrobione",
+    "Odłożone",
+  ];
   if (statusField && boardOrder.some((o) => !statusField.options?.some((x) => x.name === o))) {
     act("przestawienie wbudowanego pola Status na stany roadmapy", () =>
       graphql(
@@ -721,6 +759,48 @@ function syncProject({ numbers, parent }) {
     set("Strumień", "--single-select-option-id", optionId("Strumień", it.stream));
     set("Rodzaj", "--single-select-option-id", optionId("Rodzaj", it.isFoundation ? "Fundament" : "Funkcja"));
     set("Status", "--single-select-option-id", optionId("Status", STATUS_PL[it.status]));
+  }
+
+  // Parked ideas: on the board in their own column, outside the milestone's flow.
+  for (const [p, issueNumber] of parkedNumbers) {
+    const label = `odłożone #${issueNumber}`;
+    let entry = itemFor(issueNumber);
+    if (!entry) {
+      entry = act(`pozycja ${label} → projekt`, () =>
+        ghJson([
+          "project",
+          "item-add",
+          pnum,
+          "--owner",
+          OWNER,
+          "--url",
+          `https://github.com/${REPO}/issues/${issueNumber}`,
+          "--format",
+          "json",
+        ]),
+      );
+    } else console.log(`  — ${label} (${p.title}) jest już na tablicy`);
+    const status = optionId("Status", "Odłożone");
+    if (!entry || !status) continue;
+    // Skip the write when the card already sits in the column, so a repeated --apply is a no-op.
+    if (entry.status === "Odłożone") continue;
+    act(`${label}: Status = Odłożone`, () =>
+      gh(
+        [
+          "project",
+          "item-edit",
+          "--id",
+          entry.id,
+          "--project-id",
+          pid,
+          "--field-id",
+          fieldBy.Status.id,
+          "--single-select-option-id",
+          status,
+        ],
+        { allowFail: true },
+      ),
+    );
   }
 
   syncViews(pid, fieldBy);
@@ -881,10 +961,88 @@ function projectReadme(numbers, parent) {
   return L.join("\n");
 }
 
+/* ── parked ideas ─────────────────────────────────────────────────────────── */
+
+/** Marks a body this script wrote, so a hand-written parked issue is never overwritten. */
+const PARKED_MARKER = "<!-- roadmap-to-github: parked -->";
+
+const parkedTitle = (p) => `Pomysł: ${p.title}`;
+
+function parkedBody(p) {
+  const L = [PARKED_MARKER, "## Pomysł", "", plainPl(p.title), ""];
+  // The entry's own "Śledzone w GitHub [#N](…)" points at this very issue, so it is dropped.
+  const reason = p.rest.replace(/^Why parked:\s*/, "").replace(/\s*Śledzone w\s+GitHub\s+\[#\d+\]\([^)]*\)\.?/, "");
+  L.push("## Dlaczego odłożone", "", plainPl(reason), "");
+  L.push(`Odłożone w ${fileLink(ROADMAP)} → \`## Parked\`. Ten opis jest generowany z roadmapy — zmieniaj tam.`);
+  return L.join("\n");
+}
+
+function syncParked() {
+  console.log("\nOdłożone pomysły (## Parked)");
+  const existing = existingIssues();
+  const numbers = new Map();
+  for (const p of parked) {
+    const linked = p.issue;
+    const hit = linked ? { number: linked } : existing.find((e) => e.title === parkedTitle(p));
+    let n = hit?.number ?? null;
+    if (n) console.log(`  — "${p.title}" → #${n}`);
+    else {
+      n = act(`issue "${parkedTitle(p)}"`, () => {
+        const url = gh([
+          "issue",
+          "create",
+          "--repo",
+          REPO,
+          "--title",
+          parkedTitle(p),
+          "--body-file",
+          bodyFile(`parked-${numbers.size}`, parkedBody(p)),
+          "--label",
+          "odłożone",
+        ]);
+        return Number(url.trim().split("/").pop());
+      });
+    }
+    if (!n) continue;
+    numbers.set(p, n);
+    if (!APPLY) continue;
+    // Label always; body only when this script wrote it (the marker), so hand-written issues stay.
+    const view = ghJson(["issue", "view", String(n), "--repo", REPO, "--json", "labels,body"]);
+    const labelled = (view?.labels ?? []).some((l) => l.name === "odłożone");
+    const owned = (view?.body ?? "").startsWith(PARKED_MARKER);
+    const wantBody = parkedBody(p);
+    if (labelled && (!owned || view.body.trim() === wantBody.trim())) continue;
+    act(`etykieta${owned ? " + opis" : ""} #${n}`, () => {
+      const args = ["issue", "edit", String(n), "--repo", REPO];
+      if (!labelled) args.push("--add-label", "odłożone");
+      if (owned) args.push("--body-file", bodyFile(`parked-body-${n}`, wantBody));
+      gh(args);
+    });
+  }
+  return numbers;
+}
+
+/** Appends "Śledzone w GitHub [#N](…)" to each parked entry that does not link its issue yet. */
+function writeBackParked(text, numbers) {
+  let out = text;
+  for (const [p, n] of numbers) {
+    if (p.issue) continue;
+    const head = `- **${p.title}**`;
+    const start = out.indexOf(head);
+    if (start === -1) continue;
+    // The entry ends where the next line no longer continues it (a new bullet, a blank line, a heading).
+    const tail = out.slice(start).search(/\n(?! {2}\S)/);
+    const end = tail === -1 ? out.length : start + tail;
+    const link = ` Śledzone w GitHub [#${n}](https://github.com/${REPO}/issues/${n}).`;
+    out = out.slice(0, end) + link + out.slice(end);
+  }
+  return out;
+}
+
 /** Adds `- **Issue:** #N` to each roadmap item so the link is bidirectional. */
-function writeBack(numbers) {
+function writeBack(numbers, parkedNumbers) {
   console.log("\nLinkowanie zwrotne w roadmap.md");
-  let out = md;
+  let out = writeBackParked(md, parkedNumbers);
   for (const it of items) {
     const n = numbers[it.id];
     if (!n) continue;
@@ -937,7 +1095,8 @@ syncLabels();
 const milestoneTitle = syncMilestone();
 const issues = syncIssues(milestoneTitle);
 syncRelations(issues);
-syncProject(issues);
-if (WRITE_BACK) writeBack(issues.numbers);
+const parkedNumbers = syncParked();
+syncProject(issues, parkedNumbers);
+if (WRITE_BACK) writeBack(issues.numbers, parkedNumbers);
 
 console.log(`\n${APPLY ? "Gotowe." : "Plan gotowy. Uruchom z --apply, żeby wykonać."}`);

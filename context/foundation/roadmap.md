@@ -261,24 +261,24 @@ Foundations poniżej zakładają, że to istnieje, i **nie** budują tego od now
 
 ## Parked
 
-- **Pełny algorytm optymalizacyjny układu** — Why parked: PRD `## Non-Goals`; MVP stosuje trzy jawne reguły heurystyczne, nie solver ani optymalizację kombinatoryczną.
-- **Typy aparatów spoza listy MVP** (bloki rozdzielcze, charakterystyki inne niż B) — Why parked: PRD `## Non-Goals`; lista typów jest zamknięta.
-- **Masowy/automatyczny import katalogu producentów** — Why parked: PRD `## Non-Goals`; admin dodaje aparaty i szafki ręcznie.
-- **Integracja płatności / faktur** — Why parked: PRD `## Non-Goals`; wycena jest dokumentem informacyjnym.
-- **Wsparcie dla ekranów dotykowych i urządzeń mobilnych** — Why parked: PRD `## Non-Goals`; MVP zakłada mysz i klawiaturę.
-- **Pełne obliczenia normowe** — Why parked: PRD `## Non-Goals`; MVP robi proste walidacje z podanych danych.
-- **Instalacje wielkoformatowe/komercyjne** — Why parked: PRD `## Non-Goals`; celem są domy jednorodzinne i mieszkania.
-- **Wiele rozdzielnic w jednym projekcie** — Why parked: PRD `## Non-Goals`; jeden projekt = jedna szafka.
-- **Szafka własna/niestandardowa spoza katalogu** — Why parked: świadome zawężenie zapisane przy FR-004; elektryk wybiera wyłącznie z katalogu admina.
-- **Filtr preferowanego producenta przy doborze** — Why parked: odnotowany przy FR-007 jako rozszerzenie po MVP; kryterium MVP to najniższa cena spośród poprawnych dopasowań.
-- **Szablony obwodów / kopiowanie obwodów między projektami** — Why parked: odłożone przy FR-006 na późniejszą wersję.
-- **Observability (logger, error tracking, metryki)** — Why parked: baseline pokazuje brak, ale PRD tego nie wymaga; przy jednym użytkowniku `wrangler tail` wystarcza, a cel `low-complexity` nie uzasadnia fundamentu pod monitoring.
+- **Pełny algorytm optymalizacyjny układu** — Why parked: PRD `## Non-Goals`; MVP stosuje trzy jawne reguły heurystyczne, nie solver ani optymalizację kombinatoryczną. Śledzone w GitHub [#18](https://github.com/Mr1008/rozdzielnica-pro/issues/18).
+- **Typy aparatów spoza listy MVP** (bloki rozdzielcze, charakterystyki inne niż B) — Why parked: PRD `## Non-Goals`; lista typów jest zamknięta. Śledzone w GitHub [#19](https://github.com/Mr1008/rozdzielnica-pro/issues/19).
+- **Masowy/automatyczny import katalogu producentów** — Why parked: PRD `## Non-Goals`; admin dodaje aparaty i szafki ręcznie. Śledzone w GitHub [#20](https://github.com/Mr1008/rozdzielnica-pro/issues/20).
+- **Integracja płatności / faktur** — Why parked: PRD `## Non-Goals`; wycena jest dokumentem informacyjnym. Śledzone w GitHub [#21](https://github.com/Mr1008/rozdzielnica-pro/issues/21).
+- **Wsparcie dla ekranów dotykowych i urządzeń mobilnych** — Why parked: PRD `## Non-Goals`; MVP zakłada mysz i klawiaturę. Śledzone w GitHub [#22](https://github.com/Mr1008/rozdzielnica-pro/issues/22).
+- **Pełne obliczenia normowe** — Why parked: PRD `## Non-Goals`; MVP robi proste walidacje z podanych danych. Śledzone w GitHub [#23](https://github.com/Mr1008/rozdzielnica-pro/issues/23).
+- **Instalacje wielkoformatowe/komercyjne** — Why parked: PRD `## Non-Goals`; celem są domy jednorodzinne i mieszkania. Śledzone w GitHub [#24](https://github.com/Mr1008/rozdzielnica-pro/issues/24).
+- **Wiele rozdzielnic w jednym projekcie** — Why parked: PRD `## Non-Goals`; jeden projekt = jedna szafka. Śledzone w GitHub [#25](https://github.com/Mr1008/rozdzielnica-pro/issues/25).
+- **Szafka własna/niestandardowa spoza katalogu** — Why parked: świadome zawężenie zapisane przy FR-004; elektryk wybiera wyłącznie z katalogu admina. Śledzone w GitHub [#26](https://github.com/Mr1008/rozdzielnica-pro/issues/26).
+- **Filtr preferowanego producenta przy doborze** — Why parked: odnotowany przy FR-007 jako rozszerzenie po MVP; kryterium MVP to najniższa cena spośród poprawnych dopasowań. Śledzone w GitHub [#27](https://github.com/Mr1008/rozdzielnica-pro/issues/27).
+- **Szablony obwodów / kopiowanie obwodów między projektami** — Why parked: odłożone przy FR-006 na późniejszą wersję. Śledzone w GitHub [#28](https://github.com/Mr1008/rozdzielnica-pro/issues/28).
+- **Observability (logger, error tracking, metryki)** — Why parked: baseline pokazuje brak, ale PRD tego nie wymaga; przy jednym użytkowniku `wrangler tail` wystarcza, a cel `low-complexity` nie uzasadnia fundamentu pod monitoring. Śledzone w GitHub [#29](https://github.com/Mr1008/rozdzielnica-pro/issues/29).
 - **Włączenie potwierdzania adresu email** (`enable_confirmations = true`) — Why parked: świadomie
   odłożone na **sam koniec MVP**, żeby przez cały czas budowy testowanie było łatwiejsze. Docelowo
   do zrobienia: jest darmowe na Supabase, a widok `/auth/confirm-email` już istnieje, więc włączenie
   wychodzi taniej niż utrzymywanie ścieżki bez potwierdzeń. Uwaga wykonawcza: `scripts/smoke.mjs`
   rejestruje użytkownika i od razu go loguje, więc włączenie potwierdzeń wymaga przepisania skryptu
-  (logowanie jako zaseedowany admin albo potwierdzenie przez Mailpit). Patrz tripwire w `AGENTS.md`.
+  (logowanie jako zaseedowany admin albo potwierdzenie przez Mailpit). Patrz tripwire w `AGENTS.md`. Śledzone w GitHub [#30](https://github.com/Mr1008/rozdzielnica-pro/issues/30).
 - **Trójwymiarowy podgląd szafki** (obrót, przybliżanie i przesuwanie myszą) — Why parked: pomysł
   użytkownika z 2026-09-23, niski priorytet, na sam koniec MVP, jeśli zostanie czas. Żaden FR tego
   nie wymaga — wystarcza rysunek 2D z przodu (S-05, S-06, S-09). Uwaga wykonawcza: geometria szafki
@@ -286,15 +286,15 @@ Foundations poniżej zakładają, że to istnieje, i **nie** budują tego od now
   dane pod 3D istnieją. Renderer byłby wyspą Reacta po stronie klienta (np. three.js), bez wpływu na
   wydruk, który zostaje w 2D. Śledzone w GitHub
   [#14](https://github.com/Mr1008/rozdzielnica-pro/issues/14).
-- **Układ biegunów/zacisków aparatu w konfiguracji katalogu** (np. po której stronie jest biegun N
-  w RCD 4P) — Why parked: pomysł użytkownika z 2026-09-24, zgłoszony po domknięciu S-01. Różni
-  producenci umieszczają N w innym miejscu (lewa/prawa strona aparatu), a S-01 zapisuje tylko
-  konfigurację biegunów (`poles`: 1P … 4P), nie ich kolejność. Nie blokuje MVP. Uwaga wykonawcza:
-  ma znaczenie dla reguły (3) bliskości szyn PE/N w S-05 i dla czytelności wydruku w S-09 — warto
-  wrócić do tego przy planowaniu S-05; dodanie pola do `devices` to nowa migracja + rozszerzenie
-  CHECK `devices_parameters_match_kind` i `parseDeviceSpec`, które muszą zmienić się razem.
-  Śledzone w GitHub [#15](https://github.com/Mr1008/rozdzielnica-pro/issues/15).
-- **Tłumaczenie interfejsu na inny język** — Why parked: PRD `## Non-Functional Requirements`; warstwa tłumaczeń już istnieje i nie blokuje drugiego języka, ale sam przekład nie jest celem MVP.
+- **Listwy zasilające 1F i 3F do podłączania faz grup RCD** (szyny grzebieniowe łączące wyjście RCD
+  z wejściami MCB grupy) — Why parked: pomysł użytkownika z 2026-10-06, zgłoszony przy S-05 (Faza 5,
+  rysunek przewodów). Dziś zasilanie MCB grupy z RCD jest rysowane jako mostki przewodowe, a
+  listwy nie są typem aparatu w katalogu (zamknięta lista typów MVP, PRD `## Non-Goals`). Uwaga
+  wykonawcza: to nowy rodzaj aparatu (`device_kind`) — migracja + CHECK
+  `devices_parameters_match_kind` + `parseDeviceSpec` razem, dobór w `device-matching.ts` (liczba
+  biegunów i modułów grupy) i zamiana mostków w `cabinet-wiring.ts`; wymaga zmiany PRD. Śledzone w
+  GitHub [#17](https://github.com/Mr1008/rozdzielnica-pro/issues/17).
+- **Tłumaczenie interfejsu na inny język** — Why parked: PRD `## Non-Functional Requirements`; warstwa tłumaczeń już istnieje i nie blokuje drugiego języka, ale sam przekład nie jest celem MVP. Śledzone w GitHub [#31](https://github.com/Mr1008/rozdzielnica-pro/issues/31).
 
 ## Milestone History
 

@@ -966,6 +966,54 @@ export const pl = {
         mcb: "Wyłącznik nadprądowy (MCB)",
         group: "Przerywany obrys — grupa RCD",
       },
+      /** The wire legend: colour per PN-EN 60445 plus the pattern a greyscale print keeps. */
+      wireLegendLabel: "Legenda przewodów",
+      /** The tooltip of one conductor in the drawing, shown on hover. */
+      wireTitle: {
+        circuit: (name: string, details: string) => `Obwód „${name}” — ${details}`,
+        wlz: (details: string) => `WLZ — ${details}`,
+        feed: (from: string, to: string, details: string) => `Połączenie ${from} → ${to} — ${details}`,
+        details: (role: string, crossSectionMm2: number, metres: number) =>
+          `${role}, ${formatNumber(crossSectionMm2)} mm², ${formatNumber(metres)} m`,
+        deviceInGroup: (device: string, group: string) => `${device} „${group}”`,
+        entry: "wprowadzenie przewodów",
+        peBar: "szyna PE",
+        nBar: "szyna N",
+        unknownCircuit: "obwód",
+      },
+      wireLegend: {
+        l: "L — przewód fazowy (L1 brązowy, L2 czarny, L3 szary), linia ciągła",
+        n: "N — przewód neutralny (niebieski), linia przerywana",
+        pe: "PE — przewód ochronny (zielono-żółty), szersza linia z ciągłym jasnym paskiem w środku",
+        pen: "PEN — przewód ochronno-neutralny (TN-C; w TN-C-S do punktu rozdziału na szynie PE), najszerszy zielono-żółty",
+      },
+      lengthsTitle: "Długości przewodów",
+      lengthsColumns: {
+        crossSection: "Przekrój",
+        conductor: "Żyła",
+        usage: "Przeznaczenie",
+        count: "Odcinki",
+        length: "Długość (m)",
+      },
+      crossSection: (mm2: number) => `${formatNumber(mm2)} mm²`,
+      metres: (metres: number) => formatNumber(metres),
+      /** Keyed by `WireClass`. */
+      wireClasses: {
+        L: "L (fazowa)",
+        N: "N (neutralna)",
+        PE: "PE (ochronna)",
+        PEN: "PEN (ochronno-neutralna)",
+      },
+      /** Keyed by `ConductorKind`. */
+      conductorKinds: {
+        circuit: "obwody",
+        wlz: "WLZ",
+        feed: "połączenia między aparatami",
+      },
+      kindsSeparator: ", ",
+      lengthsNote: (slackPercent: number) =>
+        `Długości zawierają ${formatNumber(slackPercent)} % zapasu montażowego. Trasy są przybliżone (po kanałach nad i pod szynami DIN i wzdłuż boków szafki), więc to szacunek do zamówienia przewodów, a nie wynik pomiaru. Połączenia między aparatami liczone są przekrojem WLZ.`,
+      noBarsNote: "Szafka nie ma szyn PE ani N — przewodów do szyn nie narysowano i nie policzono.",
     },
     /** Keyed by `LayoutFailure["code"]` (camelCased). */
     failures: {
@@ -1108,8 +1156,10 @@ export const pl = {
       layoutTitle: "Sekcja „Układ w szafce”",
       /** Captions for the layout section states; each is computed by the real `computeLayoutView`. */
       layoutStates: {
-        placedMedium: "Rozmieszczony — szafka średnia (trzy rzędy, PE i N pionowo)",
-        placedLarge: "Rozmieszczony — szafka duża (pięć szyn, PE i N poziomo)",
+        placedMedium: "Rozmieszczony z przewodami — szafka średnia (trzy rzędy, PE i N pionowo)",
+        placedLarge: "Rozmieszczony z przewodami — szafka duża (pięć szyn, PE i N poziomo)",
+        placedTnC: "Rozmieszczony z przewodami — układ TN-C (PEN zamiast N i PE, obwody bez RCD)",
+        placedNoBars: "Rozmieszczony z przewodami — szafka bez szyn PE/N (przewody do szyn pominięte)",
         missing: "Nie zaproponowany",
         doesNotFit: "Nie mieści się",
         outdated: "Nieaktualny (zapisane aparaty nachodzą na siebie)",
