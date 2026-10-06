@@ -9,7 +9,7 @@ import {
 import { DEMO_CABINET_GEOMETRY } from "@/lib/demo-cabinet";
 import { computeMatchView, type MatchContext, type MatchView, type SnapshotRow } from "@/lib/device-matching-server";
 import { activeCatalog, type DeviceSpecWithId, type Selection } from "@/lib/device-matching";
-import { deviceKindLabel, type DeviceKind } from "@/lib/device-spec";
+import { deviceKindLabel, type DeviceKind, type NTerminalSide } from "@/lib/device-spec";
 import { t } from "@/lib/i18n";
 import type { SupplyParams } from "@/lib/supply-params";
 
@@ -41,10 +41,20 @@ interface DeviceFixture {
   residualCurrentMa?: number;
   rcdType?: string;
   breakingCapacityKa?: number;
+  /** Required exactly when the poles carry N, like the catalog. */
+  nTerminalSide?: NTerminalSide;
 }
 
 const DEVICE_FIXTURES: DeviceFixture[] = [
-  { kind: "switch_disconnector", model: "FR-240", priceGrosze: 4990, widthMm: 36, poles: "2P", ratedCurrentA: 40 },
+  {
+    kind: "switch_disconnector",
+    model: "FR-240",
+    priceGrosze: 4990,
+    widthMm: 36,
+    poles: "2P",
+    ratedCurrentA: 40,
+    nTerminalSide: "left",
+  },
   {
     kind: "rcd",
     model: "RCD-240-A",
@@ -54,6 +64,7 @@ const DEVICE_FIXTURES: DeviceFixture[] = [
     ratedCurrentA: 40,
     residualCurrentMa: 30,
     rcdType: "A",
+    nTerminalSide: "right",
   },
   {
     kind: "rcbo",
@@ -65,6 +76,7 @@ const DEVICE_FIXTURES: DeviceFixture[] = [
     residualCurrentMa: 30,
     rcdType: "A",
     breakingCapacityKa: 6,
+    nTerminalSide: "left",
   },
   {
     kind: "mcb_b",
@@ -132,6 +144,7 @@ const CATALOG_ROWS = DEVICE_FIXTURES.map((device, index) => ({
   rcd_type: device.rcdType ?? null,
   breaking_capacity_ka: device.breakingCapacityKa ?? null,
   terminal_groups: null,
+  n_terminal_side: device.nTerminalSide ?? null,
 }));
 
 export const KS_CATALOG: DeviceSpecWithId[] = activeCatalog(CATALOG_ROWS);
@@ -288,6 +301,7 @@ function snapshotFrom(selections: readonly Selection[]): SnapshotRow[] {
       residual_current_ma: device.residual_current_ma,
       rcd_type: device.rcd_type,
       breaking_capacity_ka: device.breaking_capacity_ka,
+      n_terminal_side: device.n_terminal_side,
     };
   });
 }

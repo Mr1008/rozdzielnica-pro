@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { DEVICE_KINDS, POLE_CONFIGS, RCD_TYPES, type DeviceKind } from "@/lib/device-spec";
+import { DEVICE_KINDS, N_TERMINAL_SIDES, POLE_CONFIGS, RCD_TYPES, type DeviceKind } from "@/lib/device-spec";
 import { formatDecimalInput, type DeviceFormValues, type DeviceRow } from "@/lib/device-form";
 import { mmFromModules, modulesFromMm } from "@/lib/din-module";
 import { draftKeySchema, newDraftKey, numberFromField } from "@/lib/draft-fields";
@@ -38,6 +38,8 @@ export const deviceDraftSchema = z.object({
   rcdType: orEmpty(RCD_TYPES),
   breakingCapacityKa: field,
   terminalGroups: z.array(terminalGroupDraftSchema),
+  /** Defaulted so a draft stored before the field existed still restores. */
+  nTerminalSide: orEmpty(N_TERMINAL_SIDES).default(""),
 });
 
 export type DeviceDraft = z.infer<typeof deviceDraftSchema>;
@@ -60,6 +62,7 @@ function emptyParameters(kind: DeviceKind | "") {
     rcdType: "" as const,
     breakingCapacityKa: "",
     terminalGroups: isBarKind(kind) ? [newTerminalGroupDraft()] : [],
+    nTerminalSide: "" as const,
   };
 }
 
@@ -119,6 +122,7 @@ export function draftFromRow(row?: DeviceRow): DeviceDraft {
       minMm2: numberField(group, "minMm2"),
       maxMm2: numberField(group, "maxMm2"),
     })),
+    nTerminalSide: row.n_terminal_side ?? "",
   };
 }
 
@@ -188,5 +192,6 @@ export function formValuesFromDraft(draft: DeviceDraft): DeviceFormValues {
     rcd_type: draft.rcdType,
     breaking_capacity_ka: draft.breakingCapacityKa,
     terminal_groups: isBarKind(draft.kind) ? terminalGroupsJson(draft.terminalGroups) : "",
+    n_terminal_side: draft.nTerminalSide,
   };
 }

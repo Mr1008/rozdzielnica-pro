@@ -10,7 +10,7 @@ import {
 } from "./circuit-params";
 import { matchDevices } from "./device-matching";
 import type { CatalogGap, DeviceSpecWithId, MatchInput, MatchResult, Selection } from "./device-matching";
-import { parseDeviceSpec, POLES_BY_KIND, RCD_TYPES, type PoleConfig, type RcdType } from "./device-spec";
+import { parseDeviceSpec, polesCarryN, POLES_BY_KIND, RCD_TYPES, type PoleConfig, type RcdType } from "./device-spec";
 import { EARTHING_SYSTEMS, PHASE_COUNTS, PREMETER_PROTECTIONS_A, type SupplyParams } from "./supply-params";
 
 /*
@@ -326,7 +326,16 @@ const inputArb: fc.Arbitrary<MatchInput> = fc
 const common = { width_mm: 17.5, height_mm: 85, depth_mm: 70 };
 
 function buildDevice(id: string, row: Record<string, unknown>): Device {
-  const parsed = parseDeviceSpec({ name: id, manufacturer: "Alfa", model: id, ...common, ...row });
+  // The N side never affects matching; every generated N-carrying device gets one so it parses.
+  const nTerminalSide = polesCarryN(row.poles) ? "left" : null;
+  const parsed = parseDeviceSpec({
+    name: id,
+    manufacturer: "Alfa",
+    model: id,
+    ...common,
+    n_terminal_side: nTerminalSide,
+    ...row,
+  });
   if (!parsed.ok) throw new Error(`generated device ${id} does not parse: ${JSON.stringify(parsed.issues)}`);
   return { ...parsed.spec, id };
 }

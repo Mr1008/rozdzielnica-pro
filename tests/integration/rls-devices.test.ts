@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Database } from "@/lib/database.types";
-import { DEVICE_KINDS, PARAMETERS_BY_KIND, parseDeviceSpec, type DeviceKind } from "@/lib/device-spec";
+import { DEVICE_KINDS, PARAMETERS_BY_KIND, parseDeviceSpec, polesCarryN, type DeviceKind } from "@/lib/device-spec";
 import {
   SEEDED_ADMIN,
   createElectrician,
@@ -33,12 +33,20 @@ const NO_PARAMETERS = {
   rcd_type: null,
   breaking_capacity_ka: null,
   terminal_groups: null,
+  n_terminal_side: null,
 } as const;
 
 /** One valid parameter set per kind, each a complete row once `common` fields are added. */
 const VALID_PARAMETERS: Record<DeviceKind, Partial<DeviceInsert>> = {
   switch_disconnector: { ...NO_PARAMETERS, poles: "3P", rated_current_a: 63 },
-  rcd: { ...NO_PARAMETERS, poles: "2P", rated_current_a: 40, residual_current_ma: 30, rcd_type: "A" },
+  rcd: {
+    ...NO_PARAMETERS,
+    poles: "2P",
+    rated_current_a: 40,
+    residual_current_ma: 30,
+    rcd_type: "A",
+    n_terminal_side: "left",
+  },
   rcbo: {
     ...NO_PARAMETERS,
     poles: "1P+N",
@@ -46,6 +54,7 @@ const VALID_PARAMETERS: Record<DeviceKind, Partial<DeviceInsert>> = {
     residual_current_ma: 30,
     rcd_type: "A",
     breaking_capacity_ka: 6,
+    n_terminal_side: "right",
   },
   mcb_b: { ...NO_PARAMETERS, poles: "1P", rated_current_a: 16, breaking_capacity_ka: 6 },
   pe_bar: { ...NO_PARAMETERS, terminal_groups: [{ count: 8, minMm2: 1.5, maxMm2: 16 }] },
@@ -60,6 +69,7 @@ const FOREIGN_VALUES: Required<Pick<DeviceInsert, keyof typeof NO_PARAMETERS>> =
   rcd_type: "A",
   breaking_capacity_ka: 6,
   terminal_groups: [{ count: 4, minMm2: 1.5, maxMm2: 16 }],
+  n_terminal_side: "left",
 };
 
 /** Unique per call, so repeated runs against a persistent volume never collide on the unique index. */
@@ -309,7 +319,11 @@ describe("row level security on public.devices", () => {
       const foreign = (Object.keys(NO_PARAMETERS) as (keyof typeof NO_PARAMETERS)[]).find((p) => !own.includes(p));
 
       it("rejects a row missing any required parameter with 23514", async () => {
-        for (const parameter of PARAMETERS_BY_KIND[kind]) {
+        // The N side is required only on an N-carrying pole set; the valid 1P/3P rows rightly have none.
+        const required = PARAMETERS_BY_KIND[kind].filter(
+          (parameter) => parameter !== "n_terminal_side" || polesCarryN(VALID_PARAMETERS[kind].poles),
+        );
+        for (const parameter of required) {
           expect(await adminInsertErrorCode(testDevice(kind, { [parameter]: null })), parameter).toBe("23514");
         }
       });
@@ -318,6 +332,27 @@ describe("row level security on public.devices", () => {
         if (!foreign) throw new Error(`${kind} has no foreign parameter to test`);
         expect(await adminInsertErrorCode(testDevice(kind, { [foreign]: FOREIGN_VALUES[foreign] }))).toBe("23514");
       });
+    });
+
+    it("requires an N terminal side exactly when the poles carry N", async () => {
+      // An N-carrying device without a side is refused (`rcd`/`rcbo` above cover it for those kinds).
+      expect(await adminInsertErrorCode(testDevice("mcb_b", { poles: "2P" }))).toBe("23514");
+      expect(await adminInsertErrorCode(testDevice("switch_disconnector", { poles: "4P" }))).toBe("23514");
+      // A side on a pole set without N, or on a bar, is refused.
+      expect(await adminInsertErrorCode(testDevice("mcb_b", { n_terminal_side: "left" }))).toBe("23514");
+      expect(await adminInsertErrorCode(testDevice("switch_disconnector", { n_terminal_side: "right" }))).toBe("23514");
+      expect(await adminInsertErrorCode(testDevice("n_bar", { n_terminal_side: "left" }))).toBe("23514");
+      // Either side is accepted where N exists.
+      for (const side of ["left", "right"] as const) {
+        const { data, error } = await adminClient
+          .from("devices")
+          .insert(testDevice("mcb_b", { poles: "2P", n_terminal_side: side }))
+          .select("id, n_terminal_side")
+          .single();
+        expect(error).toBeNull();
+        if (data) createdDeviceIds.push(data.id);
+        expect(data?.n_terminal_side).toBe(side);
+      }
     });
 
     it("rejects a pole configuration outside the kind's set with 23514", async () => {
@@ -362,6 +397,12 @@ describe("row level security on public.devices", () => {
 
       expect(new Set(b16.map((row) => row.manufacturer)).size).toBe(2);
       expect(new Set(b16.map((row) => row.price_grosze)).size).toBe(2);
+    });
+
+    it("records an N terminal side on every N-carrying device, using both sides", async () => {
+      const rows = (await seededDevices()).filter((row) => polesCarryN(row.poles));
+      expect(rows.every((row) => row.n_terminal_side !== null)).toBe(true);
+      expect(new Set(rows.map((row) => row.n_terminal_side))).toEqual(new Set(["left", "right"]));
     });
 
     it("has no B40 in any pole configuration — the catalog-gap case", async () => {

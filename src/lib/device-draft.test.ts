@@ -27,6 +27,7 @@ const MCB: DeviceRow = {
   rcd_type: null,
   breaking_capacity_ka: 6,
   terminal_groups: null,
+  n_terminal_side: null,
 };
 
 const N_BAR: DeviceRow = {
@@ -43,9 +44,21 @@ function judge(draft: DeviceDraft) {
   return parseDeviceSpec(deviceCandidate(formValuesFromDraft(draft)));
 }
 
+const RCD: DeviceRow = {
+  ...MCB,
+  kind: "rcd",
+  width_mm: 35,
+  poles: "2P",
+  rated_current_a: 40,
+  residual_current_ma: 30,
+  rcd_type: "A",
+  breaking_capacity_ka: null,
+  n_terminal_side: "right",
+};
+
 describe("draftFromRow", () => {
   it("pre-fills a stored row so it parses back to the same spec", () => {
-    for (const row of [MCB, N_BAR]) {
+    for (const row of [MCB, N_BAR, RCD]) {
       const { id: _id, ...spec } = row;
       expect(judge(draftFromRow(row)), row.kind).toEqual({ ok: true, spec });
     }
@@ -92,6 +105,7 @@ describe("withKind", () => {
     expect(bar.terminalGroups).toHaveLength(1);
     expect(judge(bar).ok).toBe(true);
     expect(withKind(bar, "rcd").terminalGroups).toEqual([]);
+    expect(withKind(draftFromRow(RCD), "rcbo").nTerminalSide).toBe("");
     expect(withKind(mcb, "mcb_b")).toBe(mcb);
   });
 });
@@ -102,5 +116,10 @@ describe("stored draft", () => {
     const restored = deviceDraftSchema.parse(JSON.parse(JSON.stringify(draft)));
     expect(formValuesFromDraft(restored)).toEqual(formValuesFromDraft(draft));
     expect(deviceDraftSchema.safeParse({ ...draft, kind: "fuse" }).success).toBe(false);
+  });
+
+  it("restores a draft stored before the N terminal side existed", () => {
+    const { nTerminalSide: _dropped, ...older } = draftFromRow(RCD);
+    expect(deviceDraftSchema.parse(JSON.parse(JSON.stringify(older))).nTerminalSide).toBe("");
   });
 });

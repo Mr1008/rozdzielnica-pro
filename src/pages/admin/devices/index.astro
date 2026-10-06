@@ -30,7 +30,7 @@ async function loadDevices() {
   const { data, error } = await supabase
     .from("devices")
     .select(
-      "id, kind, name, manufacturer, model, price_grosze, width_mm, height_mm, depth_mm, poles, rated_current_a, residual_current_ma, rcd_type, breaking_capacity_ka, terminal_groups, archived_at",
+      "id, kind, name, manufacturer, model, price_grosze, width_mm, height_mm, depth_mm, poles, rated_current_a, residual_current_ma, rcd_type, breaking_capacity_ka, terminal_groups, n_terminal_side, archived_at",
     );
   if (error) {
     // The SQLSTATE only, never Supabase's message — `wrangler tail` is the only trace a failure leaves.

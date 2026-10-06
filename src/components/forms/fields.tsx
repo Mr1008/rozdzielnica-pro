@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/
 import { Field, FieldDescription, FieldLabel, FieldError as RegistryFieldError } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { fieldControlProps, fieldErrorId, fieldHintId } from "@/lib/field-a11y";
 import { cn } from "@/lib/utils";
 
@@ -144,6 +145,70 @@ export function SelectField<T extends string>({
           </NativeSelectOption>
         ))}
       </NativeSelect>
+      <FieldHelp id={id} error={error} hint={hint} />
+    </Field>
+  );
+}
+
+export interface ToggleFieldProps<T extends string> {
+  id: string;
+  label: string;
+  /** `""` while nothing is chosen yet. */
+  value: T | "";
+  options: readonly T[];
+  labels: Record<T, string>;
+  onChange: (value: T) => void;
+  /** Submitted through a hidden input, since a toggle group posts nothing itself. */
+  name?: string;
+  error?: string;
+  hint?: string;
+}
+
+/** A short closed choice (two or three options) as a segmented toggle, with the field's hint/error wiring. */
+export function ToggleField<T extends string>({
+  id,
+  label,
+  value,
+  options,
+  labels,
+  onChange,
+  name,
+  error,
+  hint,
+}: ToggleFieldProps<T>) {
+  const labelId = `${id}-label`;
+  return (
+    <Field data-invalid={error ? true : undefined} className={fieldClass}>
+      <FieldLabel id={labelId}>{label}</FieldLabel>
+      {name !== undefined && <input type="hidden" name={name} value={value} />}
+      {/* The registry `Field` stretches its direct children; the wrapper takes that, so the group keeps its own width. */}
+      <div>
+        <ToggleGroup
+          type="single"
+          variant="outline"
+          size="sm"
+          aria-labelledby={labelId}
+          {...fieldControlProps(id, { hint, error })}
+          value={value}
+          onValueChange={(next) => {
+            // A single toggle group reports "" when the pressed item is clicked again; a choice, once
+            // made, stays made, so that is ignored.
+            const option = options.find((candidate) => candidate === next);
+            if (option !== undefined) onChange(option);
+          }}
+          className={cn("w-fit", error && "ring-destructive/40 rounded-md ring-2")}
+        >
+          {options.map((option) => (
+            <ToggleGroupItem
+              key={option}
+              value={option}
+              className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+            >
+              {labels[option]}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
+      </div>
       <FieldHelp id={id} error={error} hint={hint} />
     </Field>
   );

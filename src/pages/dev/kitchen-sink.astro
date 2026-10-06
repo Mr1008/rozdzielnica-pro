@@ -5,6 +5,7 @@ import DraftingSheet from "@/components/brand/DraftingSheet.astro";
 import Logo from "@/components/brand/Logo.astro";
 import { CabinetDrawing } from "@/components/cabinets/CabinetDrawing";
 import CircuitEditor from "@/components/circuits/CircuitEditor";
+import { ToggleField } from "@/components/forms/fields";
 import MatchResult from "@/components/projects/MatchResult.astro";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -16,7 +17,7 @@ import { NativeSelect } from "@/components/ui/native-select";
 import Layout from "@/layouts/Layout.astro";
 import { DEMO_CABINET_GEOMETRY } from "@/lib/demo-cabinet";
 import { fieldControlProps, fieldErrorId, fieldHintId } from "@/lib/field-a11y";
-import { deviceKindLabel } from "@/lib/device-spec";
+import { deviceKindLabel, N_TERMINAL_SIDES, type NTerminalSide } from "@/lib/device-spec";
 import { formatMoney, t } from "@/lib/i18n";
 import { KS_EDITOR_STATES, KS_PROJECT_ID, kitchenSinkMatchStates } from "@/lib/kitchen-sink-circuits";
 import { EARTHING_SYSTEMS } from "@/lib/supply-params";
@@ -30,6 +31,19 @@ import { EARTHING_SYSTEMS } from "@/lib/supply-params";
  * `return` in frontmatter crashes typescript-eslint's `no-misused-promises` rule.
  */
 const enabled = import.meta.env.DEV;
+
+/** The device editor's N terminal side toggle, rendered static: SSR only, so the handler never runs. */
+const toggleStates: { id: string; state: string; value: NTerminalSide | ""; error?: string }[] = [
+  { id: "ks-toggle-empty", state: t.devTools.kitchenSink.states.withHint, value: "" },
+  { id: "ks-toggle-filled", state: t.devTools.kitchenSink.states.filled, value: "right" },
+  {
+    id: "ks-toggle-invalid",
+    state: t.devTools.kitchenSink.states.invalid,
+    value: "",
+    error: t.deviceIssues.required(t.devices.fields.nTerminalSide),
+  },
+];
+const ignoreToggle = (_side: NTerminalSide) => undefined;
 if (!enabled) Astro.response.status = 404;
 
 const k = t.devTools.kitchenSink;
@@ -451,6 +465,29 @@ const subTitleClass = "text-sm font-medium text-muted-foreground";
                   </div>
                 ))}
               </fieldset>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>{k.controls.toggle}</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-5">
+              {toggleStates.map((item) => (
+                <div class="flex flex-col gap-1">
+                  <span class="font-mono text-xs text-muted-foreground">{item.state}</span>
+                  <ToggleField
+                    id={item.id}
+                    label={t.devices.fields.nTerminalSide}
+                    value={item.value}
+                    options={N_TERMINAL_SIDES}
+                    labels={t.devices.nTerminalSides}
+                    hint={t.devices.editor.nTerminalSideHint}
+                    error={item.error}
+                    onChange={ignoreToggle}
+                  />
+                </div>
+              ))}
             </CardContent>
           </Card>
         </div>

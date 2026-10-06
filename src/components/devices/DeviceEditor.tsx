@@ -1,7 +1,15 @@
 import { useEffect, useState, type SubmitEvent } from "react";
 import { CircleAlert, Save } from "lucide-react";
 import { clearStoredDraft, readStoredDraft, writeStoredDraft } from "@/components/forms/draft-storage";
-import { AddButton, NumberField, RemoveButton, Section, SelectField, TextField } from "@/components/forms/fields";
+import {
+  AddButton,
+  NumberField,
+  RemoveButton,
+  Section,
+  SelectField,
+  TextField,
+  ToggleField,
+} from "@/components/forms/fields";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -24,12 +32,14 @@ import {
 import { DEVICE_FORM_FIELDS, deviceCandidate, type DeviceRow } from "@/lib/device-form";
 import {
   DEVICE_KINDS,
+  N_TERMINAL_SIDES,
   PARAMETERS_BY_KIND,
   POLES_BY_KIND,
   RCD_TYPES,
   deviceIssueMessage,
   deviceKindLabel,
   parseDeviceSpec,
+  polesCarryN,
   type DeviceField,
   type DeviceIssue,
   type DeviceKind,
@@ -433,6 +443,23 @@ export default function DeviceEditor({ initial, action, error }: DeviceEditorPro
                   touch("breaking_capacity_ka");
                 }}
                 error={errorFor("breaking_capacity_ka")}
+              />
+            )}
+            {/* Only for pole sets with an N pole: `deviceCandidate` ignores the side for any other. */}
+            {has("n_terminal_side") && polesCarryN(draft.poles) && (
+              <ToggleField
+                id="device-n-terminal-side"
+                name={DEVICE_FORM_FIELDS.n_terminal_side}
+                label={f.nTerminalSide}
+                value={draft.nTerminalSide}
+                options={N_TERMINAL_SIDES}
+                labels={t.devices.nTerminalSides}
+                hint={e.nTerminalSideHint}
+                onChange={(nTerminalSide) => {
+                  update({ nTerminalSide });
+                  touch("n_terminal_side");
+                }}
+                error={errorFor("n_terminal_side")}
               />
             )}
           </div>
