@@ -201,12 +201,14 @@ Deployed to [Cloudflare Workers](https://workers.cloudflare.com/) as the Worker 
 
 ### Auto-deploy (the normal path)
 
-Pushing to `master` deploys. Cloudflare Workers Builds is connected to the GitHub repository and runs
-`npm run build` then `npx wrangler deploy` on every push to the production branch. Builds for
-non-production branches are off.
+Pushing to `master` deploys, through GitHub Actions. When CI for the push finishes green,
+`.github/workflows/deploy.yml` applies pending migrations (job `migrate`) and then runs
+`npm run build` + `npx wrangler deploy` (job `deploy`) — always in that order. A red CI run ships
+nothing. See [CI](#ci) for the secrets it needs.
 
-> GitHub Actions CI and the Cloudflare build run **in parallel** on the same push, so a red CI run
-> does **not** block the deploy. Check CI before pushing something you care about.
+> Cloudflare Workers Builds' auto-deploy on `master` is **switched off** in the Cloudflare dashboard
+> (Worker → Settings → Build). Leave it off: two deployers on the same push would race again, and
+> Workers Builds would ship before the migration and regardless of CI.
 
 ### Manual deploy (fallback)
 
@@ -284,15 +286,17 @@ It needs a reachable Supabase instance (local or cloud) with email confirmation 
 - **ci** — lint, `astro check`, `npm run test:unit` and build. Configure `SUPABASE_URL` and `SUPABASE_KEY` as repository secrets for the build step.
 - **smoke** — starts a local Supabase via the Supabase CLI, builds, serves the production preview on the Cloudflare runtime and runs `npm run smoke` against it. No secrets required.
 
-`.github/workflows/db-migrate.yml` runs on pushes to `master` only and applies pending migrations to the cloud project with `supabase link` + `supabase db push`. It requires three repository secrets:
+`.github/workflows/deploy.yml` runs after CI succeeds for a push to `master` (never for a pull request). Job `migrate` applies pending migrations to the cloud project with `supabase link` + `supabase db push`; job `deploy` then builds and runs `npx wrangler deploy`. If master has already moved on to a newer commit, the older run stands down and the newer one deploys. It requires five repository secrets:
 
 | Secret                  | Description                                                                                                                                                               |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `SUPABASE_ACCESS_TOKEN` | Personal access token. `supabase link` reads several project-config endpoints, so a token scoped only to Migrations and Database fails with an opaque authorization error |
 | `SUPABASE_PROJECT_REF`  | The cloud project ref                                                                                                                                                     |
 | `SUPABASE_DB_PASSWORD`  | The cloud database password                                                                                                                                               |
+| `CLOUDFLARE_API_TOKEN`  | Cloudflare API token with **Workers Scripts:Edit** on this account only                                                                                                   |
+| `CLOUDFLARE_ACCOUNT_ID` | The Cloudflare account id                                                                                                                                                 |
 
-This workflow and the Cloudflare deploy fire on the same push with no ordering between them, so every migration must be forward-compatible with the currently deployed code.
+The migration always lands before the new code, so new code never meets the old schema. For the length of the deploy, though, the **old** code runs on the **new** schema, so every migration must stay backward-compatible with the currently deployed code.
 
 ## License
 

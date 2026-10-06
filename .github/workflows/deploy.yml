@@ -1,0 +1,89 @@
+name: Deploy
+
+# Migrates the cloud database, then deploys the Worker — in that order, and only after CI is green.
+#
+# Triggered by the CI workflow finishing, not by the push itself, so a red `ci` or `smoke` job ships
+# nothing. Only CI runs for a push to master in this repository qualify: CI also runs for pull
+# requests, and a fork's branch may be called `master` too.
+#
+# Migrations stay in Actions rather than in the Cloudflare Workers Builds command on purpose: that
+# would put SUPABASE_DB_PASSWORD (full production write access) into a second secret store, and the
+# build command lives in the Cloudflare dashboard, where it escapes review. So the deploy moved here
+# instead, and Workers Builds must stay switched off for `master` — two deployers would race again.
+#
+# What ordering does not remove: while `deploy` runs, the OLD code is live on the NEW schema. Every
+# migration must therefore stay backward-compatible with the currently deployed code. It no longer
+# has to be forward-compatible with code that is not live yet — the new code never sees the old
+# schema.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [master]
+
+# One run at a time, never cancelled midway through a migration.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    outputs:
+      is_tip: ${{ steps.tip.outputs.is_tip }}
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+      # CI runs for two quick pushes can finish out of order. Only the commit that is still the tip
+      # of master migrates and deploys; an older one stands down, and the newer commit's own run
+      # carries its migrations, because `db push` applies everything pending.
+      - name: Check the commit is still the tip of master
+        id: tip
+        run: |
+          tip=$(git ls-remote origin refs/heads/master | cut -f1)
+          if [ "$tip" = "${{ github.event.workflow_run.head_sha }}" ]; then
+            echo "is_tip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_tip=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::master has moved on to $tip; that commit's run deploys instead."
+          fi
+      - if: steps.tip.outputs.is_tip == 'true'
+        uses: supabase/setup-cli@v3
+        with:
+          version: 2.117.0 # keep in step with the `supabase` version in package-lock.json
+      - name: Link the cloud project
+        if: steps.tip.outputs.is_tip == 'true'
+        run: supabase link --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}
+      - name: Apply pending migrations
+        if: steps.tip.outputs.is_tip == 'true'
+        run: supabase db push
+
+  deploy:
+    needs: migrate
+    if: needs.migrate.outputs.is_tip == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      # SUPABASE_URL / SUPABASE_KEY are runtime Workers Secrets, not build inputs, so the build needs
+      # none. The Worker name comes from wrangler.jsonc and must stay `rozdzielnica-pro`.
+      - run: npm run build
+      - name: Deploy the Worker
+        run: npx wrangler deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
