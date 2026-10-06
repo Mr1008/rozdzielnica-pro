@@ -1,0 +1,116 @@
+---
+import { CabinetDrawing } from "@/components/cabinets/CabinetDrawing";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import type { CabinetGeometry } from "@/lib/cabinet-geometry";
+import type { DrawnDevice } from "@/lib/cabinet-drawing";
+import { layoutFailureMessage } from "@/lib/cabinet-layout";
+import type { LayoutView } from "@/lib/layout-server";
+import { t } from "@/lib/i18n";
+import { projectLayoutApiPath } from "@/lib/project";
+import { CircleAlertIcon, InfoIcon, TriangleAlertIcon } from "lucide-react";
+
+/**
+ * The "Układ w szafce" panel of the project page (FR-008): one message and one action per layout
+ * state. Only a `placed` layout is drawn — a stored layout that fails validation is never shown, and
+ * `does_not_fit` has nothing to draw. `view` is null while the match is not `current`, and the panel
+ * then points back at the match result. Wires and lengths come with the next phase.
+ */
+interface Props {
+  view: LayoutView | null;
+  /** The placed devices, from `buildDrawnDevices`; used only when `view.state` is `placed`. */
+  devices: readonly DrawnDevice[];
+  geometry: CabinetGeometry | null;
+  projectId: string;
+  /** The in-page anchor of the match result's section, the link for a match that is not current. */
+  matchAnchor: string;
+}
+
+const { view, devices, geometry, projectId, matchAnchor } = Astro.props;
+const s = t.layout.section;
+const legendBox = "inline-block h-4 w-6 shrink-0 rounded-xs";
+---
+
+<div class="flex flex-col gap-6">
+  {view === null && (
+    <Alert variant="info" role="status">
+      <InfoIcon aria-hidden="true" />
+      <AlertDescription className="block">
+        {s.notCurrent}{" "}
+        <a href={`#${matchAnchor}`} class="font-semibold underline underline-offset-4">
+          {s.notCurrentLink}
+        </a>
+      </AlertDescription>
+    </Alert>
+  )}
+
+  {view?.state === "missing" && (
+    <Alert variant="info" role="status">
+      <InfoIcon aria-hidden="true" />
+      <AlertTitle>{s.missingTitle}</AlertTitle>
+      <AlertDescription className="flex flex-col items-start gap-3">
+        <span>{s.missing}</span>
+        <form method="POST" action={projectLayoutApiPath(projectId)}>
+          <Button type="submit" size="sm">
+            {s.propose}
+          </Button>
+        </form>
+      </AlertDescription>
+    </Alert>
+  )}
+
+  {view?.state === "outdated" && (
+    <Alert variant="warning" role="status">
+      <TriangleAlertIcon aria-hidden="true" />
+      <AlertTitle>{s.outdatedTitle}</AlertTitle>
+      <AlertDescription className="flex flex-col items-start gap-3">
+        <span>{s.outdated}</span>
+        <form method="POST" action={projectLayoutApiPath(projectId)}>
+          <Button type="submit" size="sm">
+            {s.proposeAgain}
+          </Button>
+        </form>
+      </AlertDescription>
+    </Alert>
+  )}
+
+  {view?.state === "does_not_fit" && (
+    <Alert variant="destructive" role="status">
+      <CircleAlertIcon aria-hidden="true" />
+      <AlertTitle>{s.doesNotFitTitle}</AlertTitle>
+      <AlertDescription className="block">{layoutFailureMessage(view.failure)}</AlertDescription>
+    </Alert>
+  )}
+
+  {view?.state === "placed" && geometry && (
+    <div class="flex flex-col gap-3">
+      <h3 class="text-sm font-semibold">{s.drawingTitle}</h3>
+      <div class="mx-auto w-full max-w-3xl">
+        <CabinetDrawing geometry={geometry} devices={devices} />
+      </div>
+      <ul aria-label={s.legendLabel} class="flex flex-wrap gap-x-6 gap-y-2 text-xs text-muted-foreground">
+        <li class="flex items-center gap-2">
+          <span class:list={[legendBox, "border border-drawing-frame bg-drawing-frame"]} aria-hidden="true" />
+          {s.legend.mainSwitch}
+        </li>
+        <li class="flex items-center gap-2">
+          <span
+            class:list={[legendBox, "border-2 border-drawing-frame bg-drawing-device-protect"]}
+            aria-hidden="true"
+          />
+          {s.legend.protection}
+        </li>
+        <li class="flex items-center gap-2">
+          <span class:list={[legendBox, "border border-drawing-frame bg-drawing-paper"]} aria-hidden="true" />
+          {s.legend.mcb}
+        </li>
+        <li class="flex items-center gap-2">
+          <span class:list={[legendBox, "border border-dashed border-drawing-group"]} aria-hidden="true" />
+          {s.legend.group}
+        </li>
+      </ul>
+    </div>
+  )}
+
+  {view !== null && <p class="text-xs text-muted-foreground">{s.wlzHint}</p>}
+</div>

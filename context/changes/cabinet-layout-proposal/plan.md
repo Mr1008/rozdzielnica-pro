@@ -815,34 +815,34 @@ the admin should review them. Existing projects get no placements until their ne
 
 #### Automated
 
-- [x] 3.1 Migration applies: `npx supabase db reset`
-- [x] 3.2 Types regenerated: `npm run db:types`
-- [x] 3.3 Lint passes: `npm run lint`
-- [x] 3.4 Type check passes: `npx astro check`
-- [x] 3.5 Unit tests pass: `npm run test:unit`
-- [x] 3.6 Integration tests pass: `npm run test:integration`
-- [x] 3.7 Build passes: `npm run build`
+- [x] 3.1 Migration applies: `npx supabase db reset` — 940e065
+- [x] 3.2 Types regenerated: `npm run db:types` — 940e065
+- [x] 3.3 Lint passes: `npm run lint` — 940e065
+- [x] 3.4 Type check passes: `npx astro check` — 940e065
+- [x] 3.5 Unit tests pass: `npm run test:unit` — 940e065
+- [x] 3.6 Integration tests pass: `npm run test:integration` — 940e065
+- [x] 3.7 Build passes: `npm run build` — 940e065
 
 #### Manual
 
-- [x] 3.8 Saving circuits on a seed (b) project stores placements (visible in Studio) in the same save
-- [x] 3.9 Changing the project's cabinet clears placements and the page reports `missing`
-- [x] 3.10 Worst-case layout timing recorded in `change.md` notes and within budget
+- [x] 3.8 Saving circuits on a seed (b) project stores placements (visible in Studio) in the same save — 940e065
+- [x] 3.9 Changing the project's cabinet clears placements and the page reports `missing` — 940e065
+- [x] 3.10 Worst-case layout timing recorded in `change.md` notes and within budget — 940e065
 
 ### Phase 4: Drawing the layout
 
 #### Automated
 
-- [ ] 4.1 Lint passes: `npm run lint`
-- [ ] 4.2 Type check passes: `npx astro check`
-- [ ] 4.3 Unit tests pass: `npm run test:unit`
-- [ ] 4.4 Build passes: `npm run build`
+- [x] 4.1 Lint passes: `npm run lint`
+- [x] 4.2 Type check passes: `npx astro check`
+- [x] 4.3 Unit tests pass: `npm run test:unit`
+- [x] 4.4 Build passes: `npm run build`
 
 #### Manual
 
-- [ ] 4.5 On each seed cabinet (a), (b), (c) a matched project shows a layout that visibly follows rules 1–3
-- [ ] 4.6 Every layout state renders correctly on the project page and in the kitchen sink (screenshots)
-- [ ] 4.7 Drawing stays legible in greyscale (browser print preview)
+- [x] 4.5 On each seed cabinet (a), (b), (c) a matched project shows a layout that visibly follows rules 1–3
+- [x] 4.6 Every layout state renders correctly on the project page and in the kitchen sink (screenshots)
+- [x] 4.7 Drawing stays legible in greyscale (browser print preview)
 
 ### Phase 5: Wires, slack and lengths
 

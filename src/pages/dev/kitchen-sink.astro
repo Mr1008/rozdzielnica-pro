@@ -6,6 +6,7 @@ import Logo from "@/components/brand/Logo.astro";
 import { CabinetDrawing } from "@/components/cabinets/CabinetDrawing";
 import CircuitEditor from "@/components/circuits/CircuitEditor";
 import { ToggleField } from "@/components/forms/fields";
+import LayoutSection from "@/components/projects/LayoutSection.astro";
 import MatchResult from "@/components/projects/MatchResult.astro";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -19,7 +20,12 @@ import { DEMO_CABINET_GEOMETRY } from "@/lib/demo-cabinet";
 import { fieldControlProps, fieldErrorId, fieldHintId } from "@/lib/field-a11y";
 import { deviceKindLabel, N_TERMINAL_SIDES, type NTerminalSide } from "@/lib/device-spec";
 import { formatMoney, t } from "@/lib/i18n";
-import { KS_EDITOR_STATES, KS_PROJECT_ID, kitchenSinkMatchStates } from "@/lib/kitchen-sink-circuits";
+import {
+  KS_EDITOR_STATES,
+  KS_PROJECT_ID,
+  kitchenSinkLayoutStates,
+  kitchenSinkMatchStates,
+} from "@/lib/kitchen-sink-circuits";
 import { EARTHING_SYSTEMS } from "@/lib/supply-params";
 
 /**
@@ -102,6 +108,8 @@ const tokenGroups = [
       { token: "--drawing-entry", swatch: "bg-drawing-entry" },
       { token: "--drawing-frame", swatch: "bg-drawing-frame" },
       { token: "--drawing-highlight", swatch: "bg-drawing-highlight" },
+      { token: "--drawing-device-protect", swatch: "bg-drawing-device-protect" },
+      { token: "--drawing-group", swatch: "bg-drawing-group" },
     ],
   },
   {
@@ -208,7 +216,9 @@ const brandSizes = [16, 24, 48];
 
 // Only computed when the page renders at all: the fixtures run the real matcher.
 const matchStates = enabled ? kitchenSinkMatchStates() : [];
+const layoutStates = enabled ? kitchenSinkLayoutStates() : [];
 const circuitsAnchor = "ks-circuits";
+const layoutAnchor = "ks-layout";
 
 const sectionClass = "flex flex-col gap-4";
 const sectionTitleClass = "text-xl font-semibold tracking-tight";
@@ -625,6 +635,31 @@ const subTitleClass = "text-sm font-medium text-muted-foreground";
                     context={state.context}
                     projectId={KS_PROJECT_ID}
                     circuitsAnchor={circuitsAnchor}
+                  />
+                </CardContent>
+              </Card>
+            </figure>
+          ))}
+        </div>
+      </section>
+
+      <section class:list={sectionClass} aria-labelledby={layoutAnchor}>
+        <h2 id={layoutAnchor} class:list={sectionTitleClass}>
+          {k.sections.layout}
+        </h2>
+        <h3 class="text-lg font-semibold">{k.layoutTitle}</h3>
+        <div class="flex flex-col gap-6">
+          {layoutStates.map((state) => (
+            <figure class="flex flex-col gap-2">
+              <figcaption class:list={subTitleClass}>{state.caption}</figcaption>
+              <Card>
+                <CardContent>
+                  <LayoutSection
+                    view={state.view}
+                    devices={state.devices}
+                    geometry={state.geometry}
+                    projectId={KS_PROJECT_ID}
+                    matchAnchor={circuitsAnchor}
                   />
                 </CardContent>
               </Card>
