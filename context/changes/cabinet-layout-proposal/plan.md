@@ -777,31 +777,31 @@ the admin should review them. Existing projects get no placements until their ne
 
 #### Automated
 
-- [x] 0.1 Workflow file is valid YAML and lint passes: `npm run lint`
-- [ ] 0.2 A push to `master` shows `migrate` then `deploy` in order, both green: `gh run list --workflow db-migrate.yml`
+- [x] 0.1 Workflow file is valid YAML and lint passes: `npm run lint` — 53d96eb
+- [x] 0.2 A push to `master` shows `migrate` then `deploy` in order, both green: `gh run list --workflow db-migrate.yml` — 53d96eb
 
 #### Manual
 
-- [ ] 0.3 Workers Builds no longer deploys on push (Cloudflare dashboard → Deployments shows only the Actions deploy)
-- [ ] 0.4 Live app still works after the Actions deploy: `npx wrangler deployments list` shows the new version and sign-in works
+- [x] 0.3 Workers Builds no longer deploys on push (Cloudflare dashboard → Deployments shows only the Actions deploy) — 53d96eb
+- [x] 0.4 Live app still works after the Actions deploy: `npx wrangler deployments list` shows the new version and sign-in works — 53d96eb
 
 ### Phase 1: N-terminal side in the catalog
 
 #### Automated
 
-- [ ] 1.1 Migration applies on a fresh local stack: `npx supabase db reset`
-- [ ] 1.2 Types regenerated and committed: `npm run db:types` shows no further diff
-- [ ] 1.3 Lint passes: `npm run lint`
-- [ ] 1.4 Type check passes: `npx astro check`
-- [ ] 1.5 Unit tests pass: `npm run test:unit`
-- [ ] 1.6 Integration tests pass: `npm run test:integration`
-- [ ] 1.7 Build passes: `npm run build`
+- [x] 1.1 Migration applies on a fresh local stack: `npx supabase db reset`
+- [x] 1.2 Types regenerated and committed: `npm run db:types` shows no further diff
+- [x] 1.3 Lint passes: `npm run lint`
+- [x] 1.4 Type check passes: `npx astro check`
+- [x] 1.5 Unit tests pass: `npm run test:unit`
+- [x] 1.6 Integration tests pass: `npm run test:integration`
+- [x] 1.7 Build passes: `npm run build`
 
 #### Manual
 
-- [ ] 1.8 Admin can set and change the N side on a 2P RCD; the field is absent for a 1P MCB and for bars
-- [ ] 1.9 Catalog list shows the N side in the parameter summary
-- [ ] 1.10 Kitchen sink shows the new editor field states
+- [x] 1.8 Admin can set and change the N side on a 2P RCD; the field is absent for a 1P MCB and for bars
+- [x] 1.9 Catalog list shows the N side in the parameter summary
+- [x] 1.10 Kitchen sink shows the new editor field states
 
 ### Phase 2: Placement logic (pure)
 

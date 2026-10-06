@@ -8,6 +8,8 @@ import {
   DEVICE_PARAMETERS,
   PARAMETERS_BY_KIND,
   POLES_BY_KIND,
+  POLES_WITH_N,
+  polesCarryN,
   deviceIssueMessage,
   deviceKindLabel,
   deviceSpecSchema,
@@ -33,6 +35,7 @@ const NO_PARAMETERS = {
   rcd_type: null,
   breaking_capacity_ka: null,
   terminal_groups: null,
+  n_terminal_side: null,
 };
 
 const VALID: Record<DeviceKind, Record<string, unknown>> = {
@@ -45,6 +48,7 @@ const VALID: Record<DeviceKind, Record<string, unknown>> = {
     rated_current_a: 40,
     residual_current_ma: 30,
     rcd_type: "A",
+    n_terminal_side: "right",
   },
   rcbo: {
     ...COMMON,
@@ -55,6 +59,7 @@ const VALID: Record<DeviceKind, Record<string, unknown>> = {
     residual_current_ma: 30,
     rcd_type: "AC",
     breaking_capacity_ka: 6,
+    n_terminal_side: "left",
   },
   mcb_b: { ...COMMON, ...NO_PARAMETERS, kind: "mcb_b", poles: "1P", rated_current_a: 16, breaking_capacity_ka: 6 },
   pe_bar: {
@@ -181,6 +186,58 @@ describe("parseDeviceSpec — one failure per issue code", () => {
   });
 });
 
+describe("parseDeviceSpec — N terminal side, by poles", () => {
+  const POLE_KINDS = DEVICE_KINDS.filter((kind) => POLES_BY_KIND[kind].length > 0);
+
+  it("lists exactly the pole sets with an N pole", () => {
+    expect(POLES_WITH_N).toEqual(["1P+N", "2P", "3P+N", "4P"]);
+    expect(["1P", "3P", null].map(polesCarryN)).toEqual([false, false, false]);
+  });
+
+  it("requires a side for every N-carrying pole set of every kind, and accepts left or right", () => {
+    for (const kind of POLE_KINDS) {
+      for (const poles of POLES_BY_KIND[kind].filter(polesCarryN)) {
+        const row = { ...VALID[kind], poles };
+        expect(issuesOf({ ...row, n_terminal_side: null }), `${kind} ${poles}`).toEqual([
+          { field: "n_terminal_side", code: "required" },
+        ]);
+        expect(issuesOf({ ...row, n_terminal_side: "middle" }), `${kind} ${poles}`).toEqual([
+          { field: "n_terminal_side", code: "malformed" },
+        ]);
+        for (const side of ["left", "right"]) {
+          expect(parseDeviceSpec({ ...row, n_terminal_side: side }), `${kind} ${poles} ${side}`).toMatchObject({
+            ok: true,
+            spec: { n_terminal_side: side },
+          });
+        }
+      }
+    }
+  });
+
+  it("refuses a side on a pole set without N, for every kind", () => {
+    for (const kind of POLE_KINDS) {
+      for (const poles of POLES_BY_KIND[kind].filter((p) => !polesCarryN(p))) {
+        expect(issuesOf({ ...VALID[kind], poles, n_terminal_side: "left" }), `${kind} ${poles}`).toEqual([
+          { field: "n_terminal_side", code: "foreign_parameter" },
+        ]);
+      }
+    }
+  });
+
+  it("judges no side against an invalid pole set", () => {
+    expect(issuesOf({ ...VALID.rcd, poles: "1P" })).toEqual([{ field: "poles", code: "pole_not_allowed" }]);
+    expect(issuesOf({ ...VALID.mcb_b, poles: null, n_terminal_side: "left" })).toEqual([
+      { field: "poles", code: "required" },
+    ]);
+  });
+
+  it("makes the zod schema refuse a side that does not match the poles", () => {
+    expect(deviceSpecSchema.safeParse({ ...VALID.rcd, n_terminal_side: null }).success).toBe(false);
+    expect(deviceSpecSchema.safeParse({ ...VALID.mcb_b, n_terminal_side: "left" }).success).toBe(false);
+    expect(deviceSpecSchema.safeParse({ ...VALID.pe_bar, n_terminal_side: "left" }).success).toBe(false);
+  });
+});
+
 describe("parseDeviceSpec — per-kind rules", () => {
   it("rejects a pole configuration outside the kind's set", () => {
     expect(issuesOf({ ...VALID.rcd, poles: "1P" })).toEqual([{ field: "poles", code: "pole_not_allowed" }]);
@@ -249,6 +306,7 @@ describe("parseDeviceSpec — per-kind rules", () => {
       rcd_type: "A",
       breaking_capacity_ka: 6,
       terminal_groups: [{ count: 1, minMm2: 1.5, maxMm2: 16 }],
+      n_terminal_side: "left",
     };
     for (const kind of DEVICE_KINDS) {
       const own: readonly string[] = PARAMETERS_BY_KIND[kind];

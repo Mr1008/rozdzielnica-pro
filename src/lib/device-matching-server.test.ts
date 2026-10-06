@@ -9,7 +9,7 @@ import {
   type MatchContext,
   type SnapshotRow,
 } from "./device-matching-server";
-import { parseDeviceSpec } from "./device-spec";
+import { parseDeviceSpec, polesCarryN } from "./device-spec";
 import { PROJECT_ERROR } from "./project-errors";
 import type { SupplyParams } from "./supply-params";
 
@@ -30,6 +30,7 @@ function device(id: string, row: Record<string, unknown>): DeviceSpecWithId {
     width_mm: 17.5,
     height_mm: 85,
     depth_mm: 70,
+    n_terminal_side: polesCarryN(row.poles) ? "left" : null,
     ...row,
   });
   if (!parsed.ok) throw new Error(`fixture ${id} does not parse: ${JSON.stringify(parsed.issues)}`);
@@ -107,6 +108,7 @@ function snapshotRow(selection: Selection, position: number, overrides: Partial<
     residual_current_ma: null,
     rcd_type: null,
     breaking_capacity_ka: 6,
+    n_terminal_side: null,
     created_at: "2026-09-29T00:00:00Z",
     ...overrides,
   };

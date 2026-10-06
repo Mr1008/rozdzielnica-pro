@@ -420,6 +420,24 @@ describe("row level security and the device snapshot on circuits, groups and pro
       }
     });
 
+    it("copies the N terminal side from the catalog", async () => {
+      const { projectDevices } = await readAll(projectA);
+      const catalog = await service
+        .from("devices")
+        .select("id, n_terminal_side")
+        .in(
+          "id",
+          projectDevices.map((row) => row.device_id),
+        );
+      expect(catalog.error).toBeNull();
+      const sides = new Map((catalog.data ?? []).map((row) => [row.id, row.n_terminal_side]));
+      for (const row of projectDevices) {
+        expect(row.n_terminal_side, row.device_id).toBe(sides.get(row.device_id));
+      }
+      // The sample match holds an RCD and an RCBO, so at least one side is really copied, not just null.
+      expect(projectDevices.some((row) => row.n_terminal_side !== null)).toBe(true);
+    });
+
     it("refuses an archived device with P0002 and rolls back the whole RPC", async () => {
       const archivedDevice = await seedDevice({ archived_at: new Date().toISOString() });
       const projectId = await insertProject(clientA, electricianA.id);

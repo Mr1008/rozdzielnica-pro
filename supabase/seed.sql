@@ -124,6 +124,8 @@ on conflict ((lower(manufacturer)), (lower(model))) do nothing;
 --   * switch-disconnectors (FR, no fuse links) 1P 63 A, and 2P, 3P and 4P at 40 A and 63 A — so the
 --     single-phase (2P) and three-phase TN-S/TN-C-S (4P) main-switch paths all match; one PE bar and
 --     one N bar;
+--   * an N terminal side on every N-carrying device (1P+N, 2P, 4P), deliberately mixed left and right
+--     so the layout drawing shows both;
 --   * NO B40 in any pole configuration — the catalog-gap case (a circuit needing 40 A gets the
 --     "contact the admin" error, never an under-rated MCB).
 -- Widths are real DIN module multiples (17.5 mm per module). Every row must pass `parseDeviceSpec`;
@@ -131,35 +133,36 @@ on conflict ((lower(manufacturer)), (lower(model))) do nothing;
 -- so re-running inserts nothing.
 insert into public.devices (
   kind, name, manufacturer, model, price_grosze, width_mm, height_mm, depth_mm,
-  poles, rated_current_a, residual_current_ma, rcd_type, breaking_capacity_ka, terminal_groups
+  poles, rated_current_a, residual_current_ma, rcd_type, breaking_capacity_ka, terminal_groups,
+  n_terminal_side
 )
 values
-  ('mcb_b', 'Wyłącznik nadprądowy B6 1P', 'Przykładowy producent', 'PRZ-B6-1P', 1490, 17.5, 85, 70, '1P', 6, null, null, 6, null),
-  ('mcb_b', 'Wyłącznik nadprądowy B10 1P', 'Przykładowy producent', 'PRZ-B10-1P', 1490, 17.5, 85, 70, '1P', 10, null, null, 6, null),
-  ('mcb_b', 'Wyłącznik nadprądowy B13 1P', 'Przykładowy producent', 'PRZ-B13-1P', 1490, 17.5, 85, 70, '1P', 13, null, null, 6, null),
-  ('mcb_b', 'Wyłącznik nadprądowy B16 1P', 'Przykładowy producent', 'PRZ-B16-1P', 1590, 17.5, 85, 70, '1P', 16, null, null, 6, null),
-  ('mcb_b', 'Wyłącznik nadprądowy B20 1P', 'Przykładowy producent', 'PRZ-B20-1P', 1690, 17.5, 85, 70, '1P', 20, null, null, 6, null),
-  ('mcb_b', 'Wyłącznik nadprądowy B25 1P', 'Przykładowy producent', 'PRZ-B25-1P', 1790, 17.5, 85, 70, '1P', 25, null, null, 6, null),
-  ('mcb_b', 'Wyłącznik nadprądowy B32 1P', 'Przykładowy producent', 'PRZ-B32-1P', 1990, 17.5, 85, 70, '1P', 32, null, null, 6, null),
-  ('mcb_b', 'Wyłącznik nadprądowy B16 1P', 'Inny przykładowy producent', 'INN-B16-1P', 1290, 17.5, 85, 70, '1P', 16, null, null, 6, null),
-  ('mcb_b', 'Wyłącznik nadprądowy B16 3P', 'Przykładowy producent', 'PRZ-B16-3P', 5490, 52.5, 85, 70, '3P', 16, null, null, 6, null),
-  ('mcb_b', 'Wyłącznik nadprądowy B20 3P', 'Przykładowy producent', 'PRZ-B20-3P', 5690, 52.5, 85, 70, '3P', 20, null, null, 6, null),
-  ('mcb_b', 'Wyłącznik nadprądowy B25 3P', 'Przykładowy producent', 'PRZ-B25-3P', 5890, 52.5, 85, 70, '3P', 25, null, null, 6, null),
-  ('rcd', 'Wyłącznik różnicowoprądowy 2P 40 A 30 mA typ A', 'Przykładowy producent', 'PRZ-RCD-2P-40-30-A', 11900, 35, 85, 70, '2P', 40, 30, 'A', null, null),
-  ('rcd', 'Wyłącznik różnicowoprądowy 2P 40 A 30 mA typ AC', 'Przykładowy producent', 'PRZ-RCD-2P-40-30-AC', 8900, 35, 85, 70, '2P', 40, 30, 'AC', null, null),
-  ('rcd', 'Wyłącznik różnicowoprądowy 4P 40 A 30 mA typ A', 'Przykładowy producent', 'PRZ-RCD-4P-40-30-A', 19900, 70, 85, 70, '4P', 40, 30, 'A', null, null),
-  ('rcd', 'Wyłącznik różnicowoprądowy 4P 40 A 30 mA typ AC', 'Przykładowy producent', 'PRZ-RCD-4P-40-30-AC', 15900, 70, 85, 70, '4P', 40, 30, 'AC', null, null),
-  ('rcbo', 'Wyłącznik różnicowonadprądowy B10 1P+N 30 mA typ A', 'Przykładowy producent', 'PRZ-RCBO-B10-30-A', 16900, 35, 85, 70, '1P+N', 10, 30, 'A', 6, null),
-  ('rcbo', 'Wyłącznik różnicowonadprądowy B16 1P+N 30 mA typ A', 'Przykładowy producent', 'PRZ-RCBO-B16-30-A', 16900, 35, 85, 70, '1P+N', 16, 30, 'A', 6, null),
-  ('switch_disconnector', 'Rozłącznik izolacyjny 1P 63 A', 'Przykładowy producent', 'PRZ-FR-1P-63', 3990, 17.5, 85, 70, '1P', 63, null, null, null, null),
-  ('switch_disconnector', 'Rozłącznik izolacyjny 3P 40 A', 'Przykładowy producent', 'PRZ-FR-3P-40', 9990, 52.5, 85, 70, '3P', 40, null, null, null, null),
-  ('switch_disconnector', 'Rozłącznik izolacyjny 3P 63 A', 'Przykładowy producent', 'PRZ-FR-3P-63', 11990, 52.5, 85, 70, '3P', 63, null, null, null, null),
-  ('switch_disconnector', 'Rozłącznik izolacyjny 2P 40 A', 'Przykładowy producent', 'PRZ-FR-2P-40', 6990, 35, 85, 70, '2P', 40, null, null, null, null),
-  ('switch_disconnector', 'Rozłącznik izolacyjny 2P 63 A', 'Przykładowy producent', 'PRZ-FR-2P-63', 7990, 35, 85, 70, '2P', 63, null, null, null, null),
-  ('switch_disconnector', 'Rozłącznik izolacyjny 4P 40 A', 'Przykładowy producent', 'PRZ-FR-4P-40', 12990, 70, 85, 70, '4P', 40, null, null, null, null),
-  ('switch_disconnector', 'Rozłącznik izolacyjny 4P 63 A', 'Przykładowy producent', 'PRZ-FR-4P-63', 14990, 70, 85, 70, '4P', 63, null, null, null, null),
+  ('mcb_b', 'Wyłącznik nadprądowy B6 1P', 'Przykładowy producent', 'PRZ-B6-1P', 1490, 17.5, 85, 70, '1P', 6, null, null, 6, null, null),
+  ('mcb_b', 'Wyłącznik nadprądowy B10 1P', 'Przykładowy producent', 'PRZ-B10-1P', 1490, 17.5, 85, 70, '1P', 10, null, null, 6, null, null),
+  ('mcb_b', 'Wyłącznik nadprądowy B13 1P', 'Przykładowy producent', 'PRZ-B13-1P', 1490, 17.5, 85, 70, '1P', 13, null, null, 6, null, null),
+  ('mcb_b', 'Wyłącznik nadprądowy B16 1P', 'Przykładowy producent', 'PRZ-B16-1P', 1590, 17.5, 85, 70, '1P', 16, null, null, 6, null, null),
+  ('mcb_b', 'Wyłącznik nadprądowy B20 1P', 'Przykładowy producent', 'PRZ-B20-1P', 1690, 17.5, 85, 70, '1P', 20, null, null, 6, null, null),
+  ('mcb_b', 'Wyłącznik nadprądowy B25 1P', 'Przykładowy producent', 'PRZ-B25-1P', 1790, 17.5, 85, 70, '1P', 25, null, null, 6, null, null),
+  ('mcb_b', 'Wyłącznik nadprądowy B32 1P', 'Przykładowy producent', 'PRZ-B32-1P', 1990, 17.5, 85, 70, '1P', 32, null, null, 6, null, null),
+  ('mcb_b', 'Wyłącznik nadprądowy B16 1P', 'Inny przykładowy producent', 'INN-B16-1P', 1290, 17.5, 85, 70, '1P', 16, null, null, 6, null, null),
+  ('mcb_b', 'Wyłącznik nadprądowy B16 3P', 'Przykładowy producent', 'PRZ-B16-3P', 5490, 52.5, 85, 70, '3P', 16, null, null, 6, null, null),
+  ('mcb_b', 'Wyłącznik nadprądowy B20 3P', 'Przykładowy producent', 'PRZ-B20-3P', 5690, 52.5, 85, 70, '3P', 20, null, null, 6, null, null),
+  ('mcb_b', 'Wyłącznik nadprądowy B25 3P', 'Przykładowy producent', 'PRZ-B25-3P', 5890, 52.5, 85, 70, '3P', 25, null, null, 6, null, null),
+  ('rcd', 'Wyłącznik różnicowoprądowy 2P 40 A 30 mA typ A', 'Przykładowy producent', 'PRZ-RCD-2P-40-30-A', 11900, 35, 85, 70, '2P', 40, 30, 'A', null, null, 'left'),
+  ('rcd', 'Wyłącznik różnicowoprądowy 2P 40 A 30 mA typ AC', 'Przykładowy producent', 'PRZ-RCD-2P-40-30-AC', 8900, 35, 85, 70, '2P', 40, 30, 'AC', null, null, 'right'),
+  ('rcd', 'Wyłącznik różnicowoprądowy 4P 40 A 30 mA typ A', 'Przykładowy producent', 'PRZ-RCD-4P-40-30-A', 19900, 70, 85, 70, '4P', 40, 30, 'A', null, null, 'right'),
+  ('rcd', 'Wyłącznik różnicowoprądowy 4P 40 A 30 mA typ AC', 'Przykładowy producent', 'PRZ-RCD-4P-40-30-AC', 15900, 70, 85, 70, '4P', 40, 30, 'AC', null, null, 'left'),
+  ('rcbo', 'Wyłącznik różnicowonadprądowy B10 1P+N 30 mA typ A', 'Przykładowy producent', 'PRZ-RCBO-B10-30-A', 16900, 35, 85, 70, '1P+N', 10, 30, 'A', 6, null, 'left'),
+  ('rcbo', 'Wyłącznik różnicowonadprądowy B16 1P+N 30 mA typ A', 'Przykładowy producent', 'PRZ-RCBO-B16-30-A', 16900, 35, 85, 70, '1P+N', 16, 30, 'A', 6, null, 'right'),
+  ('switch_disconnector', 'Rozłącznik izolacyjny 1P 63 A', 'Przykładowy producent', 'PRZ-FR-1P-63', 3990, 17.5, 85, 70, '1P', 63, null, null, null, null, null),
+  ('switch_disconnector', 'Rozłącznik izolacyjny 3P 40 A', 'Przykładowy producent', 'PRZ-FR-3P-40', 9990, 52.5, 85, 70, '3P', 40, null, null, null, null, null),
+  ('switch_disconnector', 'Rozłącznik izolacyjny 3P 63 A', 'Przykładowy producent', 'PRZ-FR-3P-63', 11990, 52.5, 85, 70, '3P', 63, null, null, null, null, null),
+  ('switch_disconnector', 'Rozłącznik izolacyjny 2P 40 A', 'Przykładowy producent', 'PRZ-FR-2P-40', 6990, 35, 85, 70, '2P', 40, null, null, null, null, 'left'),
+  ('switch_disconnector', 'Rozłącznik izolacyjny 2P 63 A', 'Przykładowy producent', 'PRZ-FR-2P-63', 7990, 35, 85, 70, '2P', 63, null, null, null, null, 'right'),
+  ('switch_disconnector', 'Rozłącznik izolacyjny 4P 40 A', 'Przykładowy producent', 'PRZ-FR-4P-40', 12990, 70, 85, 70, '4P', 40, null, null, null, null, 'right'),
+  ('switch_disconnector', 'Rozłącznik izolacyjny 4P 63 A', 'Przykładowy producent', 'PRZ-FR-4P-63', 14990, 70, 85, 70, '4P', 63, null, null, null, null, 'left'),
   ('pe_bar', 'Szyna PE 12-torowa', 'Przykładowy producent', 'PRZ-PE-12', 2490, 70, 15, 20, null, null, null, null, null,
-    '[{"count":10,"minMm2":1.5,"maxMm2":16},{"count":2,"minMm2":6,"maxMm2":25}]'::jsonb),
+    '[{"count":10,"minMm2":1.5,"maxMm2":16},{"count":2,"minMm2":6,"maxMm2":25}]'::jsonb, null),
   ('n_bar', 'Szyna N 12-torowa', 'Przykładowy producent', 'PRZ-N-12', 2490, 70, 15, 20, null, null, null, null, null,
-    '[{"count":10,"minMm2":1.5,"maxMm2":16},{"count":2,"minMm2":6,"maxMm2":25}]'::jsonb)
+    '[{"count":10,"minMm2":1.5,"maxMm2":16},{"count":2,"minMm2":6,"maxMm2":25}]'::jsonb, null)
 on conflict ((lower(manufacturer)), (lower(model))) do nothing;

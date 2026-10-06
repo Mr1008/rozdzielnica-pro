@@ -27,7 +27,7 @@ async function loadDevice(): Promise<{ row: DeviceRow | null; loadError: string 
   const { data, error: queryError } = await supabase
     .from("devices")
     .select(
-      "id, kind, name, manufacturer, model, price_grosze, width_mm, height_mm, depth_mm, poles, rated_current_a, residual_current_ma, rcd_type, breaking_capacity_ka, terminal_groups",
+      "id, kind, name, manufacturer, model, price_grosze, width_mm, height_mm, depth_mm, poles, rated_current_a, residual_current_ma, rcd_type, breaking_capacity_ka, terminal_groups, n_terminal_side",
     )
     .eq("id", id)
     .maybeSingle();

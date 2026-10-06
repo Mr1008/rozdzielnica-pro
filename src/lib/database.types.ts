@@ -141,6 +141,7 @@ export type Database = {
           kind: Database["public"]["Enums"]["device_kind"]
           manufacturer: string
           model: string
+          n_terminal_side: Database["public"]["Enums"]["n_terminal_side"] | null
           name: string
           poles: Database["public"]["Enums"]["pole_config"] | null
           price_grosze: number
@@ -161,6 +162,9 @@ export type Database = {
           kind: Database["public"]["Enums"]["device_kind"]
           manufacturer: string
           model: string
+          n_terminal_side?:
+            | Database["public"]["Enums"]["n_terminal_side"]
+            | null
           name: string
           poles?: Database["public"]["Enums"]["pole_config"] | null
           price_grosze: number
@@ -181,6 +185,9 @@ export type Database = {
           kind?: Database["public"]["Enums"]["device_kind"]
           manufacturer?: string
           model?: string
+          n_terminal_side?:
+            | Database["public"]["Enums"]["n_terminal_side"]
+            | null
           name?: string
           poles?: Database["public"]["Enums"]["pole_config"] | null
           price_grosze?: number
@@ -264,6 +271,7 @@ export type Database = {
           kind: Database["public"]["Enums"]["device_kind"]
           manufacturer: string
           model: string
+          n_terminal_side: Database["public"]["Enums"]["n_terminal_side"] | null
           name: string
           notes: string[]
           poles: Database["public"]["Enums"]["pole_config"] | null
@@ -288,6 +296,9 @@ export type Database = {
           kind?: Database["public"]["Enums"]["device_kind"]
           manufacturer?: string
           model?: string
+          n_terminal_side?:
+            | Database["public"]["Enums"]["n_terminal_side"]
+            | null
           name?: string
           notes?: string[]
           poles?: Database["public"]["Enums"]["pole_config"] | null
@@ -312,6 +323,9 @@ export type Database = {
           kind?: Database["public"]["Enums"]["device_kind"]
           manufacturer?: string
           model?: string
+          n_terminal_side?:
+            | Database["public"]["Enums"]["n_terminal_side"]
+            | null
           name?: string
           notes?: string[]
           poles?: Database["public"]["Enums"]["pole_config"] | null
@@ -526,6 +540,7 @@ export type Database = {
         | "n_bar"
       earthing_system: "TN-C" | "TN-S" | "TN-C-S" | "TT"
       entry_side: "top" | "bottom" | "left" | "right"
+      n_terminal_side: "left" | "right"
       pole_config: "1P" | "1P+N" | "2P" | "3P" | "3P+N" | "4P"
       rcd_type: "AC" | "A" | "F" | "B"
       user_role: "admin" | "elektryk"
@@ -676,6 +691,7 @@ export const Constants = {
       ],
       earthing_system: ["TN-C", "TN-S", "TN-C-S", "TT"],
       entry_side: ["top", "bottom", "left", "right"],
+      n_terminal_side: ["left", "right"],
       pole_config: ["1P", "1P+N", "2P", "3P", "3P+N", "4P"],
       rcd_type: ["AC", "A", "F", "B"],
       user_role: ["admin", "elektryk"],

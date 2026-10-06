@@ -22,7 +22,7 @@ import {
   type MatchResult,
   type Selection,
 } from "./device-matching";
-import { parseDeviceSpec, POLES_BY_KIND, RCD_TYPES } from "./device-spec";
+import { parseDeviceSpec, polesCarryN, POLES_BY_KIND, RCD_TYPES } from "./device-spec";
 import { PREMETER_PROTECTIONS_A, type SupplyParams } from "./supply-params";
 
 const common = { width_mm: 17.5, height_mm: 85, depth_mm: 70 };
@@ -34,6 +34,8 @@ function device(id: string, row: Record<string, unknown>): DeviceSpecWithId {
     model: id,
     price_grosze: 1000,
     ...common,
+    // The N side never affects matching; every N-carrying fixture gets one so it keeps parsing.
+    n_terminal_side: polesCarryN(row.poles) ? "left" : null,
     ...row,
   });
   if (!parsed.ok) throw new Error(`fixture ${id} does not parse: ${JSON.stringify(parsed.issues)}`);

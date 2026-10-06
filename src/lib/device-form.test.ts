@@ -29,6 +29,7 @@ const NO_PARAMETERS = {
   rcd_type: null,
   breaking_capacity_ka: null,
   terminal_groups: null,
+  n_terminal_side: null,
 };
 
 type Fields = Partial<Record<DeviceFormField, string>>;
@@ -39,7 +40,7 @@ const CASES: Record<DeviceKind, { fields: Fields; spec: DeviceSpec }> = {
     spec: { ...COMMON_SPEC, ...NO_PARAMETERS, kind: "switch_disconnector", poles: "3P", rated_current_a: 63 },
   },
   rcd: {
-    fields: { poles: "4P", rated_current_a: "40", residual_current_ma: "30", rcd_type: "A" },
+    fields: { poles: "4P", rated_current_a: "40", residual_current_ma: "30", rcd_type: "A", n_terminal_side: "right" },
     spec: {
       ...COMMON_SPEC,
       ...NO_PARAMETERS,
@@ -48,6 +49,7 @@ const CASES: Record<DeviceKind, { fields: Fields; spec: DeviceSpec }> = {
       rated_current_a: 40,
       residual_current_ma: 30,
       rcd_type: "A",
+      n_terminal_side: "right",
     },
   },
   rcbo: {
@@ -57,6 +59,7 @@ const CASES: Record<DeviceKind, { fields: Fields; spec: DeviceSpec }> = {
       residual_current_ma: "30",
       rcd_type: "AC",
       breaking_capacity_ka: "6",
+      n_terminal_side: "left",
     },
     spec: {
       ...COMMON_SPEC,
@@ -67,6 +70,7 @@ const CASES: Record<DeviceKind, { fields: Fields; spec: DeviceSpec }> = {
       residual_current_ma: 30,
       rcd_type: "AC",
       breaking_capacity_ka: 6,
+      n_terminal_side: "left",
     },
   },
   mcb_b: {
@@ -162,6 +166,26 @@ describe("parseDeviceForm", () => {
     expect(result).toEqual({ ok: true, value: CASES.mcb_b.spec });
     const bar = parseDeviceForm(form("pe_bar", { poles: "2P", rated_current_a: "16" }), "create");
     expect(bar).toEqual({ ok: true, value: CASES.pe_bar.spec });
+  });
+
+  it("requires the N terminal side exactly when the poles carry N", () => {
+    expect(parseDeviceForm(form("rcd", { n_terminal_side: "" }), "create")).toEqual(INVALID);
+    expect(parseDeviceForm(form("rcd", { n_terminal_side: "middle" }), "create")).toEqual(INVALID);
+    expect(parseDeviceForm(form("mcb_b", { poles: "2P", n_terminal_side: "left" }), "create")).toMatchObject({
+      ok: true,
+      value: { poles: "2P", n_terminal_side: "left" },
+    });
+  });
+
+  it("ignores a stale N terminal side when the poles carry no N, and on bars", () => {
+    expect(parseDeviceForm(form("mcb_b", { n_terminal_side: "left" }), "create")).toEqual({
+      ok: true,
+      value: CASES.mcb_b.spec,
+    });
+    expect(parseDeviceForm(form("pe_bar", { n_terminal_side: "right" }), "create")).toEqual({
+      ok: true,
+      value: CASES.pe_bar.spec,
+    });
   });
 
   it("rejects malformed or invalid terminal-group JSON", () => {

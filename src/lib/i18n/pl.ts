@@ -343,6 +343,12 @@ export const pl = {
       terminalCount: "Liczba zacisków",
       minMm2: "Przekrój min. (mm²)",
       maxMm2: "Przekrój maks. (mm²)",
+      nTerminalSide: "Strona zacisku N",
+    },
+    /** Keyed by `NTerminalSide`: where the N pole sits, viewed from the front. */
+    nTerminalSides: {
+      left: "Lewa",
+      right: "Prawa",
     },
     /** Keyed by `PoleConfig`. */
     poles: {
@@ -399,6 +405,11 @@ export const pl = {
       breakingCapacity: (breakingCapacityKa: number) => `${formatNumber(breakingCapacityKa)} kA`,
       terminalGroup: (count: number, minMm2: number, maxMm2: number) =>
         `${String(count)} × ${formatNumber(minMm2)}–${formatNumber(maxMm2)} mm²`,
+      /** Keyed by `NTerminalSide`. */
+      nTerminalSide: {
+        left: "N z lewej",
+        right: "N z prawej",
+      },
     },
     editor: {
       newTitle: "Nowy aparat",
@@ -421,6 +432,7 @@ export const pl = {
       kindPlaceholder: "Wybierz rodzaj aparatu",
       polesPlaceholder: "Wybierz liczbę biegunów",
       rcdTypePlaceholder: "Wybierz typ",
+      nTerminalSideHint: "Po której stronie aparatu, patrząc od przodu, jest biegun N.",
       addTerminalGroup: "Dodaj grupę zacisków",
       remove: "Usuń",
       removeElement: (subject: string) => `Usuń: ${subject}`,
@@ -957,6 +969,7 @@ export const pl = {
         select: "Lista wyboru",
         checkbox: "Pole wyboru",
         radioCard: "Karta wyboru",
+        toggle: "Przełącznik (strona zacisku N)",
       },
       inputLabel: "Nazwa projektu",
       inputPlaceholder: "np. Dom Kowalskich",

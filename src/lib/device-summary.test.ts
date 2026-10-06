@@ -34,9 +34,16 @@ describe("deviceParameterSummary", () => {
   it("summarises an RCD as rating, poles, residual current and type", () => {
     expect(
       deviceParameterSummary(
-        spec({ kind: "rcd", poles: "2P", rated_current_a: 40, residual_current_ma: 30, rcd_type: "A" }),
+        spec({
+          kind: "rcd",
+          poles: "2P",
+          rated_current_a: 40,
+          residual_current_ma: 30,
+          rcd_type: "A",
+          n_terminal_side: "left",
+        }),
       ),
-    ).toBe("40 A 2P, 30 mA, typ A");
+    ).toBe("40 A 2P, 30 mA, typ A, N z lewej");
   });
 
   it("summarises an RCBO with its overcurrent and residual-current parameters", () => {
@@ -49,15 +56,21 @@ describe("deviceParameterSummary", () => {
           residual_current_ma: 30,
           rcd_type: "A",
           breaking_capacity_ka: 6,
+          n_terminal_side: "right",
         }),
       ),
-    ).toBe("B16 1P+N, 30 mA, typ A, 6 kA");
+    ).toBe("B16 1P+N, 30 mA, typ A, 6 kA, N z prawej");
   });
 
   it("summarises a switch-disconnector as rating and poles", () => {
     expect(deviceParameterSummary(spec({ kind: "switch_disconnector", poles: "3P", rated_current_a: 63 }))).toBe(
       "63 A 3P",
     );
+    expect(
+      deviceParameterSummary(
+        spec({ kind: "switch_disconnector", poles: "4P", rated_current_a: 63, n_terminal_side: "right" }),
+      ),
+    ).toBe("63 A 4P, N z prawej");
   });
 
   it.each(["pe_bar", "n_bar"])("summarises a %s as its terminal groups", (kind) => {

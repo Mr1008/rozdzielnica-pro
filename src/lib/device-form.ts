@@ -4,6 +4,7 @@ import {
   DEVICE_KINDS,
   PARAMETERS_BY_KIND,
   parseDeviceSpec,
+  polesCarryN,
   type DeviceField,
   type DeviceKind,
   type DeviceParameter,
@@ -36,6 +37,7 @@ export type DeviceRow = Pick<
   | "rcd_type"
   | "breaking_capacity_ka"
   | "terminal_groups"
+  | "n_terminal_side"
 >;
 
 /** What an update writes: everything but `kind`, which is fixed once a device exists. */
@@ -59,6 +61,8 @@ export const DEVICE_FORM_FIELDS = {
   breaking_capacity_ka: "breaking_capacity_ka",
   /** A hidden input carrying the bar's terminal groups as JSON. */
   terminal_groups: "terminal_groups",
+  /** `left` / `right`; read only when the chosen poles carry N. */
+  n_terminal_side: "n_terminal_side",
 } as const;
 
 export type DeviceFormField = keyof typeof DEVICE_FORM_FIELDS;
@@ -94,12 +98,14 @@ function jsonOrNull(raw: string): unknown {
 
 /**
  * Typed strings to a `parseDeviceSpec` input. Only the chosen kind's parameters are read — any other
- * kind's field in the form becomes `null` — so a stale or foreign input can never reach the row.
+ * kind's field in the form becomes `null` — so a stale or foreign input can never reach the row. The
+ * N terminal side is read only when the chosen poles carry N, for the same reason.
  */
 export function deviceCandidate(values: DeviceFormValues): Record<DeviceField, unknown> {
   const kind = values.kind.trim();
   const own: readonly DeviceParameter[] = isKind(kind) ? PARAMETERS_BY_KIND[kind] : [];
   const param = (field: DeviceParameter, read: () => unknown) => (own.includes(field) ? read() : null);
+  const poles = param("poles", () => textOrNull(values.poles));
 
   return {
     kind,
@@ -110,12 +116,13 @@ export function deviceCandidate(values: DeviceFormValues): Record<DeviceField, u
     width_mm: numberOrNull(values.width_mm),
     height_mm: numberOrNull(values.height_mm),
     depth_mm: numberOrNull(values.depth_mm),
-    poles: param("poles", () => textOrNull(values.poles)),
+    poles,
     rated_current_a: param("rated_current_a", () => numberOrNull(values.rated_current_a)),
     residual_current_ma: param("residual_current_ma", () => numberOrNull(values.residual_current_ma)),
     rcd_type: param("rcd_type", () => textOrNull(values.rcd_type)),
     breaking_capacity_ka: param("breaking_capacity_ka", () => numberOrNull(values.breaking_capacity_ka)),
     terminal_groups: param("terminal_groups", () => jsonOrNull(values.terminal_groups)),
+    n_terminal_side: param("n_terminal_side", () => (polesCarryN(poles) ? textOrNull(values.n_terminal_side) : null)),
   };
 }
 

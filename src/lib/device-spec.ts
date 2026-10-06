@@ -28,8 +28,23 @@ export type PoleConfig = (typeof POLE_CONFIGS)[number];
 export const RCD_TYPES = ["AC", "A", "F", "B"] as const;
 export type RcdType = (typeof RCD_TYPES)[number];
 
+/** The side of a device's N terminal, viewed from the front. */
+export const N_TERMINAL_SIDES = ["left", "right"] as const;
+export type NTerminalSide = (typeof N_TERMINAL_SIDES)[number];
+
 /**
- * The three unions must equal the database enums, so a migration that adds or drops a value without
+ * The pole sets that carry an N pole. A device with one of them must record its N terminal side, any
+ * other device must not — by poles, not by kind, mirroring the `devices_parameters_match_kind` CHECK
+ * in `supabase/migrations/20261006120000_device_n_terminal_side.sql`.
+ */
+export const POLES_WITH_N = ["1P+N", "2P", "3P+N", "4P"] as const satisfies readonly PoleConfig[];
+
+export function polesCarryN(poles: unknown): boolean {
+  return (POLES_WITH_N as readonly unknown[]).includes(poles);
+}
+
+/**
+ * The four unions must equal the database enums, so a migration that adds or drops a value without
  * this file (or the reverse) fails `astro check` instead of drifting silently.
  */
 type Equals<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
@@ -37,6 +52,7 @@ type AssertTrue<T extends true> = T;
 type _DeviceKindInSync = AssertTrue<Equals<DeviceKind, Enums<"device_kind">>>;
 type _PoleConfigInSync = AssertTrue<Equals<PoleConfig, Enums<"pole_config">>>;
 type _RcdTypeInSync = AssertTrue<Equals<RcdType, Enums<"rcd_type">>>;
+type _NTerminalSideInSync = AssertTrue<Equals<NTerminalSide, Enums<"n_terminal_side">>>;
 
 /** The pole configurations each kind is made in. Bars have no poles. */
 export const POLES_BY_KIND = {
@@ -48,7 +64,10 @@ export const POLES_BY_KIND = {
   n_bar: [],
 } as const satisfies Record<DeviceKind, readonly PoleConfig[]>;
 
-/** The kind-specific columns. Each kind requires exactly its own and must leave the rest null. */
+/**
+ * The kind-specific columns. Each kind requires exactly its own and must leave the rest null — except
+ * `n_terminal_side`, which a kind with poles carries only when its poles carry N (`POLES_WITH_N`).
+ */
 export const DEVICE_PARAMETERS = [
   "poles",
   "rated_current_a",
@@ -56,14 +75,15 @@ export const DEVICE_PARAMETERS = [
   "rcd_type",
   "breaking_capacity_ka",
   "terminal_groups",
+  "n_terminal_side",
 ] as const;
 export type DeviceParameter = (typeof DEVICE_PARAMETERS)[number];
 
 export const PARAMETERS_BY_KIND = {
-  switch_disconnector: ["poles", "rated_current_a"],
-  rcd: ["poles", "rated_current_a", "residual_current_ma", "rcd_type"],
-  rcbo: ["poles", "rated_current_a", "residual_current_ma", "rcd_type", "breaking_capacity_ka"],
-  mcb_b: ["poles", "rated_current_a", "breaking_capacity_ka"],
+  switch_disconnector: ["poles", "rated_current_a", "n_terminal_side"],
+  rcd: ["poles", "rated_current_a", "residual_current_ma", "rcd_type", "n_terminal_side"],
+  rcbo: ["poles", "rated_current_a", "residual_current_ma", "rcd_type", "breaking_capacity_ka", "n_terminal_side"],
+  mcb_b: ["poles", "rated_current_a", "breaking_capacity_ka", "n_terminal_side"],
   pe_bar: ["terminal_groups"],
   n_bar: ["terminal_groups"],
 } as const satisfies Record<DeviceKind, readonly DeviceParameter[]>;
@@ -152,6 +172,9 @@ const widthSchema = z
   .refine((n) => hasAtMostDecimals(n, WIDTH_DECIMAL_PLACES));
 const currentSchema = z.number().int().positive().max(MAX_INTEGER);
 const rcdTypeSchema = z.enum(RCD_TYPES);
+const nTerminalSideSchema = z.enum(N_TERMINAL_SIDES);
+/** Present or null by kind here; whether the poles require it is the union's refinement below. */
+const nTerminalSideOrNull = nTerminalSideSchema.nullable();
 const terminalGroupsSchema = z.array(terminalGroupSchema.refine((group) => group.minMm2 <= group.maxMm2)).min(1);
 
 const common = {
@@ -171,53 +194,60 @@ const noProtection = {
   residual_current_ma: z.null(),
   rcd_type: z.null(),
   breaking_capacity_ka: z.null(),
+  n_terminal_side: z.null(),
 };
 
 /** The complete schema, for callers that want zod directly. Use `parseDeviceSpec` for coded issues. */
-export const deviceSpecSchema = z.discriminatedUnion("kind", [
-  z.object({
-    kind: z.literal("switch_disconnector"),
-    ...common,
-    poles: z.enum(POLES_BY_KIND.switch_disconnector),
-    rated_current_a: currentSchema,
-    residual_current_ma: z.null(),
-    rcd_type: z.null(),
-    breaking_capacity_ka: z.null(),
-    terminal_groups: z.null(),
-  }),
-  z.object({
-    kind: z.literal("rcd"),
-    ...common,
-    poles: z.enum(POLES_BY_KIND.rcd),
-    rated_current_a: currentSchema,
-    residual_current_ma: currentSchema,
-    rcd_type: rcdTypeSchema,
-    breaking_capacity_ka: z.null(),
-    terminal_groups: z.null(),
-  }),
-  z.object({
-    kind: z.literal("rcbo"),
-    ...common,
-    poles: z.enum(POLES_BY_KIND.rcbo),
-    rated_current_a: currentSchema,
-    residual_current_ma: currentSchema,
-    rcd_type: rcdTypeSchema,
-    breaking_capacity_ka: breakingCapacitySchema,
-    terminal_groups: z.null(),
-  }),
-  z.object({
-    kind: z.literal("mcb_b"),
-    ...common,
-    poles: z.enum(POLES_BY_KIND.mcb_b),
-    rated_current_a: currentSchema,
-    residual_current_ma: z.null(),
-    rcd_type: z.null(),
-    breaking_capacity_ka: breakingCapacitySchema,
-    terminal_groups: z.null(),
-  }),
-  z.object({ kind: z.literal("pe_bar"), ...common, ...noProtection, terminal_groups: terminalGroupsSchema }),
-  z.object({ kind: z.literal("n_bar"), ...common, ...noProtection, terminal_groups: terminalGroupsSchema }),
-]);
+export const deviceSpecSchema = z
+  .discriminatedUnion("kind", [
+    z.object({
+      kind: z.literal("switch_disconnector"),
+      ...common,
+      poles: z.enum(POLES_BY_KIND.switch_disconnector),
+      rated_current_a: currentSchema,
+      residual_current_ma: z.null(),
+      rcd_type: z.null(),
+      breaking_capacity_ka: z.null(),
+      terminal_groups: z.null(),
+      n_terminal_side: nTerminalSideOrNull,
+    }),
+    z.object({
+      kind: z.literal("rcd"),
+      ...common,
+      poles: z.enum(POLES_BY_KIND.rcd),
+      rated_current_a: currentSchema,
+      residual_current_ma: currentSchema,
+      rcd_type: rcdTypeSchema,
+      breaking_capacity_ka: z.null(),
+      terminal_groups: z.null(),
+      n_terminal_side: nTerminalSideOrNull,
+    }),
+    z.object({
+      kind: z.literal("rcbo"),
+      ...common,
+      poles: z.enum(POLES_BY_KIND.rcbo),
+      rated_current_a: currentSchema,
+      residual_current_ma: currentSchema,
+      rcd_type: rcdTypeSchema,
+      breaking_capacity_ka: breakingCapacitySchema,
+      terminal_groups: z.null(),
+      n_terminal_side: nTerminalSideOrNull,
+    }),
+    z.object({
+      kind: z.literal("mcb_b"),
+      ...common,
+      poles: z.enum(POLES_BY_KIND.mcb_b),
+      rated_current_a: currentSchema,
+      residual_current_ma: z.null(),
+      rcd_type: z.null(),
+      breaking_capacity_ka: breakingCapacitySchema,
+      terminal_groups: z.null(),
+      n_terminal_side: nTerminalSideOrNull,
+    }),
+    z.object({ kind: z.literal("pe_bar"), ...common, ...noProtection, terminal_groups: terminalGroupsSchema }),
+    z.object({ kind: z.literal("n_bar"), ...common, ...noProtection, terminal_groups: terminalGroupsSchema }),
+  ])
+  .refine((spec) => (spec.n_terminal_side !== null) === polesCarryN(spec.poles));
 
 export type DeviceSpec = z.infer<typeof deviceSpecSchema>;
 
@@ -292,7 +322,23 @@ function checkTerminalGroups(value: unknown): DeviceIssueCode[] {
   return [...codes];
 }
 
-function parameterChecks(kind: DeviceKind): Record<DeviceParameter, (value: unknown) => DeviceIssueCode[]> {
+/**
+ * Required when the device's poles carry N, foreign when they are a valid set without N. An invalid
+ * or missing pole set already has its own issue, so the side is not judged against it.
+ */
+function checkNTerminalSide(kind: DeviceKind, poles: unknown): Check {
+  return (value) => {
+    if (checkPoles(kind)(poles) !== null) return null;
+    if (!polesCarryN(poles)) return isAbsent(value) ? null : "foreign_parameter";
+    if (isAbsent(value)) return "required";
+    return nTerminalSideSchema.safeParse(value).success ? null : "malformed";
+  };
+}
+
+function parameterChecks(
+  kind: DeviceKind,
+  poles: unknown,
+): Record<DeviceParameter, (value: unknown) => DeviceIssueCode[]> {
   const one = (check: Check) => (value: unknown) => {
     const code = check(value);
     return code === null ? [] : [code];
@@ -304,6 +350,7 @@ function parameterChecks(kind: DeviceKind): Record<DeviceParameter, (value: unkn
     rcd_type: one(checkRcdType),
     breaking_capacity_ka: one(checkBreakingCapacity),
     terminal_groups: checkTerminalGroups,
+    n_terminal_side: one(checkNTerminalSide(kind, poles)),
   };
 }
 
@@ -340,7 +387,7 @@ export function parseDeviceSpec(input: unknown): { ok: true; spec: DeviceSpec } 
 
   if (isKind(kind)) {
     const own: readonly DeviceParameter[] = PARAMETERS_BY_KIND[kind];
-    const checks = parameterChecks(kind);
+    const checks = parameterChecks(kind, row.poles);
     for (const field of DEVICE_PARAMETERS) {
       if (own.includes(field)) {
         for (const code of checks[field](row[field])) issues.push({ field, code });
@@ -388,6 +435,7 @@ const FIELD_LABEL_KEYS: Record<DeviceField, keyof typeof t.devices.fields> = {
   rcd_type: "rcdType",
   breaking_capacity_ka: "breakingCapacityKa",
   terminal_groups: "terminalGroups",
+  n_terminal_side: "nTerminalSide",
 };
 
 /** The ceiling a `too_large` issue on this field refers to. */
