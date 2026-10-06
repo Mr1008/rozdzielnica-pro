@@ -130,7 +130,7 @@ These are correctness requirements, not preferences.
   @src/lib/device-matching-server.ts.
 - **Never run `supabase config push`.** `supabase/config.toml` carries
   `site_url = "http://127.0.0.1:3000"`, which would break production auth redirects. Migrations reach
-  the cloud project through `.github/workflows/db-migrate.yml`; config does not go up at all, and the
+  the cloud project through `.github/workflows/deploy.yml`; config does not go up at all, and the
   cloud access-token hook is a one-time manual dashboard step (Authentication → Hooks → Customize
   Access Token (JWT) Claims → `public.custom_access_token_hook`).
 - **`supabase db reset` does not re-read `config.toml`** — it restarts the containers with their
@@ -141,7 +141,7 @@ These are correctness requirements, not preferences.
 - **`supabase link` needs a much wider access-token scope than `db push`** — it reads a bundle of
   project-config endpoints, and the failure is an opaque
   `Authorization failed for the access token and project ref pair` that names no endpoint. The
-  `SUPABASE_ACCESS_TOKEN` secret behind `.github/workflows/db-migrate.yml` must cover those config
+  `SUPABASE_ACCESS_TOKEN` secret behind `.github/workflows/deploy.yml` must cover those config
   reads, not just Migrations and Database.
 - **`createClient()` returns `null` when Supabase env vars are unset** — they are declared
   `optional: true` in `astro.config.mjs`, so the app boots and builds without them. Every call site
@@ -268,8 +268,11 @@ secrets set via `npx wrangler secret put`.
 
 CI (on `master`): `.github/workflows/ci.yml` job `ci` = lint + `astro check` + `test:unit` + build;
 job `smoke` spins up a local Supabase and runs the smoke script against the production preview.
-Both pass with no repository secrets configured. `.github/workflows/db-migrate.yml` applies pending
-migrations to the cloud project on the same push and **does** need secrets —
-`SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_REF`, `SUPABASE_DB_PASSWORD`. It races the Cloudflare
-deploy with no ordering between them, which is only safe while every migration stays
-forward-compatible.
+Both pass with no repository secrets configured. `.github/workflows/deploy.yml` runs when CI for a
+push to `master` finishes green: job `migrate` (`supabase db push`) then job `deploy`
+(`npm run build` + `npx wrangler deploy`). It **does** need secrets — `SUPABASE_ACCESS_TOKEN`,
+`SUPABASE_PROJECT_REF`, `SUPABASE_DB_PASSWORD`, `CLOUDFLARE_API_TOKEN` (Workers Scripts:Edit),
+`CLOUDFLARE_ACCOUNT_ID`. A red CI ships nothing, and new code never runs on the old schema; what
+remains is the deploy-length window where the **old** code runs on the **new** schema, so every
+migration must stay **backward-compatible with the deployed code**. Cloudflare Workers Builds must
+stay switched off for `master` — a second deployer would race this one again.

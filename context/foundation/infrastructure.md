@@ -11,7 +11,8 @@ tech_stack:
 ---
 
 > **Status (2026-09-21): deployed.** Live at `https://rozdzielnica-pro.rozdzielnica-pro.workers.dev`,
-> with Cloudflare Workers Builds auto-deploying `master`. Several entries below were corrected
+> with Cloudflare Workers Builds auto-deploying `master` — since 2026-10-06 the deploy runs from
+> GitHub Actions instead (`.github/workflows/deploy.yml`, migrate → deploy). Several entries below were corrected
 > against live evidence during that deploy; each is marked **CORRECTED** or **RESOLVED** inline.
 > The execution record is @context/changes/deployment/deployment-plan.md.
 
@@ -205,11 +206,16 @@ came pre-wired for it, and nobody priced them against a specific requirement.
   `npx wrangler deployments list` shows what is available. Time-to-revert is under a minute. Caveat:
   this rolls back _code only_ — any Supabase migration applied in the interim does not roll back with
   it, so forward-compatible migrations are the safer discipline.
-- **Migrations** _(AMENDED 2026-09-22)_: applying them is no longer a human step.
-  `.github/workflows/db-migrate.yml` runs `supabase link` + `supabase db push` against the cloud
-  project on every push to `master`, using the `SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_REF` and
-  `SUPABASE_DB_PASSWORD` repository secrets. It fires in parallel with the Cloudflare deploy with no
-  ordering between the two, so forward-compatible migrations are a requirement, not a preference.
+- **Migrations and deploy** _(AMENDED 2026-10-06)_: one ordered pipeline.
+  `.github/workflows/deploy.yml` runs when CI for a push to `master` succeeds: job `migrate` runs
+  `supabase link` + `supabase db push` (`SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_REF`,
+  `SUPABASE_DB_PASSWORD`), then job `deploy` runs `npm run build` + `npx wrangler deploy`
+  (`CLOUDFLARE_API_TOKEN` with Workers Scripts:Edit, `CLOUDFLARE_ACCOUNT_ID`). Workers Builds'
+  auto-deploy on `master` is switched off. Until 2026-10-06 the migration raced the Workers Builds
+  deploy and every migration had to be forward-compatible; S-05 adds a parameter the new parser
+  requires, which made the race unsafe. Now new code never meets the old schema; for the deploy's
+  length the old code runs on the new schema, so migrations must stay **backward-compatible with the
+  deployed code**. `SUPABASE_DB_PASSWORD` still lives only in GitHub.
   One thing it deliberately does not do: `supabase config push`, which would carry `config.toml`'s
   local `site_url` to production — the cloud access-token hook is enabled by hand in the dashboard
   instead.
@@ -240,7 +246,7 @@ came pre-wired for it, and nobody priced them against a specific requirement.
 | Free tier is 100k req/**day**; overage returns HTTP 1015, not a bill                                         | Unknown unknowns | L          | M      | At one user this is ~1000× headroom. Watch it only if the app is ever opened to multiple electricians.                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | A future platform reconsideration hits a commercial-use terms conflict                                       | Research finding | L          | M      | Cloudflare's free tier carries no commercial-use restriction; re-check this clause explicitly (as Vercel's Hobby plan required) if the platform is ever reconsidered.                                                                                                                                                                                                                                                                                                                                                                                 |
 | Supabase free project pauses after ~7 days of inactivity                                                     | Research finding | **H**      | M      | For a single-user MVP used in bursts this is a real "the app is down on Monday" shape, not a theoretical limit. Unpausing is a dashboard action. The fix if it becomes routine is the paid tier or a scheduled keepalive request.                                                                                                                                                                                                                                                                                                                     |
-| A red GitHub Actions CI run does not block a Cloudflare auto-deploy                                          | Research finding | M          | M      | CI (`lint` + `astro check` + `build`) and Workers Builds run in **parallel** on the same push to `master`, so a failing check cannot stop the deploy. Accepted for MVP. Closing it means PR-only merges with required checks, or moving the deploy into the CI job.                                                                                                                                                                                                                                                                                   |
+| A red GitHub Actions CI run does not block a Cloudflare auto-deploy                                          | Research finding | M          | M      | **RESOLVED 2026-10-06** (S-05 Phase 0): the deploy moved into `.github/workflows/deploy.yml`, which runs only after CI succeeds and after the migration; Workers Builds' auto-deploy is off. Previously CI and Workers Builds ran in parallel on the same push.                                                                                                                                                                                                                                                                                       |
 | `wrangler secret put` silently stores an empty value without a TTY                                           | Research finding | M          | H      | Run non-interactively (an agent session, some CI shells) it reports `Success` but stores nothing, and `wrangler secret list` shows only names, so it cannot be detected there. Symptom is the app staying on its unconfigured branch. Set secrets from a real terminal, or pipe the value — and verify by asserting on live app behaviour, never on the command's exit code.                                                                                                                                                                          |
 
 ## Exit Path — Cost of Moving to Netlify

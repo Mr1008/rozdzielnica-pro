@@ -195,15 +195,15 @@ elektryka są widoczne wyłącznie dla niego`).
 - [x] Edge routing verified against the live Worker:
 
       | Route | Status | Location | Body | `[object Object]` |
-                          | --- | --- | --- | --- | --- |
-                          | `/` | 200 | — | 5010 B | no |
-                          | `/dashboard` | **302** | **`/auth/signin`** | 0 B | no |
-                          | `/auth/signin` | 200 | — | 9452 B | no |
-                          | `/auth/signup` | 200 | — | 10952 B | no |
-                          | `/nope-404` | 404 | — | 4302 B | no |
+                                  | --- | --- | --- | --- | --- |
+                                  | `/` | 200 | — | 5010 B | no |
+                                  | `/dashboard` | **302** | **`/auth/signin`** | 0 B | no |
+                                  | `/auth/signin` | 200 | — | 9452 B | no |
+                                  | `/auth/signup` | 200 | — | 10952 B | no |
+                                  | `/nope-404` | 404 | — | 4302 B | no |
 
-                          The `/dashboard` redirect proves `src/middleware.ts` `PROTECTED_ROUTES` executes at the edge;
-                          the 404 proves `assets.not_found_handling: "404-page"` is wired correctly.
+                                  The `/dashboard` redirect proves `src/middleware.ts` `PROTECTED_ROUTES` executes at the edge;
+                                  the 404 proves `assets.not_found_handling: "404-page"` is wired correctly.
 
 - [x] Supabase banner **gone** from `/` (body shrank 5010 B → 4623 B) — live proof both secrets
       resolved at runtime and are non-empty.
@@ -211,19 +211,19 @@ elektryka są widoczne wyłącznie dla niego`).
       has no test suite; this is the single end-to-end auth script.
 
       | Step | Result |
-                          | --- | --- |
-                          | home renders | 200 |
-                          | dashboard redirects anonymous user | 302 → `/auth/signin` |
-                          | signup creates account | 302 → `/auth/confirm-email` |
-                          | signin rejects wrong password | 302 → `/auth/signin?error=Invalid%20login%20credentials` |
-                          | signin accepts correct password | 302 → `/` |
-                          | dashboard renders for signed-in user | 200 |
-                          | signout clears session | 302 → `/` |
-                          | dashboard redirects after signout | 302 → `/auth/signin` |
+                                  | --- | --- |
+                                  | home renders | 200 |
+                                  | dashboard redirects anonymous user | 302 → `/auth/signin` |
+                                  | signup creates account | 302 → `/auth/confirm-email` |
+                                  | signin rejects wrong password | 302 → `/auth/signin?error=Invalid%20login%20credentials` |
+                                  | signin accepts correct password | 302 → `/` |
+                                  | dashboard renders for signed-in user | 200 |
+                                  | signout clears session | 302 → `/` |
+                                  | dashboard redirects after signout | 302 → `/auth/signin` |
 
-                          Two open questions settled as a side effect: **Confirm email is off** (sign-in worked
-                          immediately after sign-up), and the **new `sb_publishable_` key format works with
-                          `@supabase/ssr` 0.12.7** — the legacy `anon` JWT fallback is not needed.
+                                  Two open questions settled as a side effect: **Confirm email is off** (sign-in worked
+                                  immediately after sign-up), and the **new `sb_publishable_` key format works with
+                                  `@supabase/ssr` 0.12.7** — the legacy `anon` JWT fallback is not needed.
 
 - [x] **Human:** first `smoke-<timestamp>@example.com` user deleted.
 - [ ] **Human — still open:** the Phase 5 re-run created a _second_ `smoke-*@example.com` user
@@ -253,6 +253,11 @@ must match `wrangler.jsonc` `name` exactly or every build fails. Phases 1 and 3 
 - [x] Re-verified after the automated deploy: `/` 200 with no banner, `/dashboard` 302 →
       `/auth/signin`, `/auth/signin` 200, no `[object Object]` anywhere, and **all 8 smoke steps
       passed again**. Runtime secrets survived the redeploy — confirmed, not assumed.
+
+> **Superseded 2026-10-06** (S-05 `cabinet-layout-proposal`, Phase 0): Workers Builds' auto-deploy
+> on `master` is switched off, and `.github/workflows/deploy.yml` deploys from Actions after CI and
+> the migration. The record below is kept as it happened.
+
 - [x] `.github/workflows/ci.yml` left **unchanged**. It gates quality on push/PR to `master`
       with no deploy step, so it cannot race Workers Builds. Known gap, stated rather than
       hidden: CI and the Cloudflare build run in parallel on the same push, so a **red CI does
