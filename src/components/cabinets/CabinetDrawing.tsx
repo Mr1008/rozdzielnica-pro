@@ -1,4 +1,14 @@
-import { clampRect, clipRect, elementRect, entryRect, type ElementRef } from "@/lib/cabinet-drawing";
+import {
+  LABEL_LINE_EM,
+  clampRect,
+  clipRect,
+  elementRect,
+  entryRect,
+  groupOutlines,
+  type DrawnDevice,
+  type DrawnRole,
+  type ElementRef,
+} from "@/lib/cabinet-drawing";
 import { barRect, barsBehindAnother, railRect, type CabinetGeometry, type Rect } from "@/lib/cabinet-geometry";
 import { t } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
@@ -9,6 +19,8 @@ interface CabinetDrawingProps {
   highlight?: ElementRef;
   /** Elements to mark as failing validation, e.g. the editor's geometry issues. */
   invalid?: readonly ElementRef[];
+  /** Devices to draw on the rails, from `buildDrawnDevices`. Omitted: the bare cabinet. */
+  devices?: readonly DrawnDevice[];
   className?: string;
 }
 
@@ -27,6 +39,66 @@ const BAR_CLASSES: Record<Bar["kind"], { body: string; label: string }> = {
 const LABEL_EXTENT = 2.2;
 /** The PE stripe's share of the bar's short side, centred. */
 const STRIPE_SHARE = 0.3;
+
+/**
+ * Devices read apart without hue: the main switch is solid dark, an RCD / RCBO is mid-tone with a heavy
+ * stroke, an MCB is paper with a hairline. The label's fill is the one that contrasts with its body.
+ */
+const DEVICE_CLASSES: Record<DrawnRole, { body: string; label: string; strokeWidth: number }> = {
+  main_switch: { body: "fill-drawing-frame stroke-drawing-frame", label: "fill-drawing-paper", strokeWidth: 1 },
+  rcd: { body: "fill-drawing-device-protect stroke-drawing-frame", label: "fill-drawing-frame", strokeWidth: 2.5 },
+  rcbo: { body: "fill-drawing-device-protect stroke-drawing-frame", label: "fill-drawing-frame", strokeWidth: 2.5 },
+  mcb: { body: "fill-drawing-paper stroke-drawing-frame", label: "fill-drawing-frame", strokeWidth: 1 },
+};
+
+/** The group label's font size, and the N marker's, in millimetres. */
+const GROUP_LABEL_MM = 5;
+const N_MARK_MM = 5;
+
+function DeviceShape({ device }: { device: DrawnDevice }) {
+  const { rect, lines, fontSizeMm } = device;
+  const style = DEVICE_CLASSES[device.role];
+  const lineHeight = fontSizeMm * LABEL_LINE_EM;
+  const firstY = rect.y + rect.h / 2 - ((lines.length - 1) * lineHeight) / 2;
+  return (
+    <g>
+      <rect
+        x={rect.x}
+        y={rect.y}
+        width={rect.w}
+        height={rect.h}
+        className={style.body}
+        vectorEffect="non-scaling-stroke"
+        strokeWidth={style.strokeWidth}
+      />
+      {lines.map((line, index) => (
+        <text
+          key={`${String(index)}-${line}`}
+          x={rect.x + rect.w / 2}
+          y={firstY + index * lineHeight}
+          fontSize={fontSizeMm}
+          textAnchor="middle"
+          dominantBaseline="central"
+          className={cn("font-mono font-medium select-none", style.label)}
+        >
+          {line}
+        </text>
+      ))}
+      {device.nTerminalSide && (
+        <text
+          x={device.nTerminalSide === "left" ? rect.x + 1.5 : rect.x + rect.w - 1.5}
+          y={rect.y + N_MARK_MM}
+          fontSize={N_MARK_MM}
+          textAnchor={device.nTerminalSide === "left" ? "start" : "end"}
+          dominantBaseline="central"
+          className={cn("font-mono font-semibold select-none", style.label)}
+        >
+          {t.layout.drawing.nTerminal}
+        </text>
+      )}
+    </g>
+  );
+}
 
 /** `ref`'s rectangle cut to the interior, or `null` when it does not exist or lies wholly outside. */
 function visibleRect(geometry: CabinetGeometry, ref: ElementRef | undefined): Rect | null {
@@ -87,12 +159,13 @@ function BarLabel({ bar, fontSizeMm }: { bar: Bar; fontSizeMm: number }) {
  * unlike a `clipPath`, it needs no id that would have to be unique across a page of thumbnails.
  * Overlays are drawn above it from rectangles already cut to the interior.
  */
-export function CabinetDrawing({ geometry, highlight, invalid = [], className }: CabinetDrawingProps) {
+export function CabinetDrawing({ geometry, highlight, invalid = [], devices = [], className }: CabinetDrawingProps) {
   const { interior, rails, entries, bars } = geometry;
   const behind = barsBehindAnother(bars);
   // Nearer bars paint over farther ones; the dashed outlines of the farther ones go on top of both.
   const barOrder = bars.map((bar, index) => ({ bar, index })).sort((a, b) => a.bar.zMm - b.bar.zMm);
   const labelSizeMm = Math.max(8, Math.min(interior.widthMm, interior.heightMm) * 0.04);
+  const outlines = groupOutlines(devices);
   const outline = visibleRect(geometry, highlight);
   const invalidRects = invalid.flatMap((ref) => visibleRect(geometry, ref) ?? []);
   // An invalid element with nothing inside the interior is marked on the edge it lies beyond.
@@ -180,6 +253,33 @@ export function CabinetDrawing({ geometry, highlight, invalid = [], className }:
 
         {bars.map((bar, index) => (
           <BarLabel key={`bar-label-${String(index)}`} bar={bar} fontSizeMm={labelSizeMm} />
+        ))}
+
+        {devices.map((device) => (
+          <DeviceShape key={`device-${device.id}`} device={device} />
+        ))}
+
+        {outlines.map((group) => (
+          <g key={`group-${group.key}`}>
+            <rect
+              x={group.rect.x}
+              y={group.rect.y}
+              width={group.rect.w}
+              height={group.rect.h}
+              className="stroke-drawing-group fill-none"
+              strokeDasharray="6 3"
+              vectorEffect="non-scaling-stroke"
+              strokeWidth={1.5}
+            />
+            <text
+              x={group.rect.x + 1}
+              y={group.rect.y - GROUP_LABEL_MM * 0.6}
+              fontSize={GROUP_LABEL_MM}
+              className="fill-drawing-group font-mono font-semibold select-none"
+            >
+              {group.label}
+            </text>
+          </g>
         ))}
       </svg>
 

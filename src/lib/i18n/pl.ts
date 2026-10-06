@@ -591,6 +591,14 @@ export const pl = {
       matchingNoCircuits: "Brak obwodów",
       matchingBlocked: "Zablokowany",
       matchingUnavailable: "Niedostępny",
+      /** The aside's layout row: its label and one badge text per layout state. */
+      layoutStatus: "Układ w szafce",
+      layoutPlaced: "Rozmieszczony",
+      layoutMissing: "Nie zaproponowano",
+      layoutDoesNotFit: "Nie mieści się",
+      layoutOutdated: "Nieaktualny",
+      layoutNotCurrent: "Czeka na dobór",
+      layoutUnavailable: "Niedostępny",
     },
     cabinet: {
       section: "Szafka rozdzielnicy",
@@ -922,6 +930,43 @@ export const pl = {
       mainSwitch: "Rozłącznik główny (FR)",
       ungrouped: "Obwody bez grupy RCD",
     },
+    /** Labels on the devices in the cabinet drawing. `B16` is the B-characteristic rating. */
+    drawing: {
+      mainSwitch: "FR",
+      rcd: "RCD",
+      rcbo: "RCBO",
+      mcbCharacteristic: (ratedCurrentA: number) => `B${String(ratedCurrentA)}`,
+      ampere: (ratedCurrentA: number) => `${String(ratedCurrentA)}A`,
+      milliampere: (residualCurrentMa: number) => `${String(residualCurrentMa)}mA`,
+      nTerminal: "N",
+    },
+    /** The project page's "Układ w szafce" section. See `src/components/projects/LayoutSection.astro`. */
+    section: {
+      title: "Układ w szafce",
+      description:
+        "Propozycja rozmieszczenia dobranych aparatów na szynach DIN szafki: aparaty grupy stoją razem z jej wyłącznikiem różnicowoprądowym, grupa blisko strony, z której wchodzą jej przewody, a przy równorzędnych miejscach wygrywa bliskość szyn N i PE.",
+      drawingTitle: "Rozmieszczenie aparatów",
+      wlzHint:
+        "Przyjęto, że WLZ wchodzi do szafki pierwszym wprowadzeniem przewodów z katalogu szafek — tam trafia rozłącznik główny.",
+      notCurrent:
+        "Układ powstaje dopiero z aktualnego, zapisanego doboru aparatów. Uzupełnij obwody i sprawdź wynik doboru powyżej.",
+      notCurrentLink: "Przejdź do doboru aparatów",
+      missingTitle: "Układ nie został jeszcze zaproponowany",
+      missing: "Aparaty są dobrane. Zaproponuj ich rozmieszczenie w szafce — później możesz je poprawić.",
+      propose: "Zaproponuj układ",
+      outdatedTitle: "Układ nieaktualny",
+      outdated:
+        "Zapisany układ nie pasuje już do dobranych aparatów albo do szafki. Zaproponuj go ponownie — nieaktualnego układu nie rysujemy.",
+      proposeAgain: "Zaproponuj układ ponownie",
+      doesNotFitTitle: "Aparaty nie mieszczą się w szafce",
+      legendLabel: "Legenda rysunku",
+      legend: {
+        mainSwitch: "Rozłącznik główny (FR)",
+        protection: "Wyłącznik różnicowoprądowy (RCD) i różnicowonadprądowy (RCBO)",
+        mcb: "Wyłącznik nadprądowy (MCB)",
+        group: "Przerywany obrys — grupa RCD",
+      },
+    },
     /** Keyed by `LayoutFailure["code"]` (camelCased). */
     failures: {
       doesNotFit: (requiredModules: number, availableModules: number, blockLabel: string) =>
@@ -943,6 +988,7 @@ export const pl = {
         feedback: "Komunikaty i kontenery",
         drawing: "Rysunek szafki",
         circuits: "Obwody i dobór aparatów",
+        layout: "Układ w szafce",
         brand: "Marka",
       },
       tokenGroups: {
@@ -1059,6 +1105,16 @@ export const pl = {
       draftingSheet: "Arkusz rysunkowy z przepływem prądu",
       circuitEditorTitle: "Edytor obwodów",
       matchResultTitle: "Wynik doboru aparatów",
+      layoutTitle: "Sekcja „Układ w szafce”",
+      /** Captions for the layout section states; each is computed by the real `computeLayoutView`. */
+      layoutStates: {
+        placedMedium: "Rozmieszczony — szafka średnia (trzy rzędy, PE i N pionowo)",
+        placedLarge: "Rozmieszczony — szafka duża (pięć szyn, PE i N poziomo)",
+        missing: "Nie zaproponowany",
+        doesNotFit: "Nie mieści się",
+        outdated: "Nieaktualny (zapisane aparaty nachodzą na siebie)",
+        notCurrent: "Dobór nieaktualny — brak układu",
+      },
       /** Fixture data and state captions for the circuit section; see `src/lib/kitchen-sink-circuits.ts`. */
       circuitFixtures: {
         manufacturer: "Przykładowy producent",

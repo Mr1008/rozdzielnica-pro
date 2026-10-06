@@ -1,4 +1,6 @@
+import { buildDrawnDevices, type DrawnDevice } from "@/lib/cabinet-drawing";
 import type { CabinetGeometry } from "@/lib/cabinet-geometry";
+import { SEED_B, SEED_C, geometry as parseFixtureGeometry } from "@/lib/cabinet-layout.fixtures";
 import { payloadToDraft, type CircuitDraftState } from "@/lib/circuit-draft";
 import {
   DEFAULT_RCD_MARGIN_PERCENT,
@@ -11,6 +13,7 @@ import { computeMatchView, type MatchContext, type MatchView, type SnapshotRow }
 import { activeCatalog, type DeviceSpecWithId, type Selection } from "@/lib/device-matching";
 import { deviceKindLabel, type DeviceKind, type NTerminalSide } from "@/lib/device-spec";
 import { t } from "@/lib/i18n";
+import { computeLayoutView, type LayoutView } from "@/lib/layout-server";
 import type { SupplyParams } from "@/lib/supply-params";
 
 /**
@@ -382,5 +385,66 @@ export function kitchenSinkMatchStates(): MatchFixture[] {
         geometry: GEOMETRY_WITHOUT_BARS,
       }),
     ),
+  ];
+}
+
+// ——— Layout states ———
+
+export interface LayoutFixture {
+  key: string;
+  caption: string;
+  view: LayoutView | null;
+  devices: DrawnDevice[];
+  geometry: CabinetGeometry;
+}
+
+/** One 100 mm rail: far too short for the filled circuits' devices. */
+const GEOMETRY_TOO_SMALL = parseFixtureGeometry({
+  version: 1,
+  interior: { widthMm: 200, heightMm: 250, depthMm: 90 },
+  rails: [{ xMm: 20, yMm: 100, lengthMm: 100 }],
+  entries: [{ side: "top", offsetMm: 20, lengthMm: 160 }],
+  bars: [],
+});
+
+/**
+ * Every layout state, each from the real `computeLayoutView`: a proposal is computed from an empty
+ * placement set and then fed back as the stored layout to reach `placed`; `outdated` stores that
+ * proposal with the second device moved onto the first.
+ */
+export function kitchenSinkLayoutStates(): LayoutFixture[] {
+  const snapshot = snapshotFrom(freshSelections());
+  const fixture = (
+    key: string,
+    caption: string,
+    geometry: CabinetGeometry,
+    stored: "none" | "proposal" | "broken",
+    snapshotRows = snapshot,
+  ): LayoutFixture => {
+    const ctx = context({ geometry, snapshot: snapshotRows });
+    const matchView = computeMatchView(ctx);
+    const empty = computeLayoutView(matchView, ctx, []);
+    const proposal = empty?.state === "missing" ? empty.proposal : [];
+    const placements =
+      stored === "none"
+        ? []
+        : stored === "proposal"
+          ? proposal
+          : proposal.map((placement, index) =>
+              index === 1 ? { ...placement, railIndex: proposal[0].railIndex, xMm: proposal[0].xMm } : placement,
+            );
+    const view = computeLayoutView(matchView, ctx, placements);
+    const devices =
+      view?.state === "placed" ? buildDrawnDevices(matchView.snapshot, view.placements, geometry, ctx.groups) : [];
+    return { key, caption, view, devices, geometry };
+  };
+  const l = t.devTools.kitchenSink.layoutStates;
+  return [
+    fixture("placed-b", l.placedMedium, SEED_B, "proposal"),
+    fixture("placed-c", l.placedLarge, SEED_C, "proposal"),
+    fixture("missing", l.missing, SEED_B, "none"),
+    fixture("does-not-fit", l.doesNotFit, GEOMETRY_TOO_SMALL, "none"),
+    fixture("outdated", l.outdated, SEED_B, "broken"),
+    fixture("not-current", l.notCurrent, SEED_B, "none", snapshotFrom(staleSelections())),
   ];
 }

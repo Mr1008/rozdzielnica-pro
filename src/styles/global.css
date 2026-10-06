@@ -84,6 +84,13 @@
   --drawing-frame: oklch(37.2% 0.044 257.287); /* slate-700 — 10.3:1 on card */
   --drawing-highlight: oklch(51.1% 0.262 276.966); /* Tailwind v4 indigo-600 */
   --drawing-grid: oklch(55.4% 0.046 257.417 / 14%); /* slate-500 at 14% — the drafting-sheet ruling */
+  /*
+   * Devices on the rails. Roles differ in fill lightness and stroke weight, never in hue alone: the
+   * main switch is the dark --drawing-frame, RCD/RCBO the mid --drawing-device-protect with a heavy
+   * stroke, MCB the paper with a hairline. A group is a dashed outline in --drawing-group.
+   */
+  --drawing-device-protect: oklch(78% 0.04 255); /* mid steel-blue; luminance 0.55 */
+  --drawing-group: oklch(42% 0.12 262); /* dark indigo outline — 8:1 on paper */
 
   /*
    * Hero register (landing, auth side panel): blueprint night with an electric-cyan "current".
@@ -171,6 +178,8 @@
   --color-drawing-frame: var(--drawing-frame);
   --color-drawing-highlight: var(--drawing-highlight);
   --color-drawing-grid: var(--drawing-grid);
+  --color-drawing-device-protect: var(--drawing-device-protect);
+  --color-drawing-group: var(--drawing-group);
 
   --color-hero-background: var(--hero-background);
   --color-hero-foreground: var(--hero-foreground);

@@ -4,6 +4,7 @@ import PageHeader from "@/components/PageHeader.astro";
 import { CabinetDrawing } from "@/components/cabinets/CabinetDrawing";
 import CabinetPicker from "@/components/projects/CabinetPicker.astro";
 import CircuitEditor from "@/components/circuits/CircuitEditor";
+import LayoutSection from "@/components/projects/LayoutSection.astro";
 import MatchResult from "@/components/projects/MatchResult.astro";
 import ProjectDetailsFields from "@/components/projects/ProjectDetailsFields.astro";
 import SupplyFields from "@/components/projects/SupplyFields.astro";
@@ -13,11 +14,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import AppLayout from "@/layouts/AppLayout.astro";
+import { buildDrawnDevices } from "@/lib/cabinet-drawing";
 import { ENTRY_SIDES, parseCabinetGeometry } from "@/lib/cabinet-geometry";
 import { isUuid, sortForCatalogList } from "@/lib/catalog";
 import { payloadToDraft } from "@/lib/circuit-draft";
-import { computeMatchView, loadMatchContext, type MatchView } from "@/lib/device-matching-server";
+import { computeMatchView, type MatchView } from "@/lib/device-matching-server";
 import { t } from "@/lib/i18n";
+import { computeLayoutView, loadLayoutContext, type LayoutView } from "@/lib/layout-server";
 import {
   PROJECTS_PATH,
   PROJECT_FIELDS,
@@ -51,7 +54,9 @@ const saved =
           ? t.projects.page.savedCircuits
           : savedParam === "rematch"
             ? t.projects.page.savedRematch
-            : null;
+            : savedParam === "layout"
+              ? t.projects.page.savedLayout
+              : null;
 
 const supabase = createClient(Astro.request.headers, Astro.cookies);
 
@@ -116,9 +121,16 @@ const warningMessages = supply ? supplyWarnings(supply).map(supplyWarningMessage
 
 // Circuits, groups, the active catalog and the stored device snapshot. A failure here shows an alert in
 // the section and leaves the rest of the page up.
-const matchLoad = project && supabase ? await loadMatchContext(supabase, project.id, project) : null;
+const matchLoad = project && supabase ? await loadLayoutContext(supabase, project.id, project) : null;
 const matchContext = matchLoad?.ok ? matchLoad.context : null;
 const matchView = matchContext ? computeMatchView(matchContext) : null;
+// The layout state is read only through `computeLayoutView`, never from the raw placement rows.
+const layoutView =
+  matchLoad?.ok && matchView ? computeLayoutView(matchView, matchLoad.context, matchLoad.placements) : null;
+const placedDevices =
+  layoutView?.state === "placed" && matchContext?.geometry
+    ? buildDrawnDevices(matchView?.snapshot ?? [], layoutView.placements, matchContext.geometry, matchContext.groups)
+    : [];
 
 /** The aside badge per match state: only a stored snapshot counts as "matched". */
 function matchingBadge(view: MatchView | null): {
@@ -142,8 +154,30 @@ function matchingBadge(view: MatchView | null): {
 }
 const matching = matchingBadge(matchView);
 
+/** The aside badge per layout state; no state at all means the match is not current (or did not load). */
+function layoutBadge(view: LayoutView | null): {
+  variant: "success" | "warning" | "destructive" | "secondary";
+  text: string;
+} {
+  if (matchView === null) return { variant: "secondary", text: t.projects.page.layoutUnavailable };
+  if (view === null) return { variant: "secondary", text: t.projects.page.layoutNotCurrent };
+  switch (view.state) {
+    case "placed":
+      return { variant: "success", text: t.projects.page.layoutPlaced };
+    case "missing":
+      return { variant: "secondary", text: t.projects.page.layoutMissing };
+    case "does_not_fit":
+      return { variant: "destructive", text: t.projects.page.layoutDoesNotFit };
+    case "outdated":
+      return { variant: "warning", text: t.projects.page.layoutOutdated };
+  }
+}
+const layoutStatus = layoutBadge(layoutView);
+
 // The circuit editor's anchor, the fix link for circuit blockers.
 const circuitsEditorId = "circuit-editor";
+// The match result's own anchor, the link for a layout that waits on a current match.
+const circuitsSectionId = "circuits";
 
 // The editor starts from the saved rows; the entry sides it lists first are the snapshot's own.
 const circuitDraft = payloadToDraft(
@@ -167,6 +201,7 @@ const sections = [
   { id: "cabinet", label: t.projects.cabinet.section },
   { id: "supply", label: t.supply.section },
   { id: "circuits", label: t.circuitSection.section },
+  { id: "layout", label: t.layout.section.title },
   { id: "delete", label: t.projects.delete.section },
 ] as const;
 
@@ -391,6 +426,35 @@ const headingClass = "scroll-mt-6 text-lg leading-none font-semibold";
           </Card>
         </section>
 
+        <section class="scroll-mt-6" aria-labelledby="layout">
+          <Card>
+            <CardHeader>
+              <h2 id="layout" tabindex="-1" class:list={headingClass}>
+                {t.layout.section.title}
+              </h2>
+              <CardDescription>{t.layout.section.description}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {matchContext && matchView ? (
+                <LayoutSection
+                  view={layoutView}
+                  devices={placedDevices}
+                  geometry={matchContext.geometry}
+                  projectId={project.id}
+                  matchAnchor={circuitsSectionId}
+                />
+              ) : (
+                <Alert variant="destructive" role={undefined}>
+                  <CircleAlertIcon aria-hidden="true" />
+                  <AlertDescription>
+                    {supabase ? t.circuitSection.loadFailed : t.projectErrors.notConfigured}
+                  </AlertDescription>
+                </Alert>
+              )}
+            </CardContent>
+          </Card>
+        </section>
+
         <section class="scroll-mt-6" aria-labelledby="delete">
           <Card className="border-destructive/40">
             <CardHeader>
@@ -427,7 +491,11 @@ const headingClass = "scroll-mt-6 text-lg leading-none font-semibold";
           <CardContent className="flex flex-col gap-4 px-4">
             <div class="flex h-80 w-full items-center justify-center">
               {snapshotGeometry?.ok ? (
-                <CabinetDrawing geometry={snapshotGeometry.geometry} className="h-full w-full" />
+                <CabinetDrawing
+                  geometry={snapshotGeometry.geometry}
+                  devices={placedDevices}
+                  className="h-full w-full"
+                />
               ) : (
                 <p class="text-center text-xs text-muted-foreground">{t.projects.cabinet.drawingUnavailable}</p>
               )}
@@ -468,6 +536,10 @@ const headingClass = "scroll-mt-6 text-lg leading-none font-semibold";
               <dt class="text-muted-foreground">{t.projects.page.matchingStatus}</dt>
               <dd>
                 <Badge variant={matching.variant}>{matching.text}</Badge>
+              </dd>
+              <dt class="text-muted-foreground">{t.projects.page.layoutStatus}</dt>
+              <dd>
+                <Badge variant={layoutStatus.variant}>{layoutStatus.text}</Badge>
               </dd>
             </dl>
           </CardContent>
