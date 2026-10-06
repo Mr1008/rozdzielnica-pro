@@ -1,6 +1,7 @@
-import { buildDrawnDevices, type DrawnDevice } from "@/lib/cabinet-drawing";
+import { buildDrawnDevices, buildDrawnWires, type DrawnDevice, type DrawnWire } from "@/lib/cabinet-drawing";
 import type { CabinetGeometry } from "@/lib/cabinet-geometry";
-import { SEED_B, SEED_C, geometry as parseFixtureGeometry } from "@/lib/cabinet-layout.fixtures";
+import { SEED_A, SEED_B, SEED_C, geometry as parseFixtureGeometry } from "@/lib/cabinet-layout.fixtures";
+import { wireLengthsBySection, type WireLengthRow } from "@/lib/cabinet-wiring";
 import { payloadToDraft, type CircuitDraftState } from "@/lib/circuit-draft";
 import {
   DEFAULT_RCD_MARGIN_PERCENT,
@@ -13,7 +14,7 @@ import { computeMatchView, type MatchContext, type MatchView, type SnapshotRow }
 import { activeCatalog, type DeviceSpecWithId, type Selection } from "@/lib/device-matching";
 import { deviceKindLabel, type DeviceKind, type NTerminalSide } from "@/lib/device-spec";
 import { t } from "@/lib/i18n";
-import { computeLayoutView, type LayoutView } from "@/lib/layout-server";
+import { computeLayoutView, computeWiring, type LayoutView } from "@/lib/layout-server";
 import type { SupplyParams } from "@/lib/supply-params";
 
 /**
@@ -126,6 +127,16 @@ const DEVICE_FIXTURES: DeviceFixture[] = [
     poles: "1P",
     ratedCurrentA: 25,
     breakingCapacityKa: 6,
+  },
+  // The TN-C main switch: the PEN is never switched, so single-phase TN-C takes a 1P FR. Last, so the
+  // index-based ids above stay put; no other supply accepts a 1P main switch.
+  {
+    kind: "switch_disconnector",
+    model: "FR-140",
+    priceGrosze: 3490,
+    widthMm: 18,
+    poles: "1P",
+    ratedCurrentA: 40,
   },
 ];
 
@@ -395,6 +406,8 @@ export interface LayoutFixture {
   caption: string;
   view: LayoutView | null;
   devices: DrawnDevice[];
+  wires: DrawnWire[];
+  lengths: WireLengthRow[];
   geometry: CabinetGeometry;
 }
 
@@ -407,21 +420,39 @@ const GEOMETRY_TOO_SMALL = parseFixtureGeometry({
   bars: [],
 });
 
+/** TN-C forbids RCDs, so its circuits are all ungrouped; one comes in from the bottom. */
+const TN_C_OVERRIDES: Partial<MatchContext> = {
+  supply: SUPPLY_TN_C,
+  groups: [],
+  circuits: [
+    circuit(1, null, k.circuits.kitchen),
+    circuit(2, null, k.circuits.living, { entry_side: "bottom" }),
+    circuit(4, null, k.circuits.lighting, { rated_current_a: 10, cross_section_mm2: 1.5 }),
+  ],
+};
+
+function matchedSelections(ctx: MatchContext): Selection[] {
+  const fresh = computeMatchView(ctx).fresh;
+  if (fresh.status !== "matched") throw new Error("kitchen-sink fixture: the layout circuits must match");
+  return fresh.selections;
+}
+
 /**
  * Every layout state, each from the real `computeLayoutView`: a proposal is computed from an empty
  * placement set and then fed back as the stored layout to reach `placed`; `outdated` stores that
- * proposal with the second device moved onto the first.
+ * proposal with the second device moved onto the first. A `placed` state carries its real wiring.
  */
 export function kitchenSinkLayoutStates(): LayoutFixture[] {
-  const snapshot = snapshotFrom(freshSelections());
   const fixture = (
     key: string,
     caption: string,
     geometry: CabinetGeometry,
     stored: "none" | "proposal" | "broken",
-    snapshotRows = snapshot,
+    overrides: Partial<MatchContext> = {},
+    snapshotRows?: SnapshotRow[],
   ): LayoutFixture => {
-    const ctx = context({ geometry, snapshot: snapshotRows });
+    const base = context({ geometry, ...overrides });
+    const ctx = { ...base, snapshot: snapshotRows ?? snapshotFrom(matchedSelections(base)) };
     const matchView = computeMatchView(ctx);
     const empty = computeLayoutView(matchView, ctx, []);
     const proposal = empty?.state === "missing" ? empty.proposal : [];
@@ -436,15 +467,29 @@ export function kitchenSinkLayoutStates(): LayoutFixture[] {
     const view = computeLayoutView(matchView, ctx, placements);
     const devices =
       view?.state === "placed" ? buildDrawnDevices(matchView.snapshot, view.placements, geometry, ctx.groups) : [];
-    return { key, caption, view, devices, geometry };
+    const conductors = computeWiring(view, matchView, ctx);
+    return {
+      key,
+      caption,
+      view,
+      devices,
+      wires: buildDrawnWires(conductors, {
+        circuits: new Map(ctx.circuits.map((circuit) => [circuit.id, circuit.name])),
+        devices,
+      }),
+      lengths: wireLengthsBySection(conductors),
+      geometry,
+    };
   };
   const l = t.devTools.kitchenSink.layoutStates;
   return [
     fixture("placed-b", l.placedMedium, SEED_B, "proposal"),
     fixture("placed-c", l.placedLarge, SEED_C, "proposal"),
+    fixture("placed-tn-c", l.placedTnC, SEED_B, "proposal", TN_C_OVERRIDES),
+    fixture("placed-no-bars", l.placedNoBars, SEED_A, "proposal"),
     fixture("missing", l.missing, SEED_B, "none"),
     fixture("does-not-fit", l.doesNotFit, GEOMETRY_TOO_SMALL, "none"),
     fixture("outdated", l.outdated, SEED_B, "broken"),
-    fixture("not-current", l.notCurrent, SEED_B, "none", snapshotFrom(staleSelections())),
+    fixture("not-current", l.notCurrent, SEED_B, "none", {}, snapshotFrom(staleSelections())),
   ];
 }

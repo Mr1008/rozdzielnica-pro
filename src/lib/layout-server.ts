@@ -8,6 +8,7 @@ import {
   type LayoutIssue,
   type Placement,
 } from "@/lib/cabinet-layout";
+import { routeConductors, type Conductor } from "@/lib/cabinet-wiring";
 import type { CircuitsPayload } from "@/lib/circuit-params";
 import type { Database, Tables } from "@/lib/database.types";
 import type { DeviceSpecWithId, MatchResult } from "@/lib/device-matching";
@@ -81,6 +82,26 @@ export function computeLayoutView(
   if (!proposal.ok) return { state: "does_not_fit", failure: proposal.reason };
   if (placements.length > 0) return { state: "outdated", issues, proposal: proposal.placements };
   return { state: "missing", proposal: proposal.placements };
+}
+
+/**
+ * The conductors of a `placed` layout (plan Phase 5), or none for every other state — wires are drawn
+ * only over a layout that passed validation, and a `current` match always has a supply. Display-only:
+ * nothing downstream decides on them.
+ */
+export function computeWiring(
+  view: LayoutView | null,
+  matchView: MatchView,
+  context: Pick<MatchContext, "geometry" | "circuits" | "supply">,
+): Conductor[] {
+  if (view?.state !== "placed" || context.geometry === null || context.supply === null) return [];
+  return routeConductors({
+    geometry: context.geometry,
+    devices: matchView.snapshot,
+    placements: view.placements,
+    circuits: context.circuits,
+    supply: context.supply,
+  });
 }
 
 /**

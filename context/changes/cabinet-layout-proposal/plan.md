@@ -102,7 +102,8 @@ of all three seed cabinets plus each layout state.
 - Manual layout editing (S-06) — no drag, no UPDATE grant on placements, no persistence of edits
   across re-matches.
 - A global optimiser or solver (PRD `## Non-Goals`); the heuristic is greedy and deterministic.
-- Selecting PE/N bars or comb busbars from the catalog; feeds are drawn as wire jumpers.
+- Selecting comb busbars from the catalog; feeds are drawn as wire jumpers. (PE/N bars for a cabinet
+  without built-in bars: added as Phase 5b, user decision 2026-10-06.)
 - Phase balancing: single-phase circuits are drawn on L1 colour; no L1/L2/L3 allocation.
 - Cable lengths in the quote (S-08 has no cable item; the length table is informational).
 - A WLZ entry-side field: the WLZ is assumed to enter through the cabinet's first entry
@@ -662,6 +663,91 @@ here for manual confirmation before proceeding to the next phase.
 
 ---
 
+## Phase 5b: Catalog PE/N bars for a cabinet without built-in bars
+
+> Added 2026-10-06 during Phase 5 (user decision): "if the cabinet does not have built-in bars, one
+> needs to be added from the device catalog". Reverses the `## What We're NOT Doing` line "Selecting
+> PE/N bars … from the catalog" for PE/N bars only — comb busbars stay parked (roadmap `## Parked`).
+
+### Overview
+
+When the project's cabinet snapshot has no PE bar (or no N bar), the match selects one from the
+catalog like any other device — the cheapest `pe_bar` / `n_bar` whose terminals take every
+conductor that lands on it — or reports a catalog gap. The selected bars are stored in the snapshot,
+placed by the layout on a DIN rail, and used by the wiring exactly like built-in bars.
+
+### Changes Required:
+
+#### 1. Migration
+
+**File**: `supabase/migrations/20261006140000_project_device_bars.sql`
+
+**Contract**:
+
+- `project_devices_role_valid` allows `pe_bar` and `n_bar`; `project_devices.terminal_groups jsonb`
+  snapshot column, copied by `project_devices_snapshot_device` (both lists, like `n_terminal_side`).
+- Backward-compatible with the deployed code: the old `snapshotSelections` drops an unknown role
+  whole, so a project with catalog bars reads `stale` on the old Worker for the deploy's length.
+
+#### 2. Matcher
+
+**Files**: `src/lib/device-matching.ts` (+ tests, property test), `src/lib/device-matching-server.ts`
+
+**Contract**:
+
+- `MatchInput` gains the cabinet's built-in bar kinds (from `MatchContext.geometry`); a kind the
+  cabinet lacks becomes a requirement: terminals for every conductor that lands on it (the count and
+  cross-sections `circuit-warnings` `barWarnings` already uses — extract that into one shared helper,
+  never two copies).
+- Correctness before price, as for every other role: only bars whose terminal groups fit all those
+  conductors are sorted; the cheapest wins; none fits → a `bar` catalog gap (Polish text naming the
+  kind, terminal count and cross-sections, plus "contact the admin"). TN-C needs only the PE bar.
+- New `SelectionRole`s `pe_bar` / `n_bar`; `computeMatchView` compares them like the rest.
+- `circuitWarnings`: `bars_missing` is no longer raised when the match supplies the bars.
+
+#### 3. Layout
+
+**File**: `src/lib/cabinet-layout.ts` (+ tests)
+
+**Contract**: catalog bars form one block (PE then N), placed after every other block on the rail
+ranked first for `entries[0]`'s side, filled from the end opposite the main switch; `does_not_fit`
+counts their modules like any device. `validateLayout` accepts them.
+
+#### 4. Wiring and drawing
+
+**Files**: `src/lib/cabinet-wiring.ts`, `src/lib/cabinet-drawing.ts`, `CabinetDrawing.tsx` (+ tests)
+
+**Contract**: a placed catalog bar is a bar target (rect from `deviceRect`, terminal groups from the
+snapshot, horizontal) — `nearestBar` sees built-in and catalog bars alike, so N/PE routing, the
+TN-C-S split and the lengths table need no special case. Drawn like a built-in bar of its kind.
+
+#### 5. Kitchen sink, seed
+
+**Contract**: seed cabinet (a) (no bars) now matches the seeded PE/N bars; the kitchen sink shows a
+bar-less cabinet with catalog bars placed and wired, and the bar catalog-gap state.
+
+### Success Criteria:
+
+#### Automated Verification:
+
+- Migration applies: `npx supabase db reset`
+- Types regenerated: `npm run db:types`
+- Lint passes: `npm run lint`
+- Type check passes: `npx astro check`
+- Unit tests pass (bar selected only when the cabinet lacks it; cheapest fitting; gap when none fits; never an under-sized bar): `npm run test:unit`
+- Integration tests pass: `npm run test:integration`
+- Build passes: `npm run build`
+
+#### Manual Verification:
+
+- A project on seed (a) matches a PE and an N bar, places them on the rail and wires circuits to them
+- Archiving the seeded N bar turns that project's match into a bar catalog gap with the Polish message
+
+**Implementation Note**: After completing this phase and all automated verification passes, pause
+here for manual confirmation before proceeding to the next phase.
+
+---
+
 ## Phase 6: Landing, docs and closure
 
 ### Overview
@@ -833,31 +919,48 @@ the admin should review them. Existing projects get no placements until their ne
 
 #### Automated
 
-- [x] 4.1 Lint passes: `npm run lint`
-- [x] 4.2 Type check passes: `npx astro check`
-- [x] 4.3 Unit tests pass: `npm run test:unit`
-- [x] 4.4 Build passes: `npm run build`
+- [x] 4.1 Lint passes: `npm run lint` — 5dd4212
+- [x] 4.2 Type check passes: `npx astro check` — 5dd4212
+- [x] 4.3 Unit tests pass: `npm run test:unit` — 5dd4212
+- [x] 4.4 Build passes: `npm run build` — 5dd4212
 
 #### Manual
 
-- [x] 4.5 On each seed cabinet (a), (b), (c) a matched project shows a layout that visibly follows rules 1–3
-- [x] 4.6 Every layout state renders correctly on the project page and in the kitchen sink (screenshots)
-- [x] 4.7 Drawing stays legible in greyscale (browser print preview)
+- [x] 4.5 On each seed cabinet (a), (b), (c) a matched project shows a layout that visibly follows rules 1–3 — 5dd4212
+- [x] 4.6 Every layout state renders correctly on the project page and in the kitchen sink (screenshots) — 5dd4212
+- [x] 4.7 Drawing stays legible in greyscale (browser print preview) — 5dd4212
 
 ### Phase 5: Wires, slack and lengths
 
 #### Automated
 
-- [ ] 5.1 Unit tests pass (routing invariants: every circuit has L/N/PE or PEN, N of grouped circuits ends at its RCD, lengths include exactly 15%): `npm run test:unit`
-- [ ] 5.2 Lint passes: `npm run lint`
-- [ ] 5.3 Type check passes: `npx astro check`
-- [ ] 5.4 Build passes: `npm run build`
+- [x] 5.1 Unit tests pass (routing invariants: every circuit has L/N/PE or PEN, N of grouped circuits ends at its RCD, lengths include exactly 15%): `npm run test:unit`
+- [x] 5.2 Lint passes: `npm run lint`
+- [x] 5.3 Type check passes: `npx astro check`
+- [x] 5.4 Build passes: `npm run build`
 
 #### Manual
 
-- [ ] 5.5 Wires look like a real wired board on seed (b) and (c); greyscale print preview stays legible
-- [ ] 5.6 Length table totals plausible against a hand-measured route on one circuit
-- [ ] 5.7 Full render path (match + layout state + wiring) timed on the 60-circuit, 20-group fixture, recorded in `change.md` notes and within the 10 ms Worker CPU budget
+- [x] 5.5 Wires look like a real wired board on seed (b) and (c); greyscale print preview stays legible
+- [x] 5.6 Length table totals plausible against a hand-measured route on one circuit
+- [x] 5.7 Full render path (match + layout state + wiring) timed on the 60-circuit, 20-group fixture, recorded in `change.md` notes and within the 10 ms Worker CPU budget
+
+### Phase 5b: Catalog PE/N bars for a cabinet without built-in bars
+
+#### Automated
+
+- [ ] 5b.1 Migration applies: `npx supabase db reset`
+- [ ] 5b.2 Types regenerated: `npm run db:types`
+- [ ] 5b.3 Lint passes: `npm run lint`
+- [ ] 5b.4 Type check passes: `npx astro check`
+- [ ] 5b.5 Unit tests pass (bar selected only when the cabinet lacks it; cheapest fitting; gap when none fits; never an under-sized bar): `npm run test:unit`
+- [ ] 5b.6 Integration tests pass: `npm run test:integration`
+- [ ] 5b.7 Build passes: `npm run build`
+
+#### Manual
+
+- [ ] 5b.8 A project on seed (a) matches a PE and an N bar, places them on the rail and wires circuits to them
+- [ ] 5b.9 Archiving the seeded N bar turns that project's match into a bar catalog gap with the Polish message
 
 ### Phase 6: Landing, docs and closure
 

@@ -7,9 +7,11 @@ import {
   groupOutlines,
   type DrawnDevice,
   type DrawnRole,
+  type DrawnWire,
   type ElementRef,
 } from "@/lib/cabinet-drawing";
 import { barRect, barsBehindAnother, railRect, type CabinetGeometry, type Rect } from "@/lib/cabinet-geometry";
+import type { ConductorKind, ConductorRole } from "@/lib/cabinet-wiring";
 import { t } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
@@ -21,6 +23,8 @@ interface CabinetDrawingProps {
   invalid?: readonly ElementRef[];
   /** Devices to draw on the rails, from `buildDrawnDevices`. Omitted: the bare cabinet. */
   devices?: readonly DrawnDevice[];
+  /** Conductors to draw over the devices, from `buildDrawnWires`. Omitted: no wires. */
+  wires?: readonly DrawnWire[];
   className?: string;
 }
 
@@ -54,6 +58,66 @@ const DEVICE_CLASSES: Record<DrawnRole, { body: string; label: string; strokeWid
 /** The group label's font size, and the N marker's, in millimetres. */
 const GROUP_LABEL_MM = 5;
 const N_MARK_MM = 5;
+
+/**
+ * Conductor colours per PN-EN 60445 (the `--wire-*` tokens), plus a pattern per role so a greyscale
+ * print still tells them apart: phases solid (L1 brown, L2 black, L3 grey), N dashed, PE a wider solid
+ * green line with a solid yellow centre stripe — a hollow double line in greyscale, never mistaken for
+ * the dashed N — and PEN the PE pair drawn heavier. Single-phase L is drawn in L1's colour
+ * (no phase balancing in the MVP).
+ */
+const WIRE_STYLES: Record<ConductorRole, { stroke: string; dash?: string; stripe: boolean; weight: number }> = {
+  L: { stroke: "stroke-wire-l1", stripe: false, weight: 1 },
+  L1: { stroke: "stroke-wire-l1", stripe: false, weight: 1 },
+  L2: { stroke: "stroke-wire-l2", stripe: false, weight: 1 },
+  L3: { stroke: "stroke-wire-l3", stripe: false, weight: 1 },
+  N: { stroke: "stroke-wire-n", dash: "6 3", stripe: false, weight: 1 },
+  PE: { stroke: "stroke-wire-pe", stripe: true, weight: 1.6 },
+  PEN: { stroke: "stroke-wire-pe", stripe: true, weight: 2.2 },
+};
+
+/** On-screen stroke width per conductor kind: the WLZ and the feeds are the heavy cross-section. */
+const WIRE_WIDTH_PX: Record<ConductorKind, number> = { circuit: 1.5, wlz: 2.5, feed: 2.25 };
+
+/** On-screen width of the invisible hover target laid over each wire. */
+const WIRE_HOVER_WIDTH_PX = 10;
+
+function WireShape({ wire }: { wire: DrawnWire }) {
+  const style = WIRE_STYLES[wire.role];
+  const width = WIRE_WIDTH_PX[wire.kind] * style.weight;
+  return (
+    <g className="wire transition-opacity">
+      {wire.title !== "" && <title>{wire.title}</title>}
+      <path
+        d={wire.d}
+        className={cn("fill-none", style.stroke)}
+        strokeDasharray={style.dash}
+        strokeWidth={width}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        vectorEffect="non-scaling-stroke"
+      />
+      {style.stripe && (
+        <path
+          d={wire.d}
+          className="stroke-wire-pe-stripe fill-none"
+          strokeWidth={width * 0.4}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          vectorEffect="non-scaling-stroke"
+        />
+      )}
+      {/* A wide invisible stroke, so a thin wire — even one running behind a device — is easy to hover. */}
+      <path
+        d={wire.d}
+        className="fill-none stroke-transparent"
+        strokeWidth={WIRE_HOVER_WIDTH_PX}
+        pointerEvents="stroke"
+        vectorEffect="non-scaling-stroke"
+      />
+    </g>
+  );
+}
 
 function DeviceShape({ device }: { device: DrawnDevice }) {
   const { rect, lines, fontSizeMm } = device;
@@ -159,7 +223,14 @@ function BarLabel({ bar, fontSizeMm }: { bar: Bar; fontSizeMm: number }) {
  * unlike a `clipPath`, it needs no id that would have to be unique across a page of thumbnails.
  * Overlays are drawn above it from rectangles already cut to the interior.
  */
-export function CabinetDrawing({ geometry, highlight, invalid = [], devices = [], className }: CabinetDrawingProps) {
+export function CabinetDrawing({
+  geometry,
+  highlight,
+  invalid = [],
+  devices = [],
+  wires = [],
+  className,
+}: CabinetDrawingProps) {
   const { interior, rails, entries, bars } = geometry;
   const behind = barsBehindAnother(bars);
   // Nearer bars paint over farther ones; the dashed outlines of the farther ones go on top of both.
@@ -259,6 +330,16 @@ export function CabinetDrawing({ geometry, highlight, invalid = [], devices = []
           <DeviceShape key={`device-${device.id}`} device={device} />
         ))}
 
+        {wires.length > 0 && (
+          // Hovering one wire dims every other, so a single conductor can be followed through a crowded
+          // board; its <title> names it. CSS only — the drawing stays hook-free and server-rendered.
+          <g aria-hidden="true" className="[&:has(.wire:hover)_.wire:not(:hover)]:opacity-20">
+            {wires.map((wire) => (
+              <WireShape key={`wire-${wire.key}`} wire={wire} />
+            ))}
+          </g>
+        )}
+
         {outlines.map((group) => (
           <g key={`group-${group.key}`}>
             <rect
@@ -275,7 +356,11 @@ export function CabinetDrawing({ geometry, highlight, invalid = [], devices = []
               x={group.rect.x + 1}
               y={group.rect.y - GROUP_LABEL_MM * 0.6}
               fontSize={GROUP_LABEL_MM}
-              className="fill-drawing-group font-mono font-semibold select-none"
+              // A paper halo keeps the label legible where wires run along the group's top channel.
+              className="fill-drawing-group stroke-drawing-paper font-mono font-semibold select-none"
+              strokeWidth={GROUP_LABEL_MM * 0.35}
+              strokeLinejoin="round"
+              paintOrder="stroke"
             >
               {group.label}
             </text>

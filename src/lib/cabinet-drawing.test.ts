@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  MAX_SAG_MM,
+  MIN_SAG_SPAN_MM,
   buildDrawnDevices,
+  buildDrawnWires,
   clampRect,
   clipRect,
   deviceLabelLines,
@@ -9,9 +12,15 @@ import {
   groupOutlines,
   issueElements,
   labelFontSizeMm,
+  sagDepthMm,
+  sagLimits,
+  wirePathD,
+  wireTitle,
   type DrawableDevice,
+  type DrawnDevice,
 } from "./cabinet-drawing";
 import { RAIL_HEIGHT_MM, parseCabinetGeometry, type CabinetGeometry } from "./cabinet-geometry";
+import { WIRE_TRACK_PITCH_MM, type Conductor } from "./cabinet-wiring";
 
 const INTERIOR = { widthMm: 400, heightMm: 300, depthMm: 100 };
 
@@ -306,5 +315,196 @@ describe("groupOutlines", () => {
       [{ id: "g1", label: "RCD 1" }],
     );
     expect(groupOutlines(drawn)).toHaveLength(2);
+  });
+});
+
+describe("sagDepthMm", () => {
+  it("keeps short runs taut and derives longer runs' sag from the slack, capped", () => {
+    expect(sagDepthMm(MIN_SAG_SPAN_MM - 1)).toBe(0);
+    // L·√(3 · 0.3 · 0.1 / 8) = √0.01125 · L ≈ 0.1061 · L
+    expect(sagDepthMm(50)).toBeCloseTo(50 * Math.sqrt(0.01125), 9);
+    expect(sagDepthMm(100)).toBe(MAX_SAG_MM);
+    expect(sagDepthMm(1000)).toBe(MAX_SAG_MM);
+  });
+});
+
+describe("wirePathD", () => {
+  it("draws a short straight run as a line", () => {
+    expect(
+      wirePathD([
+        { x: 0, y: 0 },
+        { x: 0, y: 20 },
+      ]),
+    ).toBe("M0 0 L0 20");
+  });
+
+  it("sags a long horizontal run below its line and bends each corner", () => {
+    const d = wirePathD([
+      { x: 0, y: 0 },
+      { x: 0, y: 10 },
+      { x: 100, y: 10 },
+      { x: 100, y: 30 },
+    ]);
+    // Down 10 (bend 4 before the corner), a curved corner, the 92 mm run sagging 9.76 mm capped at
+    // 8 mm (the quadratic control point sits twice as deep: 10 + 16), another corner.
+    expect(d).toBe("M0 0 L0 6 Q0 10 4 10 Q50 26 96 10 Q100 10 100 14 L100 30");
+  });
+
+  it("is empty for no points", () => {
+    expect(wirePathD([])).toBe("");
+  });
+});
+
+describe("buildDrawnWires", () => {
+  const conductor = (key: string, role: Conductor["role"]): Conductor => ({
+    key,
+    kind: "circuit",
+    role,
+    circuitId: null,
+    crossSectionMm2: 2.5,
+    from: { type: "entry", entryIndex: 0 },
+    to: { type: "entry", entryIndex: 0 },
+    path: [
+      { x: 0, y: 0 },
+      { x: 0, y: 10 },
+    ],
+    routedMm: 10,
+    lengthMm: 11.5,
+  });
+
+  it("paints protective conductors first, then the rest in routing order", () => {
+    const wires = buildDrawnWires([
+      conductor("a", "L"),
+      conductor("b", "PE"),
+      conductor("c", "N"),
+      conductor("d", "PEN"),
+    ]);
+    expect(wires.map((wire) => wire.key)).toEqual(["b", "d", "a", "c"]);
+    expect(wires[0]).toEqual({ key: "b", role: "PE", kind: "circuit", d: "M0 0 L0 10", title: "" });
+  });
+});
+
+describe("sag of parallel runs", () => {
+  const run = (key: string, y: number): Conductor => ({
+    key,
+    kind: "circuit",
+    role: "L",
+    circuitId: null,
+    crossSectionMm2: 2.5,
+    from: { type: "entry", entryIndex: 0 },
+    to: { type: "entry", entryIndex: 0 },
+    path: [
+      { x: 0, y: 0 },
+      { x: 0, y },
+      { x: 100, y },
+      { x: 100, y: 200 },
+    ],
+    routedMm: 300,
+    lengthMm: 390,
+  });
+  /** The depth a drawn path's long horizontal run sags to: half its quadratic control offset. */
+  const sagOf = (d: string, y: number) => {
+    const control = /Q50 ([\d.]+) /.exec(d);
+    return control ? (Number(control[1]) - y) / 2 : 0;
+  };
+
+  it("keeps a run above its neighbour one pitch below — they never touch or swap", () => {
+    const upper = run("a", 10);
+    const lower = run("b", 10 + WIRE_TRACK_PITCH_MM);
+    const [a, b] = buildDrawnWires([upper, lower]);
+    expect(sagOf(a.d, 10)).toBeLessThan(WIRE_TRACK_PITCH_MM);
+    expect(sagOf(a.d, 10)).toBeGreaterThan(0);
+    // Nothing beneath the lowest run of the bundle: it hangs as deep as its span allows.
+    expect(sagOf(b.d, 10 + WIRE_TRACK_PITCH_MM)).toBe(MAX_SAG_MM);
+  });
+
+  it("leaves a run with no neighbour below unlimited", () => {
+    expect(sagLimits([run("a", 10)])).toEqual([[Infinity, Infinity, Infinity]]);
+  });
+});
+
+describe("wireTitle", () => {
+  const drawn = (id: string, lines: string[], role: DrawnDevice["role"], groupLabel: string | null): DrawnDevice => ({
+    id,
+    role,
+    railIndex: 0,
+    rect: { x: 0, y: 0, w: 35, h: 85 },
+    lines,
+    fontSizeMm: 6,
+    groupKey: groupLabel === null ? null : "g1",
+    groupLabel,
+    nTerminalSide: null,
+  });
+  const names = {
+    circuits: new Map([["c1", "Gniazda kuchnia"]]),
+    devices: [
+      drawn("fr", ["FR", "40A"], "main_switch", null),
+      drawn("rcd", ["RCD", "40A", "30mA"], "rcd", "Kuchnia"),
+      drawn("mcb", ["B16"], "mcb", "Kuchnia"),
+    ],
+  };
+  const conductor = (overrides: Partial<Conductor>): Conductor => ({
+    key: "k",
+    kind: "circuit",
+    role: "L",
+    circuitId: "c1",
+    crossSectionMm2: 2.5,
+    from: { type: "entry", entryIndex: 0 },
+    to: { type: "terminal", deviceId: "mcb", side: "load", pole: "L" },
+    path: [
+      { x: 0, y: 0 },
+      { x: 0, y: 10 },
+    ],
+    routedMm: 10,
+    lengthMm: 423,
+    ...overrides,
+  });
+
+  it("names a circuit cable by its circuit, conductor, cross-section and length in metres", () => {
+    expect(wireTitle(conductor({}), names)).toBe("Obwód „Gniazda kuchnia” — L, 2,5 mm², 0,42 m");
+  });
+
+  it("names a feed by both ends, a grouped RCD with its group but a grouped MCB by its rating", () => {
+    const feed = conductor({
+      kind: "feed",
+      role: "N",
+      circuitId: null,
+      crossSectionMm2: 16,
+      from: { type: "terminal", deviceId: "fr", side: "load", pole: "N" },
+      to: { type: "terminal", deviceId: "rcd", side: "line", pole: "N" },
+      lengthMm: 205,
+    });
+    expect(wireTitle(feed, names)).toBe("Połączenie FR → RCD „Kuchnia” — N, 16 mm², 0,21 m");
+    const toMcb = {
+      ...feed,
+      from: feed.to,
+      to: { type: "terminal", deviceId: "mcb", side: "line", pole: "N" } as const,
+    };
+    expect(wireTitle(toMcb, names)).toBe("Połączenie RCD „Kuchnia” → B16 — N, 16 mm², 0,21 m");
+  });
+
+  it("names the WLZ and a bar end", () => {
+    const wlz = conductor({
+      kind: "wlz",
+      role: "PEN",
+      circuitId: null,
+      crossSectionMm2: 16,
+      to: { type: "bar", kind: "PE", barIndex: 0, groupIndex: 0 },
+      lengthMm: 464,
+    });
+    expect(wireTitle(wlz, names)).toBe("WLZ — PEN, 16 mm², 0,46 m");
+    const split = {
+      ...wlz,
+      kind: "feed" as const,
+      role: "N" as const,
+      from: wlz.to,
+      to: { type: "bar", kind: "N", barIndex: 1, groupIndex: 0 } as const,
+    };
+    expect(wireTitle(split, names)).toBe("Połączenie szyna PE → szyna N — N, 16 mm², 0,46 m");
+  });
+
+  it("leaves the tooltip empty when buildDrawnWires gets no names, and fills it when it does", () => {
+    expect(buildDrawnWires([conductor({})])[0]?.title).toBe("");
+    expect(buildDrawnWires([conductor({})], names)[0]?.title).toBe("Obwód „Gniazda kuchnia” — L, 2,5 mm², 0,42 m");
   });
 });

@@ -175,7 +175,8 @@ These are correctness requirements, not preferences.
   third-party failure.
 - **Every change to @context/foundation/roadmap.md must be mirrored to GitHub** with
   `node scripts/roadmap-to-github.mjs --apply` — a regenerated milestone, a status flip, a new
-  slice, anything. The roadmap file stays the contract the `/10x-plan` → `/10x-implement` →
+  slice, a new `## Parked` idea, anything. Parked entries become `odłożone` issues; the script
+  rewrites only the issue bodies it generated, never a hand-written one. The roadmap file stays the contract the `/10x-plan` → `/10x-implement` →
   `/10x-archive` chain reads by `Change ID`; the issues, milestone and Projects board at
   `users/Mr1008/projects/1` are where the work is actually tracked. Skip the sync and the board
   silently disagrees with the plan. The script is idempotent, reconciles labels in both directions

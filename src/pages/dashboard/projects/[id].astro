@@ -14,13 +14,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import AppLayout from "@/layouts/AppLayout.astro";
-import { buildDrawnDevices } from "@/lib/cabinet-drawing";
+import { buildDrawnDevices, buildDrawnWires } from "@/lib/cabinet-drawing";
+import { wireLengthsBySection } from "@/lib/cabinet-wiring";
 import { ENTRY_SIDES, parseCabinetGeometry } from "@/lib/cabinet-geometry";
 import { isUuid, sortForCatalogList } from "@/lib/catalog";
 import { payloadToDraft } from "@/lib/circuit-draft";
 import { computeMatchView, type MatchView } from "@/lib/device-matching-server";
 import { t } from "@/lib/i18n";
-import { computeLayoutView, loadLayoutContext, type LayoutView } from "@/lib/layout-server";
+import { computeLayoutView, computeWiring, loadLayoutContext, type LayoutView } from "@/lib/layout-server";
 import {
   PROJECTS_PATH,
   PROJECT_FIELDS,
@@ -131,6 +132,13 @@ const placedDevices =
   layoutView?.state === "placed" && matchContext?.geometry
     ? buildDrawnDevices(matchView?.snapshot ?? [], layoutView.placements, matchContext.geometry, matchContext.groups)
     : [];
+// Wires are display-only and drawn only over a `placed` layout; the aside thumbnail stays without them.
+const conductors = matchContext && matchView ? computeWiring(layoutView, matchView, matchContext) : [];
+const placedWires = buildDrawnWires(conductors, {
+  circuits: new Map((matchContext?.circuits ?? []).map((circuit) => [circuit.id, circuit.name])),
+  devices: placedDevices,
+});
+const wireLengths = wireLengthsBySection(conductors);
 
 /** The aside badge per match state: only a stored snapshot counts as "matched". */
 function matchingBadge(view: MatchView | null): {
@@ -439,6 +447,8 @@ const headingClass = "scroll-mt-6 text-lg leading-none font-semibold";
                 <LayoutSection
                   view={layoutView}
                   devices={placedDevices}
+                  wires={placedWires}
+                  lengths={wireLengths}
                   geometry={matchContext.geometry}
                   projectId={project.id}
                   matchAnchor={circuitsSectionId}
