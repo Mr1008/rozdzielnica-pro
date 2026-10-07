@@ -1,10 +1,12 @@
+import { fittingTerminals } from "@/lib/bar-conductors";
 import { barRect, RAIL_HEIGHT_MM, type CabinetGeometry, type Rect } from "@/lib/cabinet-geometry";
 import {
+  barTerminalPoints,
   catalogBarAsCabinetBar,
   deviceRect,
   isCatalogBarRole,
   deviceTerminals,
-  terminalGroupPoints,
+  type DeviceEdge,
   type DeviceTerminals,
   type LayoutDevice,
   type Placement,
@@ -22,11 +24,44 @@ import type { SupplyParams } from "@/lib/supply-params";
  *
  * Conductors:
  * - **circuit cables in** — per circuit, from its cable entry: each phase (L, or L1–L3 for a
- *   three-phase circuit) to its MCB / RCBO load-side terminal; its N and its PE as below;
- * - **WLZ** — from `entries[0]` to the main switch's line-side terminals, its PE (PEN in TN-C and
+ *   three-phase circuit) to its MCB / RCBO outgoing terminal; its N and its PE as below;
+ * - **WLZ** — from `entries[0]` to the main switch's supply terminals, its PE (PEN in TN-C and
  *   TN-C-S) to the PE bar;
- * - **feeds** — the main switch's load side to each RCD, RCBO and ungrouped MCB line side, and each
- *   RCD's load side to its MCBs.
+ * - **feeds** — the main switch's outgoing side to each RCD, RCBO and ungrouped MCB supply side, and
+ *   each RCD's outgoing side to its MCBs.
+ *
+ * ## Bidirectional devices
+ *
+ * Plan Phase 5c, the electrician's rules (user 2026-10-07): FR, RCD, RCBO and MCB have no fixed line or
+ * load edge, so the wiring picks each device's supply edge, deterministically, to keep routes short
+ * and free of loops around the devices:
+ * - **A group's MCBs take their supply on the edge its RCD gives out on**, so every RCD → MCB feed is
+ *   a short jumper along that one edge of the group, and the circuit cables leave the MCBs on the
+ *   other edge. Which edge: the circuits leave on the edge facing their cable entry points (their mean
+ *   height against the rail's centre — `facingEdge`); the jumpers take the opposite edge, and the RCD
+ *   takes its own supply on the circuits' edge. Level (a side entry at the rail's height): circuits on
+ *   top, jumpers at the bottom — the default.
+ * - **An RCBO or an ungrouped MCB** sends its circuit out on the edge facing its cable's entry point
+ *   and takes its supply on the other; level → supply on top.
+ * - **The main switch** takes the WLZ on the edge facing the WLZ's entry point and gives out on the
+ *   other; level → WLZ at the bottom, out on top.
+ * Feeds from the main switch run between whatever edges these rules chose. (Comb busbars would later
+ * replace the jumpers — roadmap `## Parked`.)
+ *
+ * Cables at the entry (plan Phase 5c): each cable — the WLZ, each circuit's cable — enters at its own
+ * point along its entry's span, evenly spaced and ordered by where the cable goes, so cables do not
+ * cross right after the entry; its cores share that point and leave it together along one stub. Two
+ * cables never share a point, however many there are (the spacing closes up instead). The cores then
+ * leave the stub one at a time, each at its own lane — a progressive split, like stripping a cable (the
+ * electrician, 2026-10-07): a core that has turned off keeps a pitch off its own cable's stub, and at
+ * most the last one carries straight on along its line (`avoidPins`, `place`). The drawing's sheath runs
+ * to the last turn-off (`buildDrawnCables`).
+ *
+ * Bar terminals (plan Phase 5c): every conductor landing on a PE or N bar takes its own terminal whose
+ * cross-section range fits it — the nearest free one; never two conductors on one terminal. When a
+ * built-in bar has too few fitting terminals the conductors that do not get one are left unrouted —
+ * the `bar_terminals_insufficient` circuit warning names the shortfall, from the same count
+ * (`src/lib/bar-conductors.ts`). The TN-C-S split link takes a PE-bar terminal like any conductor.
  *
  * N routing (domain rule): a circuit in an RCD group takes N from that RCD's outgoing N terminal —
  * never from the shared N bar, which would bypass the RCD and trip it. A circuit whose own device
@@ -35,13 +70,13 @@ import type { SupplyParams } from "@/lib/supply-params";
  * line-side N of every device the main switch feeds; an RCD feeds the line-side N of its own
  * N-carrying MCBs. TN-C has no N conductor at all: every PEN goes to the PE bar. TN-C-S splits the PEN
  * in the switchboard (user decision 2026-10-06, matching `supply-warnings`): the WLZ's PEN lands on the
- * PE bar, and a split link runs from the PE bar to the main switch's line-side N (or, for a main
+ * PE bar, and a split link runs from the PE bar to the main switch's supply-side N (or, for a main
  * switch without an N pole, to the N bar); from there N is wired as in TN-S. Without a PE bar there is
  * no split point, so the WLZ is drawn as separate PE and N.
  *
  * Routes: from each end a short stub leaves the terminal (vertically, into the free channel above or
- * below the rail), the entry (into a lane along the cabinet edge) or the bar terminal group (into a
- * lane beside the bar); the two stubs are joined orthogonally through the nearest vertical passage
+ * below the rail), the cable's entry point (into a lane along the cabinet edge) or the bar terminal
+ * (into a lane beside the bar); the two stubs are joined orthogonally through the nearest vertical passage
  * that crosses no device body — a gap between blocks, a block end or the gutter beside the rails.
  *
  * Bars: the cabinet's built-in PE/N bars and the catalog bars the match placed on a rail (plan Phase
@@ -55,7 +90,8 @@ import type { SupplyParams } from "@/lib/supply-params";
  * stay in their free channel; a crowded vertical passage may spread behind the devices beside it —
  * wires may run under the DIN rail, behind the devices (the electrician, 2026-10-06) — and the drawing
  * paints wires over the devices, so such a run stays traceable. The segments that touch an endpoint
- * never move: conductors sharing a terminal, an entry or a bar terminal group share its final stub.
+ * never move: conductors sharing a device terminal share its stub, as the cores of one cable share
+ * their entry point and its stub.
  * Lengths are measured on the nudged path. The router itself still prefers passages clear of devices.
  */
 
@@ -104,13 +140,16 @@ export const WIRE_CLASSES = ["L", "N", "PE", "PEN"] as const satisfies readonly 
 export const CONDUCTOR_KINDS = ["circuit", "wlz", "feed"] as const satisfies readonly ConductorKind[];
 
 export type Endpoint =
-  | { type: "entry"; entryIndex: number }
-  | { type: "terminal"; deviceId: string; side: "line" | "load"; pole: TerminalPole }
+  /** `slot` is the cable's 0-based position along the entry, in the entry's own direction. */
+  | { type: "entry"; entryIndex: number; slot: number }
+  /** `side` is the device edge the terminal is on; which edge is the supply is the router's choice. */
+  | { type: "terminal"; deviceId: string; side: DeviceEdge; pole: TerminalPole }
   /**
    * `barIndex` counts the cabinet's built-in bars (`geometry.bars`), then the placed catalog bars in
-   * placement order.
+   * placement order. `terminalIndex` is the terminal along the bar (0-based, across its groups) —
+   * one conductor per terminal.
    */
-  | { type: "bar"; kind: "PE" | "N"; barIndex: number; groupIndex: number };
+  | { type: "bar"; kind: "PE" | "N"; barIndex: number; groupIndex: number; terminalIndex: number };
 
 export interface Conductor {
   /** Unique within one wiring, stable for the same input. */
@@ -163,6 +202,8 @@ interface Stub {
 interface RawRoute {
   points: Point[];
   firstVertical: boolean;
+  /** The route starts at a cable entry: its first segment is its cable's stub (see `avoidPins`). */
+  fromEntry: boolean;
 }
 
 interface Located {
@@ -182,9 +223,12 @@ interface BarTarget {
   kind: "PE" | "N";
   barIndex: number;
   groupIndex: number;
+  terminalIndex: number;
   point: Point;
   rect: Rect;
   orientation: "horizontal" | "vertical";
+  minMm2: number;
+  maxMm2: number;
 }
 
 function pathLength(path: readonly Point[]): number {
@@ -299,29 +343,27 @@ class Router {
     );
   }
 
-  terminalStub(terminal: Terminal, side: "line" | "load", role: ConductorRole): Stub {
+  terminalStub(terminal: Terminal, side: DeviceEdge, role: ConductorRole): Stub {
     const offset = CHANNEL_BASE_MM + CHANNEL_STEP_MM * CHANNEL_LANE[role];
     return {
       point: { x: terminal.x, y: terminal.y },
-      stub: { x: terminal.x, y: side === "line" ? terminal.y - offset : terminal.y + offset },
+      stub: { x: terminal.x, y: side === "top" ? terminal.y - offset : terminal.y + offset },
       axis: "h",
     };
   }
 
-  /** The entry's midpoint on the cabinet edge. */
-  entryStub(entryIndex: number): Stub {
+  /** A cable's own point on its entry's cabinet edge, `along` millimetres along that edge. */
+  entryStub(entryIndex: number, along: number): Stub {
     const { interior, entries } = this.geometry;
-    const entry = entries[entryIndex];
-    const mid = entry.offsetMm + entry.lengthMm / 2;
-    switch (entry.side) {
+    switch (entries[entryIndex].side) {
       case "top":
-        return { point: { x: mid, y: 0 }, stub: { x: mid, y: this.topLane }, axis: "h" };
+        return { point: { x: along, y: 0 }, stub: { x: along, y: this.topLane }, axis: "h" };
       case "bottom":
-        return { point: { x: mid, y: interior.heightMm }, stub: { x: mid, y: this.bottomLane }, axis: "h" };
+        return { point: { x: along, y: interior.heightMm }, stub: { x: along, y: this.bottomLane }, axis: "h" };
       case "left":
-        return { point: { x: 0, y: mid }, stub: { x: this.gutterLeft, y: mid }, axis: "v" };
+        return { point: { x: 0, y: along }, stub: { x: this.gutterLeft, y: along }, axis: "v" };
       case "right":
-        return { point: { x: interior.widthMm, y: mid }, stub: { x: this.gutterRight, y: mid }, axis: "v" };
+        return { point: { x: interior.widthMm, y: along }, stub: { x: this.gutterRight, y: along }, axis: "v" };
     }
   }
 
@@ -393,7 +435,7 @@ class Router {
     else if (from.axis === "h") middle = [from.stub, { x: to.stub.x, y: from.stub.y }, to.stub];
     else if (to.axis === "h") middle = [from.stub, { x: from.stub.x, y: to.stub.y }, to.stub];
     else middle = this.joinVerticalLanes(from.stub, to.stub);
-    return { points: [from.point, ...middle, to.point], firstVertical: from.axis === "h" };
+    return { points: [from.point, ...middle, to.point], firstVertical: from.axis === "h", fromEntry: false };
   }
 
   /**
@@ -412,6 +454,15 @@ class Router {
       if (end <= coord + EPS) low = Math.max(low, end);
       else if (start >= coord - EPS) high = Math.min(high, start);
     };
+    // A vertical run may spread behind the devices beside it, but never so far that one of its ends —
+    // a corner where a horizontal stub joins it — lands inside a device of a row that end lies in.
+    let frontLow = -Infinity;
+    let frontHigh = Infinity;
+    const keepFront = (start: number, end: number) => {
+      if (end <= coord + EPS) frontLow = Math.max(frontLow, end);
+      else if (start >= coord - EPS) frontHigh = Math.min(frontHigh, start);
+    };
+    const insideRow = (y: number, band: Band) => y > band.top + EPS && y < band.bottom - EPS;
     for (const band of this.bands) {
       // The spans are sorted and disjoint: the first one ending past the coordinate (or past `a`)
       // and the one before it are the only candidates.
@@ -431,6 +482,12 @@ class Router {
         // A span the segment runs through is no bound (the router's last resort); look past it.
         if (first + 1 < spans.length && spans[first].start < coord - EPS)
           bound(spans[first + 1].start, spans[first + 1].end);
+        if (insideRow(a, band) || insideRow(b, band)) {
+          if (first > 0) keepFront(spans[first - 1].start, spans[first - 1].end);
+          if (first < spans.length) keepFront(spans[first].start, spans[first].end);
+          if (first + 1 < spans.length && spans[first].start < coord - EPS)
+            keepFront(spans[first + 1].start, spans[first + 1].end);
+        }
       } else if (first < spans.length && spans[first].start < b + EPS) {
         bound(band.top, band.bottom);
       }
@@ -446,8 +503,11 @@ class Router {
     // vertical passage may spread up to `BEHIND_DEVICES_MM` behind the devices on either side; only
     // its preferred range keeps clear of them. Horizontal runs keep to their channel between the device
     // rows, so no route turns or ends behind a device.
-    const hardLow = axis === "v" ? Math.max(0, low - BEHIND_DEVICES_MM) : low;
-    const hardHigh = axis === "v" ? Math.min(this.geometry.interior.widthMm, high + BEHIND_DEVICES_MM) : high;
+    const hardLow = axis === "v" ? Math.max(0, low - BEHIND_DEVICES_MM, Math.min(low, frontLow)) : low;
+    const hardHigh =
+      axis === "v"
+        ? Math.min(this.geometry.interior.widthMm, high + BEHIND_DEVICES_MM, Math.max(high, frontHigh))
+        : high;
     return {
       lo: Math.min(low + CLEARANCE_MM, coord),
       hi: Math.max(high - CLEARANCE_MM, coord),
@@ -485,6 +545,13 @@ const NUDGE_PASSES: readonly Axis[] = ["v", "h"];
  */
 const BEHIND_DEVICES_MM = 10 * WIRE_TRACK_PITCH_MM;
 
+/**
+ * How far past its ends a vertical run counts as alongside another (see `nudgeAxis`): the horizontal
+ * pass after it moves a run's end by a few tracks at most. Needed since every bar conductor has a
+ * terminal of its own (plan Phase 5c), so their verticals often meet end to end.
+ */
+const VERTICAL_REACH_MM = 3 * WIRE_TRACK_PITCH_MM;
+
 /** The closest a track may come to a device, a bar or the interior edge when a gap is crowded. */
 const TRACK_EDGE_MM = 1;
 
@@ -511,6 +578,10 @@ interface Segment {
   /** The extent along the segment, fixed for the pass. */
   from: number;
   to: number;
+  /** The coordinate of its own cable's stub when the segment lies on that stub's line; else null. */
+  anchor: number | null;
+  /** For an anchored segment, the side it turns to at its far end (-1, 0, 1); else 0. */
+  lean: number;
 }
 
 function coordinate(point: Point, axis: Axis): number {
@@ -566,6 +637,8 @@ interface Pin {
   to: number;
   /** The endpoint the stub lands on. */
   end: Point;
+  /** A cable's stub from its entry point: an obstacle even to its own cores (see `avoidPins`). */
+  cable: boolean;
 }
 
 /**
@@ -574,6 +647,13 @@ interface Pin {
  * cell has room for fewer than three tracks or the segment starts on a pin — then it takes whichever
  * neighbouring cell has the most room. A stub into one of the segment's own endpoints is no obstacle:
  * conductors sharing an endpoint share its stub, and a run continuing straight into it merges with it.
+ * Except a cable's stub (plan Phase 5c, progressive split): a core leaves its cable one at a time, at its
+ * own lane, and from there runs on its own track — so its passage keeps a pitch off its own cable's stub
+ * too, which the other cores still run along until they turn off. The later pass still moves where each
+ * core turns off (by `reach`), so that stub counts as alongside within `reach` of the segment's extent.
+ * A run lying on the stub's own line is the exception: it continues the cable, and its bundle keeps
+ * one slot exactly on that line and the others whole pitches off it (`Bundle.anchor`), so only the last
+ * core stays on the line.
  * The cell is chosen on the hard range and applies to both; when it leaves no room at all the range is
  * left as it was (an overlap beats crossing a device), and a preferred range it empties falls back to
  * the hard one.
@@ -585,15 +665,21 @@ function avoidPins(
   desired: number,
   from: number,
   to: number,
+  reach: number,
 ): TrackRange {
   const pitch = WIRE_TRACK_PITCH_MM;
   const [start, finish] = ends;
   const relevant = (pin: Pin) => {
-    if (Math.min(pin.to, to) - Math.max(pin.from, from) <= EPS) return false;
     const { x, y } = pin.end;
     const own =
       (Math.abs(start.x - x) < EPS && Math.abs(start.y - y) < EPS) ||
       (Math.abs(finish.x - x) < EPS && Math.abs(finish.y - y) < EPS);
+    if (own && pin.cable) {
+      // A run on the stub's own line continues the cable: its bundle keeps a slot on that line (`anchor`).
+      if (Math.abs(pin.at - desired) < EPS) return false;
+      return Math.min(pin.to, to + reach) - Math.max(pin.from, from - reach) > EPS;
+    }
+    if (Math.min(pin.to, to) - Math.max(pin.from, from) <= EPS) return false;
     return !own;
   };
 
@@ -669,18 +755,74 @@ interface Bundle {
   from: number;
   to: number;
   range: TrackRange;
+  /** Every member lies on its own cable's stub line, here: one slot stays on it (see `place`). */
+  anchor: number | null;
+  /** The anchored members' summed `lean`: which way an even bundle steps off the anchor. */
+  lean: number;
 }
 
-/** The first track of `slots` tracks `pitch` apart centred on `centre`, inside a range; and the pitch. */
-function place(slots: number, centre: number, range: TrackRange): { start: number; pitch: number } | null {
-  if (range.loHard > range.hiHard + EPS) return null;
+/** `slots` tracks a pitch apart centred on `centre` inside `low…high`, closing up when it is too narrow. */
+function spread(slots: number, centre: number, low: number, high: number): { start: number; pitch: number } {
   const gaps = slots - 1;
   let pitch = WIRE_TRACK_PITCH_MM;
+  if (high - low < gaps * pitch) pitch = gaps > 0 ? (high - low) / gaps : 0;
+  return { start: Math.min(Math.max(centre - (gaps * pitch) / 2, low), high - gaps * pitch), pitch };
+}
+
+/**
+ * The first track of `slots` tracks `pitch` apart centred on `centre`, inside a range; and the pitch.
+ *
+ * With an `anchor` (its members' cable stub line, see `avoidPins`) the tracks keep to that line's
+ * grid: shifted by whole pitches so one lies exactly on the anchor — the core there continues the
+ * cable, the others leave it on tracks whole pitches off it. Of two shifts equally near the centred
+ * span, the one towards the side the members turn to (`lean`) wins. When the range cannot hold a track
+ * on the anchor at full pitch, the whole bundle keeps at least a pitch off it, on the side with more
+ * room — closing up there if it must, never onto the stub.
+ */
+function place(
+  slots: number,
+  centre: number,
+  range: TrackRange,
+  anchor: number | null = null,
+  lean = 0,
+): { start: number; pitch: number } | null {
+  if (range.loHard > range.hiHard + EPS) return null;
+  const pitch = WIRE_TRACK_PITCH_MM;
+  const gaps = slots - 1;
   const soft = range.hi - range.lo >= gaps * pitch - EPS;
   const low = soft ? range.lo : range.loHard;
   const high = soft ? range.hi : range.hiHard;
-  if (high - low < gaps * pitch) pitch = gaps > 0 ? (high - low) / gaps : 0;
-  return { start: Math.min(Math.max(centre - (gaps * pitch) / 2, low), high - gaps * pitch), pitch };
+  const plain = spread(slots, centre, low, high);
+  if (anchor === null) return plain;
+
+  if (plain.pitch === pitch) {
+    const below = anchor - Math.ceil((anchor - plain.start) / pitch - EPS) * pitch;
+    const candidates = [below, below + pitch, below - pitch, below + 2 * pitch].sort(
+      (p, q) => Math.abs(p - plain.start) - Math.abs(q - plain.start) || lean * (q - p),
+    );
+    for (const candidate of candidates) {
+      const onAnchor = candidate <= anchor + EPS && anchor <= candidate + gaps * pitch + EPS;
+      if (onAnchor && candidate >= low - EPS && candidate + gaps * pitch <= high + EPS)
+        return { start: candidate, pitch };
+    }
+  }
+
+  let best: [number, number] | null = null;
+  for (const [lo, hi] of [
+    [range.lo, range.hi],
+    [range.loHard, range.hiHard],
+  ]) {
+    const sides: [number, number][] = [
+      [lo, Math.min(hi, anchor - pitch)],
+      [Math.max(lo, anchor + pitch), hi],
+    ];
+    for (const side of sides) {
+      if (side[1] - side[0] < -EPS) continue;
+      if (best === null || side[1] - side[0] > best[1] - best[0] + EPS) best = side;
+    }
+    if (best !== null && best[1] - best[0] >= gaps * pitch - EPS) break;
+  }
+  return best === null ? plain : spread(slots, centre, best[0], best[1]);
 }
 
 /**
@@ -737,14 +879,23 @@ function bundleOf(members: number[], slots: number, segments: readonly Segment[]
     from = Math.min(from, segment.from);
     to = Math.max(to, segment.to);
   }
-  return withSpan({ members, slots, desiredSum, lo: 0, hi: 0, from, to, range });
+  const anchor = segments[members[0]].anchor;
+  const shared = members.every((m) => segments[m].anchor === anchor) ? anchor : null;
+  const lean = members.reduce((sum, m) => sum + segments[m].lean, 0);
+  return withSpan({ members, slots, desiredSum, lo: 0, hi: 0, from, to, range, anchor: shared, lean });
 }
 
 /** Sets the bundle's span from its slots, centre and range; returns it. */
 function withSpan(bundle: Bundle): Bundle {
-  const placed = place(bundle.slots, bundle.desiredSum / bundle.members.length, bundle.range);
+  const placed = place(
+    bundle.slots,
+    bundle.desiredSum / bundle.members.length,
+    bundle.range,
+    bundle.anchor,
+    bundle.lean,
+  );
   if (placed === null) {
-    // No common range (pins on both sides): the members keep their own clamped tracks.
+    // No common range (pins on both sides): the members split into runs (`layBundle`).
     bundle.lo = bundle.range.loHard;
     bundle.hi = bundle.range.hiHard;
   } else {
@@ -765,6 +916,8 @@ function merge(a: Bundle, b: Bundle): Bundle {
   a.range.hi = Math.min(a.range.hi, b.range.hi);
   a.range.loHard = Math.max(a.range.loHard, b.range.loHard);
   a.range.hiHard = Math.min(a.range.hiHard, b.range.hiHard);
+  if (a.anchor !== b.anchor) a.anchor = null;
+  a.lean += b.lean;
   return withSpan(a);
 }
 
@@ -774,7 +927,9 @@ function merge(a: Bundle, b: Bundle): Bundle {
  * the members' mean desired track and shifted into their common range: the preferred one when it holds them, else
  * the hard one. Crowding fallback: when even that is too narrow, the slots close up evenly to fill it
  * — closer than the pitch, but still distinct. Members whose ranges have nothing in common (pins on
- * both sides) keep their own clamped tracks.
+ * both sides) split into runs whose ranges do — by the low end of their hard range, each run taking
+ * members while their common range lasts — and each run is laid out on its own; the runs' common
+ * ranges are disjoint and ordered, so they never share a track.
  */
 function layBundle(
   bundle: Bundle,
@@ -783,14 +938,32 @@ function layBundle(
   track: number[],
 ): void {
   const { slots, slotOf } = assignSlots(bundle.members, segments, keyOf);
-  const placed = place(slots, bundle.desiredSum / bundle.members.length, bundle.range);
-  for (const m of bundle.members) {
-    const { range, desired } = segments[m];
-    track[m] =
-      placed === null
-        ? Math.min(Math.max(desired, range.loHard), range.hiHard)
-        : placed.start + (slotOf.get(m) ?? 0) * placed.pitch;
+  const placed = place(slots, bundle.desiredSum / bundle.members.length, bundle.range, bundle.anchor, bundle.lean);
+  if (placed !== null) {
+    for (const m of bundle.members) track[m] = placed.start + (slotOf.get(m) ?? 0) * placed.pitch;
+    return;
   }
+  if (bundle.members.length === 1) {
+    const { range, desired } = segments[bundle.members[0]];
+    track[bundle.members[0]] = Math.min(Math.max(desired, range.loHard), range.hiHard);
+    return;
+  }
+  const ordered = sortIndices(bundle.members, (m) => segments[m].range.loHard);
+  let run: number[] = [];
+  let runHigh = Infinity;
+  const flush = () => {
+    if (run.length === 0) return;
+    layBundle(bundleOf(run, assignSlots(run, segments, null).slots, segments), segments, keyOf, track);
+    run = [];
+    runHigh = Infinity;
+  };
+  for (const m of ordered) {
+    const { loHard, hiHard } = segments[m].range;
+    if (loHard > runHigh + EPS) flush();
+    run.push(m);
+    runHigh = Math.min(runHigh, hiHard);
+  }
+  flush();
 }
 
 /**
@@ -823,7 +996,7 @@ function nudgeAxis(routes: readonly RawRoute[], axis: Axis, router: Router): voi
       const id = Math.round(end.x * 1000) * 1e8 + Math.round(end.y * 1000);
       const pin = byEnd.get(id);
       if (pin === undefined) {
-        byEnd.set(id, { at: coordinate(a, axis), from, to, end });
+        byEnd.set(id, { at: coordinate(a, axis), from, to, end, cable: index === 0 && route.fromEntry });
       } else {
         pin.from = Math.min(pin.from, from);
         pin.to = Math.max(pin.to, to);
@@ -848,8 +1021,15 @@ function nudgeAxis(routes: readonly RawRoute[], axis: Axis, router: Router): voi
       // A zero-length segment overlaps nothing, so it never needs a track of its own.
       if (to - from <= EPS) continue;
       const desired = vertical ? a.x : a.y;
-      const range = avoidPins(router.trackRange(axis, desired, from, to), pins, ends, desired, from, to);
-      segments.push({ path: pathIndex, index, desired, range, from, to });
+      // The horizontal pass still moves the runs a vertical one ends on, which can stretch two
+      // end-to-end verticals into overlap: verticals within `VERTICAL_REACH_MM` count as alongside.
+      const reach = vertical ? VERTICAL_REACH_MM : 0;
+      const range = avoidPins(router.trackRange(axis, desired, from, to), pins, ends, desired, from, to, reach);
+      // The cable's stub is this axis's first segment; a run on its line continues the cable.
+      const onStub = route.fromEntry && route.firstVertical === vertical;
+      const anchor = onStub && Math.abs(coordinate(path[0], axis) - desired) < EPS ? desired : null;
+      const lean = anchor === null ? 0 : turnAt(path, index + 2, 1, b, axis);
+      segments.push({ path: pathIndex, index, desired, range, from: from - reach, to: to + reach, anchor, lean });
     }
   });
   if (segments.length === 0) return;
@@ -910,6 +1090,7 @@ function nudgeTracks(routes: readonly RawRoute[], router: Router): Point[][] {
   const working = routes.map((route) => ({
     points: route.points.map((point) => ({ ...point })),
     firstVertical: route.firstVertical,
+    fromEntry: route.fromEntry,
   }));
   for (const axis of NUDGE_PASSES) nudgeAxis(working, axis, router);
   return working.map((route) => simplify(route.points));
@@ -942,6 +1123,157 @@ function distance(a: Point, b: Point): number {
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
+function oppositeEdge(edge: DeviceEdge): DeviceEdge {
+  return edge === "top" ? "bottom" : "top";
+}
+
+/**
+ * The device edge facing a point above or below it: `top` when the point is higher than `centreY`,
+ * `bottom` when lower, null when level with it (a side entry at the device's own height).
+ */
+export function facingEdge(pointY: number, centreY: number): DeviceEdge | null {
+  if (pointY < centreY - EPS) return "top";
+  if (pointY > centreY + EPS) return "bottom";
+  return null;
+}
+
+/**
+ * The edge on which a group's circuits leave its MCBs: the edge facing their cable entry points (the
+ * mean height of their points against the group's rail centre). Level with it → `top`, so the
+ * jumpers take the default bottom side.
+ */
+function groupCircuitEdge(entryYs: readonly number[], centreY: number): DeviceEdge {
+  if (entryYs.length === 0) return "top";
+  const mean = entryYs.reduce((sum, y) => sum + y, 0) / entryYs.length;
+  return facingEdge(mean, centreY) ?? "top";
+}
+
+/** One cable entering the cabinet: the WLZ or a circuit's cable. */
+interface Cable {
+  entryIndex: number;
+  /** Where the cable goes — its device's centre; orders the cables along the entry. */
+  toward: Point;
+  /** Filled by `spreadCables`. */
+  slot: number;
+  along: number;
+}
+
+/**
+ * Each cable's own point along its entry (plan Phase 5c): the cables of one entry, ordered by where
+ * they go (x along a top or bottom entry, y along a side one; ties keep their order), split the
+ * entry's span into equal slots and enter at the centre of theirs. However many cables an entry takes,
+ * no two share a point: the slots only close up.
+ */
+function spreadCables(cables: readonly Cable[], geometry: CabinetGeometry): void {
+  const byEntry = new Map<number, Cable[]>();
+  for (const cable of cables) {
+    const list = byEntry.get(cable.entryIndex) ?? [];
+    list.push(cable);
+    byEntry.set(cable.entryIndex, list);
+  }
+  for (const [entryIndex, list] of byEntry) {
+    const entry = geometry.entries[entryIndex];
+    const horizontal = entry.side === "top" || entry.side === "bottom";
+    const coordinateOf = (cable: Cable) => (horizontal ? cable.toward.x : cable.toward.y);
+    const ordered = list.map((cable, order) => ({ cable, order }));
+    ordered.sort((a, b) => coordinateOf(a.cable) - coordinateOf(b.cable) || a.order - b.order);
+    ordered.forEach(({ cable }, slot) => {
+      cable.slot = slot;
+      cable.along = entry.offsetMm + (entry.lengthMm * (slot + 0.5)) / ordered.length;
+    });
+  }
+}
+
+/** A conductor end before routing; a bar end gets its terminal from `assignBarTerminals`. */
+type PendingEnd =
+  | { type: "entry"; cable: Cable }
+  | { type: "terminal"; item: Located; side: DeviceEdge; terminal: Terminal }
+  | { type: "bar"; kind: "PE" | "N"; near: Point; target: BarTarget | null };
+
+type PendingBarEnd = Extract<PendingEnd, { type: "bar" }>;
+
+interface Pending {
+  kind: ConductorKind;
+  role: ConductorRole;
+  circuitId: string | null;
+  crossSectionMm2: number;
+  from: PendingEnd;
+  to: PendingEnd;
+}
+
+/** The order bar terminals are handed out in: the supply's own conductors first, then the circuits. */
+const ASSIGN_RANK: Record<ConductorKind, number> = { wlz: 0, feed: 1, circuit: 2 };
+
+function fits(target: BarTarget, section: number): boolean {
+  return target.minMm2 <= section && section <= target.maxMm2;
+}
+
+/**
+ * One terminal per conductor (plan Phase 5c). Per bar kind, every bar end takes the nearest free
+ * terminal whose cross-section range fits its conductor — the WLZ first, then the feeds, then the
+ * circuits, each in routing order. Nearest-first can strand a conductor that a different choice would
+ * have fitted (a thin conductor taking the only wide terminal); when it lands fewer conductors than
+ * the best possible count — `fittingTerminals`, the count the bar warning and the catalog-bar match
+ * use — the kind is handed out again the way that count is reached: thinnest conductor first, each to
+ * the fitting terminal whose range closes soonest, the nearer of equals. A bar end left without a
+ * terminal stays `null`: its conductor is not routed, never doubled up.
+ */
+function assignBarTerminals(pending: readonly Pending[], targets: readonly BarTarget[]): void {
+  const ordered = pending
+    .map((item, order) => ({ item, order }))
+    .sort((a, b) => ASSIGN_RANK[a.item.kind] - ASSIGN_RANK[b.item.kind] || a.order - b.order);
+  for (const kind of ["PE", "N"] as const) {
+    const ends: { end: PendingBarEnd; section: number }[] = [];
+    for (const { item } of ordered) {
+      for (const end of [item.from, item.to]) {
+        if (end.type === "bar" && end.kind === kind) ends.push({ end, section: item.crossSectionMm2 });
+      }
+    }
+    if (ends.length === 0) continue;
+    const terminals = targets.filter((target) => target.kind === kind);
+
+    const handOut = (order: readonly number[], tighter: boolean): (BarTarget | null)[] => {
+      const taken = new Set<BarTarget>();
+      const chosen: (BarTarget | null)[] = ends.map(() => null);
+      for (const i of order) {
+        const { end, section } = ends[i];
+        let best: BarTarget | null = null;
+        let bestDistance = Infinity;
+        for (const target of terminals) {
+          if (taken.has(target) || !fits(target, section)) continue;
+          const d = distance(end.near, target.point);
+          const better =
+            best === null ||
+            (tighter && target.maxMm2 < best.maxMm2) ||
+            ((!tighter || target.maxMm2 === best.maxMm2) && d < bestDistance - EPS);
+          if (better) {
+            best = target;
+            bestDistance = d;
+          }
+        }
+        if (best !== null) taken.add(best);
+        chosen[i] = best;
+      }
+      return chosen;
+    };
+
+    let chosen = handOut(
+      ends.map((_, i) => i),
+      false,
+    );
+    const landed = chosen.filter((target) => target !== null).length;
+    const best = fittingTerminals(
+      ends.map((end) => end.section),
+      terminals.map((target) => ({ count: 1, minMm2: target.minMm2, maxMm2: target.maxMm2 })),
+    );
+    if (landed < best) {
+      const bySection = ends.map((_, i) => i).sort((a, b) => ends[a].section - ends[b].section || a - b);
+      chosen = handOut(bySection, true);
+    }
+    ends.forEach(({ end }, i) => (end.target = chosen[i]));
+  }
+}
+
 /** Every conductor of a placed layout, in a stable order: circuits, WLZ, feeds. */
 export function routeConductors(input: WiringInput): Conductor[] {
   const { geometry, supply } = input;
@@ -958,141 +1290,152 @@ export function routeConductors(input: WiringInput): Conductor[] {
   }
   const router = new Router(geometry, [...located.values()]);
 
-  // Built-in bars first, then the placed catalog bars, each seen as a horizontal bar over its rect.
+  // Built-in bars first, then the placed catalog bars, each seen as a horizontal bar over its rect;
+  // every terminal of every bar is a target of its own.
   const catalogBars = [...located.values()].flatMap((item) => catalogBarAsCabinetBar(item.device, item.rect) ?? []);
   const barTargets: BarTarget[] = [...geometry.bars, ...catalogBars].flatMap((bar, barIndex) =>
-    terminalGroupPoints(bar).map((point, groupIndex) => ({
+    barTerminalPoints(bar, geometry.interior).map((terminal) => ({
       kind: bar.kind,
       barIndex,
-      groupIndex,
-      point,
+      groupIndex: terminal.groupIndex,
+      terminalIndex: terminal.index,
+      point: terminal.point,
       rect: barRect(bar),
       orientation: bar.orientation,
+      minMm2: terminal.minMm2,
+      maxMm2: terminal.maxMm2,
     })),
   );
-  /** The bar terminal group of `kind` nearest `from`, straight-line; ties go to the earlier one. */
-  const nearestBar = (kind: "PE" | "N", from: Point): BarTarget | null => {
-    let best: BarTarget | null = null;
-    for (const target of barTargets) {
-      if (target.kind !== kind) continue;
-      if (best === null || distance(from, target.point) < distance(from, best.point) - EPS) best = target;
-    }
-    return best;
-  };
-
-  const conductors: Conductor[] = [];
-  const routes: RawRoute[] = [];
-  const add = (
-    kind: ConductorKind,
-    role: ConductorRole,
-    circuitId: string | null,
-    crossSectionMm2: number,
-    from: { endpoint: Endpoint; stub: Stub },
-    to: { endpoint: Endpoint; stub: Stub },
-  ) => {
-    // The path and its lengths are filled in after nudging.
-    routes.push(router.route(from.stub, to.stub));
-    conductors.push({
-      key: `w${String(conductors.length)}`,
-      kind,
-      role,
-      circuitId,
-      crossSectionMm2,
-      from: from.endpoint,
-      to: to.endpoint,
-      path: [],
-      routedMm: 0,
-      lengthMm: 0,
-    });
-  };
-
-  const entryEnd = (entryIndex: number) => ({
-    endpoint: { type: "entry", entryIndex } as Endpoint,
-    stub: router.entryStub(entryIndex),
-  });
-  const terminalEnd = (item: Located, side: "line" | "load", terminal: Terminal, role: ConductorRole) => ({
-    endpoint: { type: "terminal", deviceId: item.device.id, side, pole: terminal.pole } as Endpoint,
-    stub: router.terminalStub(terminal, side, role),
-  });
-  const barEnd = (target: BarTarget) => ({
-    endpoint: { type: "bar", kind: target.kind, barIndex: target.barIndex, groupIndex: target.groupIndex } as Endpoint,
-    stub: router.barStub(target),
-  });
+  const hasBar = (kind: "PE" | "N") => barTargets.some((target) => target.kind === kind);
 
   const all = [...located.values()];
   const groupRcd = (groupId: string | null) =>
     groupId === null
       ? undefined
       : all.find((item) => item.device.role === "rcd" && item.device.rcd_group_id === groupId);
+  const centre = (rect: Rect): Point => ({ x: rect.x + rect.w / 2, y: rect.y + rect.h / 2 });
 
-  // Circuit cables in.
-  for (const circuit of input.circuits) {
+  // The cables, each at its own point along its entry.
+  const main = all.find((item) => item.device.role === "main_switch");
+  const circuitCables = input.circuits.flatMap((circuit) => {
     const protection = all.find(
       (item) => item.device.circuit_id === circuit.id && (item.device.role === "mcb" || item.device.role === "rcbo"),
     );
-    if (protection === undefined) continue;
+    if (protection === undefined) return [];
     const entryIndex = Math.max(
       0,
       geometry.entries.findIndex((entry) => entry.side === circuit.entry_side),
     );
-    const entry = entryEnd(entryIndex);
-    const section = circuit.cross_section_mm2;
+    const cable: Cable = { entryIndex, toward: centre(protection.rect), slot: 0, along: 0 };
+    return [{ circuit, protection, cable }];
+  });
+  const wlzCable: Cable | null = main ? { entryIndex: 0, toward: centre(main.rect), slot: 0, along: 0 } : null;
+  spreadCables([...circuitCables.map((item) => item.cable), ...(wlzCable ? [wlzCable] : [])], geometry);
+  const entryPoint = (cable: Cable) => router.entryStub(cable.entryIndex, cable.along).point;
 
-    for (const terminal of protection.terminals.load.filter(isPhase)) {
-      const role = phaseRole(terminal.pole);
-      add("circuit", role, circuit.id, section, entry, terminalEnd(protection, "load", terminal, role));
+  // Each device's supply edge (see `## Bidirectional devices` in the module comment).
+  const supplyEdges = new Map<string, DeviceEdge>();
+  if (main && wlzCable) {
+    supplyEdges.set(main.device.id, facingEdge(entryPoint(wlzCable).y, centre(main.rect).y) ?? "bottom");
+  }
+  const cableYOf = new Map(circuitCables.map((item) => [item.protection.device.id, entryPoint(item.cable).y]));
+  for (const item of all) {
+    const { role, rcd_group_id: groupId } = item.device;
+    if (role === "rcd") {
+      const members = all.filter((other) => other.device.role === "mcb" && other.device.rcd_group_id === groupId);
+      const circuitsEdge = groupCircuitEdge(
+        members.flatMap((mcb) => cableYOf.get(mcb.device.id) ?? []),
+        centre(item.rect).y,
+      );
+      // The RCD gives out on the jumper side, opposite the circuits; its MCBs take their supply there.
+      supplyEdges.set(item.device.id, circuitsEdge);
+      for (const mcb of members) supplyEdges.set(mcb.device.id, oppositeEdge(circuitsEdge));
+    } else if ((role === "rcbo" || role === "mcb") && (role === "rcbo" || groupRcd(groupId) === undefined)) {
+      const cableY = cableYOf.get(item.device.id);
+      const circuitsEdge = cableY === undefined ? null : facingEdge(cableY, centre(item.rect).y);
+      supplyEdges.set(item.device.id, circuitsEdge === null ? "top" : oppositeEdge(circuitsEdge));
+    }
+  }
+  const supplySide = (item: Located): DeviceEdge => supplyEdges.get(item.device.id) ?? "top";
+  const outSide = (item: Located): DeviceEdge => oppositeEdge(supplySide(item));
+
+  const pending: Pending[] = [];
+  const add = (
+    kind: ConductorKind,
+    role: ConductorRole,
+    circuitId: string | null,
+    crossSectionMm2: number,
+    from: PendingEnd,
+    to: PendingEnd,
+  ) => {
+    pending.push({ kind, role, circuitId, crossSectionMm2, from, to });
+  };
+  const entryEnd = (cable: Cable): PendingEnd => ({ type: "entry", cable });
+  const terminalEnd = (item: Located, side: DeviceEdge, terminal: Terminal): PendingEnd => ({
+    type: "terminal",
+    item,
+    side,
+    terminal,
+  });
+  const barEnd = (kind: "PE" | "N", near: Point): PendingEnd => ({ type: "bar", kind, near, target: null });
+
+  // Circuit cables in: the phases to the device's outgoing edge.
+  for (const { circuit, protection, cable } of circuitCables) {
+    const entry = entryEnd(cable);
+    const near = entryPoint(cable);
+    const section = circuit.cross_section_mm2;
+    const out = outSide(protection);
+
+    for (const terminal of protection.terminals[out].filter(isPhase)) {
+      add("circuit", phaseRole(terminal.pole), circuit.id, section, entry, terminalEnd(protection, out, terminal));
     }
 
     if (!tnC) {
-      const ownN = protection.terminals.load.find((terminal) => terminal.pole === "N");
+      const ownN = protection.terminals[out].find((terminal) => terminal.pole === "N");
       const rcd = groupRcd(protection.device.rcd_group_id);
-      const rcdN = rcd?.terminals.load.find((terminal) => terminal.pole === "N");
+      const rcdN = rcd?.terminals[outSide(rcd)].find((terminal) => terminal.pole === "N");
       if (ownN) {
-        add("circuit", "N", circuit.id, section, entry, terminalEnd(protection, "load", ownN, "N"));
+        add("circuit", "N", circuit.id, section, entry, terminalEnd(protection, out, ownN));
       } else if (rcd && rcdN) {
-        add("circuit", "N", circuit.id, section, entry, terminalEnd(rcd, "load", rcdN, "N"));
-      } else if (!rcd) {
-        const bar = nearestBar("N", entry.stub.point);
-        if (bar) add("circuit", "N", circuit.id, section, entry, barEnd(bar));
+        add("circuit", "N", circuit.id, section, entry, terminalEnd(rcd, outSide(rcd), rcdN));
+      } else if (!rcd && hasBar("N")) {
+        add("circuit", "N", circuit.id, section, entry, barEnd("N", near));
       }
     }
 
-    const pe = nearestBar("PE", entry.stub.point);
-    if (pe) add("circuit", tnC ? "PEN" : "PE", circuit.id, section, entry, barEnd(pe));
+    if (hasBar("PE")) add("circuit", tnC ? "PEN" : "PE", circuit.id, section, entry, barEnd("PE", near));
   }
 
-  // WLZ.
+  // WLZ, onto the main switch's supply edge.
   const wlzSection = supply.wlz_cross_section_mm2;
-  const main = all.find((item) => item.device.role === "main_switch");
-  if (main) {
-    const entry = entryEnd(0);
-    for (const terminal of main.terminals.line.filter(isPhase)) {
-      const role = phaseRole(terminal.pole);
-      add("wlz", role, null, wlzSection, entry, terminalEnd(main, "line", terminal, role));
+  if (main && wlzCable) {
+    const entry = entryEnd(wlzCable);
+    const near = entryPoint(wlzCable);
+    const into = supplySide(main);
+    for (const terminal of main.terminals[into].filter(isPhase)) {
+      add("wlz", phaseRole(terminal.pole), null, wlzSection, entry, terminalEnd(main, into, terminal));
     }
-    const pe = nearestBar("PE", entry.stub.point);
-    const mainN = main.terminals.line.find((terminal) => terminal.pole === "N");
+    const mainN = main.terminals[into].find((terminal) => terminal.pole === "N");
     // TN-C-S splits the PEN on the PE bar; with no PE bar there is no split point.
-    const splitsPen = tnCS && pe !== null;
+    const splitsPen = tnCS && hasBar("PE");
     if (!tnC && !splitsPen) {
-      const bar = mainN ? null : nearestBar("N", entry.stub.point);
-      if (mainN) add("wlz", "N", null, wlzSection, entry, terminalEnd(main, "line", mainN, "N"));
-      else if (bar) add("wlz", "N", null, wlzSection, entry, barEnd(bar));
+      if (mainN) add("wlz", "N", null, wlzSection, entry, terminalEnd(main, into, mainN));
+      else if (hasBar("N")) add("wlz", "N", null, wlzSection, entry, barEnd("N", near));
     }
-    if (pe) add("wlz", tnC || splitsPen ? "PEN" : "PE", null, wlzSection, entry, barEnd(pe));
+    if (hasBar("PE")) add("wlz", tnC || splitsPen ? "PEN" : "PE", null, wlzSection, entry, barEnd("PE", near));
     if (splitsPen) {
-      const nBar = mainN ? null : nearestBar("N", pe.point);
-      if (mainN) add("feed", "N", null, wlzSection, barEnd(pe), terminalEnd(main, "line", mainN, "N"));
-      else if (nBar) add("feed", "N", null, wlzSection, barEnd(pe), barEnd(nBar));
+      // The split link takes a PE-bar terminal of its own (user decision 2026-10-07).
+      if (mainN) add("feed", "N", null, wlzSection, barEnd("PE", mainN), terminalEnd(main, into, mainN));
+      else if (hasBar("N")) add("feed", "N", null, wlzSection, barEnd("PE", near), barEnd("N", near));
     }
   }
 
-  // Feeds.
+  // Feeds: the main switch's outgoing edge to each device it feeds, then each RCD to its MCBs.
   if (main) {
-    const mainLoadN = main.terminals.load.find((terminal) => terminal.pole === "N");
-    if (!tnC && mainLoadN) {
-      const bar = nearestBar("N", mainLoadN);
-      if (bar) add("feed", "N", null, wlzSection, terminalEnd(main, "load", mainLoadN, "N"), barEnd(bar));
+    const mainOut = outSide(main);
+    const mainOutN = main.terminals[mainOut].find((terminal) => terminal.pole === "N");
+    if (!tnC && mainOutN && hasBar("N")) {
+      add("feed", "N", null, wlzSection, terminalEnd(main, mainOut, mainOutN), barEnd("N", mainOutN));
     }
     const fedByMain = all.filter(
       (item) =>
@@ -1101,48 +1444,98 @@ export function routeConductors(input: WiringInput): Conductor[] {
         (item.device.role === "mcb" && groupRcd(item.device.rcd_group_id) === undefined),
     );
     for (const target of fedByMain) {
-      for (const terminal of target.terminals.line) {
+      const into = supplySide(target);
+      for (const terminal of target.terminals[into]) {
         if (terminal.pole === "N") {
-          if (tnC) continue;
-          const bar = nearestBar("N", terminal);
-          if (bar) add("feed", "N", null, wlzSection, barEnd(bar), terminalEnd(target, "line", terminal, "N"));
+          if (tnC || !hasBar("N")) continue;
+          add("feed", "N", null, wlzSection, barEnd("N", terminal), terminalEnd(target, into, terminal));
           continue;
         }
-        const source = sourceTerminal(main.terminals.load, terminal.pole);
+        const source = sourceTerminal(main.terminals[mainOut], terminal.pole);
         if (source === undefined) continue;
-        const role = phaseRole(terminal.pole);
         add(
           "feed",
-          role,
+          phaseRole(terminal.pole),
           null,
           wlzSection,
-          terminalEnd(main, "load", source, role),
-          terminalEnd(target, "line", terminal, role),
+          terminalEnd(main, mainOut, source),
+          terminalEnd(target, into, terminal),
         );
       }
     }
   }
   for (const rcd of all.filter((item) => item.device.role === "rcd")) {
+    const rcdOut = outSide(rcd);
     const members = all.filter(
       (item) => item.device.role === "mcb" && item.device.rcd_group_id === rcd.device.rcd_group_id,
     );
     for (const mcb of members) {
-      for (const terminal of mcb.terminals.line) {
+      const into = supplySide(mcb);
+      for (const terminal of mcb.terminals[into]) {
         if (terminal.pole === "N" && tnC) continue;
-        const source = sourceTerminal(rcd.terminals.load, terminal.pole);
+        const source = sourceTerminal(rcd.terminals[rcdOut], terminal.pole);
         if (source === undefined) continue;
         const role = terminal.pole === "N" ? "N" : phaseRole(terminal.pole);
-        add(
-          "feed",
-          role,
-          null,
-          wlzSection,
-          terminalEnd(rcd, "load", source, role),
-          terminalEnd(mcb, "line", terminal, role),
-        );
+        add("feed", role, null, wlzSection, terminalEnd(rcd, rcdOut, source), terminalEnd(mcb, into, terminal));
       }
     }
   }
+
+  // One conductor per bar terminal; a conductor left without one is not routed.
+  assignBarTerminals(pending, barTargets);
+  const routable = pending.filter((item) =>
+    [item.from, item.to].every((end) => end.type !== "bar" || end.target !== null),
+  );
+
+  const resolve = (end: PendingEnd, role: ConductorRole): { endpoint: Endpoint; stub: Stub } => {
+    switch (end.type) {
+      case "entry":
+        return {
+          endpoint: { type: "entry", entryIndex: end.cable.entryIndex, slot: end.cable.slot },
+          stub: router.entryStub(end.cable.entryIndex, end.cable.along),
+        };
+      case "terminal":
+        return {
+          endpoint: { type: "terminal", deviceId: end.item.device.id, side: end.side, pole: end.terminal.pole },
+          stub: router.terminalStub(end.terminal, end.side, role),
+        };
+      case "bar": {
+        // `routable` holds only bar ends that got a terminal.
+        const target = end.target;
+        if (target === null) throw new Error("an unassigned bar end reached routing");
+        return {
+          endpoint: {
+            type: "bar",
+            kind: target.kind,
+            barIndex: target.barIndex,
+            groupIndex: target.groupIndex,
+            terminalIndex: target.terminalIndex,
+          },
+          stub: router.barStub(target),
+        };
+      }
+    }
+  };
+
+  const routes: RawRoute[] = [];
+  const conductors: Conductor[] = routable.map((item, index) => {
+    const from = resolve(item.from, item.role);
+    const to = resolve(item.to, item.role);
+    // The path and its lengths are filled in after nudging.
+    routes.push({ ...router.route(from.stub, to.stub), fromEntry: item.from.type === "entry" });
+    return {
+      key: `w${String(index)}`,
+      kind: item.kind,
+      role: item.role,
+      circuitId: item.circuitId,
+      crossSectionMm2: item.crossSectionMm2,
+      from: from.endpoint,
+      to: to.endpoint,
+      path: [],
+      routedMm: 0,
+      lengthMm: 0,
+    };
+  });
 
   const paths = nudgeTracks(routes, router);
   return conductors.map((conductor, index) => {

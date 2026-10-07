@@ -85,11 +85,14 @@ function compliantRcd(catalog: readonly Device[], group: RcdGroupInput, members:
 
 /**
  * The conductors that land on a bar kind (plan Phase 5b): one per circuit at its cross-section, plus
- * the WLZ at its own; none on the N bar in TN-C, where every PEN goes to the PE bar.
+ * the WLZ at its own; none on the N bar in TN-C, where every PEN goes to the PE bar. In TN-C-S the
+ * PEN-split link takes one more PE-bar terminal at the WLZ cross-section (plan Phase 5c, user
+ * decision 2026-10-07).
  */
 function barSections(kind: "PE" | "N", circuits: readonly CircuitInput[], supply: SupplyParams): number[] {
   if (kind === "N" && supply.earthing_system === "TN-C") return [];
-  return [...circuits.map((c) => c.cross_section_mm2), supply.wlz_cross_section_mm2].sort((a, b) => a - b);
+  const split = kind === "PE" && supply.earthing_system === "TN-C-S" ? [supply.wlz_cross_section_mm2] : [];
+  return [...circuits.map((c) => c.cross_section_mm2), supply.wlz_cross_section_mm2, ...split].sort((a, b) => a - b);
 }
 
 /**

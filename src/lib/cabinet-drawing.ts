@@ -6,7 +6,14 @@ import {
   type GeometryIssue,
   type Rect,
 } from "@/lib/cabinet-geometry";
-import { deviceRect, type LayoutGroup, type Placement, type Point } from "@/lib/cabinet-layout";
+import {
+  catalogBarAsCabinetBar,
+  deviceRect,
+  type CabinetBar,
+  type LayoutGroup,
+  type Placement,
+  type Point,
+} from "@/lib/cabinet-layout";
 import {
   WIRE_SLACK_RATIO,
   type Conductor,
@@ -108,7 +115,10 @@ export function issueElements(issues: readonly GeometryIssue[]): ElementRef[] {
 // Devices on the rails
 // ---------------------------------------------------------------------------------------------
 
-/** What the drawing needs of a `project_devices` row; a stored row is one as is. */
+/**
+ * What the drawing needs of a `project_devices` row; a stored row is one as is. `terminal_groups`
+ * matters only for a catalog PE/N bar, whose terminals the drawing shows.
+ */
 export type DrawableDevice = Pick<
   Tables<"project_devices">,
   | "id"
@@ -119,7 +129,7 @@ export type DrawableDevice = Pick<
   | "rated_current_a"
   | "residual_current_ma"
   | "n_terminal_side"
->;
+> & { terminal_groups?: unknown };
 
 /** `pe_bar` / `n_bar`: a catalog bar on a rail (plan Phase 5b), drawn like a built-in bar of its kind. */
 export type DrawnRole = "main_switch" | "rcd" | "rcbo" | "mcb" | "pe_bar" | "n_bar";
@@ -138,6 +148,8 @@ export interface DrawnDevice {
   groupKey: string | null;
   groupLabel: string | null;
   nTerminalSide: DrawableDevice["n_terminal_side"];
+  /** A catalog PE/N bar seen as a cabinet bar (with its terminals); null for every other device. */
+  bar: CabinetBar | null;
 }
 
 export interface GroupOutline {
@@ -229,6 +241,7 @@ export function buildDrawnDevices(
         groupKey: grouped ? device.rcd_group_id : null,
         groupLabel: grouped && device.rcd_group_id !== null ? (labels.get(device.rcd_group_id) ?? null) : null,
         nTerminalSide: device.n_terminal_side,
+        bar: catalogBarAsCabinetBar(device, rect),
       },
     ];
   });
@@ -341,6 +354,31 @@ export function wirePathD(points: readonly Point[], sagLimits: readonly number[]
   return d;
 }
 
+/**
+ * Conductor colours per PN-EN 60445 (the `--wire-*` tokens), plus a pattern per role so a greyscale
+ * print still tells them apart: phases solid (L1 brown, L2 black, L3 grey), N dashed, PE a wider solid
+ * green line with a solid yellow centre stripe — a hollow double line in greyscale, never mistaken for
+ * the dashed N — and PEN the PE pair drawn heavier with blue dashes over the yellow stripe (user
+ * 2026-10-07), so it never reads as PE: in greyscale the dashes break its light centre. Single-phase L
+ * is drawn in L1's colour (no phase balancing in the MVP). `fill` colours a wire's end on a bar
+ * terminal.
+ */
+export const WIRE_STYLES: Record<
+  ConductorRole,
+  { stroke: string; fill: string; dash?: string; stripe: boolean; penDash: boolean; weight: number }
+> = {
+  L: { stroke: "stroke-wire-l1", fill: "fill-wire-l1", stripe: false, penDash: false, weight: 1 },
+  L1: { stroke: "stroke-wire-l1", fill: "fill-wire-l1", stripe: false, penDash: false, weight: 1 },
+  L2: { stroke: "stroke-wire-l2", fill: "fill-wire-l2", stripe: false, penDash: false, weight: 1 },
+  L3: { stroke: "stroke-wire-l3", fill: "fill-wire-l3", stripe: false, penDash: false, weight: 1 },
+  N: { stroke: "stroke-wire-n", fill: "fill-wire-n", dash: "6 3", stripe: false, penDash: false, weight: 1 },
+  PE: { stroke: "stroke-wire-pe", fill: "fill-wire-pe", stripe: true, penDash: false, weight: 1.6 },
+  PEN: { stroke: "stroke-wire-pe", fill: "fill-wire-pe", stripe: true, penDash: true, weight: 2.2 },
+};
+
+/** The blue dashes over a PEN's yellow stripe. */
+export const PEN_DASH = "3 3";
+
 /** One conductor ready to draw. */
 export interface DrawnWire {
   key: string;
@@ -349,6 +387,8 @@ export interface DrawnWire {
   d: string;
   /** The hover tooltip naming the conductor; empty when no names were given. */
   title: string;
+  /** Where the conductor lands on a bar terminal — drawn as the terminal taken by its end. */
+  barEnds: Point[];
 }
 
 /** What the tooltips name conductors by: circuit names by id, and the drawn devices. */
@@ -360,24 +400,29 @@ export interface WireNames {
 function endpointName(endpoint: Endpoint, names: WireNames): string {
   const w = t.layout.section.wireTitle;
   if (endpoint.type === "entry") return w.entry;
-  if (endpoint.type === "bar") return endpoint.kind === "PE" ? w.peBar : w.nBar;
+  if (endpoint.type === "bar") {
+    return w.barTerminal(endpoint.kind === "PE" ? w.peBar : w.nBar, endpoint.terminalIndex + 1);
+  }
   const device = names.devices.find((candidate) => candidate.id === endpoint.deviceId);
   if (device === undefined) return endpoint.deviceId;
   const label = device.lines[0] ?? "";
   return device.groupLabel === null || device.role === "mcb" ? label : w.deviceInGroup(label, device.groupLabel);
 }
 
-/** "Obwód „Gniazda kuchnia” — L, 2,5 mm², 0,42 m", "WLZ — …", "Połączenie FR → RCD „Kuchnia” — …". */
+/**
+ * "Obwód „Gniazda kuchnia” — L, 2,5 mm², 0,42 m", "WLZ — …", "Połączenie FR → RCD „Kuchnia” — …". A
+ * cable core landing on a bar also names the terminal: "… — szyna PE, zacisk 3".
+ */
 export function wireTitle(conductor: Conductor, names: WireNames): string {
   const w = t.layout.section.wireTitle;
   const metres = Math.round(conductor.lengthMm / 10) / 100;
   const details = w.details(conductor.role, conductor.crossSectionMm2, metres);
-  if (conductor.kind === "wlz") return w.wlz(details);
   if (conductor.kind === "feed") {
     return w.feed(endpointName(conductor.from, names), endpointName(conductor.to, names), details);
   }
   const name = conductor.circuitId === null ? undefined : names.circuits.get(conductor.circuitId);
-  return w.circuit(name ?? w.unknownCircuit, details);
+  const title = conductor.kind === "wlz" ? w.wlz(details) : w.circuit(name ?? w.unknownCircuit, details);
+  return conductor.to.type === "bar" ? w.landsOn(title, endpointName(conductor.to, names)) : title;
 }
 
 /**
@@ -429,5 +474,49 @@ export function buildDrawnWires(conductors: readonly Conductor[], names?: WireNa
       kind: conductor.kind,
       d: wirePathD(conductor.path, limits[index]),
       title: names === undefined ? "" : wireTitle(conductor, names),
+      barEnds: [
+        ...(conductor.from.type === "bar" ? conductor.path.slice(0, 1) : []),
+        ...(conductor.to.type === "bar" ? conductor.path.slice(-1) : []),
+      ],
     }));
+}
+
+/** One cable's sheathed run from its entry point, before it splits into its cores. */
+export interface DrawnCable {
+  key: string;
+  kind: "circuit" | "wlz";
+  d: string;
+}
+
+/**
+ * The cables at the entries (plan Phase 5c): every conductor that starts at an entry belongs to one
+ * cable — the WLZ, or its circuit's cable — whose cores share the entry point and run along one stub
+ * line from it. The cores leave that line one at a time, each onto its own track (a progressive split,
+ * like stripping a cable — the electrician, 2026-10-07), and the sheath runs from the entry point to
+ * the last of those turn-offs: the point past which at most one core stays on the line, so no bare
+ * cores are ever drawn on top of each other. The one core left may carry straight on past it. A cable
+ * of a single core keeps a short sheath, stopping one bend before the core turns off. Cables in
+ * routing order. Presentation only.
+ */
+export function buildDrawnCables(conductors: readonly Conductor[]): DrawnCable[] {
+  const cables = new Map<string, { kind: "circuit" | "wlz"; from: Point; firsts: { to: Point; length: number }[] }>();
+  for (const conductor of conductors) {
+    if (conductor.from.type !== "entry" || conductor.kind === "feed" || conductor.path.length < 2) continue;
+    const key = conductor.kind === "wlz" ? "wlz" : `c:${conductor.circuitId ?? conductor.key}`;
+    const [from, to] = conductor.path;
+    const first = { to, length: Math.abs(to.x - from.x) + Math.abs(to.y - from.y) };
+    const cable = cables.get(key);
+    if (cable === undefined) cables.set(key, { kind: conductor.kind, from, firsts: [first] });
+    else cable.firsts.push(first);
+  }
+  return [...cables].flatMap(([key, cable]) => {
+    const firsts = [...cable.firsts].sort((a, b) => b.length - a.length);
+    // The second-deepest turn-off; a single core stops one bend before its own.
+    const end =
+      firsts.length > 1
+        ? firsts[1].to
+        : towards(cable.from, firsts[0].to, Math.max(firsts[0].length - WIRE_BEND_MM, firsts[0].length / 2));
+    if (end.x === cable.from.x && end.y === cable.from.y) return [];
+    return [{ key, kind: cable.kind, d: `M${fmt(cable.from.x)} ${fmt(cable.from.y)} L${fmt(end.x)} ${fmt(end.y)}` }];
+  });
 }

@@ -5,14 +5,17 @@ import {
   elementRect,
   entryRect,
   groupOutlines,
+  PEN_DASH,
+  WIRE_STYLES,
+  type DrawnCable,
   type DrawnDevice,
   type DrawnRole,
   type DrawnWire,
   type ElementRef,
 } from "@/lib/cabinet-drawing";
-import { catalogBarAsCabinetBar } from "@/lib/cabinet-layout";
+import { BAR_LABEL_EXTENT, barLabelFontMm, barLabelSizeMm, barTerminalPoints, type Point } from "@/lib/cabinet-layout";
 import { barRect, barsBehindAnother, railRect, type CabinetGeometry, type Rect } from "@/lib/cabinet-geometry";
-import type { ConductorKind, ConductorRole } from "@/lib/cabinet-wiring";
+import type { ConductorKind } from "@/lib/cabinet-wiring";
 import { t } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
@@ -26,10 +29,13 @@ interface CabinetDrawingProps {
   devices?: readonly DrawnDevice[];
   /** Conductors to draw over the devices, from `buildDrawnWires`. Omitted: no wires. */
   wires?: readonly DrawnWire[];
+  /** The cables' sheathed runs from their entry points, from `buildDrawnCables`. Omitted: none. */
+  cables?: readonly DrawnCable[];
   className?: string;
 }
 
 type Bar = CabinetGeometry["bars"][number];
+type Interior = CabinetGeometry["interior"];
 
 /** Strokes stay a constant on-screen width whether the drawing is a thumbnail or full size. */
 const HAIRLINE = { vectorEffect: "non-scaling-stroke", strokeWidth: 1 } as const;
@@ -40,8 +46,6 @@ const BAR_CLASSES: Record<Bar["kind"], { body: string; label: string }> = {
   N: { body: "fill-wire-n stroke-drawing-frame", label: "fill-wire-n-foreground" },
 };
 
-/** How far along the bar the label reaches, in label heights — the PE stripe starts beyond it. */
-const LABEL_EXTENT = 2.2;
 /** The PE stripe's share of the bar's short side, centred. */
 const STRIPE_SHARE = 0.3;
 
@@ -63,22 +67,38 @@ const DEVICE_CLASSES: Record<DrawnRole, { body: string; label: string; strokeWid
 const GROUP_LABEL_MM = 5;
 const N_MARK_MM = 5;
 
-/**
- * Conductor colours per PN-EN 60445 (the `--wire-*` tokens), plus a pattern per role so a greyscale
- * print still tells them apart: phases solid (L1 brown, L2 black, L3 grey), N dashed, PE a wider solid
- * green line with a solid yellow centre stripe — a hollow double line in greyscale, never mistaken for
- * the dashed N — and PEN the PE pair drawn heavier. Single-phase L is drawn in L1's colour
- * (no phase balancing in the MVP).
- */
-const WIRE_STYLES: Record<ConductorRole, { stroke: string; dash?: string; stripe: boolean; weight: number }> = {
-  L: { stroke: "stroke-wire-l1", stripe: false, weight: 1 },
-  L1: { stroke: "stroke-wire-l1", stripe: false, weight: 1 },
-  L2: { stroke: "stroke-wire-l2", stripe: false, weight: 1 },
-  L3: { stroke: "stroke-wire-l3", stripe: false, weight: 1 },
-  N: { stroke: "stroke-wire-n", dash: "6 3", stripe: false, weight: 1 },
-  PE: { stroke: "stroke-wire-pe", stripe: true, weight: 1.6 },
-  PEN: { stroke: "stroke-wire-pe", stripe: true, weight: 2.2 },
-};
+/** A cable's sheath, on screen: an outline in the frame colour around a paper core. */
+const CABLE_OUTLINE_PX = 7;
+const CABLE_CORE_PX = 4.5;
+
+/** A bar terminal's screw mark: its radius in millimetres, from the bar's short side and the pitch. */
+const SCREW_SHARE_OF_BAR = 0.22;
+const SCREW_SHARE_OF_PITCH = 0.4;
+const MAX_SCREW_MM = 3;
+/** A wire end on a taken terminal fills this share of the screw mark. */
+const WIRE_END_SHARE = 0.75;
+
+interface Screw {
+  point: Point;
+  radiusMm: number;
+}
+
+/** Every terminal of a bar as a screw mark (plan Phase 5c). */
+function barScrews(bar: Bar, interior: Interior): Screw[] {
+  const terminals = barTerminalPoints(bar, interior);
+  if (terminals.length === 0) return [];
+  const rect = barRect(bar);
+  const pitch =
+    terminals.length > 1
+      ? Math.hypot(terminals[1].point.x - terminals[0].point.x, terminals[1].point.y - terminals[0].point.y)
+      : bar.lengthMm;
+  const radiusMm = Math.min(MAX_SCREW_MM, Math.min(rect.w, rect.h) * SCREW_SHARE_OF_BAR, pitch * SCREW_SHARE_OF_PITCH);
+  return terminals.map((terminal) => ({ point: terminal.point, radiusMm }));
+}
+
+function pointKey(point: Point): string {
+  return `${point.x.toFixed(3)}:${point.y.toFixed(3)}`;
+}
 
 /** On-screen stroke width per conductor kind: the WLZ and the feeds are the heavy cross-section. */
 const WIRE_WIDTH_PX: Record<ConductorKind, number> = { circuit: 1.5, wlz: 2.5, feed: 2.25 };
@@ -86,7 +106,7 @@ const WIRE_WIDTH_PX: Record<ConductorKind, number> = { circuit: 1.5, wlz: 2.5, f
 /** On-screen width of the invisible hover target laid over each wire. */
 const WIRE_HOVER_WIDTH_PX = 10;
 
-function WireShape({ wire }: { wire: DrawnWire }) {
+function WireShape({ wire, screwRadius }: { wire: DrawnWire; screwRadius: ReadonlyMap<string, number> }) {
   const style = WIRE_STYLES[wire.role];
   const width = WIRE_WIDTH_PX[wire.kind] * style.weight;
   return (
@@ -111,6 +131,30 @@ function WireShape({ wire }: { wire: DrawnWire }) {
           vectorEffect="non-scaling-stroke"
         />
       )}
+      {style.penDash && (
+        <path
+          d={wire.d}
+          className="stroke-wire-n fill-none"
+          strokeWidth={width * 0.4}
+          strokeDasharray={PEN_DASH}
+          strokeLinejoin="round"
+          vectorEffect="non-scaling-stroke"
+        />
+      )}
+      {/* The bar terminal this wire takes: its end fills the screw mark in the wire's colour. */}
+      {wire.barEnds.map((point) => {
+        const radius = screwRadius.get(pointKey(point));
+        return radius === undefined ? null : (
+          <circle
+            key={`end-${pointKey(point)}`}
+            cx={point.x}
+            cy={point.y}
+            r={radius * WIRE_END_SHARE}
+            className={cn("stroke-drawing-frame", style.fill)}
+            {...HAIRLINE}
+          />
+        );
+      })}
       {/* A wide invisible stroke, so a thin wire — even one running behind a device — is easy to hover. */}
       <path
         d={wire.d}
@@ -123,15 +167,24 @@ function WireShape({ wire }: { wire: DrawnWire }) {
   );
 }
 
-function DeviceShape({ device, barLabelSizeMm }: { device: DrawnDevice; barLabelSizeMm: number }) {
+function DeviceShape({
+  device,
+  barLabelSizeMm,
+  interior,
+}: {
+  device: DrawnDevice;
+  barLabelSizeMm: number;
+  interior: Interior;
+}) {
   const { rect, lines, fontSizeMm } = device;
   // A catalog PE/N bar on a rail (plan Phase 5b) looks exactly like a built-in bar of its kind.
-  const bar = catalogBarAsCabinetBar({ role: device.role }, rect);
+  const { bar } = device;
   if (bar !== null) {
     return (
       <g>
         <BarBody bar={bar} labelSizeMm={barLabelSizeMm} />
         <BarLabel bar={bar} fontSizeMm={barLabelSizeMm} />
+        <BarScrews bar={bar} interior={interior} />
       </g>
     );
   }
@@ -184,11 +237,6 @@ function visibleRect(geometry: CabinetGeometry, ref: ElementRef | undefined): Re
   return rect ? clipRect(rect, geometry.interior) : null;
 }
 
-function barLabelSize(bar: Bar, fontSizeMm: number): number {
-  const rect = barRect(bar);
-  return Math.min(fontSizeMm, Math.min(rect.w, rect.h) * 0.8);
-}
-
 /**
  * The yellow band of a PE bar's green-yellow pair: along the bar's length, centred across it, and
  * starting past the label so the label keeps its contrast on the green. `null` when the bar is too
@@ -196,7 +244,7 @@ function barLabelSize(bar: Bar, fontSizeMm: number): number {
  */
 function peStripeRect(bar: Bar, fontSizeMm: number): Rect | null {
   const rect = barRect(bar);
-  const start = barLabelSize(bar, fontSizeMm) * LABEL_EXTENT;
+  const start = barLabelSizeMm(bar, fontSizeMm) * BAR_LABEL_EXTENT;
   if (bar.orientation === "horizontal") {
     const w = rect.w - start;
     const h = rect.h * STRIPE_SHARE;
@@ -219,10 +267,28 @@ function BarBody({ bar, labelSizeMm }: { bar: Bar; labelSizeMm: number }) {
   );
 }
 
+/** The bar's terminals as small screw marks, one per terminal (plan Phase 5c). */
+function BarScrews({ bar, interior }: { bar: Bar; interior: Interior }) {
+  return (
+    <>
+      {barScrews(bar, interior).map((screw, index) => (
+        <circle
+          key={`screw-${String(index)}`}
+          cx={screw.point.x}
+          cy={screw.point.y}
+          r={screw.radiusMm}
+          className="fill-drawing-paper stroke-drawing-frame"
+          {...HAIRLINE}
+        />
+      ))}
+    </>
+  );
+}
+
 /** The kind label sits at the bar's starting end, so two overlapping bars do not stack labels. */
 function BarLabel({ bar, fontSizeMm }: { bar: Bar; fontSizeMm: number }) {
   const rect = barRect(bar);
-  const size = barLabelSize(bar, fontSizeMm);
+  const size = barLabelSizeMm(bar, fontSizeMm);
   const horizontal = bar.orientation === "horizontal";
   return (
     <text
@@ -255,14 +321,21 @@ export function CabinetDrawing({
   invalid = [],
   devices = [],
   wires = [],
+  cables = [],
   className,
 }: CabinetDrawingProps) {
   const { interior, rails, entries, bars } = geometry;
   const behind = barsBehindAnother(bars);
   // Nearer bars paint over farther ones; the dashed outlines of the farther ones go on top of both.
   const barOrder = bars.map((bar, index) => ({ bar, index })).sort((a, b) => a.bar.zMm - b.bar.zMm);
-  const labelSizeMm = Math.max(8, Math.min(interior.widthMm, interior.heightMm) * 0.04);
+  const labelSizeMm = barLabelFontMm(interior);
   const outlines = groupOutlines(devices);
+  // Where each screw mark is, so a wire ending on a bar terminal fills exactly that mark.
+  const screwRadius = new Map(
+    [...bars, ...devices.flatMap((device) => device.bar ?? [])]
+      .flatMap((bar) => barScrews(bar, interior))
+      .map((screw) => [pointKey(screw.point), screw.radiusMm] as const),
+  );
   const outline = visibleRect(geometry, highlight);
   const invalidRects = invalid.flatMap((ref) => visibleRect(geometry, ref) ?? []);
   // An invalid element with nothing inside the interior is marked on the edge it lies beyond.
@@ -338,8 +411,12 @@ export function CabinetDrawing({
           <BarLabel key={`bar-label-${String(index)}`} bar={bar} fontSizeMm={labelSizeMm} />
         ))}
 
+        {bars.map((bar, index) => (
+          <BarScrews key={`bar-screws-${String(index)}`} bar={bar} interior={interior} />
+        ))}
+
         {devices.map((device) => (
-          <DeviceShape key={`device-${device.id}`} device={device} barLabelSizeMm={labelSizeMm} />
+          <DeviceShape key={`device-${device.id}`} device={device} barLabelSizeMm={labelSizeMm} interior={interior} />
         ))}
 
         {wires.length > 0 && (
@@ -347,7 +424,31 @@ export function CabinetDrawing({
           // board; its <title> names it. CSS only — the drawing stays hook-free and server-rendered.
           <g aria-hidden="true" className="[&:has(.wire:hover)_.wire:not(:hover)]:opacity-20">
             {wires.map((wire) => (
-              <WireShape key={`wire-${wire.key}`} wire={wire} />
+              <WireShape key={`wire-${wire.key}`} wire={wire} screwRadius={screwRadius} />
+            ))}
+          </g>
+        )}
+
+        {cables.length > 0 && (
+          // Each cable's sheath from its entry point, over its cores, which emerge where it ends.
+          <g aria-hidden="true" pointerEvents="none">
+            {cables.map((cable) => (
+              <g key={`cable-${cable.key}`}>
+                <path
+                  d={cable.d}
+                  className="stroke-drawing-frame fill-none"
+                  strokeWidth={CABLE_OUTLINE_PX}
+                  strokeLinecap="butt"
+                  vectorEffect="non-scaling-stroke"
+                />
+                <path
+                  d={cable.d}
+                  className="stroke-drawing-paper fill-none"
+                  strokeWidth={CABLE_CORE_PX}
+                  strokeLinecap="butt"
+                  vectorEffect="non-scaling-stroke"
+                />
+              </g>
             ))}
           </g>
         )}

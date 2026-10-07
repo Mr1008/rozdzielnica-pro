@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import AppLayout from "@/layouts/AppLayout.astro";
-import { buildDrawnDevices, buildDrawnWires } from "@/lib/cabinet-drawing";
+import { buildDrawnCables, buildDrawnDevices, buildDrawnWires } from "@/lib/cabinet-drawing";
 import { wireLengthsBySection } from "@/lib/cabinet-wiring";
 import { ENTRY_SIDES, parseCabinetGeometry } from "@/lib/cabinet-geometry";
 import { isUuid, sortForCatalogList } from "@/lib/catalog";
@@ -138,6 +138,7 @@ const placedWires = buildDrawnWires(conductors, {
   circuits: new Map((matchContext?.circuits ?? []).map((circuit) => [circuit.id, circuit.name])),
   devices: placedDevices,
 });
+const placedCables = buildDrawnCables(conductors);
 const wireLengths = wireLengthsBySection(conductors);
 
 /** The aside badge per match state: only a stored snapshot counts as "matched". */
@@ -448,6 +449,7 @@ const headingClass = "scroll-mt-6 text-lg leading-none font-semibold";
                   view={layoutView}
                   devices={placedDevices}
                   wires={placedWires}
+                  cables={placedCables}
                   lengths={wireLengths}
                   geometry={matchContext.geometry}
                   projectId={project.id}

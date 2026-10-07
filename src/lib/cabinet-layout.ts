@@ -188,10 +188,16 @@ export interface Terminal {
   y: number;
 }
 
-/** Line side is the top edge (the feed), load side the bottom edge (the outgoing circuit). */
+/**
+ * A device's terminals on its top and bottom edges. FR, RCD, RCBO and MCB are bidirectional (plan
+ * Phase 5c): neither edge is "line" or "load" by construction — the wiring decides which edge a device
+ * is fed on (`supplyEdge` in `src/lib/cabinet-wiring.ts`).
+ */
+export type DeviceEdge = "top" | "bottom";
+
 export interface DeviceTerminals {
-  line: Terminal[];
-  load: Terminal[];
+  top: Terminal[];
+  bottom: Terminal[];
 }
 
 /** The phase poles per pole set, left to right; the N pole is added by `n_terminal_side`. */
@@ -214,7 +220,7 @@ export function deviceTerminals(
   device: Pick<LayoutDevice, "id" | "poles" | "n_terminal_side">,
   rect: Rect,
 ): DeviceTerminals {
-  if (device.poles === null) return { line: [], load: [] };
+  if (device.poles === null) return { top: [], bottom: [] };
   const phases = PHASE_POLES[device.poles];
   let poles: readonly TerminalPole[] = phases;
   if (polesCarryN(device.poles)) {
@@ -225,7 +231,7 @@ export function deviceTerminals(
   }
   const slot = rect.w / poles.length;
   const at = (y: number) => poles.map((pole, index) => ({ pole, x: rect.x + slot * (index + 0.5), y }));
-  return { line: at(rect.y), load: at(rect.y + rect.h) };
+  return { top: at(rect.y), bottom: at(rect.y + rect.h) };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -298,6 +304,71 @@ export function terminalGroupPoints(bar: Bar): Point[] {
   return points;
 }
 
+/** One screw terminal of a bar, with the cross-section range of the group it belongs to. */
+export interface BarTerminal {
+  /** 0-based along the bar, across its groups in order. */
+  index: number;
+  groupIndex: number;
+  point: Point;
+  minMm2: number;
+  maxMm2: number;
+}
+
+/**
+ * Every individual terminal of a bar (plan Phase 5c): each group's `count` terminals spread evenly
+ * along the group's share of the bar (the share `terminalGroupPoints` uses), each in the centre of its
+ * own slot on the bar's centre line. One conductor lands on one terminal.
+ */
+/** The bar label's font size in the cabinet drawing, from the interior; the drawing and the terminals share it. */
+export function barLabelFontMm(interior: Pick<CabinetGeometry["interior"], "widthMm" | "heightMm">): number {
+  return Math.max(8, Math.min(interior.widthMm, interior.heightMm) * 0.04);
+}
+
+/** How far along the bar its label reaches, in label heights — the PE stripe and the terminals start beyond it. */
+export const BAR_LABEL_EXTENT = 2.2;
+
+/** The label's height on this bar: the interior's label size, shrunk to fit a narrow bar. */
+export function barLabelSizeMm(bar: Bar, fontMm: number): number {
+  const rect = barRect(bar);
+  return Math.min(fontMm, Math.min(rect.w, rect.h) * 0.8);
+}
+
+/**
+ * Every terminal of a bar, evenly along it. With `interior`, the terminals start past the bar's label
+ * (at most half the bar), so a screw mark never covers "PE" / "N"; without it they span the whole bar.
+ */
+export function barTerminalPoints(
+  bar: Bar,
+  interior?: Pick<CabinetGeometry["interior"], "widthMm" | "heightMm">,
+): BarTerminal[] {
+  const rect = barRect(bar);
+  const total = bar.terminalGroups.reduce((sum, group) => sum + group.count, 0);
+  if (total === 0) return [];
+  const lead =
+    interior === undefined
+      ? 0
+      : Math.min(barLabelSizeMm(bar, barLabelFontMm(interior)) * BAR_LABEL_EXTENT, bar.lengthMm / 2);
+  const span = bar.lengthMm - lead;
+  const terminals: BarTerminal[] = [];
+  bar.terminalGroups.forEach((group, groupIndex) => {
+    for (let k = 0; k < group.count; k++) {
+      const index = terminals.length;
+      const along = lead + (span * (index + 0.5)) / total;
+      terminals.push({
+        index,
+        groupIndex,
+        point:
+          bar.orientation === "horizontal"
+            ? { x: rect.x + along, y: rect.y + rect.h / 2 }
+            : { x: rect.x + rect.w / 2, y: rect.y + along },
+        minMm2: group.minMm2,
+        maxMm2: group.maxMm2,
+      });
+    }
+  });
+  return terminals;
+}
+
 interface BarTargets {
   nPoints: Point[];
   peRects: Rect[];
@@ -319,14 +390,18 @@ type BlockKind = "main_switch" | "group" | "ungrouped" | "bars";
  *   also goes to the N bar, and its point is taken where that circuit's cable lands — the MCB's
  *   load-side terminal. A 3P MCB contributes nothing (the record names only 1P circuits);
  * - a group's MCBs contribute nothing: their N runs to the group RCD, not to the bar.
+ *
+ * "Line side" is read as the top edge and "load side" as the bottom one, as the decision record was
+ * written. The wiring made devices bidirectional later (plan Phase 5c); this score keeps the reading so
+ * stored proposals and the rule-3 tables stay as they were — it is a tie-break distance, not a route.
  */
 function nBarPoints(kind: BlockKind, device: LayoutDevice, rect: Rect): Point[] {
   if (kind === "bars") return [];
   if (kind === "group" && device.role !== "rcd" && device.role !== "rcbo") return [];
   const terminals = deviceTerminals(device, rect);
-  const lineN = terminals.line.filter((terminal) => terminal.pole === "N");
+  const lineN = terminals.top.filter((terminal) => terminal.pole === "N");
   if (lineN.length > 0) return lineN;
-  if (kind === "ungrouped" && device.poles === "1P") return terminals.load;
+  if (kind === "ungrouped" && device.poles === "1P") return terminals.bottom;
   return [];
 }
 

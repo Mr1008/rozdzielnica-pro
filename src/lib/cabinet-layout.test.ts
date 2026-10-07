@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   deviceRect,
+  barTerminalPoints,
   deviceTerminals,
   GROUP_GAP_MM,
   layoutFailureMessage,
@@ -585,20 +586,20 @@ describe("deviceRect and deviceTerminals", () => {
       draft("mcb", "3P", 70),
       draft("mcb", "1P", 70),
     );
-    expect(deviceTerminals(left, rect).line.map((t) => [t.pole, t.x])).toEqual([
+    expect(deviceTerminals(left, rect).top.map((t) => [t.pole, t.x])).toEqual([
       ["N", 8.75],
       ["L1", 26.25],
       ["L2", 43.75],
       ["L3", 61.25],
     ]);
-    expect(deviceTerminals(right, rect).load.map((t) => [t.pole, t.x, t.y])).toEqual([
+    expect(deviceTerminals(right, rect).bottom.map((t) => [t.pole, t.x, t.y])).toEqual([
       ["L1", 8.75, 95],
       ["L2", 26.25, 95],
       ["L3", 43.75, 95],
       ["N", 61.25, 95],
     ]);
-    expect(deviceTerminals(threeP, rect).line.map((t) => t.pole)).toEqual(["L1", "L2", "L3"]);
-    expect(deviceTerminals(oneP, rect).line).toEqual([{ pole: "L", x: 35, y: 10 }]);
+    expect(deviceTerminals(threeP, rect).top.map((t) => t.pole)).toEqual(["L1", "L2", "L3"]);
+    expect(deviceTerminals(oneP, rect).top).toEqual([{ pole: "L", x: 35, y: 10 }]);
   });
 
   it("throws on an N-carrying device without a side — a bug, not a state", () => {
@@ -742,5 +743,45 @@ describe("validateLayout", () => {
       { projectDeviceId: "mcb-c1", railIndex: 0, xMm: 35 },
     ];
     expect(validate(placements, SEED_B, devs)).toEqual([{ code: "rcbo_not_alone", groupId: "G1" }]);
+  });
+});
+
+describe("barTerminalPoints", () => {
+  it("spreads each group's terminals evenly along its share of the bar, one point per terminal", () => {
+    const bar = {
+      kind: "PE" as const,
+      orientation: "horizontal" as const,
+      xMm: 100,
+      yMm: 50,
+      lengthMm: 60,
+      heightMm: 10,
+      zMm: 0,
+      terminalGroups: [
+        { count: 4, minMm2: 1.5, maxMm2: 16 },
+        { count: 2, minMm2: 6, maxMm2: 35 },
+      ],
+    };
+    const terminals = barTerminalPoints(bar);
+    // Six terminals on 60 mm: one 10 mm slot each, the point in the slot's centre on the centre line.
+    expect(terminals.map((terminal) => terminal.point)).toEqual(
+      [105, 115, 125, 135, 145, 155].map((x) => ({ x, y: 55 })),
+    );
+    expect(terminals.map((terminal) => [terminal.index, terminal.groupIndex, terminal.maxMm2])).toEqual([
+      [0, 0, 16],
+      [1, 0, 16],
+      [2, 0, 16],
+      [3, 0, 16],
+      [4, 1, 35],
+      [5, 1, 35],
+    ]);
+    expect(
+      barTerminalPoints({ ...bar, orientation: "vertical", terminalGroups: [{ count: 2, minMm2: 1, maxMm2: 4 }] }).map(
+        (terminal) => terminal.point,
+      ),
+    ).toEqual([
+      { x: 105, y: 65 },
+      { x: 105, y: 95 },
+    ]);
+    expect(barTerminalPoints({ ...bar, terminalGroups: [] })).toEqual([]);
   });
 });

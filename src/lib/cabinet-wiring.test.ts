@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { buildDrawnCables } from "./cabinet-drawing";
 import {
   deviceRect,
   deviceTerminals,
@@ -8,7 +9,7 @@ import {
   type Point,
 } from "./cabinet-layout";
 import { SEED_A, SEED_B, SEED_C } from "./cabinet-layout.fixtures";
-import type { CabinetGeometry } from "./cabinet-geometry";
+import { barRect, type CabinetGeometry } from "./cabinet-geometry";
 import {
   WIRE_SLACK_RATIO,
   WIRE_TRACK_PITCH_MM,
@@ -114,11 +115,11 @@ function wiringInput(
   return { geometry, devices, placements: result.placements, circuits, supply };
 }
 
-function isTerminal(endpoint: Endpoint, deviceId: string, side: "line" | "load", pole?: string): boolean {
+function isTerminal(endpoint: Endpoint, deviceId: string, side?: "top" | "bottom", pole?: string): boolean {
   return (
     endpoint.type === "terminal" &&
     endpoint.deviceId === deviceId &&
-    endpoint.side === side &&
+    (side === undefined || endpoint.side === side) &&
     (pole === undefined || endpoint.pole === pole)
   );
 }
@@ -145,7 +146,7 @@ describe("routeConductors — circuit cables (TN-S)", () => {
       expect(own.map((c) => c.role).sort()).toEqual(["L", "N", "PE"]);
       for (const c of own) {
         expect(c.kind).toBe("circuit");
-        expect(c.from).toEqual({ type: "entry", entryIndex: 0 });
+        expect(c.from).toMatchObject({ type: "entry", entryIndex: 0 });
       }
     }
   });
@@ -158,26 +159,33 @@ describe("routeConductors — circuit cables (TN-S)", () => {
     ).toEqual(["L1", "L2", "L3", "N", "PE"]);
   });
 
-  it("lands each phase on its own protective device's load side", () => {
-    const protection = [MCB_1, MCB_2, RCBO, MCB_4, MCB_5, MCB_6];
-    protection.forEach((dev, index) => {
+  it("lands each phase on its own protective device's edge facing the cable's entry — the top one here", () => {
+    // Every cable of this fixture enters from the top, above every device: each circuit leaves its
+    // MCB / RCBO on the top edge, grouped or not.
+    const protection = [
+      [MCB_1, "top"],
+      [MCB_2, "top"],
+      [RCBO, "top"],
+      [MCB_4, "top"],
+      [MCB_5, "top"],
+      [MCB_6, "top"],
+    ] as const;
+    protection.forEach(([dev, side], index) => {
       const phases = ofCircuit(conductors, index + 1).filter((c) => wireClass(c.role) === "L");
-      for (const c of phases) expect(isTerminal(c.to, dev.id, "load", c.role)).toBe(true);
+      for (const c of phases) expect(isTerminal(c.to, dev.id, side, c.role)).toBe(true);
     });
   });
 
   it("ends a grouped circuit's N at its group's RCD — never at the N bar", () => {
     for (const n of [1, 2]) {
       const neutral = only(ofCircuit(conductors, n).filter((c) => c.role === "N"));
-      expect(isTerminal(neutral.to, RCD.id, "load", "N")).toBe(true);
+      expect(isTerminal(neutral.to, RCD.id, "bottom", "N")).toBe(true);
     }
   });
 
   it("ends an RCBO circuit's N at the RCBO, and a 1P+N MCB circuit's N at that MCB", () => {
-    expect(isTerminal(only(ofCircuit(conductors, 3).filter((c) => c.role === "N")).to, RCBO.id, "load", "N")).toBe(
-      true,
-    );
-    expect(isTerminal(only(ofCircuit(conductors, 5).filter((c) => c.role === "N")).to, MCB_5.id, "load", "N")).toBe(
+    expect(isTerminal(only(ofCircuit(conductors, 3).filter((c) => c.role === "N")).to, RCBO.id, "top", "N")).toBe(true);
+    expect(isTerminal(only(ofCircuit(conductors, 5).filter((c) => c.role === "N")).to, MCB_5.id, "top", "N")).toBe(
       true,
     );
   });
@@ -219,7 +227,7 @@ describe("routeConductors — TN-C-S splits the PEN in the switchboard", () => {
 
   it("links the PE bar to the main switch's line-side N — the split point", () => {
     const split = only(conductors.filter((c) => c.from.type === "bar" && c.from.kind === "PE" && c.role === "N"));
-    expect(isTerminal(split.to, MAIN.id, "line", "N")).toBe(true);
+    expect(isTerminal(split.to, MAIN.id, "top", "N")).toBe(true);
   });
 
   it("wires the circuits like TN-S after the split: separate N and PE, grouped N from the RCD", () => {
@@ -228,7 +236,9 @@ describe("routeConductors — TN-C-S splits the PEN in the switchboard", () => {
         .map((c) => c.role)
         .sort(),
     ).toEqual(["L", "N", "PE"]);
-    expect(isTerminal(only(ofCircuit(conductors, 1).filter((c) => c.role === "N")).to, RCD.id, "load", "N")).toBe(true);
+    expect(isTerminal(only(ofCircuit(conductors, 1).filter((c) => c.role === "N")).to, RCD.id, "bottom", "N")).toBe(
+      true,
+    );
   });
 
   it("draws separate PE and N without a PE bar, since there is no split point", () => {
@@ -294,20 +304,20 @@ describe("routeConductors — WLZ and feeds", () => {
 
   it("brings the WLZ from the first entry to the main switch's line side, its PE to the PE bar", () => {
     expect(wlz.map((c) => c.role).sort()).toEqual(["L1", "L2", "L3", "N", "PE"]);
-    for (const c of wlz) expect(c.from).toEqual({ type: "entry", entryIndex: 0 });
-    for (const c of wlz.filter((c) => c.role !== "PE")) expect(isTerminal(c.to, MAIN.id, "line", c.role)).toBe(true);
+    for (const c of wlz) expect(c.from).toMatchObject({ type: "entry", entryIndex: 0 });
+    for (const c of wlz.filter((c) => c.role !== "PE")) expect(isTerminal(c.to, MAIN.id, "top", c.role)).toBe(true);
     expect(only(wlz.filter((c) => c.role === "PE")).to).toMatchObject({ type: "bar", kind: "PE" });
   });
 
   it("feeds every RCD, RCBO and ungrouped MCB phase from the main switch's load side", () => {
     for (const dev of [RCD, RCBO, MCB_4, MCB_5, MCB_6]) {
-      const toDevice = feeds.filter((c) => isTerminal(c.to, dev.id, "line") && c.role !== "N");
+      const toDevice = feeds.filter((c) => isTerminal(c.to, dev.id) && c.role !== "N");
       expect(toDevice.length).toBeGreaterThan(0);
-      for (const c of toDevice) expect(isTerminal(c.from, MAIN.id, "load")).toBe(true);
+      for (const c of toDevice) expect(isTerminal(c.from, MAIN.id, "bottom")).toBe(true);
     }
     expect(
       feeds
-        .filter((c) => isTerminal(c.to, MCB_6.id, "line"))
+        .filter((c) => isTerminal(c.to, MCB_6.id))
         .map((c) => c.role)
         .sort(),
     ).toEqual(["L1", "L2", "L3"]);
@@ -315,18 +325,18 @@ describe("routeConductors — WLZ and feeds", () => {
 
   it("feeds each grouped MCB from its RCD's load side, not from the main switch", () => {
     for (const dev of [MCB_1, MCB_2]) {
-      const c = only(feeds.filter((f) => isTerminal(f.to, dev.id, "line")));
-      expect(isTerminal(c.from, RCD.id, "load", "L")).toBe(true);
+      const c = only(feeds.filter((f) => isTerminal(f.to, dev.id, "bottom")));
+      expect(isTerminal(c.from, RCD.id, "bottom", "L")).toBe(true);
     }
   });
 
   it("runs the main switch's N to the N bar and the N bar to every line-side N the main switch feeds", () => {
-    expect(only(feeds.filter((c) => isTerminal(c.from, MAIN.id, "load", "N"))).to).toMatchObject({
+    expect(only(feeds.filter((c) => isTerminal(c.from, MAIN.id, "bottom", "N"))).to).toMatchObject({
       type: "bar",
       kind: "N",
     });
     for (const dev of [RCD, RCBO, MCB_5]) {
-      const c = only(feeds.filter((f) => isTerminal(f.to, dev.id, "line", "N")));
+      const c = only(feeds.filter((f) => isTerminal(f.to, dev.id, undefined, "N")));
       expect(c.from).toMatchObject({ type: "bar", kind: "N" });
     }
   });
@@ -463,17 +473,7 @@ describe("routeConductors — catalog PE/N bars on a rail (plan Phase 5b)", () =
 // ---------------------------------------------------------------------------------------------
 
 function endpointPoint(endpoint: Endpoint, input: WiringInput): Point | null {
-  if (endpoint.type === "entry") {
-    const entry = input.geometry.entries[endpoint.entryIndex];
-    const mid = entry.offsetMm + entry.lengthMm / 2;
-    const { widthMm, heightMm } = input.geometry.interior;
-    return {
-      top: { x: mid, y: 0 },
-      bottom: { x: mid, y: heightMm },
-      left: { x: 0, y: mid },
-      right: { x: widthMm, y: mid },
-    }[entry.side];
-  }
+  // An entry point depends on the other cables of its entry; the entry-spread tests check it.
   if (endpoint.type === "terminal") {
     const dev = input.devices.find((d) => d.id === endpoint.deviceId);
     const placement = input.placements.find((p: Placement) => p.projectDeviceId === endpoint.deviceId);
@@ -483,6 +483,48 @@ function endpointPoint(endpoint: Endpoint, input: WiringInput): Point | null {
     return terminal ? { x: terminal.x, y: terminal.y } : null;
   }
   return null;
+}
+
+/**
+ * The user's requirement: every trace visible — no two conductors on one track. Two parallel segments
+ * of different conductors that overlap along their length must lie more than half a pitch apart. The
+ * exceptions: end segments touching the same terminal or bar endpoint (conductors sharing it share its
+ * stub), and the cores of one cable on their cable's stub line — each core's first segment, from the
+ * entry point to where it turns off, so up to the cable's last turn-off. A core that has turned off and
+ * runs alongside its own cable's stub is a clash like any other.
+ */
+function trackClashes(conductors: readonly Conductor[]): string[] {
+  const segments = conductors.flatMap((c, conductor) =>
+    c.path.slice(1).map((b, i) => {
+      const a = c.path[i];
+      const vertical = a.x === b.x;
+      const last = i === c.path.length - 2;
+      return {
+        conductor,
+        vertical,
+        at: vertical ? a.x : a.y,
+        low: vertical ? Math.min(a.y, b.y) : Math.min(a.x, b.x),
+        high: vertical ? Math.max(a.y, b.y) : Math.max(a.x, b.x),
+        /** The endpoint this segment touches, if it is the route's first or last segment. */
+        end: i === 0 ? c.path[0] : last ? b : null,
+        /** The segment runs on its cable's stub line: a cable core's first segment. */
+        onStub: i === 0 && c.from.type === "entry",
+      };
+    }),
+  );
+  const clashes: string[] = [];
+  for (const [n, s] of segments.entries()) {
+    for (const t of segments.slice(n + 1)) {
+      if (s.conductor === t.conductor || s.vertical !== t.vertical) continue;
+      if (Math.abs(s.at - t.at) >= WIRE_TRACK_PITCH_MM * 0.5) continue;
+      if (Math.min(s.high, t.high) - Math.max(s.low, t.low) <= 1e-6) continue;
+      const sameEnd = s.end !== null && t.end !== null && s.end.x === t.end.x && s.end.y === t.end.y;
+      // A shared entry point means one cable; only its stub runs may coincide.
+      if (sameEnd && s.onStub === t.onStub) continue;
+      clashes.push(`${conductors[s.conductor].key}/${conductors[t.conductor].key} at ${String(s.at)}`);
+    }
+  }
+  return clashes;
 }
 
 describe.each([
@@ -554,38 +596,9 @@ describe.each([
     expect(routeConductors(input)).toEqual(conductors);
   });
 
-  // The user's requirement: every trace visible — no two conductors on one track. Two parallel
-  // segments of different conductors that overlap along their length must lie more than half a
-  // pitch apart. The one exception is a pair of end segments touching the same endpoint: conductors
-  // sharing a terminal, an entry or a bar terminal group necessarily share its last stub.
+  // See `trackClashes`.
   it("never runs two conductors along the same track", () => {
-    const segments = conductors.flatMap((c, conductor) =>
-      c.path.slice(1).map((b, i) => {
-        const a = c.path[i];
-        const vertical = a.x === b.x;
-        const last = i === c.path.length - 2;
-        return {
-          conductor,
-          vertical,
-          at: vertical ? a.x : a.y,
-          low: vertical ? Math.min(a.y, b.y) : Math.min(a.x, b.x),
-          high: vertical ? Math.max(a.y, b.y) : Math.max(a.x, b.x),
-          /** The endpoint this segment touches, if it is the route's first or last segment. */
-          end: i === 0 ? c.path[0] : last ? b : null,
-        };
-      }),
-    );
-    const clashes: string[] = [];
-    for (const [n, s] of segments.entries()) {
-      for (const t of segments.slice(n + 1)) {
-        if (s.conductor === t.conductor || s.vertical !== t.vertical) continue;
-        if (Math.abs(s.at - t.at) >= WIRE_TRACK_PITCH_MM * 0.5) continue;
-        if (Math.min(s.high, t.high) - Math.max(s.low, t.low) <= 1e-6) continue;
-        if (s.end !== null && t.end !== null && s.end.x === t.end.x && s.end.y === t.end.y) continue;
-        clashes.push(`${conductors[s.conductor].key}/${conductors[t.conductor].key} at ${String(s.at)}`);
-      }
-    }
-    expect(clashes).toEqual([]);
+    expect(trackClashes(conductors)).toEqual([]);
   });
 
   it("keeps the 3 mm pitch wide enough for the drawn strokes", () => {
@@ -608,14 +621,14 @@ describe("routeConductors — track assignment in a crowded passage", () => {
 
   it("spreads the shared top lane: cables running alongside each other get their own tracks", () => {
     for (const c of phases) {
-      // Still an entry stub straight down, then the lane, then the rest.
-      expect(c.path[0]).toEqual({ x: 125, y: 0 });
-      expect(c.path[1].x).toBe(125);
+      // Still an entry stub straight down from the cable's own point, then the lane, then the rest.
+      expect(c.path[0].y).toBe(0);
+      expect(c.path[1].x).toBe(c.path[0].x);
     }
     const lanes = phases.map((c) => ({
       y: c.path[1].y,
-      x1: Math.min(125, c.path[2].x),
-      x2: Math.max(125, c.path[2].x),
+      x1: Math.min(c.path[0].x, c.path[2].x),
+      x2: Math.max(c.path[0].x, c.path[2].x),
     }));
     lanes.forEach((a, i) => {
       for (const b of lanes.slice(i + 1)) {
@@ -647,6 +660,429 @@ describe("routeConductors — track assignment in a crowded passage", () => {
       }
       expect(c.routedMm).toBeCloseTo(manhattan, 9);
       expect(c.lengthMm).toBeCloseTo(manhattan * (1 + WIRE_SLACK_RATIO), 9);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------------------------
+// Plan Phase 5c — cables side by side, one conductor per bar terminal, bidirectional devices
+// ---------------------------------------------------------------------------------------------
+
+/** The cable a conductor from an entry belongs to: the WLZ, or its circuit's cable. */
+function cableOf(c: Conductor): string | null {
+  if (c.from.type !== "entry") return null;
+  return c.kind === "wlz" ? "wlz" : (c.circuitId ?? "?");
+}
+
+function rectOfDevice(input: WiringInput, id: string) {
+  const placement = input.placements.find((p) => p.projectDeviceId === id);
+  const dev = input.devices.find((d) => d.id === id);
+  const rect = placement && dev ? deviceRect(placement, dev, input.geometry) : null;
+  if (rect === null) throw new Error(`${id} not placed`);
+  return rect;
+}
+
+const TEN_CIRCUITS = Array.from({ length: 10 }, (_, i) => circuit(i + 1, null, 1, 2.5));
+const TEN_DEVICES = [
+  device(0, "main_switch", "2P", 35),
+  ...TEN_CIRCUITS.map((c, i) => device(i + 1, "mcb", "1P", 17.5, { circuit: c.id })),
+];
+/** Seed (a) with a 20 mm entry: eleven cables cannot keep a track pitch there. */
+const NARROW_ENTRY: CabinetGeometry = { ...SEED_A, entries: [{ side: "top", offsetMm: 115, lengthMm: 20 }] };
+
+describe.each([
+  ["seed (b)", wiringInput(SEED_B)],
+  [
+    "seed (c)",
+    wiringInput(
+      SEED_C,
+      DEVICES,
+      CIRCUITS.map((c, i) => ({ ...c, entry_side: i % 2 ? "bottom" : "left" })),
+    ),
+  ],
+  ["seed (a), ten circuits", wiringInput(SEED_A, TEN_DEVICES, TEN_CIRCUITS)],
+  ["a 20 mm entry, eleven cables", wiringInput(NARROW_ENTRY, TEN_DEVICES, TEN_CIRCUITS)],
+])("routeConductors — cables enter side by side on %s", (_name, input) => {
+  const conductors = routeConductors(input);
+  const cables = new Map<string, Conductor[]>();
+  for (const c of conductors) {
+    const cable = cableOf(c);
+    if (cable === null) continue;
+    cables.set(cable, [...(cables.get(cable) ?? []), c]);
+  }
+
+  it("gives each cable one entry point, shared by its cores, and never one point to two cables", () => {
+    const points = [...cables.values()].map((cores) => {
+      const first = cores[0].path[0];
+      for (const core of cores) expect(core.path[0]).toEqual(first);
+      return `${first.x.toFixed(6)}:${first.y.toFixed(6)}`;
+    });
+    expect(cables.size).toBeGreaterThan(1);
+    expect(new Set(points).size).toBe(points.length);
+  });
+
+  it("puts each point on its entry's edge, inside the entry's span", () => {
+    const { widthMm, heightMm } = input.geometry.interior;
+    for (const cores of cables.values()) {
+      const from = cores[0].from;
+      if (from.type !== "entry") throw new Error("not an entry");
+      const entry = input.geometry.entries[from.entryIndex];
+      const point = cores[0].path[0];
+      const along = entry.side === "top" || entry.side === "bottom" ? point.x : point.y;
+      const across = { top: point.y, bottom: point.y - heightMm, left: point.x, right: point.x - widthMm }[entry.side];
+      expect(across).toBe(0);
+      expect(along).toBeGreaterThan(entry.offsetMm);
+      expect(along).toBeLessThan(entry.offsetMm + entry.lengthMm);
+    }
+  });
+
+  it("keeps the cables in the order of where they go, so they do not cross after the entry", () => {
+    const byEntry = new Map<number, { slot: number; along: number; toward: number }[]>();
+    for (const cores of cables.values()) {
+      const from = cores[0].from;
+      if (from.type !== "entry") throw new Error("not an entry");
+      const entry = input.geometry.entries[from.entryIndex];
+      const horizontal = entry.side === "top" || entry.side === "bottom";
+      // Where the cable goes: the device its phase lands on.
+      const phase = cores.find((c) => wireClass(c.role) === "L" && c.to.type === "terminal");
+      if (phase?.to.type !== "terminal") throw new Error("a cable without a phase");
+      const rect = rectOfDevice(input, phase.to.deviceId);
+      const point = cores[0].path[0];
+      byEntry.set(from.entryIndex, [
+        ...(byEntry.get(from.entryIndex) ?? []),
+        {
+          slot: from.slot,
+          along: horizontal ? point.x : point.y,
+          toward: horizontal ? rect.x + rect.w / 2 : rect.y + rect.h / 2,
+        },
+      ]);
+    }
+    for (const list of byEntry.values()) {
+      list.sort((a, b) => a.slot - b.slot);
+      expect(list.map((item) => item.slot)).toEqual(list.map((_, i) => i));
+      for (let i = 1; i < list.length; i++) {
+        expect(list[i].along).toBeGreaterThan(list[i - 1].along);
+        expect(list[i].toward).toBeGreaterThanOrEqual(list[i - 1].toward);
+      }
+    }
+  });
+});
+
+/**
+ * Seed (a) with only a 4P main switch and its WLZ entering 1 mm right of the main switch's L1 terminal:
+ * L1's natural passage runs straight down to its terminal, a millimetre beside the WLZ's stub, while the
+ * WLZ's other cores still run down that stub to their deeper lanes. Without the own-stub rule in
+ * `avoidPins` that passage stays alongside the stub.
+ */
+function wlzBesideTerminal(): WiringInput {
+  const placed = wiringInput(SEED_A, [MAIN], []);
+  const placement = placed.placements.find((p) => p.projectDeviceId === MAIN.id);
+  const rect = placement ? deviceRect(placement, MAIN, SEED_A) : null;
+  const l1 = rect ? deviceTerminals(MAIN, rect).top.find((t) => t.pole === "L1") : undefined;
+  if (l1 === undefined) throw new Error("no L1 terminal");
+  return wiringInput({ ...SEED_A, entries: [{ side: "top", offsetMm: l1.x + 1 - 10, lengthMm: 20 }] }, [MAIN], []);
+}
+
+/**
+ * The oracle for the progressive split (the electrician, 2026-10-07): a cable's cores leave its stub
+ * line one at a time, like stripping a cable. The sheath runs from the entry point to the last turn-off
+ * — the point past which at most one core is left on the line — and a core that has turned off never
+ * runs within half a pitch of its own cable's stub.
+ */
+describe.each([
+  ["seed (a), one RCD group", wiringInput(SEED_A, [MAIN, RCD, MCB_1, MCB_2], CIRCUITS.slice(0, 2))],
+  ["seed (a), ten circuits", wiringInput(SEED_A, TEN_DEVICES, TEN_CIRCUITS)],
+  ["seed (a), the WLZ entering beside a main switch terminal", wlzBesideTerminal()],
+  ["seed (b), top entry", wiringInput(SEED_B)],
+  ["seed (b), bottom entry", wiringInput(SEED_B, DEVICES, entering("bottom"))],
+  ["seed (c), bottom entry", wiringInput(SEED_C)],
+  [
+    "seed (c), bottom and left entries",
+    wiringInput(
+      SEED_C,
+      DEVICES,
+      CIRCUITS.map((c, i) => ({ ...c, entry_side: i % 2 ? "bottom" : "left" })),
+    ),
+  ],
+])("routeConductors — cores leave their cable one at a time on %s", (_name, input) => {
+  const conductors = routeConductors(input);
+  const cables = new Map<string, Conductor[]>();
+  for (const c of conductors) {
+    const cable = cableOf(c);
+    if (cable !== null) cables.set(cable, [...(cables.get(cable) ?? []), c]);
+  }
+  const sheaths = new Map(buildDrawnCables(conductors).map((sheath) => [sheath.key, sheath.d]));
+  const sheathKey = (cable: string) => (cable === "wlz" ? "wlz" : `c:${cable}`);
+  /** How far along the stub a core turns off: the length of its first segment. */
+  const depth = (c: Conductor) => Math.abs(c.path[1].x - c.path[0].x) + Math.abs(c.path[1].y - c.path[0].y);
+  const multiCore = [...cables].filter(([, cores]) => cores.length > 1);
+
+  it("ends each cable's sheath at its last turn-off, past which at most one core stays on the line", () => {
+    expect(multiCore.length).toBeGreaterThan(0);
+    for (const [cable, cores] of multiCore) {
+      const byDepth = [...cores].sort((a, b) => depth(b) - depth(a));
+      const last = byDepth[1].path[1];
+      const d = sheaths.get(sheathKey(cable));
+      const numbers = (d ?? "").match(/-?[\d.]+/g)?.map(Number) ?? [];
+      expect(numbers).toHaveLength(4);
+      expect(numbers[0]).toBeCloseTo(cores[0].path[0].x, 1);
+      expect(numbers[1]).toBeCloseTo(cores[0].path[0].y, 1);
+      expect(numbers[2]).toBeCloseTo(last.x, 1);
+      expect(numbers[3]).toBeCloseTo(last.y, 1);
+    }
+  });
+
+  it("never runs two conductors along the same track", () => {
+    expect(trackClashes(conductors)).toEqual([]);
+  });
+
+  it("splits each cable in the free margin by its entry, before the first device or bar", () => {
+    // The cores turn off onto their lanes, which lie between the entry's cabinet edge and the nearest
+    // device or bar facing it; a sheath reaching past that would mean several cores ran on together.
+    const rects = [
+      ...input.placements.map((p) => rectOfDevice(input, p.projectDeviceId)),
+      ...input.geometry.bars.map(barRect),
+    ];
+    for (const [, cores] of multiCore) {
+      const from = cores[0].from;
+      if (from.type !== "entry") throw new Error("not an entry");
+      const end = [...cores].sort((a, b) => depth(b) - depth(a))[1].path[1];
+      const side = input.geometry.entries[from.entryIndex].side;
+      if (side === "top") expect(end.y).toBeLessThanOrEqual(Math.min(...rects.map((r) => r.y)));
+      if (side === "bottom") expect(end.y).toBeGreaterThanOrEqual(Math.max(...rects.map((r) => r.y + r.h)));
+      if (side === "left") expect(end.x).toBeLessThanOrEqual(Math.min(...rects.map((r) => r.x)));
+      if (side === "right") expect(end.x).toBeGreaterThanOrEqual(Math.max(...rects.map((r) => r.x + r.w)));
+    }
+  });
+
+  it("never runs a core that has turned off within half a pitch of its own cable's stub", () => {
+    const clashes: string[] = [];
+    for (const [cable, cores] of multiCore) {
+      const entry = cores[0].path[0];
+      const vertical = cores[0].path[1].x === entry.x;
+      const stubAt = vertical ? entry.x : entry.y;
+      const lastDepth = [...cores].map(depth).sort((a, b) => b - a)[1];
+      const reach = vertical ? entry.y : entry.x;
+      // The stub's extent along its line, from the entry point to the last turn-off.
+      const inward = vertical ? (cores[0].path[1].y > entry.y ? 1 : -1) : cores[0].path[1].x > entry.x ? 1 : -1;
+      const [stubLow, stubHigh] = [reach, reach + inward * lastDepth].sort((a, b) => a - b);
+      for (const core of cores) {
+        for (let i = 2; i < core.path.length; i++) {
+          const [a, b] = [core.path[i - 1], core.path[i]];
+          if ((a.x === b.x) !== vertical) continue;
+          const at = vertical ? a.x : a.y;
+          const [low, high] = vertical
+            ? [Math.min(a.y, b.y), Math.max(a.y, b.y)]
+            : [Math.min(a.x, b.x), Math.max(a.x, b.x)];
+          if (Math.abs(at - stubAt) >= WIRE_TRACK_PITCH_MM * 0.5) continue;
+          if (Math.min(high, stubHigh) - Math.max(low, stubLow) <= 1e-6) continue;
+          clashes.push(`${cable}: ${core.key} at ${String(at)}`);
+        }
+      }
+    }
+    expect(clashes).toEqual([]);
+  });
+});
+
+describe("routeConductors — a crowded entry closes the cables up, never onto one point", () => {
+  const conductors = routeConductors(wiringInput(NARROW_ENTRY, TEN_DEVICES, TEN_CIRCUITS));
+  it("spaces eleven cables closer than the track pitch, still apart", () => {
+    const xs = [...new Set(conductors.filter((c) => c.from.type === "entry").map((c) => c.path[0].x))].sort(
+      (a, b) => a - b,
+    );
+    expect(xs).toHaveLength(11);
+    const gaps = xs.slice(1).map((x, i) => x - xs[i]);
+    for (const gap of gaps) {
+      expect(gap).toBeGreaterThan(0);
+      expect(gap).toBeLessThan(WIRE_TRACK_PITCH_MM);
+    }
+  });
+});
+
+/** Every bar end of a wiring, with the conductor's cross-section. */
+function barEnds(conductors: readonly Conductor[]) {
+  return conductors.flatMap((c) =>
+    [c.from, c.to].flatMap((end) => (end.type === "bar" ? [{ end, section: c.crossSectionMm2, conductor: c }] : [])),
+  );
+}
+
+describe.each([
+  ["seed (b), TN-S", SEED_B, TN_S],
+  ["seed (b), TN-C-S", SEED_B, { earthing_system: "TN-C-S", wlz_cross_section_mm2: 16 } as const],
+  ["seed (c), TN-S", SEED_C, TN_S],
+  ["seed (c), TN-C", SEED_C, { earthing_system: "TN-C", wlz_cross_section_mm2: 16 } as const],
+])("routeConductors — one conductor per bar terminal on %s", (_name, geometry, supply) => {
+  const conductors = routeConductors(wiringInput(geometry, DEVICES, CIRCUITS, supply));
+  const ends = barEnds(conductors);
+
+  it("never lands two conductors on one terminal", () => {
+    expect(ends.length).toBeGreaterThan(0);
+    const keys = ends.map(({ end }) => `${String(end.barIndex)}:${String(end.terminalIndex)}`);
+    expect(new Set(keys).size).toBe(keys.length);
+  });
+
+  it("lands each conductor on a terminal whose cross-section range takes it", () => {
+    for (const { end, section } of ends) {
+      const bar = geometry.bars[end.barIndex];
+      expect(bar.kind).toBe(end.kind);
+      const group = bar.terminalGroups[end.groupIndex];
+      expect(group.minMm2).toBeLessThanOrEqual(section);
+      expect(section).toBeLessThanOrEqual(group.maxMm2);
+      // The terminal index belongs to its group: the groups before it hold the lower indices.
+      const before = bar.terminalGroups.slice(0, end.groupIndex).reduce((sum, g) => sum + g.count, 0);
+      expect(end.terminalIndex).toBeGreaterThanOrEqual(before);
+      expect(end.terminalIndex).toBeLessThan(before + group.count);
+    }
+  });
+
+  it("ends every bar conductor on its own point of the bar", () => {
+    const points = conductors.flatMap((c) => [
+      ...(c.from.type === "bar" ? [c.path[0]] : []),
+      ...(c.to.type === "bar" ? [c.path[c.path.length - 1]] : []),
+    ]);
+    expect(new Set(points.map((p) => `${p.x.toFixed(6)}:${p.y.toFixed(6)}`)).size).toBe(points.length);
+  });
+});
+
+describe("routeConductors — the TN-C-S split link takes a PE-bar terminal of its own", () => {
+  const conductors = routeConductors(
+    wiringInput(SEED_B, DEVICES, CIRCUITS, { earthing_system: "TN-C-S", wlz_cross_section_mm2: 16 }),
+  );
+  it("puts the WLZ's PEN and the split link on different PE terminals", () => {
+    const pen = only(conductors.filter((c) => c.kind === "wlz" && c.role === "PEN"));
+    const link = only(conductors.filter((c) => c.kind === "feed" && c.from.type === "bar" && c.from.kind === "PE"));
+    expect(pen.to.type === "bar" && link.from.type === "bar").toBe(true);
+    if (pen.to.type === "bar" && link.from.type === "bar") {
+      expect(`${String(pen.to.barIndex)}:${String(pen.to.terminalIndex)}`).not.toBe(
+        `${String(link.from.barIndex)}:${String(link.from.terminalIndex)}`,
+      );
+    }
+  });
+});
+
+describe("routeConductors — too few bar terminals leave conductors unrouted, never doubled", () => {
+  const withBars = (pe: CabinetGeometry["bars"][number]["terminalGroups"]): CabinetGeometry => ({
+    ...SEED_B,
+    bars: SEED_B.bars.map((bar) => (bar.kind === "PE" ? { ...bar, terminalGroups: pe } : bar)),
+  });
+
+  it("wires exactly as many PE conductors as there are PE terminals", () => {
+    // Six circuits and the WLZ bring seven PE conductors to a PE bar with three terminals.
+    const conductors = routeConductors(wiringInput(withBars([{ count: 3, minMm2: 1.5, maxMm2: 16 }])));
+    const pe = barEnds(conductors).filter(({ end }) => end.kind === "PE");
+    expect(pe).toHaveLength(3);
+    expect(new Set(pe.map(({ end }) => end.terminalIndex)).size).toBe(3);
+    // The circuits without a PE terminal keep their other cores.
+    for (const n of [1, 2, 3, 4, 5, 6]) {
+      expect(ofCircuit(conductors, n).some((c) => wireClass(c.role) === "L")).toBe(true);
+    }
+  });
+
+  it("leaves a conductor no terminal's range takes unrouted, rather than on a terminal too small", () => {
+    // Terminals up to 4 mm²: every circuit's PE fits, the 16 mm² WLZ PE does not.
+    const conductors = routeConductors(wiringInput(withBars([{ count: 10, minMm2: 1.5, maxMm2: 4 }])));
+    expect(conductors.filter((c) => c.kind === "wlz" && c.role === "PE")).toEqual([]);
+    for (const n of [1, 2, 3, 4, 5, 6]) {
+      expect(only(ofCircuit(conductors, n).filter((c) => c.role === "PE")).to).toMatchObject({ type: "bar" });
+    }
+  });
+
+  it("routes as many as the best assignment: the one wider terminal goes to the conductor only it takes", () => {
+    // Six circuit PEs (one of 4 mm², the rest at most 2.5 mm²) and six terminals, only the first of
+    // which takes 4 mm². Handing terminals out nearest-first could give it to a thinner conductor and
+    // strand the 4 mm² one; every circuit PE must land. (The 16 mm² WLZ PE fits none.)
+    const conductors = routeConductors(
+      wiringInput(
+        withBars([
+          { count: 1, minMm2: 1.5, maxMm2: 4 },
+          { count: 5, minMm2: 1.5, maxMm2: 2.5 },
+        ]),
+      ),
+    );
+    for (const n of [1, 2, 3, 4, 5, 6]) {
+      expect(only(ofCircuit(conductors, n).filter((c) => c.role === "PE")).to).toMatchObject({ type: "bar" });
+    }
+    expect(only(ofCircuit(conductors, 6).filter((c) => c.role === "PE")).to).toMatchObject({ groupIndex: 0 });
+    expect(conductors.filter((c) => c.kind === "wlz" && c.role === "PE")).toEqual([]);
+  });
+});
+
+/** Every circuit of the fixture entering from `side`. */
+function entering(side: WiringCircuit["entry_side"], circuits: readonly WiringCircuit[] = CIRCUITS): WiringCircuit[] {
+  return circuits.map((c) => ({ ...c, entry_side: side }));
+}
+
+/**
+ * The oracle for the electrician's complaint (user 2026-10-07): no RCD → MCB jumper loops around the
+ * devices. The MCBs take their supply on the edge the RCD gives out on, so every jumper runs along that
+ * one edge within the group, and the circuit cables leave the MCBs on the other edge — the edge facing
+ * their cable entry when it lies above or below the group.
+ */
+describe.each([
+  ["seed (a), top entry", wiringInput(SEED_A, [MAIN, RCD, MCB_1, MCB_2], CIRCUITS.slice(0, 2)), "top"],
+  ["seed (b), top entry", wiringInput(SEED_B), "top"],
+  ["seed (b), bottom entry", wiringInput(SEED_B, DEVICES, entering("bottom")), "bottom"],
+  ["seed (c), bottom entry", wiringInput(SEED_C, DEVICES, entering("bottom")), "bottom"],
+  ["seed (c), left entry", wiringInput(SEED_C, DEVICES, entering("left")), null],
+] as const)("routeConductors — RCD → MCB jumpers on one side, %s", (_name, input, circuitsEdge) => {
+  const conductors = routeConductors(input);
+  const feeds = conductors.filter((c) => c.kind === "feed");
+  const groupRects = [RCD, MCB_1, MCB_2].map((d) => rectOfDevice(input, d.id));
+  const left = Math.min(...groupRects.map((r) => r.x));
+  const right = Math.max(...groupRects.map((r) => r.x + r.w));
+  const top = Math.min(...groupRects.map((r) => r.y));
+  const bottom = Math.max(...groupRects.map((r) => r.y + r.h));
+  const jumpers = feeds.filter(
+    (c) =>
+      c.from.type === "terminal" &&
+      c.from.deviceId === RCD.id &&
+      c.to.type === "terminal" &&
+      [MCB_1.id, MCB_2.id].includes(c.to.deviceId),
+  );
+  const sideOf = (c: Conductor) => {
+    if (c.path.every((p) => p.y >= bottom - 1e-6)) return "bottom";
+    if (c.path.every((p) => p.y <= top + 1e-6)) return "top";
+    return "crosses";
+  };
+
+  it("runs every jumper within the group's span, along one and the same edge", () => {
+    expect(jumpers).toHaveLength(2);
+    for (const c of jumpers) {
+      for (const p of c.path) {
+        expect(p.x).toBeGreaterThanOrEqual(left - 1e-6);
+        expect(p.x).toBeLessThanOrEqual(right + 1e-6);
+      }
+      // The RCD's output edge is the MCBs' supply edge.
+      expect(c.from.type === "terminal" && c.to.type === "terminal" && c.from.side === c.to.side).toBe(true);
+    }
+    const sides = new Set(jumpers.map(sideOf));
+    expect(sides.size).toBe(1);
+    expect(sides.has("crosses")).toBe(false);
+  });
+
+  it("sends the circuit cables out of the MCBs on the other edge — the one facing their entry", () => {
+    const jumperSide = sideOf(jumpers[0]);
+    for (const [n, mcb] of [
+      [1, MCB_1],
+      [2, MCB_2],
+    ] as const) {
+      const phase = only(ofCircuit(conductors, n).filter((c) => wireClass(c.role) === "L"));
+      expect(phase.to.type === "terminal" && phase.to.deviceId === mcb.id).toBe(true);
+      if (phase.to.type !== "terminal") continue;
+      expect(phase.to.side).not.toBe(jumperSide);
+      if (circuitsEdge !== null) expect(phase.to.side).toBe(circuitsEdge);
+    }
+  });
+
+  it("brings the WLZ to the main switch's edge facing its entry and feeds out of the other one", () => {
+    const entry = input.geometry.entries[0];
+    const main = rectOfDevice(input, MAIN.id);
+    const wlzPhase = conductors.find((c) => c.kind === "wlz" && wireClass(c.role) === "L");
+    if (wlzPhase?.to.type !== "terminal") throw new Error("no WLZ phase");
+    if (entry.side === "top" || entry.side === "bottom") expect(wlzPhase.to.side).toBe(entry.side);
+    expect(main.h).toBeGreaterThan(0);
+    for (const c of feeds) {
+      if (c.from.type === "terminal" && c.from.deviceId === MAIN.id) expect(c.from.side).not.toBe(wlzPhase.to.side);
     }
   });
 });

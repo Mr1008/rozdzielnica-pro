@@ -429,8 +429,12 @@ describe("render path CPU budget", () => {
     };
     const once = run();
     expect(once.layout?.state).toBe("placed");
-    // 60 circuits × (L, N, PE) + WLZ (L, N, PE) + feeds (N to the bar, 20 RCDs × (L, N), 60 MCBs × L).
-    expect(once.conductors).toHaveLength(60 * 3 + 3 + 1 + 20 * 2 + 60);
+    // 60 circuits × (L, N, PE) + WLZ (L, PEN, split link) + feeds (N to the bar, 20 RCDs × (L, N),
+    // 60 MCBs × L) — less the bar conductors seed (c)'s bars have no terminal for (plan Phase 5c: one
+    // conductor per terminal). PE bar: 62 conductors (60 circuit PEs, the WLZ PEN and the split link at
+    // 10 mm²) on 20 terminals up to 16 mm² and 3 from 6 mm² — 22 land. N bar: 21 at 10 mm² (the main
+    // switch's N and 20 RCDs' N) on 16 + 2 terminals — 18 land. 43 are left unrouted.
+    expect(once.conductors).toHaveLength(60 * 3 + 3 + 1 + 20 * 2 + 60 - (62 - 22) - (21 - 18));
 
     for (let i = 0; i < 5; i++) run(); // warm-up
     const samples: number[] = [];
