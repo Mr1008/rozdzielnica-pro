@@ -1,19 +1,12 @@
 ---
 import { CabinetDrawing } from "@/components/cabinets/CabinetDrawing";
-import { railRect } from "@/lib/cabinet-geometry";
-import { DEMO_CABINET_GEOMETRY } from "@/lib/demo-cabinet";
+import { landingLayoutFixture } from "@/lib/kitchen-sink-circuits";
 import { cn } from "@/lib/utils";
 
 /**
- * The demo cabinet (`DEMO_CABINET_GEOMETRY`) drawn on a drafting sheet, with an animated "current"
- * running in through its cable entries: from the top entry down to the first DIN rail and along it,
- * and from the bottom entry up to the PE bar. The landing page's product picture; also on
- * `/dev/kitchen-sink`.
- *
- * The overlay SVG shares the drawing's viewBox (the interior in millimetres), so the traces are
- * computed from the same geometry the drawing renders and stay on it at any size. They start well
- * outside the interior and the sheet clips them, so the current always enters from the sheet's edge.
- * Motion is the `animate-current-*` utilities in `global.css`, which stop under reduced motion.
+ * The landing page's product picture: the demo cabinet with a real layout proposal and its wires on a
+ * drafting sheet. The devices come from the real matcher, `proposeLayout` and the wiring router
+ * (`landingLayoutFixture`), so the hero shows what the product produces; also on `/dev/kitchen-sink`.
  */
 interface Props {
   caption: string;
@@ -22,81 +15,24 @@ interface Props {
 
 const { caption, class: className } = Astro.props;
 
-const geometry = DEMO_CABINET_GEOMETRY;
+const { geometry, devices, wires, cables } = landingLayoutFixture();
 const { widthMm, heightMm } = geometry.interior;
-const viewBox = `0 0 ${String(widthMm)} ${String(heightMm)}`;
-
-const topEntry = geometry.entries.find((entry) => entry.side === "top");
-const bottomEntry = geometry.entries.find((entry) => entry.side === "bottom");
-const firstRail = geometry.rails.at(0);
-const peBar = geometry.bars.find((bar) => bar.kind === "PE");
-
-/** How far outside the interior a trace starts, in mm — far enough to reach past the sheet's edge. */
-const LEAD_IN_MM = 400;
-/** Where the bottom trace starts: short, so it stays clear of the caption below the drawing. */
-const BOTTOM_LEAD_IN_MM = 70;
-
-interface Trace {
-  d: string;
-  node: { x: number; y: number };
-}
-
-const traces: Trace[] = [];
-if (topEntry && firstRail) {
-  const x = topEntry.offsetMm + topEntry.lengthMm / 2;
-  const rail = railRect(firstRail);
-  const y = rail.y + rail.h / 2;
-  traces.push({
-    d: `M ${String(x)} ${String(-LEAD_IN_MM)} V ${String(y)} H ${String(rail.x + rail.w)}`,
-    node: { x, y: 0 },
-  });
-}
-if (bottomEntry && peBar) {
-  const x = bottomEntry.offsetMm + bottomEntry.lengthMm / 2;
-  const y = peBar.yMm + peBar.heightMm / 2;
-  traces.push({
-    d: `M ${String(x)} ${String(heightMm + BOTTOM_LEAD_IN_MM)} V ${String(y)} H ${String(peBar.xMm)}`,
-    node: { x, y: heightMm },
-  });
-}
 ---
 
 <figure
   class:list={cn(
-    "relative flex flex-col items-center gap-6 overflow-hidden rounded-xl border bg-drafting-grid px-8 pt-14 pb-6 text-foreground shadow-2xl",
+    "relative flex flex-col items-center gap-6 overflow-hidden rounded-xl border bg-drafting-grid px-8 pt-8 pb-6 text-foreground shadow-2xl",
     className,
   )}
 >
   <div class="relative w-full max-w-sm" style={{ aspectRatio: `${String(widthMm)} / ${String(heightMm)}` }}>
-    <CabinetDrawing geometry={geometry} className="absolute inset-0 h-full w-full" />
-    <svg
-      viewBox={viewBox}
-      class="pointer-events-none absolute inset-0 h-full w-full overflow-visible"
-      aria-hidden="true"
-      fill="none"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-    >
-      {traces.map((trace) => (
-        <g>
-          <path d={trace.d} class="animate-current-pulse stroke-hero-current" stroke-width="16" stroke-opacity="0.35" />
-          <path d={trace.d} class="stroke-drawing-highlight" stroke-width="4" />
-          <path
-            d={trace.d}
-            class="animate-current-flow stroke-hero-current"
-            stroke-width="4"
-            stroke-dasharray="16 32"
-          />
-          <circle
-            cx={trace.node.x}
-            cy={trace.node.y}
-            r="9"
-            class="animate-current-pulse fill-hero-current stroke-drawing-highlight"
-            stroke-width="3"
-          />
-        </g>
-      ))}
-    </svg>
+    <CabinetDrawing
+      geometry={geometry}
+      devices={devices}
+      wires={wires}
+      cables={cables}
+      className="absolute inset-0 h-full w-full"
+    />
   </div>
   <figcaption class="relative z-10 max-w-sm rounded bg-card px-2 py-1 text-center font-mono text-xs text-muted-foreground">
     {caption}

@@ -3,7 +3,7 @@
 **RozdzielnicaPro** — a switchboard (rozdzielnica) planning and labour-quoting tool for a solo
 electrician. Scaffolded from `10x-astro-starter`. Product code so far is auth, i18n, the role/RLS
 baseline, the admin cabinet and device catalogs, the electrician pricing profile and projects (cabinet
-snapshot, OSD/WLZ supply and its warnings, circuits with RCD groups and device matching) — `src/pages/auth/*`, `src/pages/admin/` (including
+snapshot, OSD/WLZ supply and its warnings, circuits with RCD groups and device matching, the cabinet layout proposal with its wiring drawing) — `src/pages/auth/*`, `src/pages/admin/` (including
 `src/pages/admin/devices/`), `src/pages/api/admin/`, `src/pages/dashboard.astro`,
 `src/pages/dashboard/profile.astro`, `src/pages/dashboard/projects/`, `src/pages/api/profile/`,
 `src/pages/api/projects/`, `src/components/cabinets/`, `src/components/devices/`,
@@ -27,8 +27,8 @@ These are correctness requirements, not preferences.
 - **Layout heuristic, three rules applied together:** (1) a group's MCBs sit next to its RCD — and a
   single-circuit RCD group becomes one RCBO instead of two devices; (2) place the group near the
   cabinet side its cables enter from; (3) account for distance to the PE and N bars. This is a
-  deliberate heuristic, not an optimiser. Their precedence when they conflict is an open question in
-  the PRD — if you have to pick one, say so explicitly rather than burying the choice.
+  deliberate heuristic, not an optimiser. Precedence when they conflict is decided (2026-10-06): 1 > 2 > 3,
+  recorded in the header of @src/lib/cabinet-layout.ts — change it there, explicitly, never by tuning a score.
 - **MVP device types are closed:** switch-disconnectors ("FR", no fuse links), RCD, RCBO, type-B
   MCBs, PE bars, N bars. Nothing else.
 - **One project = one cabinet.** Single-phase and three-phase installations are both in scope.
@@ -83,6 +83,20 @@ These are correctness requirements, not preferences.
   extra decimal places because `numeric` columns would round them silently. An FR is a plain
   switch-disconnector — a rated current and poles, no protection — so the matcher must never treat
   it as overcurrent or residual-current protection.
+- **The device N-terminal side is guarded twice, and the two guards must change together.** The
+  `devices_parameters_match_kind` CHECK in `supabase/migrations/20261006120000_device_n_terminal_side.sql`
+  and `parseDeviceSpec` in @src/lib/device-spec.ts both require `n_terminal_side` exactly when the
+  poles carry N (`POLES_WITH_N`) and forbid it otherwise — by poles, not by kind.
+- **Layout placements are a snapshot, read only through `computeLayoutView`**
+  (@src/lib/layout-server.ts). Draw a layout (and its wires) only when its state is `placed`; an
+  outdated or missing one is never drawn. `project_device_placements` is written only by the
+  `save_project_circuits` / `save_project_layout` RPCs
+  (`supabase/migrations/20261006130000_project_device_placements.sql`) — never from TypeScript — and a
+  cabinet change clears it.
+- **Catalog PE/N bars:** a cabinet without built-in bars gets `pe_bar` / `n_bar` selections from the
+  catalog, snapshotted with `project_devices.terminal_groups`
+  (`supabase/migrations/20261006140000_project_device_bars.sql`) and placed on a DIN rail; the
+  drawing and wiring read the snapshot, never the live catalog.
 - **Pricing bounds are guarded twice, and the two guards must change together.** The named CHECKs
   in `supabase/migrations/20260924120000_pricing_profiles.sql` and the `MIN_`/`MAX_` constants in
   @src/lib/pricing-profile.ts (plus `MAX_PRICE_GROSZE` for the rate) encode the same ranges. The

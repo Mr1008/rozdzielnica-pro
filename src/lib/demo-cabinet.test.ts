@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { parseCabinetGeometry } from "./cabinet-geometry";
-import { DEMO_CABINET_GEOMETRY } from "./demo-cabinet";
+import { DEMO_CABINET_GEOMETRY, HERO_CABINET_GEOMETRY } from "./demo-cabinet";
 
-describe("DEMO_CABINET_GEOMETRY", () => {
+describe.each([
+  ["DEMO_CABINET_GEOMETRY", DEMO_CABINET_GEOMETRY],
+  ["HERO_CABINET_GEOMETRY", HERO_CABINET_GEOMETRY],
+])("%s", (_name, DEMO_CABINET_GEOMETRY) => {
   it("passes parseCabinetGeometry unchanged", () => {
     expect(parseCabinetGeometry(DEMO_CABINET_GEOMETRY)).toEqual({ ok: true, geometry: DEMO_CABINET_GEOMETRY });
   });

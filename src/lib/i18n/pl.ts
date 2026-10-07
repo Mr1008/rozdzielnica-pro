@@ -116,7 +116,8 @@ export const pl = {
     headlineAccent: "i wyceń robociznę w kilka minut",
     subline:
       "Podajesz obwody i grupy RCD, a RozdzielnicaPro dobiera aparaty z katalogu, proponuje ich układ w wybranej szafce i liczy koszt materiału oraz robocizny według Twojej stawki.",
-    drawingCaption: "Przykładowa szafka: trzy szyny DIN, szyna PE pod aparatami i szyna N z boku.",
+    drawingCaption:
+      "Przykładowa szafka: aparaty rozmieszczone przez system w grupach RCD, z przewodami od wprowadzeń do aparatów i szyn PE/N.",
     stepsTitle: "Od obwodów do wyceny w trzech krokach",
     steps: {
       circuits: {
@@ -1168,7 +1169,7 @@ export const pl = {
       brandSize: (px: number) => `${String(px)} px`,
       circuitGrid: "Wzór tła: siatka z torem obwodu",
       heroButtons: "Przyciski na tle hero",
-      draftingSheet: "Arkusz rysunkowy z przepływem prądu",
+      draftingSheet: "Arkusz rysunkowy z układem aparatów i przewodami",
       circuitEditorTitle: "Edytor obwodów",
       matchResultTitle: "Wynik doboru aparatów",
       layoutTitle: "Sekcja „Układ w szafce”",
