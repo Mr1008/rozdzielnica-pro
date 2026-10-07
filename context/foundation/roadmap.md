@@ -3,7 +3,7 @@ project: "RozdzielnicaPro"
 version: 1
 status: draft
 created: 2026-09-21
-updated: 2026-10-06
+updated: 2026-10-07
 prd_version: 2
 main_goal: low-complexity
 top_blocker: decisions
@@ -44,20 +44,20 @@ Uwaga: pierwszeństwo reguł rozmieszczenia (Otwarte pytanie #2) zostało rozstr
 
 ## At a glance
 
-| ID   | Change ID                           | Outcome (elektryk / admin może …)                                                          | Prerequisites | PRD refs                             | Status      |
-| ---- | ----------------------------------- | ------------------------------------------------------------------------------------------ | ------------- | ------------------------------------ | ----------- |
-| F-01 | `roles-and-rls-baseline`            | (foundation) role `admin` / `elektryk` rozróżnialne, dane elektryka izolowane przez RLS    | —             | Access Control, NFR-izolacja         | done        |
-| S-01 | `admin-device-catalog`              | Admin prowadzi katalog aparatów z wymiarami, ceną i parametrami elektrycznymi              | F-01          | FR-001                               | done        |
-| S-02 | `admin-cabinet-catalog`             | Admin prowadzi katalog szafek z wymiarami i układem szyn                                   | F-01          | FR-002                               | done        |
-| S-03 | `project-setup-and-supply-params`   | Elektryk zakłada projekt, wybiera szafkę i opisuje przyłącze OSD/WLZ                       | F-01, S-02    | FR-003, FR-004, FR-005, US-01        | done        |
-| S-04 | `circuit-input-and-device-matching` | Elektryk podaje obwody i grupy RCD i dostaje dobrane aparaty (albo błąd o luce w katalogu) | S-01, S-03    | FR-006, FR-007, US-01                | done        |
-| S-05 | `cabinet-layout-proposal`           | Elektryk widzi zaproponowany układ aparatów w swojej szafce                                | S-02, S-04    | FR-008, US-01                        | in-progress |
-| S-06 | `manual-layout-editing`             | Elektryk poprawia zaproponowany układ przed wyceną                                         | S-05          | FR-009, US-01                        | proposed    |
-| S-07 | `electrician-pricing-profile`       | Elektryk ustawia w profilu stawkę, średni czas montażu i narzut na projekt                 | F-01          | FR-010                               | done        |
-| S-08 | `quote-cost-estimate`               | Elektryk widzi koszt materiału i robocizny i nadpisuje estymowany czas                     | S-04, S-07    | FR-011, FR-013, US-01                | proposed    |
-| S-09 | `printable-quote-export`            | Elektryk drukuje/eksportuje wycenę z wizualizacją układu szafki                            | S-06, S-08    | FR-012, US-01                        | proposed    |
-| S-10 | `ui-layout-theme`                   | Elektryk i admin pracują w spójnym, jasnym interfejsie „Arkusz techniczny" pod desktop     | S-03, S-07    | NFR (UI po polsku), FR-012 pośrednio | done        |
-| S-11 | `realistic-wiring-render`           | Elektryk widzi rysunek okablowania szafki wyglądający jak prawdziwa rozdzielnica           | S-09          | poza PRD (FR-012 pośrednio)          | proposed    |
+| ID   | Change ID                           | Outcome (elektryk / admin może …)                                                          | Prerequisites | PRD refs                             | Status   |
+| ---- | ----------------------------------- | ------------------------------------------------------------------------------------------ | ------------- | ------------------------------------ | -------- |
+| F-01 | `roles-and-rls-baseline`            | (foundation) role `admin` / `elektryk` rozróżnialne, dane elektryka izolowane przez RLS    | —             | Access Control, NFR-izolacja         | done     |
+| S-01 | `admin-device-catalog`              | Admin prowadzi katalog aparatów z wymiarami, ceną i parametrami elektrycznymi              | F-01          | FR-001                               | done     |
+| S-02 | `admin-cabinet-catalog`             | Admin prowadzi katalog szafek z wymiarami i układem szyn                                   | F-01          | FR-002                               | done     |
+| S-03 | `project-setup-and-supply-params`   | Elektryk zakłada projekt, wybiera szafkę i opisuje przyłącze OSD/WLZ                       | F-01, S-02    | FR-003, FR-004, FR-005, US-01        | done     |
+| S-04 | `circuit-input-and-device-matching` | Elektryk podaje obwody i grupy RCD i dostaje dobrane aparaty (albo błąd o luce w katalogu) | S-01, S-03    | FR-006, FR-007, US-01                | done     |
+| S-05 | `cabinet-layout-proposal`           | Elektryk widzi zaproponowany układ aparatów w swojej szafce                                | S-02, S-04    | FR-008, US-01                        | done     |
+| S-06 | `manual-layout-editing`             | Elektryk poprawia zaproponowany układ przed wyceną                                         | S-05          | FR-009, US-01                        | proposed |
+| S-07 | `electrician-pricing-profile`       | Elektryk ustawia w profilu stawkę, średni czas montażu i narzut na projekt                 | F-01          | FR-010                               | done     |
+| S-08 | `quote-cost-estimate`               | Elektryk widzi koszt materiału i robocizny i nadpisuje estymowany czas                     | S-04, S-07    | FR-011, FR-013, US-01                | proposed |
+| S-09 | `printable-quote-export`            | Elektryk drukuje/eksportuje wycenę z wizualizacją układu szafki                            | S-06, S-08    | FR-012, US-01                        | proposed |
+| S-10 | `ui-layout-theme`                   | Elektryk i admin pracują w spójnym, jasnym interfejsie „Arkusz techniczny" pod desktop     | S-03, S-07    | NFR (UI po polsku), FR-012 pośrednio | done     |
+| S-11 | `realistic-wiring-render`           | Elektryk widzi rysunek okablowania szafki wyglądający jak prawdziwa rozdzielnica           | S-09          | poza PRD (FR-012 pośrednio)          | proposed |
 
 ## Streams
 
@@ -168,7 +168,7 @@ Foundations poniżej zakładają, że to istnieje, i **nie** budują tego od now
 - **Unknowns:**
   - ~~Które z trzech reguł rozmieszczenia mają pierwszeństwo?~~ Rozstrzygnięte 2026-10-06 (Otwarte pytanie #2): grupowanie > bliskość wyprowadzeń > bliskość szyn PE/N, zapisane w `src/lib/cabinet-layout.ts`.
 - **Risk:** Gwiazda przewodnia i zarazem jedyny element, którego PRD sam nie domyka. Implementacja i tak wymusiła _jakąś_ kolejność reguł — dlatego została zapisana świadomie (2026-10-06), żeby dało się odróżnić złą regułę od złej precedencji. To heurystyka stosowana wprost, nie optymalizator — droga do solvera jest zamknięta w `## Non-Goals`.
-- **Status:** in-progress
+- **Status:** done
 
 ### S-06: Elektryk poprawia układ ręcznie
 
@@ -261,7 +261,7 @@ Foundations poniżej zakładają, że to istnieje, i **nie** budują tego od now
 | S-02       | `admin-cabinet-catalog`             | Katalog szafek rozdzielnic prowadzony przez admina         | done                  | Zarchiwizowane → `context/archive/2026-09-23-admin-cabinet-catalog/`                      |
 | S-03       | `project-setup-and-supply-params`   | Nowy projekt: wybór szafki + parametry OSD/WLZ             | no                    | Czeka na S-02                                                                             |
 | S-04       | `circuit-input-and-device-matching` | Obwody, grupy RCD i dobór aparatów z guardrailem           | no                    | Czeka na S-01, S-03                                                                       |
-| S-05       | `cabinet-layout-proposal`           | Heurystyczna propozycja układu aparatów w szafce           | no                    | Zaimplementowane (precedencja rozstrzygnięta 2026-10-06); czeka na `/10x-archive`         |
+| S-05       | `cabinet-layout-proposal`           | Heurystyczna propozycja układu aparatów w szafce           | done                  | Zarchiwizowane → `context/archive/2026-10-06-cabinet-layout-proposal/`                    |
 | S-06       | `manual-layout-editing`             | Ręczna korekta zaproponowanego układu                      | no                    | Czeka na S-05                                                                             |
 | S-07       | `electrician-pricing-profile`       | Parametry wyceny w profilu elektryka                       | yes                   | Uruchom `/10x-plan electrician-pricing-profile`; może iść równolegle do toru projektowego |
 | S-08       | `quote-cost-estimate`               | Koszt materiału i robocizny z możliwością nadpisania czasu | no                    | Czeka na S-04, S-07                                                                       |
@@ -328,3 +328,4 @@ Foundations poniżej zakładają, że to istnieje, i **nie** budują tego od now
 - **S-03: Elektryk może założyć nowy projekt, wybrać do niego szafkę z katalogu i podać parametry OSD (zabezpieczenie przedlicznikowe, układ TN-C / TN-S / TN-C-S / TT, liczba faz) oraz WLZ (długość, przekrój, materiał, sposób ułożenia).** — Archived 2026-09-25 → `context/archive/2026-09-24-project-setup-and-supply-params/`. Lesson: —.
 - **S-10: Elektryk i admin pracują w spójnym, jasnym interfejsie „Arkusz techniczny" — jedno źródło tokenów (papier, tusz, indygo, kolory żył wg IEC 60445), komponenty shadcn, wspólna powłoka aplikacji z paskiem nagłówka, własne logo i favicon — zoptymalizowanym pod pracę na komputerze.** — Archived 2026-09-29 → `context/archive/2026-09-25-ui-layout-theme/`. Lesson: —.
 - **S-04: Elektryk może podać liczbę i parametry obwodów oraz wskazać, które dzielą wspólną grupę RCD, i dostaje zestaw dobranych aparatów — najtańszych spośród spełniających parametry — albo czytelny błąd z prośbą o kontakt z administratorem, gdy w katalogu nie ma pasującego aparatu.** — Archived 2026-09-30 → `context/archive/2026-09-29-circuit-input-and-device-matching/`. Lesson: —.
+- **S-05: Elektryk widzi propozycję fizycznego rozmieszczenia dobranych aparatów w wybranej szafce, wyliczoną z trzech reguł stosowanych łącznie: grupowanie nadprądowych przy RCD swojej grupy (z RCBO zamiast dwóch aparatów dla grupy jednoobwodowej), bliskość strony, którą wchodzą przewody, oraz odległość do szyn PE i N.** — Archived 2026-10-07 → `context/archive/2026-10-06-cabinet-layout-proposal/`. Lesson: —.
