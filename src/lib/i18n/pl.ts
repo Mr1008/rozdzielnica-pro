@@ -638,6 +638,10 @@ export const pl = {
     layoutDoesNotFit:
       "Dobrane aparaty nie mieszczą się na szynach DIN tej szafki — wybierz większą szafkę albo zmniejsz liczbę obwodów",
     layoutDeviceUnavailable: "Dobór aparatów zmienił się w trakcie zapisu układu — spróbuj ponownie",
+    quoteMatchNotCurrent:
+      "Czas robocizny można nadpisać tylko dla aktualnego doboru aparatów — najpierw dobierz aparaty ponownie",
+    quotePricingNotConfigured:
+      "Nie ustawiono parametrów wyceny — uzupełnij je w profilu, zanim nadpiszesz czas robocizny",
     unknown: "Coś poszło nie tak. Spróbuj ponownie",
   },
 
