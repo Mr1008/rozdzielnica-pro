@@ -26,6 +26,10 @@ describe("projectErrorMessage", () => {
     expect(projectErrorMessage(PROJECT_ERROR.layoutMatchNotCurrent)).toBe(t.projectErrors.layoutMatchNotCurrent);
     expect(projectErrorMessage(PROJECT_ERROR.layoutDoesNotFit)).toBe(t.projectErrors.layoutDoesNotFit);
     expect(projectErrorMessage(PROJECT_ERROR.layoutDeviceUnavailable)).toBe(t.projectErrors.layoutDeviceUnavailable);
+    expect(projectErrorMessage(PROJECT_ERROR.quoteMatchNotCurrent)).toBe(t.projectErrors.quoteMatchNotCurrent);
+    expect(projectErrorMessage(PROJECT_ERROR.quotePricingNotConfigured)).toBe(
+      t.projectErrors.quotePricingNotConfigured,
+    );
   });
 
   it("shows the generic message for an unrecognised code, including inherited object keys", () => {

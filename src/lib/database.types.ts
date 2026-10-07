@@ -424,6 +424,8 @@ export type Database = {
           created_at: string
           earthing_system: Database["public"]["Enums"]["earthing_system"] | null
           id: string
+          labour_minutes_override: number | null
+          labour_override_base_minutes: number | null
           name: string
           phase_count: number | null
           premeter_protection_a: number | null
@@ -450,6 +452,8 @@ export type Database = {
             | Database["public"]["Enums"]["earthing_system"]
             | null
           id?: string
+          labour_minutes_override?: number | null
+          labour_override_base_minutes?: number | null
           name: string
           phase_count?: number | null
           premeter_protection_a?: number | null
@@ -478,6 +482,8 @@ export type Database = {
             | Database["public"]["Enums"]["earthing_system"]
             | null
           id?: string
+          labour_minutes_override?: number | null
+          labour_override_base_minutes?: number | null
           name?: string
           phase_count?: number | null
           premeter_protection_a?: number | null

@@ -405,19 +405,19 @@ There are two nullable columns and no backfill. Old code ignores them, so the mi
 
 #### Automated
 
-- [x] 1.1 Unit tests pass: `npm run test:unit`
-- [x] 1.2 Lint passes: `npm run lint`
-- [x] 1.3 Type check passes: `npx astro check`
+- [x] 1.1 Unit tests pass: `npm run test:unit` — adb9ca4
+- [x] 1.2 Lint passes: `npm run lint` — adb9ca4
+- [x] 1.3 Type check passes: `npx astro check` — adb9ca4
 
 ### Phase 2: Override storage and endpoint
 
 #### Automated
 
-- [ ] 2.1 Migration applies cleanly: `npx supabase db reset`
-- [ ] 2.2 Types regenerated with no unrelated diff: `npm run db:types`
-- [ ] 2.3 Integration tests pass against the local stack: `npm run test:integration`
-- [ ] 2.4 Unit tests pass: `npm run test:unit`
-- [ ] 2.5 Lint and type check pass: `npm run lint && npx astro check`
+- [x] 2.1 Migration applies cleanly: `npx supabase db reset`
+- [x] 2.2 Types regenerated with no unrelated diff: `npm run db:types`
+- [x] 2.3 Integration tests pass against the local stack: `npm run test:integration`
+- [x] 2.4 Unit tests pass: `npm run test:unit`
+- [x] 2.5 Lint and type check pass: `npm run lint && npx astro check`
 
 ### Phase 3: Quote section on the project page
 
