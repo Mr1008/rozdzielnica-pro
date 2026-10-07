@@ -1089,13 +1089,13 @@ the admin should review them. Existing projects get no placements until their ne
 
 #### Automated
 
-- [x] 6.1 Lint passes: `npm run lint`
-- [x] 6.2 Type check passes: `npx astro check`
-- [x] 6.3 Unit tests pass: `npm run test:unit`
-- [x] 6.4 Build passes: `npm run build`
-- [x] 6.5 Roadmap sync applied: `node scripts/roadmap-to-github.mjs --apply`
+- [x] 6.1 Lint passes: `npm run lint` — 9ee56c6
+- [x] 6.2 Type check passes: `npx astro check` — 9ee56c6
+- [x] 6.3 Unit tests pass: `npm run test:unit` — 9ee56c6
+- [x] 6.4 Build passes: `npm run build` — 9ee56c6
+- [x] 6.5 Roadmap sync applied: `node scripts/roadmap-to-github.mjs --apply` — 9ee56c6
 
 #### Manual
 
-- [x] 6.6 Landing hero shows the wired demo layout and reads well
-- [x] 6.7 Smoke flow still passes against the dev server: `npm run smoke`
+- [x] 6.6 Landing hero shows the wired demo layout and reads well — 9ee56c6
+- [x] 6.7 Smoke flow still passes against the dev server: `npm run smoke` — 9ee56c6
