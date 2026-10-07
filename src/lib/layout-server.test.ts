@@ -30,7 +30,14 @@ const PROJECT_ID = "5b1d6a3e-0c2f-4e8a-9b7d-1a2b3c4d5e6f";
 // Builders
 // ---------------------------------------------------------------------------------------------
 
-const ROLE_KIND = { main_switch: "switch_disconnector", rcd: "rcd", rcbo: "rcbo", mcb: "mcb_b" } as const;
+const ROLE_KIND = {
+  main_switch: "switch_disconnector",
+  rcd: "rcd",
+  rcbo: "rcbo",
+  mcb: "mcb_b",
+  pe_bar: "pe_bar",
+  n_bar: "n_bar",
+} as const;
 
 function uuid(prefix: string, n: number): string {
   return `${prefix}-0000-4000-8000-${String(n).padStart(12, "0")}`;
@@ -89,6 +96,7 @@ function row(
     rcd_type: null,
     breaking_capacity_ka: null,
     n_terminal_side: polesCarryN(poles) ? "left" : null,
+    terminal_groups: null,
     created_at: "2026-10-06T00:00:00Z",
   };
 }

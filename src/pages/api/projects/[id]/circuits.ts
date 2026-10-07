@@ -2,7 +2,7 @@ import type { APIRoute } from "astro";
 import { isUuid } from "@/lib/catalog";
 import { CIRCUIT_FORM_FIELDS, parseCircuitsPayload } from "@/lib/circuit-params";
 import { matchDevices } from "@/lib/device-matching";
-import { circuitsRpcErrorCode, loadMatchBase, saveCircuitsArgs } from "@/lib/device-matching-server";
+import { cabinetBarKinds, circuitsRpcErrorCode, loadMatchBase, saveCircuitsArgs } from "@/lib/device-matching-server";
 import { proposeSelectionLayout } from "@/lib/layout-server";
 import { projectFormErrorPath, projectPath, projectsErrorPath } from "@/lib/project";
 import { PROJECT_ERROR } from "@/lib/project-errors";
@@ -55,7 +55,12 @@ export const POST: APIRoute = async (context) => {
   if (!loaded.ok) return loaded.code === "not_found" ? notFound() : back(PROJECT_ERROR.unknown);
 
   const result = matchDevices(
-    { supply: loaded.base.supply, groups: parsed.value.groups, circuits: parsed.value.circuits },
+    {
+      supply: loaded.base.supply,
+      groups: parsed.value.groups,
+      circuits: parsed.value.circuits,
+      cabinetBarKinds: cabinetBarKinds(loaded.base.geometry),
+    },
     loaded.base.catalog,
   );
 

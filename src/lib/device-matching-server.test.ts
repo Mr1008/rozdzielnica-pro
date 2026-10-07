@@ -109,6 +109,7 @@ function snapshotRow(selection: Selection, position: number, overrides: Partial<
     rcd_type: null,
     breaking_capacity_ka: 6,
     n_terminal_side: null,
+    terminal_groups: null,
     created_at: "2026-09-29T00:00:00Z",
     ...overrides,
   };
@@ -179,6 +180,52 @@ describe("computeMatchView", () => {
     const view = computeMatchView(context({ catalog: CATALOG.filter((d) => d.id !== RCD_ID) }));
     expect(view.state).toBe("gaps");
     expect(view.fresh.status).toBe("gaps");
+  });
+
+  describe("a cabinet without built-in bars (plan Phase 5b)", () => {
+    const BAR_ID = "a1000000-0000-4000-8000-0000000000b1";
+    const N_BAR_ID = "a1000000-0000-4000-8000-0000000000b2";
+    const terminals = [{ count: 6, minMm2: 1.5, maxMm2: 16 }];
+    const peBar = device(BAR_ID, { kind: "pe_bar", terminal_groups: terminals });
+    const nBar = device(N_BAR_ID, { kind: "n_bar", terminal_groups: terminals });
+    const bareGeometry: MatchContext["geometry"] = {
+      version: 1,
+      interior: { widthMm: 300, heightMm: 300, depthMm: 100 },
+      rails: [{ xMm: 10, yMm: 100, lengthMm: 280 }],
+      entries: [{ side: "top", offsetMm: 0, lengthMm: 100 }],
+      bars: [],
+    };
+    const withBars: Selection[] = [
+      ...EXPECTED,
+      { role: "pe_bar", deviceId: BAR_ID, groupId: null, circuitId: null, notes: [] },
+      { role: "n_bar", deviceId: N_BAR_ID, groupId: null, circuitId: null, notes: [] },
+    ];
+
+    it("matches the bars from the catalog and compares them like any role", () => {
+      const ctx = context({
+        geometry: bareGeometry,
+        catalog: [...CATALOG, peBar, nBar],
+        snapshot: withBars.map((selection, i) => snapshotRow(selection, i)),
+      });
+      const view = computeMatchView(ctx);
+      expect(view.fresh).toEqual({ status: "matched", selections: withBars });
+      expect(view.state).toBe("current");
+    });
+
+    it("reads a snapshot without the bars as stale", () => {
+      expect(computeMatchView(context({ geometry: bareGeometry, catalog: [...CATALOG, peBar, nBar] })).state).toBe(
+        "stale",
+      );
+    });
+
+    it("is gaps when the catalog has no fitting bar", () => {
+      const view = computeMatchView(context({ geometry: bareGeometry, catalog: [...CATALOG, peBar] }));
+      expect(view.state).toBe("gaps");
+    });
+
+    it("requires no bar for an unparsed (null) cabinet snapshot", () => {
+      expect(computeMatchView(context({ geometry: null })).state).toBe("current");
+    });
   });
 
   it("is blocked when the supply is missing, even with a stored snapshot", () => {

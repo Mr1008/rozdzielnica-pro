@@ -748,6 +748,104 @@ here for manual confirmation before proceeding to the next phase.
 
 ---
 
+## Phase 5c: Cables spread along the entry, one conductor per bar terminal, bidirectional devices
+
+> Added 2026-10-06 after Phase 5 (user's review of the wired drawings), to be done after Phase 5b.
+> These are **defects** the electrician reported in the Phase 5 / 5b drawings, not new features:
+> every cable converging on one entry point, several wires on one bar terminal, and RCD → MCB feeds
+> looping around the devices. Extended 2026-10-07 with items 3 and 4.
+
+### Overview
+
+Two corrections to the wiring the electrician would never accept on a real board: every cable today
+enters the cabinet at one point (the entry's midpoint), and several conductors can land on the same
+bar terminal. Cables must enter side by side along the entry, each with its slack, and every
+conductor gets its own bar terminal — shown on the drawing.
+
+### Changes Required:
+
+#### 1. Entry spread
+
+**Files**: `src/lib/cabinet-wiring.ts` (+ tests), `src/lib/cabinet-drawing.ts`
+
+**Contract**:
+
+- Each cable (the WLZ, each circuit's cable — one point per cable, its L/N/PE cores leave it
+  together) enters at its own point along the entry's span (`offsetMm`…`offsetMm + lengthMm`),
+  spaced evenly, ordered so cables do not cross right after the entry (by the x/y of their
+  destinations). Too many cables for the span at the track pitch: spread at the largest pitch that
+  fits, still distinct — never one shared point.
+- The cores of one cable may share its entry point; two different cables never do.
+- Lengths are routed from each cable's own entry point; slack (`WIRE_SLACK_RATIO`) as today.
+- Drawing: the cable's sheathed run from the entry is drawn as one bundle that splits into its cores,
+  so the entry reads as cables side by side.
+
+#### 2. Bidirectional devices — feeds bridge on one side
+
+**Files**: `src/lib/cabinet-wiring.ts` (+ tests), `src/lib/cabinet-layout.ts` (`deviceTerminals`)
+
+**Contract**:
+
+- FR, RCD, RCBO and MCB are bidirectional: neither side is "line" or "load" by construction. The
+  wiring picks each device's supply side; `deviceTerminals` reports top and bottom terminals and the
+  router decides which side is the supply.
+- Default (the electrician's convention, user 2026-10-07): a group's devices are fed from **below** —
+  the RCD's outgoing side is at the bottom and its MCBs take their supply at the bottom, so every
+  RCD → MCB feed is a short jumper along the bottom of the group, never a loop around the devices;
+  the circuit cables then leave the MCBs at the top. The same holds for the main switch → RCD /
+  RCBO / ungrouped-MCB feeds: they bridge along one side.
+- Test oracle: on seeds (a), (b), (c) every RCD → MCB feed stays within the group's span and on one
+  side of the rail (no segment crosses to the other side of its own group's devices).
+- Comb busbars (roadmap `## Parked`, #17) would later replace these jumpers.
+
+#### 3. PEN drawn distinct from PE
+
+**Files**: `src/components/cabinets/CabinetDrawing.tsx`, `src/lib/i18n/pl.ts` (legend)
+
+**Contract**: PEN is drawn green-yellow **with blue stripes** (green base, yellow centre stripe, blue
+dashes over it — user 2026-10-07), so it never reads as PE; the dash also keeps it distinct in
+greyscale. Colours from the `--wire-*` tokens only. Legend text updated.
+
+#### 4. One conductor per bar terminal
+
+**Files**: `src/lib/cabinet-wiring.ts`, `src/lib/cabinet-layout.ts` (terminal points),
+`src/lib/circuit-warnings.ts` / the Phase 5b shared terminal helper, `CabinetDrawing.tsx` (+ tests)
+
+**Contract**:
+
+- A bar's terminal groups become individual terminal points (`count` per group, evenly along the
+  group's share of the bar). Every conductor landing on a bar takes its own free terminal whose
+  cross-section range fits it — the nearest such terminal; never two conductors on one terminal.
+- Not enough fitting terminals on built-in bars: the conductors that fit are wired, the rest are left
+  unrouted and the existing `bar_terminals_insufficient` warning names the shortfall (no conductor is
+  ever doubled up). Catalog bars (Phase 5b) are already selected with enough terminals.
+- The TN-C-S PEN-split link (PE bar → main switch N) occupies a PE-bar terminal like any conductor:
+  the shared count includes it, so a catalog PE bar is selected with that terminal too and the
+  warning numbers for TN-C-S grow by one (user decision 2026-10-07).
+- The terminal-count rule is the same shared helper the matcher and `circuitWarnings` use (Phase 5b)
+  — one place decides how many terminals a set of conductors needs.
+- Drawing: each bar shows its terminals (small screw marks); an occupied terminal is visibly taken by
+  its wire's end; the hover tooltip names the terminal ("szyna N, zacisk 3").
+
+### Success Criteria:
+
+#### Automated Verification:
+
+- Unit tests pass (no two cables share an entry point; cables keep their order along the entry; no two conductors share a bar terminal; each terminal's cross-section range fits its conductor; shortfall leaves conductors unrouted, never doubled; RCD → MCB feeds bridge on one side within the group): `npm run test:unit`
+- Lint passes: `npm run lint`
+- Type check passes: `npx astro check`
+- Build passes: `npm run build`
+
+#### Manual Verification:
+
+- On seed (b) and (c) the cables enter side by side along each entry, and every bar terminal holds at most one wire
+- RCD → MCB feeds are short jumpers along one side of the group; PEN is visibly green-yellow with blue stripes
+
+**Implementation Note**: After completing this phase and all automated verification passes, pause
+here for manual confirmation before proceeding to the next phase.
+
+---
+
 ## Phase 6: Landing, docs and closure
 
 ### Overview
@@ -934,33 +1032,47 @@ the admin should review them. Existing projects get no placements until their ne
 
 #### Automated
 
-- [x] 5.1 Unit tests pass (routing invariants: every circuit has L/N/PE or PEN, N of grouped circuits ends at its RCD, lengths include exactly 15%): `npm run test:unit`
-- [x] 5.2 Lint passes: `npm run lint`
-- [x] 5.3 Type check passes: `npx astro check`
-- [x] 5.4 Build passes: `npm run build`
+- [x] 5.1 Unit tests pass (routing invariants: every circuit has L/N/PE or PEN, N of grouped circuits ends at its RCD, lengths include exactly 15%): `npm run test:unit` — 724a01f
+- [x] 5.2 Lint passes: `npm run lint` — 724a01f
+- [x] 5.3 Type check passes: `npx astro check` — 724a01f
+- [x] 5.4 Build passes: `npm run build` — 724a01f
 
 #### Manual
 
-- [x] 5.5 Wires look like a real wired board on seed (b) and (c); greyscale print preview stays legible
-- [x] 5.6 Length table totals plausible against a hand-measured route on one circuit
-- [x] 5.7 Full render path (match + layout state + wiring) timed on the 60-circuit, 20-group fixture, recorded in `change.md` notes and within the 10 ms Worker CPU budget
+- [x] 5.5 Wires look like a real wired board on seed (b) and (c); greyscale print preview stays legible — 724a01f
+- [x] 5.6 Length table totals plausible against a hand-measured route on one circuit — 724a01f
+- [x] 5.7 Full render path (match + layout state + wiring) timed on the 60-circuit, 20-group fixture, recorded in `change.md` notes and within the 10 ms Worker CPU budget — 724a01f
 
 ### Phase 5b: Catalog PE/N bars for a cabinet without built-in bars
 
 #### Automated
 
-- [ ] 5b.1 Migration applies: `npx supabase db reset`
-- [ ] 5b.2 Types regenerated: `npm run db:types`
-- [ ] 5b.3 Lint passes: `npm run lint`
-- [ ] 5b.4 Type check passes: `npx astro check`
-- [ ] 5b.5 Unit tests pass (bar selected only when the cabinet lacks it; cheapest fitting; gap when none fits; never an under-sized bar): `npm run test:unit`
-- [ ] 5b.6 Integration tests pass: `npm run test:integration`
-- [ ] 5b.7 Build passes: `npm run build`
+- [x] 5b.1 Migration applies: `npx supabase db reset`
+- [x] 5b.2 Types regenerated: `npm run db:types`
+- [x] 5b.3 Lint passes: `npm run lint`
+- [x] 5b.4 Type check passes: `npx astro check`
+- [x] 5b.5 Unit tests pass (bar selected only when the cabinet lacks it; cheapest fitting; gap when none fits; never an under-sized bar): `npm run test:unit`
+- [x] 5b.6 Integration tests pass: `npm run test:integration`
+- [x] 5b.7 Build passes: `npm run build`
 
 #### Manual
 
-- [ ] 5b.8 A project on seed (a) matches a PE and an N bar, places them on the rail and wires circuits to them
-- [ ] 5b.9 Archiving the seeded N bar turns that project's match into a bar catalog gap with the Polish message
+- [x] 5b.8 A project on seed (a) matches a PE and an N bar, places them on the rail and wires circuits to them
+- [x] 5b.9 Archiving the seeded N bar turns that project's match into a bar catalog gap with the Polish message
+
+### Phase 5c: Cables spread along the entry, one conductor per bar terminal, bidirectional devices
+
+#### Automated
+
+- [ ] 5c.1 Unit tests pass (no two cables share an entry point; cables keep their order along the entry; no two conductors share a bar terminal; each terminal's cross-section range fits its conductor; shortfall leaves conductors unrouted, never doubled; RCD → MCB feeds bridge on one side within the group): `npm run test:unit`
+- [ ] 5c.2 Lint passes: `npm run lint`
+- [ ] 5c.3 Type check passes: `npx astro check`
+- [ ] 5c.4 Build passes: `npm run build`
+
+#### Manual
+
+- [ ] 5c.5 On seed (b) and (c) the cables enter side by side along each entry, and every bar terminal holds at most one wire
+- [ ] 5c.6 RCD → MCB feeds are short jumpers along one side of the group; PEN is visibly green-yellow with blue stripes
 
 ### Phase 6: Landing, docs and closure
 

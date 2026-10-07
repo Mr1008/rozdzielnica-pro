@@ -10,6 +10,7 @@ import {
   type DrawnWire,
   type ElementRef,
 } from "@/lib/cabinet-drawing";
+import { catalogBarAsCabinetBar } from "@/lib/cabinet-layout";
 import { barRect, barsBehindAnother, railRect, type CabinetGeometry, type Rect } from "@/lib/cabinet-geometry";
 import type { ConductorKind, ConductorRole } from "@/lib/cabinet-wiring";
 import { t } from "@/lib/i18n";
@@ -53,6 +54,9 @@ const DEVICE_CLASSES: Record<DrawnRole, { body: string; label: string; strokeWid
   rcd: { body: "fill-drawing-device-protect stroke-drawing-frame", label: "fill-drawing-frame", strokeWidth: 2.5 },
   rcbo: { body: "fill-drawing-device-protect stroke-drawing-frame", label: "fill-drawing-frame", strokeWidth: 2.5 },
   mcb: { body: "fill-drawing-paper stroke-drawing-frame", label: "fill-drawing-frame", strokeWidth: 1 },
+  // A catalog bar is drawn by `BarBody` / `BarLabel` like a built-in bar; these are never used.
+  pe_bar: { body: BAR_CLASSES.PE.body, label: BAR_CLASSES.PE.label, strokeWidth: 1 },
+  n_bar: { body: BAR_CLASSES.N.body, label: BAR_CLASSES.N.label, strokeWidth: 1 },
 };
 
 /** The group label's font size, and the N marker's, in millimetres. */
@@ -119,8 +123,18 @@ function WireShape({ wire }: { wire: DrawnWire }) {
   );
 }
 
-function DeviceShape({ device }: { device: DrawnDevice }) {
+function DeviceShape({ device, barLabelSizeMm }: { device: DrawnDevice; barLabelSizeMm: number }) {
   const { rect, lines, fontSizeMm } = device;
+  // A catalog PE/N bar on a rail (plan Phase 5b) looks exactly like a built-in bar of its kind.
+  const bar = catalogBarAsCabinetBar({ role: device.role }, rect);
+  if (bar !== null) {
+    return (
+      <g>
+        <BarBody bar={bar} labelSizeMm={barLabelSizeMm} />
+        <BarLabel bar={bar} fontSizeMm={barLabelSizeMm} />
+      </g>
+    );
+  }
   const style = DEVICE_CLASSES[device.role];
   const lineHeight = fontSizeMm * LABEL_LINE_EM;
   const firstY = rect.y + rect.h / 2 - ((lines.length - 1) * lineHeight) / 2;
@@ -191,6 +205,18 @@ function peStripeRect(bar: Bar, fontSizeMm: number): Rect | null {
   const w = rect.w * STRIPE_SHARE;
   const h = rect.h - start;
   return h > 0 ? { x: rect.x + (rect.w - w) / 2, y: rect.y + start, w, h } : null;
+}
+
+/** A bar's body, with the yellow stripe of a PE bar. */
+function BarBody({ bar, labelSizeMm }: { bar: Bar; labelSizeMm: number }) {
+  const rect = barRect(bar);
+  const stripe = bar.kind === "PE" ? peStripeRect(bar, labelSizeMm) : null;
+  return (
+    <>
+      <rect x={rect.x} y={rect.y} width={rect.w} height={rect.h} className={BAR_CLASSES[bar.kind].body} {...HAIRLINE} />
+      {stripe && <rect x={stripe.x} y={stripe.y} width={stripe.w} height={stripe.h} className="fill-wire-pe-stripe" />}
+    </>
+  );
 }
 
 /** The kind label sits at the bar's starting end, so two overlapping bars do not stack labels. */
@@ -285,25 +311,11 @@ export function CabinetDrawing({
           );
         })}
 
-        {barOrder.map(({ bar, index }) => {
-          const rect = barRect(bar);
-          const stripe = bar.kind === "PE" ? peStripeRect(bar, labelSizeMm) : null;
-          return (
-            <g key={`bar-${String(index)}`}>
-              <rect
-                x={rect.x}
-                y={rect.y}
-                width={rect.w}
-                height={rect.h}
-                className={BAR_CLASSES[bar.kind].body}
-                {...HAIRLINE}
-              />
-              {stripe && (
-                <rect x={stripe.x} y={stripe.y} width={stripe.w} height={stripe.h} className="fill-wire-pe-stripe" />
-              )}
-            </g>
-          );
-        })}
+        {barOrder.map(({ bar, index }) => (
+          <g key={`bar-${String(index)}`}>
+            <BarBody bar={bar} labelSizeMm={labelSizeMm} />
+          </g>
+        ))}
 
         {bars.map((bar, index) => {
           if (!behind[index]) return null;
@@ -327,7 +339,7 @@ export function CabinetDrawing({
         ))}
 
         {devices.map((device) => (
-          <DeviceShape key={`device-${device.id}`} device={device} />
+          <DeviceShape key={`device-${device.id}`} device={device} barLabelSizeMm={labelSizeMm} />
         ))}
 
         {wires.length > 0 && (

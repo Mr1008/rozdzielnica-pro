@@ -141,7 +141,7 @@ const DEVICE_FIXTURES: DeviceFixture[] = [
 ];
 
 /** Raw `devices`-shaped rows, run through `activeCatalog` like the page's own load. */
-const CATALOG_ROWS = DEVICE_FIXTURES.map((device, index) => ({
+const DEVICE_ROWS = DEVICE_FIXTURES.map((device, index) => ({
   id: uuid(1, index + 1),
   archived_at: null,
   kind: device.kind,
@@ -161,7 +161,39 @@ const CATALOG_ROWS = DEVICE_FIXTURES.map((device, index) => ({
   n_terminal_side: device.nTerminalSide ?? null,
 }));
 
-export const KS_CATALOG: DeviceSpecWithId[] = activeCatalog(CATALOG_ROWS);
+/**
+ * One PE and one N bar for a cabinet without built-in bars (plan Phase 5b): 1 TE wide, so the filled
+ * circuits still fit cabinet (a)'s single rail; six terminals take the four circuits and the WLZ.
+ * Ids follow the device rows, so theirs stay put.
+ */
+const BAR_TERMINALS = [
+  { count: 5, minMm2: 1.5, maxMm2: 16 },
+  { count: 1, minMm2: 6, maxMm2: 25 },
+];
+const BAR_ROWS = (["pe_bar", "n_bar"] as const).map((kind, index) => ({
+  id: uuid(1, DEVICE_FIXTURES.length + index + 1),
+  archived_at: null,
+  kind,
+  name: deviceKindLabel(kind),
+  manufacturer: k.manufacturer,
+  model: kind === "pe_bar" ? "PE-6" : "N-6",
+  price_grosze: 990,
+  width_mm: 18,
+  height_mm: 15,
+  depth_mm: 20,
+  poles: null,
+  rated_current_a: null,
+  residual_current_ma: null,
+  rcd_type: null,
+  breaking_capacity_ka: null,
+  terminal_groups: BAR_TERMINALS,
+  n_terminal_side: null,
+}));
+
+export const KS_CATALOG: DeviceSpecWithId[] = activeCatalog([...DEVICE_ROWS, ...BAR_ROWS]);
+
+/** The catalog with its N bar archived: a cabinet without built-in bars then has a bar catalog gap. */
+const KS_CATALOG_WITHOUT_N_BAR: DeviceSpecWithId[] = KS_CATALOG.filter((device) => device.kind !== "n_bar");
 
 const PRICIER_B16_ID = uuid(1, 6);
 
@@ -316,6 +348,7 @@ function snapshotFrom(selections: readonly Selection[]): SnapshotRow[] {
       rcd_type: device.rcd_type,
       breaking_capacity_ka: device.breaking_capacity_ka,
       n_terminal_side: device.n_terminal_side,
+      terminal_groups: device.terminal_groups,
     };
   });
 }
@@ -395,6 +428,11 @@ export function kitchenSinkMatchStates(): MatchFixture[] {
         ],
         geometry: GEOMETRY_WITHOUT_BARS,
       }),
+    ),
+    matchFixture(
+      "bar-gap",
+      k.matchStates.barGap,
+      context({ geometry: GEOMETRY_WITHOUT_BARS, catalog: KS_CATALOG_WITHOUT_N_BAR }),
     ),
   ];
 }

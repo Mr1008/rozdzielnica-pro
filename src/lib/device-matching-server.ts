@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { builtInBarKinds, type BarKind } from "@/lib/bar-conductors";
 import { parseCabinetGeometry, type CabinetGeometry } from "@/lib/cabinet-geometry";
 import type { Placement } from "@/lib/cabinet-layout";
 import {
@@ -12,6 +13,7 @@ import {
   activeCatalog,
   matchDevices,
   sameSelection,
+  SELECTION_ROLES,
   type DeviceSpecWithId,
   type MatchResult,
   type Selection,
@@ -169,11 +171,10 @@ export async function loadMatchContext(
   };
 }
 
-const SELECTION_ROLES: readonly string[] = ["main_switch", "rcd", "rcbo", "mcb"] satisfies SelectionRole[];
 const SELECTION_NOTES: readonly string[] = ["rcbo_fallback", "no_rcd"] satisfies SelectionNote[];
 
 function isRole(value: string): value is SelectionRole {
-  return SELECTION_ROLES.includes(value);
+  return (SELECTION_ROLES as readonly string[]).includes(value);
 }
 
 function isNote(value: string): value is SelectionNote {
@@ -214,9 +215,24 @@ export interface MatchView {
   snapshot: SnapshotRow[];
 }
 
+/**
+ * The bar kinds built into a project's cabinet snapshot, for `MatchInput.cabinetBarKinds`: a kind
+ * missing here is matched from the catalog. A snapshot that does not parse (unreachable: only the
+ * cabinet trigger writes it, from a parsed geometry) gives `null` — no bar is required, rather than
+ * one invented for a cabinet nobody can see.
+ */
+export function cabinetBarKinds(geometry: CabinetGeometry | null): BarKind[] | null {
+  return geometry === null ? null : builtInBarKinds(geometry);
+}
+
 export function computeMatchView(context: MatchContext): MatchView {
   const fresh = matchDevices(
-    { supply: context.supply, groups: context.groups, circuits: context.circuits },
+    {
+      supply: context.supply,
+      groups: context.groups,
+      circuits: context.circuits,
+      cabinetBarKinds: cabinetBarKinds(context.geometry),
+    },
     context.catalog,
   );
   const view = (state: MatchViewState): MatchView => ({ state, fresh, snapshot: context.snapshot });

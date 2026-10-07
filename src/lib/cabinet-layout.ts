@@ -1,4 +1,11 @@
-import { barRect, RAIL_HEIGHT_MM, type CabinetGeometry, type Rect } from "@/lib/cabinet-geometry";
+import {
+  barRect,
+  RAIL_HEIGHT_MM,
+  terminalGroupSchema,
+  type CabinetGeometry,
+  type Rect,
+  type TerminalGroup,
+} from "@/lib/cabinet-geometry";
 import type { CircuitInput, EntrySide, RcdGroupInput } from "@/lib/circuit-params";
 import type { Tables } from "@/lib/database.types";
 import { polesCarryN, type PoleConfig } from "@/lib/device-spec";
@@ -28,6 +35,11 @@ import { t } from "@/lib/i18n";
  *   rail. Nothing fits → `does_not_fit`.
  * - **Gaps.** A 1-TE gap between adjacent blocks on a rail with room for all of them; gaps open
  *   toward the rail's free middle and never cause `does_not_fit`.
+ * - **Catalog bars** (plan Phase 5b). PE/N bars the match took from the catalog — for a cabinet
+ *   without built-in bars of that kind — form one block (PE, then N), placed after every other block,
+ *   on the rail ranked first for `entries[0]`'s side, filled from the end opposite the main switch
+ *   (either end only when that one fits nowhere). They count toward `does_not_fit` like any device.
+ *   Being placed last, they take no part in rule 3 for the other blocks.
  *
  * `validateLayout` checks any placement set — proposed or stored — against the same invariants. A
  * stored layout is not proof of validity, so the page validates it on every render.
@@ -35,6 +47,13 @@ import { t } from "@/lib/i18n";
 
 /** The gap between adjacent blocks on a rail: one DIN module (user decision 2026-10-06). */
 export const GROUP_GAP_MM = DIN_MODULE_MM;
+
+/** The snapshot roles of PE/N bars taken from the catalog (plan Phase 5b), in block order. */
+export const CATALOG_BAR_ROLES = ["pe_bar", "n_bar"] as const;
+
+export function isCatalogBarRole(role: string): role is (typeof CATALOG_BAR_ROLES)[number] {
+  return (CATALOG_BAR_ROLES as readonly string[]).includes(role);
+}
 
 /** Float tolerance for millimetre comparisons; every real quantity is a multiple of 0.01 mm. */
 const EPS = 1e-6;
@@ -94,6 +113,45 @@ export type LayoutResult = { ok: true; placements: Placement[] } | { ok: false; 
 
 type Rail = CabinetGeometry["rails"][number];
 type Bar = CabinetGeometry["bars"][number];
+
+/** A built-in cabinet bar, or a catalog bar seen as one. */
+export type CabinetBar = Bar;
+
+/**
+ * A placed catalog PE/N bar (plan Phase 5b) as a cabinet bar: horizontal, along its rail, over its
+ * device rectangle, with the terminal groups its snapshot copied from the catalog. The wiring and the
+ * drawing treat it exactly like a built-in bar of its kind. `zMm` is unknown for a device and unused
+ * by both, so it is 0. Null for a device that is not a catalog bar.
+ */
+export function catalogBarAsCabinetBar(
+  device: { role: string; terminal_groups?: unknown },
+  rect: Rect,
+): CabinetBar | null {
+  const kind = device.role === "pe_bar" ? "PE" : device.role === "n_bar" ? "N" : null;
+  if (kind === null) return null;
+  return {
+    kind,
+    orientation: "horizontal",
+    xMm: rect.x,
+    yMm: rect.y,
+    lengthMm: rect.w,
+    heightMm: rect.h,
+    zMm: 0,
+    terminalGroups: snapshotTerminalGroups(device.terminal_groups),
+  };
+}
+
+const terminalGroupsSchema = terminalGroupSchema.array();
+
+/**
+ * A snapshot's `terminal_groups` jsonb, parsed. Anything that does not parse (unreachable: the trigger
+ * copies a catalog row `parseDeviceSpec` accepted) gives no groups — a bar nothing can land on,
+ * never invented terminals.
+ */
+export function snapshotTerminalGroups(value: unknown): TerminalGroup[] {
+  const parsed = terminalGroupsSchema.safeParse(value);
+  return parsed.success ? parsed.data : [];
+}
 
 function railCentreY(rail: Rail): number {
   return rail.yMm + RAIL_HEIGHT_MM / 2;
@@ -225,6 +283,7 @@ function distanceToRect(point: Point, rect: Rect): number {
 export function terminalGroupPoints(bar: Bar): Point[] {
   const rect = barRect(bar);
   const total = bar.terminalGroups.reduce((sum, group) => sum + group.count, 0);
+  if (total === 0) return [];
   const points: Point[] = [];
   let before = 0;
   for (const group of bar.terminalGroups) {
@@ -251,7 +310,7 @@ function barTargets(geometry: CabinetGeometry): BarTargets {
   };
 }
 
-type BlockKind = "main_switch" | "group" | "ungrouped";
+type BlockKind = "main_switch" | "group" | "ungrouped" | "bars";
 
 /**
  * The points whose conductor runs to the N bar, for one device of a block (plan review F3):
@@ -262,6 +321,7 @@ type BlockKind = "main_switch" | "group" | "ungrouped";
  * - a group's MCBs contribute nothing: their N runs to the group RCD, not to the bar.
  */
 function nBarPoints(kind: BlockKind, device: LayoutDevice, rect: Rect): Point[] {
+  if (kind === "bars") return [];
   if (kind === "group" && device.role !== "rcd" && device.role !== "rcbo") return [];
   const terminals = deviceTerminals(device, rect);
   const lineN = terminals.line.filter((terminal) => terminal.pole === "N");
@@ -375,7 +435,17 @@ function buildBlocks(input: LayoutInput): Block[] {
   make(
     "ungrouped",
     t.layout.blocks.ungrouped,
-    devices.filter((device) => device.role !== "main_switch" && device.rcd_group_id === null),
+    devices.filter(
+      (device) => device.role !== "main_switch" && !isCatalogBarRole(device.role) && device.rcd_group_id === null,
+    ),
+  );
+
+  // Catalog bars last, PE then N, ranked for the WLZ's entry like the main switch.
+  make(
+    "bars",
+    t.layout.blocks.bars,
+    CATALOG_BAR_ROLES.flatMap((role) => devices.filter((device) => device.role === role)),
+    input.geometry.entries[0].side,
   );
   return blocks;
 }
@@ -440,6 +510,10 @@ class Placer {
   readonly rails: RailState[];
   readonly targets: BarTargets;
   readonly maxRailMm: number;
+  /** The end the main switch went to, once placed; catalog bars fill from the other one. */
+  mainAnchor: Anchor | null = null;
+  /** Set while catalog bars retry on either end, after the end opposite the main switch fit nowhere. */
+  barsOnEitherEnd = false;
 
   constructor(readonly geometry: CabinetGeometry) {
     this.rails = geometry.rails.map(() => ({ startUsed: 0, endUsed: 0, segments: [] }));
@@ -491,6 +565,8 @@ class Placer {
 
   /** The ends a block may fill from: rule 2 for `left`/`right`, both (rule 3 decides) otherwise. */
   anchorsFor(block: Block): Anchor[] {
+    if (block.kind === "bars" && !this.barsOnEitherEnd) return [this.mainAnchor === "start" ? "end" : "start"];
+    if (block.kind === "bars") return ["start", "end"];
     if (block.side === "left") return ["start"];
     if (block.side === "right") return ["end"];
     return ["start", "end"];
@@ -529,6 +605,7 @@ class Placer {
     const best = options.at(0);
     if (best === undefined) return false;
     this.commit(best.railIndex, best.anchor, best.items);
+    if (block.kind === "main_switch") this.mainAnchor = best.anchor;
     return true;
   }
 
@@ -653,7 +730,14 @@ function modulesDown(mm: number): number {
 export function proposeLayout(input: LayoutInput): LayoutResult {
   const placer = new Placer(input.geometry);
   for (const block of buildBlocks(input)) {
-    const placed = block.widthMm > placer.maxRailMm + EPS ? placer.placeSplit(block) : placer.placeWhole(block);
+    const place = () => (block.widthMm > placer.maxRailMm + EPS ? placer.placeSplit(block) : placer.placeWhole(block));
+    let placed = place();
+    if (!placed && block.kind === "bars" && block.widthMm <= placer.maxRailMm + EPS) {
+      // The end opposite the main switch fits nowhere: either end, before giving up. (A split block
+      // has already committed its first chunks, so it is never retried.)
+      placer.barsOnEitherEnd = true;
+      placed = place();
+    }
     if (!placed) {
       return {
         ok: false,

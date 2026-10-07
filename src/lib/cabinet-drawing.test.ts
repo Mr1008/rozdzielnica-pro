@@ -265,6 +265,27 @@ describe("buildDrawnDevices", () => {
     ]);
   });
 
+  it("draws a catalog PE/N bar as a bar of its kind: no label lines, no group, no N mark", () => {
+    const drawn = buildDrawnDevices(
+      [
+        device("pe", { role: "pe_bar", width_mm: 35, height_mm: 15, rated_current_a: null }),
+        device("n", { role: "n_bar", width_mm: 35, height_mm: 15, rated_current_a: null }),
+      ],
+      [
+        { projectDeviceId: "pe", railIndex: 0, xMm: 0 },
+        { projectDeviceId: "n", railIndex: 0, xMm: 35 },
+      ],
+      GEOMETRY_WITH_RAILS,
+      groups,
+    );
+    expect(drawn.map((entry) => [entry.role, entry.lines, entry.groupKey, entry.nTerminalSide])).toEqual([
+      ["pe_bar", [], null, null],
+      ["n_bar", [], null, null],
+    ]);
+    // Centred on its rail like any device: 15 mm tall around rail 1's centre line.
+    expect(drawn[0].rect).toEqual({ x: 20, y: 80 + RAIL_HEIGHT_MM / 2 - 7.5, w: 35, h: 15 });
+  });
+
   it("skips a placement whose device or rail does not exist", () => {
     const drawn = buildDrawnDevices(
       [device("a")],

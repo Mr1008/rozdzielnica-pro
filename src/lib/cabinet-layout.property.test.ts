@@ -100,6 +100,9 @@ const scenarioArb = fc.record({
   frSide: nSideArb,
   groups: fc.array(groupArb, { maxLength: 5 }),
   ungrouped: fc.array(circuitArb, { maxLength: 5 }),
+  /** Catalog PE/N bars (plan Phase 5b): none, PE only, N only or both; 2 or 4 TE wide. */
+  catalogBars: fc.subarray(["pe_bar", "n_bar"] as const),
+  barWidth: fc.constantFrom(35, 70),
 });
 
 type Scenario = typeof scenarioArb extends fc.Arbitrary<infer T> ? T : never;
@@ -148,6 +151,20 @@ function buildInput(scenario: Scenario, geo: CabinetGeometry): LayoutInput {
     circuits.push({ id, entry_side: c.side });
     add("mcb", "mcb_b", c.shape, c.nSide, null, id);
   });
+  for (const role of scenario.catalogBars) {
+    devices.push({
+      id: `d${String(devices.length)}`,
+      role,
+      kind: role,
+      rcd_group_id: null,
+      circuit_id: null,
+      width_mm: scenario.barWidth,
+      height_mm: 15,
+      poles: null,
+      n_terminal_side: null,
+      position: devices.length,
+    });
+  }
   return { devices, groups, circuits, geometry: geo };
 }
 

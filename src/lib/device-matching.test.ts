@@ -329,7 +329,14 @@ describe("matchDevices — main switch (FR)", () => {
       ],
     };
     /** The rule table's kind per role, written out here — never read from the matcher. */
-    const KIND_FOR_ROLE = { main_switch: "switch_disconnector", rcd: "rcd", rcbo: "rcbo", mcb: "mcb_b" } as const;
+    const KIND_FOR_ROLE = {
+      main_switch: "switch_disconnector",
+      rcd: "rcd",
+      rcbo: "rcbo",
+      mcb: "mcb_b",
+      pe_bar: "pe_bar",
+      n_bar: "n_bar",
+    } as const;
 
     it("with only FRs in the catalog, every protection role is a gap and the main switch is not", () => {
       const roles = gapsOf(matchDevices(input, frs)).map((gap) => gap.role);
@@ -883,6 +890,89 @@ describe("boundaries — RCBO fallback with only the MCB half missing", () => {
       circuitName: "Łazienka",
       fallback: true,
     });
+  });
+});
+
+describe("matchDevices — catalog PE/N bars (cabinet without built-in bars)", () => {
+  const bar = (id: string, kind: "pe_bar" | "n_bar", groups: object[], price: number) =>
+    device(id, { kind, terminal_groups: groups, price_grosze: price });
+  const range = (count: number, minMm2: number, maxMm2: number) => ({ count, minMm2, maxMm2 });
+
+  // Two 2.5 mm² circuits and the 10 mm² WLZ: each bar kind takes 3 conductors, 2.5, 2.5 and 10.
+  const circuits = [circuit("c1", 16), circuit("c2", 10)];
+  const input = (cabinetBarKinds: MatchInput["cabinetBarKinds"], supply: SupplyParams = TN_S_1F): MatchInput => ({
+    ...ungrouped(supply, circuits),
+    cabinetBarKinds,
+  });
+  const TN_C_FR = fr("fr-40-1p", 40, "1P");
+
+  const PE_FITS = bar("pe-fits", "pe_bar", [range(2, 1.5, 4), range(1, 6, 16)], 3000);
+  const N_FITS = bar("n-fits", "n_bar", [range(3, 1.5, 16)], 3000);
+  /** One terminal short of the three conductors — cheaper, and never to be picked. */
+  const PE_ONE_SHORT = bar("pe-short", "pe_bar", [range(2, 1.5, 16)], 500);
+  /** Enough terminals, but none takes the 10 mm² WLZ. */
+  const N_WRONG_RANGE = bar("n-range", "n_bar", [range(6, 1.5, 6)], 500);
+  const PE_PRICIER = bar("pe-pricey", "pe_bar", [range(12, 1.5, 25)], 4000);
+
+  const catalog = [...BASE, TN_C_FR, PE_FITS, N_FITS, PE_ONE_SHORT, N_WRONG_RANGE, PE_PRICIER];
+
+  it("selects no bar for a cabinet with both kinds built in, or an unknown cabinet", () => {
+    for (const kinds of [["PE", "N"] as const, null, undefined]) {
+      const roles = matched(matchDevices(input(kinds), catalog)).map((s) => s.role);
+      expect(roles).not.toContain("pe_bar");
+      expect(roles).not.toContain("n_bar");
+    }
+  });
+
+  it("selects the cheapest bar whose terminals take every conductor, for each missing kind", () => {
+    const selections = matched(matchDevices(input([]), catalog));
+    expect(deviceFor(selections, "pe_bar", {})).toBe("pe-fits");
+    expect(deviceFor(selections, "n_bar", {})).toBe("n-fits");
+    // Bars come last, PE then N, serving the whole installation.
+    expect(selections.slice(-2)).toEqual([
+      { role: "pe_bar", deviceId: "pe-fits", groupId: null, circuitId: null, notes: [] },
+      { role: "n_bar", deviceId: "n-fits", groupId: null, circuitId: null, notes: [] },
+    ]);
+  });
+
+  it("selects only the kind the cabinet lacks", () => {
+    const peOnly = matched(matchDevices(input(["PE"]), catalog)).map((s) => s.role);
+    expect(peOnly).toContain("n_bar");
+    expect(peOnly).not.toContain("pe_bar");
+    const nOnly = matched(matchDevices(input(["N"]), catalog)).map((s) => s.role);
+    expect(nOnly).toContain("pe_bar");
+    expect(nOnly).not.toContain("n_bar");
+  });
+
+  it("is a bar gap when no bar fits — never the cheaper under-sized one", () => {
+    const gaps = gapsOf(matchDevices(input([]), [...BASE, PE_ONE_SHORT, N_WRONG_RANGE]));
+    expect(gaps).toEqual([
+      { role: "pe_bar", kind: "pe_bar", barKind: "PE", sections: [2.5, 2.5, 10] },
+      { role: "n_bar", kind: "n_bar", barKind: "N", sections: [2.5, 2.5, 10] },
+    ]);
+  });
+
+  it("a bar whose terminals fit exactly is enough; one terminal fewer is not", () => {
+    const exact = bar("pe-exact", "pe_bar", [range(3, 1.5, 10)], 100);
+    const short = bar("pe-short2", "pe_bar", [range(2, 1.5, 10)], 50);
+    const selections = matched(matchDevices(input(["N"]), [...BASE, exact, short]));
+    expect(deviceFor(selections, "pe_bar", {})).toBe("pe-exact");
+  });
+
+  it("needs only the PE bar in TN-C — no conductor lands on an N bar", () => {
+    const roles = matched(matchDevices(input([], TN_C_1F), [...catalog, mcb("b16-1p-tnc", 16, "1P")])).map(
+      (s) => s.role,
+    );
+    expect(roles).toContain("pe_bar");
+    expect(roles).not.toContain("n_bar");
+  });
+
+  it("names the kind, terminal count and cross-sections, and asks to contact the admin", () => {
+    const [gap] = gapsOf(matchDevices(input(["N"]), BASE));
+    expect(catalogGapMessage(gap)).toBe(
+      "Brak w katalogu: szyna PE z co najmniej 3 zaciskami pasującymi do przewodów: 2 × 2,5 mm², 1 × 10 mm² — szafka nie ma wbudowanej szyny PE. Skontaktuj się z administratorem, aby uzupełnił katalog aparatów.",
+    );
+    expect(selectionRoleLabel("pe_bar")).toBe("Szyna PE (z katalogu)");
   });
 });
 

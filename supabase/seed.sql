@@ -85,7 +85,8 @@ where id = '00000000-0000-0000-0000-0000000ad301'
 
 -- Three starter cabinets (PRD FR-002). Sample data, not real products — hence the manufacturer
 -- name. They differ on purpose, so the layout heuristic (S-05) visibly adapts to the geometry:
---   (a) small surface cabinet, 1 rail, one top entry, no bars;
+--   (a) small surface cabinet, 1 rail, one top entry, no bars (its projects take PE/N bars from the
+--       device catalog);
 --   (b) medium, 3 full-width rails, top and bottom entries, vertical PE and N bars at the sides;
 --   (c) large, 4 rows with the last one split into two rails around a gap, bottom and left
 --       entries, PE and N bars that overlap in the front view at depths 20 mm apart.
@@ -122,8 +123,10 @@ on conflict ((lower(manufacturer)), (lower(model))) do nothing;
 --   * the same MCB B16 1P from two manufacturers at two prices — the cheapest-match case;
 --   * RCD 40 A 30 mA in 2P and 4P, types A and AC; RCBO B10 and B16 1P+N 30 mA type A, 6 kA;
 --   * switch-disconnectors (FR, no fuse links) 1P 63 A, and 2P, 3P and 4P at 40 A and 63 A — so the
---     single-phase (2P) and three-phase TN-S/TN-C-S (4P) main-switch paths all match; one PE bar and
---     one N bar;
+--     single-phase (2P) and three-phase TN-S/TN-C-S (4P) main-switch paths all match;
+--   * PE and N bars in two sizes — 6 terminals (2 TE) and 12 terminals (4 TE). Cabinet (a) has no
+--     built-in bars, so its projects take them from here (plan Phase 5b): the cheaper 6-way bar while
+--     its terminals take every conductor, the 12-way one beyond that, a catalog gap beyond 12;
 --   * an N terminal side on every N-carrying device (1P+N, 2P, 4P), deliberately mixed left and right
 --     so the layout drawing shows both;
 --   * NO B40 in any pole configuration — the catalog-gap case (a circuit needing 40 A gets the
@@ -164,5 +167,9 @@ values
   ('pe_bar', 'Szyna PE 12-torowa', 'Przykładowy producent', 'PRZ-PE-12', 2490, 70, 15, 20, null, null, null, null, null,
     '[{"count":10,"minMm2":1.5,"maxMm2":16},{"count":2,"minMm2":6,"maxMm2":25}]'::jsonb, null),
   ('n_bar', 'Szyna N 12-torowa', 'Przykładowy producent', 'PRZ-N-12', 2490, 70, 15, 20, null, null, null, null, null,
-    '[{"count":10,"minMm2":1.5,"maxMm2":16},{"count":2,"minMm2":6,"maxMm2":25}]'::jsonb, null)
+    '[{"count":10,"minMm2":1.5,"maxMm2":16},{"count":2,"minMm2":6,"maxMm2":25}]'::jsonb, null),
+  ('pe_bar', 'Szyna PE 6-torowa', 'Przykładowy producent', 'PRZ-PE-6', 1490, 35, 15, 20, null, null, null, null, null,
+    '[{"count":5,"minMm2":1.5,"maxMm2":16},{"count":1,"minMm2":6,"maxMm2":25}]'::jsonb, null),
+  ('n_bar', 'Szyna N 6-torowa', 'Przykładowy producent', 'PRZ-N-6', 1490, 35, 15, 20, null, null, null, null, null,
+    '[{"count":5,"minMm2":1.5,"maxMm2":16},{"count":1,"minMm2":6,"maxMm2":25}]'::jsonb, null)
 on conflict ((lower(manufacturer)), (lower(model))) do nothing;

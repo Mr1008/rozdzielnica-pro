@@ -41,7 +41,9 @@ const legendLine = "h-2 w-6 shrink-0";
 const headClass = "h-9 text-xs font-medium text-muted-foreground";
 const cellClass = "py-2 align-top";
 const slackPercent = Math.round(WIRE_SLACK_RATIO * 100);
-const noBars = geometry !== null && geometry.bars.length === 0;
+// A cabinet without built-in bars gets them from the catalog (plan Phase 5b), placed on a DIN rail.
+const catalogBars = devices.some((device) => device.role === "pe_bar" || device.role === "n_bar");
+const noBars = geometry !== null && geometry.bars.length === 0 && !catalogBars;
 ---
 
 <div class="flex flex-col gap-6">
@@ -171,6 +173,7 @@ const noBars = geometry !== null && geometry.bars.length === 0;
         </ul>
       )}
       {noBars && <p class="text-xs text-muted-foreground">{s.noBarsNote}</p>}
+      {catalogBars && <p class="text-xs text-muted-foreground">{s.catalogBarsNote}</p>}
     </div>
   )}
 
