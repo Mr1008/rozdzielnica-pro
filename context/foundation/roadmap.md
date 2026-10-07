@@ -52,7 +52,7 @@ Uwaga: pierwszeństwo reguł rozmieszczenia (Otwarte pytanie #2) zostało rozstr
 | S-03 | `project-setup-and-supply-params`   | Elektryk zakłada projekt, wybiera szafkę i opisuje przyłącze OSD/WLZ                       | F-01, S-02    | FR-003, FR-004, FR-005, US-01        | done        |
 | S-04 | `circuit-input-and-device-matching` | Elektryk podaje obwody i grupy RCD i dostaje dobrane aparaty (albo błąd o luce w katalogu) | S-01, S-03    | FR-006, FR-007, US-01                | done        |
 | S-05 | `cabinet-layout-proposal`           | Elektryk widzi zaproponowany układ aparatów w swojej szafce                                | S-02, S-04    | FR-008, US-01                        | done        |
-| S-06 | `manual-layout-editing`             | Elektryk poprawia zaproponowany układ przed wyceną                                         | S-05          | FR-009, US-01                        | proposed    |
+| S-06 | `manual-layout-editing`             | Elektryk poprawia zaproponowany układ przed wyceną                                         | S-05          | FR-009, US-01                        | in-progress |
 | S-07 | `electrician-pricing-profile`       | Elektryk ustawia w profilu stawkę, średni czas montażu i narzut na projekt                 | F-01          | FR-010                               | done        |
 | S-08 | `quote-cost-estimate`               | Elektryk widzi koszt materiału i robocizny i nadpisuje estymowany czas                     | S-04, S-07    | FR-011, FR-013, US-01                | in-progress |
 | S-09 | `printable-quote-export`            | Elektryk drukuje/eksportuje wycenę z wizualizacją układu szafki                            | S-06, S-08    | FR-012, US-01                        | proposed    |
@@ -181,7 +181,7 @@ Foundations poniżej zakładają, że to istnieje, i **nie** budują tego od now
 - **Blockers:** —
 - **Unknowns:** —
 - **Risk:** To bezpiecznik na niedoskonałą heurystykę — bez niego jedna zła sugestia blokuje cały projekt, a kryterium akceptacji US-01 („układ jest edytowalny przed wygenerowaniem wyceny") nie jest spełnione. Ryzyko zakresowe: edytor kusi, żeby urósł w mini-CAD; MVP potrzebuje punktowej korekty, bo taka jest deklarowana miara sukcesu — „tylko punktowe poprawki, nie budowa od zera". Docelowo mysz i klawiatura; dotyk jest poza zakresem.
-- **Status:** proposed
+- **Status:** in-progress
 
 ### S-07: Elektryk ustawia parametry wyceny w profilu
 

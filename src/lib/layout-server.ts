@@ -118,7 +118,42 @@ export function proposeSelectionLayout(
   payload: CircuitsPayload,
   geometry: CabinetGeometry | null,
 ): SelectionPlacements | undefined {
-  if (result.status !== "matched" || geometry === null) return undefined;
+  if (geometry === null) return undefined;
+  const devices = selectionLayoutDevices(result, catalog);
+  if (devices === undefined) return undefined;
+
+  const layout = proposeLayout({ devices, groups: payload.groups, circuits: payload.circuits, geometry });
+  if (!layout.ok) return undefined;
+  return selectionPlacements(devices, layout.placements);
+}
+
+/**
+ * Placements keyed by the index ids of `selectionLayoutDevices`, as `SelectionPlacements` aligned with
+ * the selections (null for a device without a placement).
+ */
+export function selectionPlacements(
+  devices: readonly LayoutDevice[],
+  placements: readonly Placement[],
+): SelectionPlacements {
+  const byIndex = new Map(placements.map((placement) => [placement.projectDeviceId, placement]));
+  return devices.map((device) => {
+    const placement = byIndex.get(device.id);
+    return placement === undefined ? null : { railIndex: placement.railIndex, xMm: placement.xMm };
+  });
+}
+
+/**
+ * A `matched` result's selections as `LayoutDevice`s, each built from its catalog row (the same row
+ * the snapshot trigger is about to copy) and keyed by its index, because the `project_devices` ids do
+ * not exist yet. `undefined` for any other result, or when a selection's device is not in the catalog
+ * (unreachable: the matcher picks from it). Shared by `proposeSelectionLayout` and the carry-over of a
+ * manual layout (`carryOverPlacements` in `src/lib/layout-editing.ts`).
+ */
+export function selectionLayoutDevices(
+  result: MatchResult,
+  catalog: readonly DeviceSpecWithId[],
+): LayoutDevice[] | undefined {
+  if (result.status !== "matched") return undefined;
 
   const byId = new Map(catalog.map((device) => [device.id, device]));
   const devices: LayoutDevice[] = [];
@@ -138,14 +173,7 @@ export function proposeSelectionLayout(
       n_terminal_side: spec.n_terminal_side,
     });
   }
-
-  const layout = proposeLayout({ devices, groups: payload.groups, circuits: payload.circuits, geometry });
-  if (!layout.ok) return undefined;
-  const byIndex = new Map(layout.placements.map((placement) => [placement.projectDeviceId, placement]));
-  return devices.map((device) => {
-    const placement = byIndex.get(device.id);
-    return placement === undefined ? null : { railIndex: placement.railIndex, xMm: placement.xMm };
-  });
+  return devices;
 }
 
 /** The `save_project_layout` arguments. */
