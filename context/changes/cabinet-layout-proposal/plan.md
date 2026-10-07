@@ -5,7 +5,7 @@
 Roadmap S-05, the product's north star (FR-008, US-01, PRD `## Business Logic`). The system places
 the devices S-04 already matched onto the DIN rails of the project's cabinet snapshot, using the
 three PRD rules with an explicit precedence, stores the result, and draws it on the project page —
-with wires carrying a standard 15% slack and a realistic sag, plus a list of conductor lengths. The
+with wires carrying a standard 30% slack (raised from 15%, user decision 2026-10-06) and a realistic sag, plus a list of conductor lengths. The
 device catalog gains the side of each device's N terminal (GitHub #15), which the layout and the
 wiring both use.
 
@@ -64,7 +64,7 @@ This plan closes PRD Open Question #2: **rule 1 > rule 2 > rule 3, strictly** (u
 After a successful match, the project page shows a new "Układ w szafce" section: the cabinet drawn
 large with every matched device on its rail, grouped by RCD, the wires (circuit cables in, WLZ to the
 main switch, feeds between devices) drawn with sag, and a table of conductor lengths per
-cross-section including 15% slack. The aside thumbnail shows the devices too.
+cross-section including 30% slack. The aside thumbnail shows the devices too.
 
 The section has exactly one state, derived on every render and only when the match is `current`:
 
@@ -635,7 +635,7 @@ greyscale stays readable.
 **File**: `src/components/projects/LayoutSection.astro`, `src/lib/i18n/pl.ts`
 
 **Intent**: Under the drawing, a table: cross-section, conductor role (L/N/PE/PEN, feeds), total
-length in metres with `formatNumber`, with a note that 15% slack is included and the routing is an
+length in metres with `formatNumber`, with a note that 30% slack is included and the routing is an
 estimate.
 
 #### 4. Kitchen sink
@@ -647,7 +647,7 @@ estimate.
 #### Automated Verification:
 
 - Unit tests pass (routing invariants: every circuit has L/N/PE or PEN, N of grouped circuits ends
-  at its RCD, lengths include exactly 15%): `npm run test:unit`
+  at its RCD, lengths include exactly 30%): `npm run test:unit`
 - Lint passes: `npm run lint`
 - Type check passes: `npx astro check`
 - Build passes: `npm run build`
@@ -883,6 +883,8 @@ placements are a snapshot read only through `computeLayoutView`; placements are 
 `src/lib/cabinet-layout.ts`. PRD Open Question #2 moved to "Rozstrzygnięte" (1 > 2 > 3,
 2026-10-06). Roadmap: S-05 unknowns/blocker note and Backlog Handoff updated, #15 removed from
 `## Parked`; mirror with `node scripts/roadmap-to-github.mjs --apply` (Mr1008). README routes table.
+Addendum (impl-review F2): Phase 5 (commit `724a01f`) also extended `scripts/roadmap-to-github.mjs`
+to mirror `## Parked` entries as `odłożone` issues on the board; this is what the sync above relies on.
 
 ### Success Criteria:
 
@@ -1043,7 +1045,7 @@ the admin should review them. Existing projects get no placements until their ne
 
 #### Automated
 
-- [x] 5.1 Unit tests pass (routing invariants: every circuit has L/N/PE or PEN, N of grouped circuits ends at its RCD, lengths include exactly 15%): `npm run test:unit` — 724a01f
+- [x] 5.1 Unit tests pass (routing invariants: every circuit has L/N/PE or PEN, N of grouped circuits ends at its RCD, lengths include exactly 30%): `npm run test:unit` — 724a01f
 - [x] 5.2 Lint passes: `npm run lint` — 724a01f
 - [x] 5.3 Type check passes: `npx astro check` — 724a01f
 - [x] 5.4 Build passes: `npm run build` — 724a01f
