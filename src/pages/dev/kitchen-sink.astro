@@ -8,6 +8,7 @@ import CircuitEditor from "@/components/circuits/CircuitEditor";
 import { ToggleField } from "@/components/forms/fields";
 import LayoutSection from "@/components/projects/LayoutSection.astro";
 import MatchResult from "@/components/projects/MatchResult.astro";
+import QuoteSection from "@/components/projects/QuoteSection.astro";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,7 @@ import {
   KS_PROJECT_ID,
   kitchenSinkLayoutStates,
   kitchenSinkMatchStates,
+  kitchenSinkQuoteStates,
 } from "@/lib/kitchen-sink-circuits";
 import { EARTHING_SYSTEMS } from "@/lib/supply-params";
 
@@ -217,8 +219,10 @@ const brandSizes = [16, 24, 48];
 // Only computed when the page renders at all: the fixtures run the real matcher.
 const matchStates = enabled ? kitchenSinkMatchStates() : [];
 const layoutStates = enabled ? kitchenSinkLayoutStates() : [];
+const quoteStates = enabled ? kitchenSinkQuoteStates() : [];
 const circuitsAnchor = "ks-circuits";
 const layoutAnchor = "ks-layout";
+const quoteAnchor = "ks-quote";
 
 const sectionClass = "flex flex-col gap-4";
 const sectionTitleClass = "text-xl font-semibold tracking-tight";
@@ -663,6 +667,31 @@ const subTitleClass = "text-sm font-medium text-muted-foreground";
                     geometry={state.geometry}
                     projectId={KS_PROJECT_ID}
                     matchAnchor={circuitsAnchor}
+                  />
+                </CardContent>
+              </Card>
+            </figure>
+          ))}
+        </div>
+      </section>
+
+      <section class:list={sectionClass} aria-labelledby={quoteAnchor}>
+        <h2 id={quoteAnchor} class:list={sectionTitleClass}>
+          {k.sections.quote}
+        </h2>
+        <h3 class="text-lg font-semibold">{k.quoteTitle}</h3>
+        <div class="flex flex-col gap-6">
+          {quoteStates.map((state) => (
+            <figure class="flex flex-col gap-2">
+              <figcaption class:list={subTitleClass}>{state.caption}</figcaption>
+              <Card>
+                <CardContent>
+                  <QuoteSection
+                    view={state.view}
+                    profile={state.profile}
+                    projectId={KS_PROJECT_ID}
+                    matchAnchor={circuitsAnchor}
+                    idPrefix={`ks-quote-${state.key}`}
                   />
                 </CardContent>
               </Card>

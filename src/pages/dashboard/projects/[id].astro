@@ -6,6 +6,7 @@ import CabinetPicker from "@/components/projects/CabinetPicker.astro";
 import CircuitEditor from "@/components/circuits/CircuitEditor";
 import LayoutSection from "@/components/projects/LayoutSection.astro";
 import MatchResult from "@/components/projects/MatchResult.astro";
+import QuoteSection from "@/components/projects/QuoteSection.astro";
 import ProjectDetailsFields from "@/components/projects/ProjectDetailsFields.astro";
 import SupplyFields from "@/components/projects/SupplyFields.astro";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -20,7 +21,7 @@ import { ENTRY_SIDES, parseCabinetGeometry } from "@/lib/cabinet-geometry";
 import { isUuid, sortForCatalogList } from "@/lib/catalog";
 import { payloadToDraft } from "@/lib/circuit-draft";
 import { computeMatchView, type MatchView } from "@/lib/device-matching-server";
-import { t } from "@/lib/i18n";
+import { formatMoney, t } from "@/lib/i18n";
 import { computeLayoutView, computeWiring, loadLayoutContext, type LayoutView } from "@/lib/layout-server";
 import {
   PROJECTS_PATH,
@@ -32,6 +33,7 @@ import {
   projectSupplyApiPath,
 } from "@/lib/project";
 import { projectErrorMessage } from "@/lib/project-errors";
+import { computeQuoteView, type QuoteView } from "@/lib/quote";
 import { createClient } from "@/lib/supabase";
 import { supplyFormDefaults, supplyFromRow } from "@/lib/supply-params";
 import { supplyWarningMessage, supplyWarnings } from "@/lib/supply-warnings";
@@ -57,7 +59,9 @@ const saved =
             ? t.projects.page.savedRematch
             : savedParam === "layout"
               ? t.projects.page.savedLayout
-              : null;
+              : savedParam === "quote"
+                ? t.projects.page.savedQuote
+                : null;
 
 const supabase = createClient(Astro.request.headers, Astro.cookies);
 
@@ -70,7 +74,7 @@ async function loadProject() {
   const { data, error: queryError } = await supabase
     .from("projects")
     .select(
-      "id, name, client_name, site_address, cabinet_id, cabinet_name, cabinet_manufacturer, cabinet_model, cabinet_geometry, premeter_protection_a, earthing_system, phase_count, wlz_length_m, wlz_cross_section_mm2, wlz_material, wlz_installation",
+      "id, name, client_name, site_address, cabinet_id, cabinet_name, cabinet_manufacturer, cabinet_model, cabinet_geometry, premeter_protection_a, earthing_system, phase_count, wlz_length_m, wlz_cross_section_mm2, wlz_material, wlz_installation, cabinet_price_grosze, labour_minutes_override, labour_override_base_minutes",
     )
     .eq("id", id)
     .maybeSingle();
@@ -140,6 +144,58 @@ const placedWires = buildDrawnWires(conductors, {
 });
 const placedCables = buildDrawnCables(conductors);
 const wireLengths = wireLengthsBySection(conductors);
+
+/**
+ * The electrician's pricing profile, for the quote. No row is "not configured" (null) and blocks the
+ * quote; a load error is reported in the section and never replaced by defaults.
+ */
+async function loadPricingProfile() {
+  const { user } = Astro.locals;
+  if (!supabase || !user) return { profile: null, profileError: t.projectErrors.notConfigured };
+  const { data, error: queryError } = await supabase
+    .from("pricing_profiles")
+    .select("hourly_rate_grosze, mount_minutes_per_device, project_overhead_minutes")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (queryError) {
+    // The SQLSTATE only, never Supabase's message.
+    // eslint-disable-next-line no-console
+    console.error("project quote profile load failed", queryError.code);
+    return { profile: null, profileError: t.quote.loadFailed };
+  }
+  return { profile: data, profileError: null };
+}
+
+const { profile, profileError } = project ? await loadPricingProfile() : { profile: null, profileError: null };
+const quoteView =
+  project && matchView && !profileError
+    ? computeQuoteView({
+        matchView,
+        cabinet: { name: project.cabinet_name, priceGrosze: project.cabinet_price_grosze },
+        profile,
+        override:
+          project.labour_minutes_override !== null && project.labour_override_base_minutes !== null
+            ? { minutes: project.labour_minutes_override, baseMinutes: project.labour_override_base_minutes }
+            : null,
+      })
+    : null;
+
+/** The aside badge per quote state: the total for a ready quote, otherwise why there is none. */
+function quoteBadge(view: QuoteView | null): {
+  variant: "success" | "warning" | "destructive" | "secondary";
+  text: string;
+} {
+  if (view === null) return { variant: "secondary", text: t.quote.badges.unavailable };
+  switch (view.state) {
+    case "ready":
+      return { variant: "success", text: formatMoney(view.totalGrosze / 100) };
+    case "no_profile":
+      return { variant: "warning", text: t.quote.badges.notConfigured };
+    case "not_current":
+      return { variant: "secondary", text: t.quote.badges.notCurrent };
+  }
+}
+const quoteStatus = quoteBadge(quoteView);
 
 /** The aside badge per match state: only a stored snapshot counts as "matched". */
 function matchingBadge(view: MatchView | null): {
@@ -211,6 +267,7 @@ const sections = [
   { id: "supply", label: t.supply.section },
   { id: "circuits", label: t.circuitSection.section },
   { id: "layout", label: t.layout.section.title },
+  { id: "quote", label: t.quote.section },
   { id: "delete", label: t.projects.delete.section },
 ] as const;
 
@@ -467,6 +524,34 @@ const headingClass = "scroll-mt-6 text-lg leading-none font-semibold";
           </Card>
         </section>
 
+        <section class="scroll-mt-6" aria-labelledby="quote">
+          <Card>
+            <CardHeader>
+              <h2 id="quote" tabindex="-1" class:list={headingClass}>
+                {t.quote.section}
+              </h2>
+              <CardDescription>{t.quote.description}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {quoteView ? (
+                <QuoteSection
+                  view={quoteView}
+                  profile={profile}
+                  projectId={project.id}
+                  matchAnchor={circuitsSectionId}
+                />
+              ) : (
+                <Alert variant="destructive" role={undefined}>
+                  <CircleAlertIcon aria-hidden="true" />
+                  <AlertDescription>
+                    {profileError ?? (supabase ? t.circuitSection.loadFailed : t.projectErrors.notConfigured)}
+                  </AlertDescription>
+                </Alert>
+              )}
+            </CardContent>
+          </Card>
+        </section>
+
         <section class="scroll-mt-6" aria-labelledby="delete">
           <Card className="border-destructive/40">
             <CardHeader>
@@ -552,6 +637,12 @@ const headingClass = "scroll-mt-6 text-lg leading-none font-semibold";
               <dt class="text-muted-foreground">{t.projects.page.layoutStatus}</dt>
               <dd>
                 <Badge variant={layoutStatus.variant}>{layoutStatus.text}</Badge>
+              </dd>
+              <dt class="text-muted-foreground">{t.projects.page.quoteStatus}</dt>
+              <dd>
+                <Badge variant={quoteStatus.variant} className="font-mono tabular-nums">
+                  {quoteStatus.text}
+                </Badge>
               </dd>
             </dl>
           </CardContent>
