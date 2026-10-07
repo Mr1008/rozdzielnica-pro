@@ -1,7 +1,8 @@
 ---
 change_id: cabinet-layout-proposal
 title: Propozycja układu aparatów w szafce (z przewodami i stroną N)
-status: impl_reviewed
+status: archived
+archived_at: 2026-10-07T12:26:37Z
 created: 2026-10-06
 updated: 2026-10-07
 ---
