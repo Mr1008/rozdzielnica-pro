@@ -1,4 +1,11 @@
-import { buildDrawnDevices, buildDrawnWires, type DrawnDevice, type DrawnWire } from "@/lib/cabinet-drawing";
+import {
+  buildDrawnCables,
+  buildDrawnDevices,
+  buildDrawnWires,
+  type DrawnCable,
+  type DrawnDevice,
+  type DrawnWire,
+} from "@/lib/cabinet-drawing";
 import type { CabinetGeometry } from "@/lib/cabinet-geometry";
 import { SEED_A, SEED_B, SEED_C, geometry as parseFixtureGeometry } from "@/lib/cabinet-layout.fixtures";
 import { wireLengthsBySection, type WireLengthRow } from "@/lib/cabinet-wiring";
@@ -445,6 +452,7 @@ export interface LayoutFixture {
   view: LayoutView | null;
   devices: DrawnDevice[];
   wires: DrawnWire[];
+  cables: DrawnCable[];
   lengths: WireLengthRow[];
   geometry: CabinetGeometry;
 }
@@ -515,6 +523,7 @@ export function kitchenSinkLayoutStates(): LayoutFixture[] {
         circuits: new Map(ctx.circuits.map((circuit) => [circuit.id, circuit.name])),
         devices,
       }),
+      cables: buildDrawnCables(conductors),
       lengths: wireLengthsBySection(conductors),
       geometry,
     };

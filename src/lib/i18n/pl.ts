@@ -988,13 +988,20 @@ export const pl = {
         entry: "wprowadzenie przewodów",
         peBar: "szyna PE",
         nBar: "szyna N",
+        /** "szyna N, zacisk 3": terminals are numbered along the bar from 1. */
+        barTerminal: (bar: string, n: number) => `${bar}, zacisk ${String(n)}`,
+        /** A cable core's title with the bar terminal it lands on. */
+        landsOn: (title: string, place: string) => `${title} — ${place}`,
         unknownCircuit: "obwód",
       },
       wireLegend: {
         l: "L — przewód fazowy (L1 brązowy, L2 czarny, L3 szary), linia ciągła",
         n: "N — przewód neutralny (niebieski), linia przerywana",
         pe: "PE — przewód ochronny (zielono-żółty), szersza linia z ciągłym jasnym paskiem w środku",
-        pen: "PEN — przewód ochronno-neutralny (TN-C; w TN-C-S do punktu rozdziału na szynie PE), najszerszy zielono-żółty",
+        pen: "PEN — przewód ochronno-neutralny (TN-C; w TN-C-S do punktu rozdziału na szynie PE), najszerszy zielono-żółty z niebieskimi kreskami",
+        terminal:
+          "Zacisk szyny PE/N — kółko; zacisk zajęty przez przewód jest wypełniony jego kolorem (jeden przewód na zacisk)",
+        cable: "Kabel w izolacji zewnętrznej — od wprowadzenia do miejsca, w którym rozchodzą się żyły",
       },
       lengthsTitle: "Długości przewodów",
       lengthsColumns: {

@@ -50,3 +50,11 @@ describe("builtInBarKinds", () => {
     expect(builtInBarKinds({ bars: [bar("N")] })).toEqual(["N"]);
   });
 });
+
+describe("barConductorSections — the TN-C-S PEN split", () => {
+  it("counts the split link as one more PE-bar conductor at the WLZ cross-section, and nothing more on N", () => {
+    const tnCS = { ...TN_S, earthing_system: "TN-C-S" } as const;
+    expect(barConductorSections("PE", circuits, tnCS)).toEqual([2.5, 1.5, 10, 10]);
+    expect(barConductorSections("N", circuits, tnCS)).toEqual([2.5, 1.5, 10]);
+  });
+});

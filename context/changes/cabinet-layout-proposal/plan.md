@@ -776,6 +776,11 @@ conductor gets its own bar terminal — shown on the drawing.
   destinations). Too many cables for the span at the track pitch: spread at the largest pitch that
   fits, still distinct — never one shared point.
 - The cores of one cable may share its entry point; two different cables never do.
+- Progressive split (user 2026-10-07, like stripping a cable): the cores leave the cable one at a
+  time, each straight onto its own lane at least a pitch from the others; the sheath is drawn from the
+  entry to the last turn-off, so bare cores are never drawn on top of each other. (A single common
+  split point is impossible on orthogonal paths for cables of more than 3 cores — WLZ, 3-phase.)
+- Bar terminals start past the bar's printed label, so a screw mark never covers "PE"/"N".
 - Lengths are routed from each cable's own entry point; slack (`WIRE_SLACK_RATIO`) as today.
 - Drawing: the cable's sheathed run from the entry is drawn as one bundle that splits into its cores,
   so the entry reads as cables side by side.
@@ -789,7 +794,13 @@ conductor gets its own bar terminal — shown on the drawing.
 - FR, RCD, RCBO and MCB are bidirectional: neither side is "line" or "load" by construction. The
   wiring picks each device's supply side; `deviceTerminals` reports top and bottom terminals and the
   router decides which side is the supply.
-- Default (the electrician's convention, user 2026-10-07): a group's devices are fed from **below** —
+- Sides are chosen by what is optimal (user 2026-10-07): the MCBs' supply side always **matches**
+  the side of their RCD's outgoing terminals — RCD out at the bottom → MCB inputs at the bottom,
+  jumpers along the bottom; RCD out at the top → MCB inputs at the top — and the circuit cables leave
+  the MCBs on the other side. Which side the RCD (and the main switch's feeds) use is chosen to
+  minimise the routed length (supply side facing the supply, outgoing circuits facing their entry);
+  bottom is only the tie-break default.
+- Tie-break default (the electrician's usual practice): a group's devices are fed from **below** —
   the RCD's outgoing side is at the bottom and its MCBs take their supply at the bottom, so every
   RCD → MCB feed is a short jumper along the bottom of the group, never a loop around the devices;
   the circuit cables then leave the MCBs at the top. The same holds for the main switch → RCD /
@@ -1047,32 +1058,32 @@ the admin should review them. Existing projects get no placements until their ne
 
 #### Automated
 
-- [x] 5b.1 Migration applies: `npx supabase db reset`
-- [x] 5b.2 Types regenerated: `npm run db:types`
-- [x] 5b.3 Lint passes: `npm run lint`
-- [x] 5b.4 Type check passes: `npx astro check`
-- [x] 5b.5 Unit tests pass (bar selected only when the cabinet lacks it; cheapest fitting; gap when none fits; never an under-sized bar): `npm run test:unit`
-- [x] 5b.6 Integration tests pass: `npm run test:integration`
-- [x] 5b.7 Build passes: `npm run build`
+- [x] 5b.1 Migration applies: `npx supabase db reset` — 7f195ef
+- [x] 5b.2 Types regenerated: `npm run db:types` — 7f195ef
+- [x] 5b.3 Lint passes: `npm run lint` — 7f195ef
+- [x] 5b.4 Type check passes: `npx astro check` — 7f195ef
+- [x] 5b.5 Unit tests pass (bar selected only when the cabinet lacks it; cheapest fitting; gap when none fits; never an under-sized bar): `npm run test:unit` — 7f195ef
+- [x] 5b.6 Integration tests pass: `npm run test:integration` — 7f195ef
+- [x] 5b.7 Build passes: `npm run build` — 7f195ef
 
 #### Manual
 
-- [x] 5b.8 A project on seed (a) matches a PE and an N bar, places them on the rail and wires circuits to them
-- [x] 5b.9 Archiving the seeded N bar turns that project's match into a bar catalog gap with the Polish message
+- [x] 5b.8 A project on seed (a) matches a PE and an N bar, places them on the rail and wires circuits to them — 7f195ef
+- [x] 5b.9 Archiving the seeded N bar turns that project's match into a bar catalog gap with the Polish message — 7f195ef
 
 ### Phase 5c: Cables spread along the entry, one conductor per bar terminal, bidirectional devices
 
 #### Automated
 
-- [ ] 5c.1 Unit tests pass (no two cables share an entry point; cables keep their order along the entry; no two conductors share a bar terminal; each terminal's cross-section range fits its conductor; shortfall leaves conductors unrouted, never doubled; RCD → MCB feeds bridge on one side within the group): `npm run test:unit`
-- [ ] 5c.2 Lint passes: `npm run lint`
-- [ ] 5c.3 Type check passes: `npx astro check`
-- [ ] 5c.4 Build passes: `npm run build`
+- [x] 5c.1 Unit tests pass (no two cables share an entry point; cables keep their order along the entry; no two conductors share a bar terminal; each terminal's cross-section range fits its conductor; shortfall leaves conductors unrouted, never doubled; RCD → MCB feeds bridge on one side within the group): `npm run test:unit`
+- [x] 5c.2 Lint passes: `npm run lint`
+- [x] 5c.3 Type check passes: `npx astro check`
+- [x] 5c.4 Build passes: `npm run build`
 
 #### Manual
 
-- [ ] 5c.5 On seed (b) and (c) the cables enter side by side along each entry, and every bar terminal holds at most one wire
-- [ ] 5c.6 RCD → MCB feeds are short jumpers along one side of the group; PEN is visibly green-yellow with blue stripes
+- [x] 5c.5 On seed (b) and (c) the cables enter side by side along each entry, and every bar terminal holds at most one wire
+- [x] 5c.6 RCD → MCB feeds are short jumpers along one side of the group; PEN is visibly green-yellow with blue stripes
 
 ### Phase 6: Landing, docs and closure
 

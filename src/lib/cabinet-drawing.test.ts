@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   MAX_SAG_MM,
   MIN_SAG_SPAN_MM,
+  PEN_DASH,
+  WIRE_STYLES,
+  buildDrawnCables,
   buildDrawnDevices,
   buildDrawnWires,
   clampRect,
@@ -383,8 +386,8 @@ describe("buildDrawnWires", () => {
     role,
     circuitId: null,
     crossSectionMm2: 2.5,
-    from: { type: "entry", entryIndex: 0 },
-    to: { type: "entry", entryIndex: 0 },
+    from: { type: "entry", entryIndex: 0, slot: 0 },
+    to: { type: "entry", entryIndex: 0, slot: 0 },
     path: [
       { x: 0, y: 0 },
       { x: 0, y: 10 },
@@ -401,7 +404,7 @@ describe("buildDrawnWires", () => {
       conductor("d", "PEN"),
     ]);
     expect(wires.map((wire) => wire.key)).toEqual(["b", "d", "a", "c"]);
-    expect(wires[0]).toEqual({ key: "b", role: "PE", kind: "circuit", d: "M0 0 L0 10", title: "" });
+    expect(wires[0]).toEqual({ key: "b", role: "PE", kind: "circuit", d: "M0 0 L0 10", title: "", barEnds: [] });
   });
 });
 
@@ -412,8 +415,8 @@ describe("sag of parallel runs", () => {
     role: "L",
     circuitId: null,
     crossSectionMm2: 2.5,
-    from: { type: "entry", entryIndex: 0 },
-    to: { type: "entry", entryIndex: 0 },
+    from: { type: "entry", entryIndex: 0, slot: 0 },
+    to: { type: "entry", entryIndex: 0, slot: 0 },
     path: [
       { x: 0, y: 0 },
       { x: 0, y },
@@ -455,6 +458,7 @@ describe("wireTitle", () => {
     groupKey: groupLabel === null ? null : "g1",
     groupLabel,
     nTerminalSide: null,
+    bar: null,
   });
   const names = {
     circuits: new Map([["c1", "Gniazda kuchnia"]]),
@@ -470,8 +474,8 @@ describe("wireTitle", () => {
     role: "L",
     circuitId: "c1",
     crossSectionMm2: 2.5,
-    from: { type: "entry", entryIndex: 0 },
-    to: { type: "terminal", deviceId: "mcb", side: "load", pole: "L" },
+    from: { type: "entry", entryIndex: 0, slot: 0 },
+    to: { type: "terminal", deviceId: "mcb", side: "top", pole: "L" },
     path: [
       { x: 0, y: 0 },
       { x: 0, y: 10 },
@@ -491,15 +495,15 @@ describe("wireTitle", () => {
       role: "N",
       circuitId: null,
       crossSectionMm2: 16,
-      from: { type: "terminal", deviceId: "fr", side: "load", pole: "N" },
-      to: { type: "terminal", deviceId: "rcd", side: "line", pole: "N" },
+      from: { type: "terminal", deviceId: "fr", side: "top", pole: "N" },
+      to: { type: "terminal", deviceId: "rcd", side: "top", pole: "N" },
       lengthMm: 205,
     });
     expect(wireTitle(feed, names)).toBe("Połączenie FR → RCD „Kuchnia” — N, 16 mm², 0,21 m");
     const toMcb = {
       ...feed,
       from: feed.to,
-      to: { type: "terminal", deviceId: "mcb", side: "line", pole: "N" } as const,
+      to: { type: "terminal", deviceId: "mcb", side: "bottom", pole: "N" } as const,
     };
     expect(wireTitle(toMcb, names)).toBe("Połączenie RCD „Kuchnia” → B16 — N, 16 mm², 0,21 m");
   });
@@ -510,22 +514,159 @@ describe("wireTitle", () => {
       role: "PEN",
       circuitId: null,
       crossSectionMm2: 16,
-      to: { type: "bar", kind: "PE", barIndex: 0, groupIndex: 0 },
+      to: { type: "bar", kind: "PE", barIndex: 0, groupIndex: 0, terminalIndex: 2 },
       lengthMm: 464,
     });
-    expect(wireTitle(wlz, names)).toBe("WLZ — PEN, 16 mm², 0,46 m");
+    expect(wireTitle(wlz, names)).toBe("WLZ — PEN, 16 mm², 0,46 m — szyna PE, zacisk 3");
     const split = {
       ...wlz,
       kind: "feed" as const,
       role: "N" as const,
       from: wlz.to,
-      to: { type: "bar", kind: "N", barIndex: 1, groupIndex: 0 } as const,
+      to: { type: "bar", kind: "N", barIndex: 1, groupIndex: 0, terminalIndex: 0 } as const,
     };
-    expect(wireTitle(split, names)).toBe("Połączenie szyna PE → szyna N — N, 16 mm², 0,46 m");
+    expect(wireTitle(split, names)).toBe("Połączenie szyna PE, zacisk 3 → szyna N, zacisk 1 — N, 16 mm², 0,46 m");
   });
 
   it("leaves the tooltip empty when buildDrawnWires gets no names, and fills it when it does", () => {
     expect(buildDrawnWires([conductor({})])[0]?.title).toBe("");
     expect(buildDrawnWires([conductor({})], names)[0]?.title).toBe("Obwód „Gniazda kuchnia” — L, 2,5 mm², 0,42 m");
+  });
+});
+
+// ---------------------------------------------------------------------------------------------
+// Plan Phase 5c — PEN, bar terminals, cables at the entry
+// ---------------------------------------------------------------------------------------------
+
+describe("WIRE_STYLES — PEN is never drawn as PE", () => {
+  it("draws PEN green-yellow with blue dashes over the stripe, and PE without them", () => {
+    expect(WIRE_STYLES.PE).toMatchObject({ stroke: "stroke-wire-pe", stripe: true, penDash: false });
+    expect(WIRE_STYLES.PEN).toMatchObject({ stroke: "stroke-wire-pe", stripe: true, penDash: true });
+    // The dashes are what a greyscale print keeps apart; PEN is also the heavier line.
+    expect(PEN_DASH).toMatch(/^\d+ \d+$/);
+    expect(WIRE_STYLES.PEN.weight).toBeGreaterThan(WIRE_STYLES.PE.weight);
+    for (const role of ["L", "L1", "L2", "L3", "N", "PE"] as const) expect(WIRE_STYLES[role].penDash).toBe(false);
+  });
+
+  it("takes every colour from a wire token, never a literal", () => {
+    for (const style of Object.values(WIRE_STYLES)) {
+      expect(style.stroke).toMatch(/^stroke-wire-/);
+      expect(style.fill).toMatch(/^fill-wire-/);
+    }
+  });
+});
+
+describe("buildDrawnDevices — catalog bars", () => {
+  it("gives a placed catalog bar its terminals, and every other device no bar", () => {
+    const drawn = buildDrawnDevices(
+      [
+        device("pe", {
+          role: "pe_bar",
+          width_mm: 36,
+          height_mm: 15,
+          rated_current_a: null,
+          terminal_groups: [{ count: 4, minMm2: 1.5, maxMm2: 16 }],
+        }),
+        device("m"),
+      ],
+      [
+        { projectDeviceId: "pe", railIndex: 0, xMm: 0 },
+        { projectDeviceId: "m", railIndex: 0, xMm: 36 },
+      ],
+      GEOMETRY_WITH_RAILS,
+      [],
+    );
+    expect(drawn[0].bar).toMatchObject({ kind: "PE", terminalGroups: [{ count: 4, minMm2: 1.5, maxMm2: 16 }] });
+    expect(drawn[1].bar).toBeNull();
+  });
+});
+
+describe("bar terminals and cables in the drawn wires", () => {
+  const base: Conductor = {
+    key: "k",
+    kind: "circuit",
+    role: "PE",
+    circuitId: "c1",
+    crossSectionMm2: 2.5,
+    from: { type: "entry", entryIndex: 0, slot: 0 },
+    to: { type: "bar", kind: "PE", barIndex: 0, groupIndex: 0, terminalIndex: 2 },
+    path: [
+      { x: 50, y: 0 },
+      { x: 50, y: 20 },
+      { x: 10, y: 20 },
+      { x: 10, y: 60 },
+    ],
+    routedMm: 100,
+    lengthMm: 130,
+  };
+
+  it("marks the end that lands on a bar terminal, and no other", () => {
+    const [wire] = buildDrawnWires([base]);
+    expect(wire.barEnds).toEqual([{ x: 10, y: 60 }]);
+    const [toDevice] = buildDrawnWires([
+      { ...base, role: "L", to: { type: "terminal", deviceId: "mcb", side: "top", pole: "L" } },
+    ]);
+    expect(toDevice.barEnds).toEqual([]);
+  });
+
+  it("names the bar terminal a cable core lands on", () => {
+    const names = { circuits: new Map([["c1", "Gniazda kuchnia"]]), devices: [] };
+    expect(wireTitle(base, names)).toBe("Obwód „Gniazda kuchnia” — PE, 2,5 mm², 0,13 m — szyna PE, zacisk 3");
+  });
+
+  it("draws one sheath per cable from its entry point to where the last core but one turns off", () => {
+    const cores: Conductor[] = [
+      { ...base, key: "a", role: "L" },
+      {
+        ...base,
+        key: "b",
+        path: [
+          { x: 50, y: 0 },
+          { x: 50, y: 14 },
+          { x: 90, y: 14 },
+        ],
+      },
+      {
+        ...base,
+        key: "c",
+        circuitId: "c2",
+        path: [
+          { x: 80, y: 0 },
+          { x: 80, y: 30 },
+          { x: 99, y: 30 },
+        ],
+      },
+      {
+        ...base,
+        key: "f",
+        kind: "feed",
+        path: [
+          { x: 5, y: 5 },
+          { x: 5, y: 50 },
+        ],
+      },
+    ];
+    const cables = buildDrawnCables(cores);
+    expect(cables.map((cable) => cable.key)).toEqual(["c:c1", "c:c2"]);
+    // c1's two cores leave the entry at (50, 0) and turn off 14 and 20 mm down: past 14 mm only one
+    // core is left on the line, so the sheath ends there. c2 has a single core: the sheath stops one
+    // bend (4 mm) before it turns off.
+    expect(cables[0].d).toBe("M50 0 L50 14");
+    expect(cables[1].d).toBe("M80 0 L80 26");
+  });
+
+  it("ends the sheath at the last turn-off, whichever order the cores turn off in, and lets the last core run on", () => {
+    const core = (key: string, depth: number, x: number): Conductor => ({
+      ...base,
+      key,
+      path: [
+        { x: 50, y: 0 },
+        { x: 50, y: depth },
+        { x, y: depth },
+      ],
+    });
+    // Three cores: two turn off at 12 and 18 mm, the third carries straight on to 300 mm.
+    const cables = buildDrawnCables([core("a", 300, 70), core("b", 12, 30), core("c", 18, 20)]);
+    expect(cables.map((cable) => cable.d)).toEqual(["M50 0 L50 18"]);
   });
 });

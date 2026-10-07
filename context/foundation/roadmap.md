@@ -57,6 +57,7 @@ Uwaga: S-05 jest dziś `blocked` — Otwarte pytanie #2 (pierwszeństwo reguł r
 | S-08 | `quote-cost-estimate`               | Elektryk widzi koszt materiału i robocizny i nadpisuje estymowany czas                     | S-04, S-07    | FR-011, FR-013, US-01                | proposed    |
 | S-09 | `printable-quote-export`            | Elektryk drukuje/eksportuje wycenę z wizualizacją układu szafki                            | S-06, S-08    | FR-012, US-01                        | proposed    |
 | S-10 | `ui-layout-theme`                   | Elektryk i admin pracują w spójnym, jasnym interfejsie „Arkusz techniczny" pod desktop     | S-03, S-07    | NFR (UI po polsku), FR-012 pośrednio | done        |
+| S-11 | `realistic-wiring-render`           | Elektryk widzi rysunek okablowania szafki wyglądający jak prawdziwa rozdzielnica           | S-09          | poza PRD (FR-012 pośrednio)          | proposed    |
 
 ## Streams
 
@@ -236,6 +237,21 @@ Foundations poniżej zakładają, że to istnieje, i **nie** budują tego od now
 - **Risk:** Zmiana przekracza zalecenie „jeden widok + globalne tokeny" i obejmuje wszystkie strony naraz — świadoma decyzja użytkownika, więc żyje na osobnej gałęzi `ui-layout-theme` z jednym scaleniem, bo `master` wdraża się automatycznie, a między fazami aplikacja jest celowo niespójna. Ryzyko regresji: zmienia się wyłącznie warstwa prezentacji — endpointy, nazwy pól formularzy, bramki tras i baza danych zostają nietknięte; bez testów wizualnych jedynym sprawdzianem jest kitchen sink `/dev/kitchen-sink` i ręczne zrzuty ekranu. Tryb ciemny i projekt mobilny są poza zakresem.
 - **Status:** done
 
+### S-11: Elektryk widzi realistyczne okablowanie szafki
+
+- **Outcome:** Elektryk widzi rysunek okablowania szafki, który wygląda jak prawdziwa, starannie zmontowana rozdzielnica: przewody o grubości zależnej od przekroju (WLZ wyraźnie grubsza od obwodów 1,5/2,5 mm²), w kolorach żył, z naturalnymi łukami gięcia i zapasem, prowadzone równymi wiązkami wzdłuż szyn i boków szafki, z widocznymi tulejkami na końcach — zamiast schematycznych linii.
+- **Change ID:** `realistic-wiring-render`
+- **Issue:** #32
+- **PRD refs:** poza zakresem PRD — rozszerzenie po wszystkich zadaniach z PRD (prośba użytkownika z 2026-10-07); FR-012 pośrednio (czytelna wizualizacja układu na wydruku)
+- **Prerequisites:** S-09
+- **Parallel with:** —
+- **Blockers:** —
+- **Unknowns:**
+  - Poziom realizmu: wariant podstawowy jak na zdjęciu `context/foundation/references/wiring/prosta-rozdzielnica.webp` (przewody łukami, grubość wg przekroju, tulejki), czy „uber pro" jak `context/foundation/references/wiring/rozdzielnica-z-opaskami.webp` (wiązki spięte opaskami, równe pakiety w kanałach przy bokach szafki)? — Owner: user. Block: no.
+  - Czy realistyczny rysunek ma zastąpić schemat także na wydruku (S-09), czy wydruk zostaje schematyczny dla czytelności w skali szarości? — Owner: user. Block: no.
+- **Risk:** Wyłącznie warstwa prezentacji nad trasami z S-05 (moduł `cabinet-wiring.ts` decyduje, gdzie biegnie przewód; ten plasterek tylko jak wygląda) — nie może zmienić reguł prowadzenia ani długości w zestawieniu. Ryzyko wydajności: rysunek renderuje się na serwerze w budżecie CPU Workera, więc bogatszy SVG (filtry, gradienty, wiele ścieżek na żyłę) może wymusić warstwę po stronie klienta. Ryzyko czytelności: realizm nie może zgubić tego, co już działa — podświetlenia przewodu po najechaniu, etykietki i rozróżnienia PE/N/PEN w skali szarości.
+- **Status:** proposed
+
 ## Backlog Handoff
 
 | Roadmap ID | Change ID                           | Suggested issue title                                      | Ready for `/10x-plan` | Notes                                                                                     |
@@ -251,6 +267,7 @@ Foundations poniżej zakładają, że to istnieje, i **nie** budują tego od now
 | S-08       | `quote-cost-estimate`               | Koszt materiału i robocizny z możliwością nadpisania czasu | no                    | Czeka na S-04, S-07                                                                       |
 | S-09       | `printable-quote-export`            | Wydruk wyceny z wizualizacją układu szafki                 | no                    | Czeka na S-06, S-08                                                                       |
 | S-10       | `ui-layout-theme`                   | Spójny, jasny interfejs „Arkusz techniczny"                | done                  | Zarchiwizowane → `context/archive/2026-09-25-ui-layout-theme/`                            |
+| S-11       | `realistic-wiring-render`           | Realistyczny wygląd okablowania szafki                     | no                    | Czeka na S-09; zdjęcia referencyjne w `context/foundation/references/wiring/`             |
 
 ## Open Roadmap Questions
 

@@ -14,7 +14,14 @@ import type { SupplyParams } from "@/lib/supply-params";
  *   bar then feeds that RCD instead, so one per circuit stays a fair upper bound);
  * - the WLZ, when the supply is configured, adds one more conductor to each kind at its
  *   cross-section;
- * - TN-C has no N conductor at all (every PEN lands on the PE bar), so it needs no N bar terminals.
+ * - TN-C has no N conductor at all (every PEN lands on the PE bar), so it needs no N bar terminals;
+ * - TN-C-S splits the PEN on the PE bar (user decision 2026-10-06): the split link from the PE bar to
+ *   the main switch's N occupies one more PE-bar terminal, at the WLZ cross-section (user decision
+ *   2026-10-07). When the main switch has no N pole the link lands on the N bar instead of the WLZ's N,
+ *   which the WLZ's N terminal already counts.
+ *
+ * The wiring (`src/lib/cabinet-wiring.ts`) lands one conductor per terminal, so a shortfall here is
+ * exactly the conductors it leaves unrouted on a built-in bar.
  */
 
 export type BarKind = CabinetGeometry["bars"][number]["kind"];
@@ -31,6 +38,7 @@ export function barConductorSections(
   if (kind === "N" && supply?.earthing_system === "TN-C") return [];
   const sections: number[] = circuits.map((circuit) => circuit.cross_section_mm2);
   if (supply !== null) sections.push(supply.wlz_cross_section_mm2);
+  if (kind === "PE" && supply?.earthing_system === "TN-C-S") sections.push(supply.wlz_cross_section_mm2);
   return sections;
 }
 
