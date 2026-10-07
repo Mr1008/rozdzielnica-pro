@@ -38,6 +38,8 @@ const SEEDED_MODELS = {
   mcbB16: "PRZ-B16-1P",
   mcbB10: "PRZ-B10-1P",
   rcbo: "PRZ-RCBO-B16-30-A",
+  peBar: "PRZ-PE-6",
+  nBar: "PRZ-N-6",
 } as const;
 
 const SUPPLY: SupplyParams = {
@@ -73,7 +75,7 @@ interface CircuitPayload {
 
 interface DevicePayload {
   device_id: string;
-  role: "main_switch" | "rcd" | "rcbo" | "mcb";
+  role: "main_switch" | "rcd" | "rcbo" | "mcb" | "pe_bar" | "n_bar";
   rcd_group_id: string | null;
   circuit_id: string | null;
   notes: string[];
@@ -469,6 +471,51 @@ describe("row level security and the device snapshot on circuits, groups and pro
       }
       // The sample match holds an RCD and an RCBO, so at least one side is really copied, not just null.
       expect(projectDevices.some((row) => row.n_terminal_side !== null)).toBe(true);
+    });
+
+    it("stores catalog PE/N bars under their own roles and copies their terminal groups", async () => {
+      const projectId = await insertProject(clientA, electricianA.id, SUPPLY);
+      const payload = samplePayload();
+      await saveOrThrow(clientA, projectId, {
+        ...payload,
+        devices: [
+          ...payload.devices,
+          { device_id: devices.peBar.id, role: "pe_bar", rcd_group_id: null, circuit_id: null, notes: [] },
+          { device_id: devices.nBar.id, role: "n_bar", rcd_group_id: null, circuit_id: null, notes: [] },
+        ],
+      });
+      const { projectDevices } = await readAll(projectId);
+      const bars = projectDevices.filter((row) => row.role === "pe_bar" || row.role === "n_bar");
+      expect(bars.map((row) => [row.role, row.kind])).toEqual([
+        ["pe_bar", "pe_bar"],
+        ["n_bar", "n_bar"],
+      ]);
+
+      const catalog = await service
+        .from("devices")
+        .select("id, terminal_groups")
+        .in(
+          "id",
+          bars.map((row) => row.device_id),
+        );
+      expect(catalog.error).toBeNull();
+      const groups = new Map((catalog.data ?? []).map((row) => [row.id, row.terminal_groups]));
+      for (const row of bars) {
+        expect(row.terminal_groups, row.device_id).toEqual(groups.get(row.device_id));
+        expect(row.terminal_groups).not.toBeNull();
+      }
+      // Every other device carries no terminal groups.
+      expect(projectDevices.filter((row) => !bars.includes(row)).every((row) => row.terminal_groups === null)).toBe(
+        true,
+      );
+    });
+
+    it("refuses a role outside the list with 23514", async () => {
+      const projectId = await insertProject(clientA, electricianA.id);
+      const { error } = await clientA
+        .from("project_devices")
+        .insert({ project_id: projectId, position: 0, role: "comb_busbar", device_id: devices.peBar.id, notes: [] });
+      expect(error?.code).toBe("23514");
     });
 
     it("refuses an archived device with P0002 and rolls back the whole RPC", async () => {

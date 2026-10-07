@@ -1,3 +1,4 @@
+import { BAR_KINDS_IN_ORDER, barConductorSections, terminalsFitAll, type BarKind } from "@/lib/bar-conductors";
 import { isUuid } from "@/lib/catalog";
 import type { CircuitInput, RcdGroupInput, RcdMarginPercent, ResidualCurrentMa } from "@/lib/circuit-params";
 import { parseDeviceSpec, type DeviceKind, type DeviceSpec, type PoleConfig, type RcdType } from "@/lib/device-spec";
@@ -27,7 +28,11 @@ import type { SupplyParams } from "@/lib/supply-params";
  *   circuits spread across phases — it errs on the high side;
  * - single-circuit group: `rcbo`, In exact, IΔn exact, type rank ≥ minimum; poles {1P+N, 2P} or
  *   {3P+N, 4P}. With no compliant RCBO, a compliant RCD + MCB pair (note `rcbo_fallback`);
- * - ungrouped circuit: MCB as above, note `no_rcd`.
+ * - ungrouped circuit: MCB as above, note `no_rcd`;
+ * - PE / N bar (plan Phase 5b), only for a bar kind the cabinet snapshot lacks (`cabinetBarKinds`):
+ *   `pe_bar` / `n_bar` whose terminal groups give every conductor landing on that kind a fitting
+ *   terminal (`barConductorSections` in `src/lib/bar-conductors.ts`, the count the bar warnings use).
+ *   TN-C lands no conductor on an N bar, so it needs only the PE bar.
  *
  * An empty group (0 circuits) is skipped: it protects nothing, so it needs no RCD and yields no
  * selection. Kinds are filtered strictly — an FR is a plain switch-disconnector and is never used
@@ -40,9 +45,28 @@ export interface MatchInput {
   supply: SupplyParams | null;
   groups: readonly RcdGroupInput[];
   circuits: readonly CircuitInput[];
+  /**
+   * The bar kinds built into the project's cabinet snapshot (`builtInBarKinds`); a kind missing here
+   * is matched from the catalog. Absent or null means the cabinet is unknown (its snapshot does not
+   * parse): no bar is required — nothing is invented for a cabinet the matcher cannot see.
+   */
+  cabinetBarKinds?: readonly BarKind[] | null;
 }
 
-export type SelectionRole = "main_switch" | "rcd" | "rcbo" | "mcb";
+export type SelectionRole = "main_switch" | "rcd" | "rcbo" | "mcb" | "pe_bar" | "n_bar";
+
+/** Every selection role — the list a stored role is checked against. */
+export const SELECTION_ROLES = [
+  "main_switch",
+  "rcd",
+  "rcbo",
+  "mcb",
+  "pe_bar",
+  "n_bar",
+] as const satisfies readonly SelectionRole[];
+
+/** The selection role — equal to the catalog kind — of each bar kind. */
+export const BAR_ROLE = { PE: "pe_bar", N: "n_bar" } as const satisfies Record<BarKind, SelectionRole & DeviceKind>;
 export type SelectionNote = "rcbo_fallback" | "no_rcd";
 
 export interface Selection {
@@ -103,6 +127,13 @@ export type CatalogGap =
       circuitId: string;
       circuitName: string;
       fallback: boolean;
+    }
+  | {
+      role: "pe_bar" | "n_bar";
+      kind: "pe_bar" | "n_bar";
+      barKind: BarKind;
+      /** One entry per conductor that lands on the bar: its cross-section, ascending. */
+      sections: readonly number[];
     };
 
 export type MatchResult =
@@ -431,8 +462,34 @@ export function matchDevices(input: MatchInput, catalog: readonly DeviceSpecWith
     if (circuit.rcd_group_id === null) pushMcb(circuit, null, ["no_rcd"], false);
   }
 
+  // A bar kind the cabinet lacks: the cheapest catalog bar whose terminals take every conductor that
+  // lands on it — correctness first, like every other role. Never a bar with too few terminals.
+  const cabinetBarKinds = input.cabinetBarKinds ?? null;
+  if (cabinetBarKinds !== null) {
+    for (const barKind of BAR_KINDS_IN_ORDER) {
+      if (cabinetBarKinds.includes(barKind)) continue;
+      const sections = barConductorSections(barKind, input.circuits, supply).sort((a, b) => a - b);
+      if (sections.length === 0) continue;
+      const role = BAR_ROLE[barKind];
+      const bar = cheapest(
+        catalog.filter(
+          (device): device is OfKind<"pe_bar" | "n_bar"> =>
+            device.kind === role && terminalsFitAll(sections, device.terminal_groups),
+        ),
+      );
+      if (bar === null) gaps.push({ role, kind: role, barKind, sections });
+      else selections.push({ role, deviceId: bar.id, groupId: null, circuitId: null, notes: [] });
+    }
+  }
+
   if (gaps.length > 0) return { status: "gaps", gaps };
   return { status: "matched", selections };
+}
+
+/** The bar kinds a match takes from the catalog — none unless it is `matched`. */
+export function matchedBarKinds(result: MatchResult): BarKind[] {
+  if (result.status !== "matched") return [];
+  return BAR_KINDS_IN_ORDER.filter((kind) => result.selections.some((selection) => selection.role === BAR_ROLE[kind]));
 }
 
 /** Two selection lists are the same when they match element by element, in order. */
@@ -450,6 +507,16 @@ export function sameSelection(a: readonly Selection[], b: readonly Selection[]):
       left.notes.every((note, j) => note === right.notes[j])
     );
   });
+}
+
+/** "3 × 2,5 mm², 1 × 10 mm²": the conductors a bar must take, grouped by cross-section. */
+function sectionsText(sections: readonly number[]): string {
+  const counts = new Map<number, number>();
+  for (const section of sections) counts.set(section, (counts.get(section) ?? 0) + 1);
+  return [...counts.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([section, count]) => t.matching.barSections(count, section))
+    .join(t.matching.barSectionsSeparator);
 }
 
 function polesText(poles: readonly PoleConfig[]): string {
@@ -485,6 +552,10 @@ export function catalogGapMessage(gap: CatalogGap): string {
     case "mcb":
       text = m.mcb(gap.ratedCurrentA, polesText(gap.poles), gap.circuitName) + (gap.fallback ? m.fallbackSuffix : "");
       break;
+    case "pe_bar":
+    case "n_bar":
+      text = m.bar(gap.barKind, gap.sections.length, sectionsText(gap.sections));
+      break;
   }
   return `${text} ${m.contactAdmin}`;
 }
@@ -511,6 +582,8 @@ const ROLE_LABEL_KEYS: Record<SelectionRole, keyof typeof t.matching.roles> = {
   rcd: "rcd",
   rcbo: "rcbo",
   mcb: "mcb",
+  pe_bar: "peBar",
+  n_bar: "nBar",
 };
 
 export function selectionRoleLabel(role: SelectionRole): string {

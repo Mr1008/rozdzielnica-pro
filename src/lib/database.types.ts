@@ -322,6 +322,7 @@ export type Database = {
           rcd_type: Database["public"]["Enums"]["rcd_type"] | null
           residual_current_ma: number | null
           role: string
+          terminal_groups: Json | null
           width_mm: number
         }
         Insert: {
@@ -349,6 +350,7 @@ export type Database = {
           rcd_type?: Database["public"]["Enums"]["rcd_type"] | null
           residual_current_ma?: number | null
           role: string
+          terminal_groups?: Json | null
           width_mm?: number
         }
         Update: {
@@ -376,6 +378,7 @@ export type Database = {
           rcd_type?: Database["public"]["Enums"]["rcd_type"] | null
           residual_current_ma?: number | null
           role?: string
+          terminal_groups?: Json | null
           width_mm?: number
         }
         Relationships: [

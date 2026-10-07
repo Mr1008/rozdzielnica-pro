@@ -1,6 +1,8 @@
 import { barRect, RAIL_HEIGHT_MM, type CabinetGeometry, type Rect } from "@/lib/cabinet-geometry";
 import {
+  catalogBarAsCabinetBar,
   deviceRect,
+  isCatalogBarRole,
   deviceTerminals,
   terminalGroupPoints,
   type DeviceTerminals,
@@ -40,8 +42,12 @@ import type { SupplyParams } from "@/lib/supply-params";
  * Routes: from each end a short stub leaves the terminal (vertically, into the free channel above or
  * below the rail), the entry (into a lane along the cabinet edge) or the bar terminal group (into a
  * lane beside the bar); the two stubs are joined orthogonally through the nearest vertical passage
- * that crosses no device body — a gap between blocks, a block end or the gutter beside the rails. A
- * cabinet without PE/N bars has no bar conductors (the `bars_missing` circuit warning explains it).
+ * that crosses no device body — a gap between blocks, a block end or the gutter beside the rails.
+ *
+ * Bars: the cabinet's built-in PE/N bars and the catalog bars the match placed on a rail (plan Phase
+ * 5b) are the same kind of target — `nearestBar` sees both, so N/PE routing, the TN-C-S split and the
+ * lengths need no special case. A project with no bar of a kind (a catalog gap) has no conductors to
+ * it (the `bars_missing` / `bar_terminals_insufficient` circuit warnings explain it).
  *
  * Tracks: the router sends many conductors through the same lane and passage, so a last step
  * (`nudgeTracks`) gives each its own track — parallel segments whose extents overlap end up at least
@@ -65,10 +71,14 @@ export function withSlack(routedMm: number): number {
   return routedMm * (1 + WIRE_SLACK_RATIO);
 }
 
+/**
+ * `terminal_groups` matters only for a catalog PE/N bar (role `pe_bar` / `n_bar`, plan Phase 5b): a
+ * placed one is a bar target like a built-in bar. Without it such a bar has no terminals to land on.
+ */
 export type WiringDevice = Pick<
   LayoutDevice,
   "id" | "role" | "rcd_group_id" | "circuit_id" | "width_mm" | "height_mm" | "poles" | "n_terminal_side"
->;
+> & { terminal_groups?: unknown };
 export type WiringCircuit = Pick<
   CircuitInput,
   "id" | "rcd_group_id" | "phase_count" | "cross_section_mm2" | "entry_side"
@@ -96,6 +106,10 @@ export const CONDUCTOR_KINDS = ["circuit", "wlz", "feed"] as const satisfies rea
 export type Endpoint =
   | { type: "entry"; entryIndex: number }
   | { type: "terminal"; deviceId: string; side: "line" | "load"; pole: TerminalPole }
+  /**
+   * `barIndex` counts the cabinet's built-in bars (`geometry.bars`), then the placed catalog bars in
+   * placement order.
+   */
   | { type: "bar"; kind: "PE" | "N"; barIndex: number; groupIndex: number };
 
 export interface Conductor {
@@ -207,16 +221,23 @@ class Router {
   readonly railsCentre: Point;
   readonly barRects: Rect[];
 
+  /**
+   * A placed catalog bar is an obstacle like a built-in bar, not part of its row's device band: it is
+   * much lower than the devices beside it, so its conductors leave it straight up or down through the
+   * free column over it, as they leave a built-in bar.
+   */
   constructor(
     readonly geometry: CabinetGeometry,
-    located: readonly Located[],
+    allLocated: readonly Located[],
   ) {
     const { interior, rails, bars } = geometry;
     const clampX = (x: number) => Math.min(Math.max(x, 2), interior.widthMm - 2);
     this.gutterLeft = clampX(Math.min(...rails.map((rail) => rail.xMm)) - GUTTER_MM);
     this.gutterRight = clampX(Math.max(...rails.map((rail) => rail.xMm + rail.lengthMm)) + GUTTER_MM);
 
-    this.barRects = bars.map(barRect);
+    const located = allLocated.filter((item) => !isCatalogBarRole(item.device.role));
+    const catalogBarRects = allLocated.filter((item) => isCatalogBarRole(item.device.role)).map((item) => item.rect);
+    this.barRects = [...bars.map(barRect), ...catalogBarRects];
     const obstacles = [...located.map((item) => item.rect), ...this.barRects];
     const top = Math.min(interior.heightMm, ...obstacles.map((rect) => rect.y));
     const bottom = Math.max(0, ...obstacles.map((rect) => rect.y + rect.h));
@@ -937,7 +958,9 @@ export function routeConductors(input: WiringInput): Conductor[] {
   }
   const router = new Router(geometry, [...located.values()]);
 
-  const barTargets: BarTarget[] = geometry.bars.flatMap((bar, barIndex) =>
+  // Built-in bars first, then the placed catalog bars, each seen as a horizontal bar over its rect.
+  const catalogBars = [...located.values()].flatMap((item) => catalogBarAsCabinetBar(item.device, item.rect) ?? []);
+  const barTargets: BarTarget[] = [...geometry.bars, ...catalogBars].flatMap((bar, barIndex) =>
     terminalGroupPoints(bar).map((point, groupIndex) => ({
       kind: bar.kind,
       barIndex,

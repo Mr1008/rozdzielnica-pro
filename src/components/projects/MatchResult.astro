@@ -7,6 +7,8 @@ import type { MatchContext, MatchView, SnapshotRow } from "@/lib/device-matching
 import {
   blockReasonMessage,
   catalogGapMessage,
+  matchedBarKinds,
+  SELECTION_ROLES,
   selectionNoteMessage,
   selectionRoleLabel,
   type BlockReason,
@@ -49,11 +51,10 @@ interface Row {
   serves: string;
 }
 
-const SELECTION_ROLES: readonly string[] = ["main_switch", "rcd", "rcbo", "mcb"] satisfies SelectionRole[];
 const SELECTION_NOTES: readonly string[] = ["rcbo_fallback", "no_rcd"] satisfies SelectionNote[];
 
 function isSelectionRole(value: string): value is SelectionRole {
-  return SELECTION_ROLES.includes(value);
+  return (SELECTION_ROLES as readonly string[]).includes(value);
 }
 
 function isSelectionNote(value: string): value is SelectionNote {
@@ -71,9 +72,12 @@ function servesText(groupId: string | null, circuitId: string | null): string {
   return t.circuitSection.servesSupply;
 }
 
-/** A stored row carries its own copy of the device's spec; it is re-parsed, never trusted blindly. */
+/**
+ * A stored row carries its own copy of the device's spec (a catalog bar's terminal groups included);
+ * it is re-parsed, never trusted blindly.
+ */
 function snapshotRow(row: SnapshotRow): Row {
-  const parsed = parseDeviceSpec({ ...row, terminal_groups: null });
+  const parsed = parseDeviceSpec(row);
   return {
     key: row.id,
     role: isSelectionRole(row.role) ? selectionRoleLabel(row.role) : deviceKindLabel(row.kind),
@@ -128,8 +132,14 @@ function fixLink(reason: BlockReason): { href: string; label: string } {
     : { href: `#${circuitsAnchor}`, label: t.circuitSection.fixCircuits };
 }
 
-// Informational, never blocking — the same markup as the supply warnings.
-const warningMessages = circuitWarnings(context.circuits, context.supply, context.geometry).map(circuitWarningMessage);
+// Informational, never blocking — the same markup as the supply warnings. A bar kind the fresh match
+// takes from the catalog is no longer missing; on a gap it still is.
+const warningMessages = circuitWarnings(
+  context.circuits,
+  context.supply,
+  context.geometry,
+  matchedBarKinds(view.fresh),
+).map(circuitWarningMessage);
 
 const headClass = "h-9 px-3 text-xs font-medium tracking-wide text-muted-foreground uppercase";
 const cellClass = "px-3 py-2 align-top whitespace-normal";

@@ -372,6 +372,92 @@ describe("routeConductors — a cabinet without PE/N bars", () => {
   });
 });
 
+describe("routeConductors — catalog PE/N bars on a rail (plan Phase 5b)", () => {
+  const circuits = [circuit(1, G1, 1, 2.5), circuit(2, G1, 1, 2.5), circuit(4, null, 1, 1.5)];
+  const terminals = [{ count: 6, minMm2: 1.5, maxMm2: 16 }];
+  const bar = (position: number, role: "pe_bar" | "n_bar") => ({
+    id: `b2000000-0000-4000-8000-${String(position).padStart(12, "0")}`,
+    position,
+    role,
+    kind: role,
+    rcd_group_id: null,
+    circuit_id: null,
+    width_mm: 35,
+    height_mm: 15,
+    poles: null,
+    n_terminal_side: null,
+    terminal_groups: terminals,
+  });
+  const PE_BAR = bar(5, "pe_bar");
+  const N_BAR = bar(6, "n_bar");
+  const devices = [
+    device(0, "main_switch", "2P", 35),
+    device(1, "rcd", "2P", 35, { group: G1 }),
+    device(2, "mcb", "1P", 17.5, { group: G1, circuit: circuitId(1) }),
+    device(3, "mcb", "1P", 17.5, { group: G1, circuit: circuitId(2) }),
+    device(4, "mcb", "1P", 17.5, { circuit: circuitId(4) }),
+    PE_BAR,
+    N_BAR,
+  ];
+  const input = wiringInput(SEED_A, devices, circuits);
+  const conductors = routeConductors(input);
+  const rectOf = (id: string) => {
+    const placement = input.placements.find((p) => p.projectDeviceId === id);
+    const dev = devices.find((d) => d.id === id);
+    const rect = placement && dev ? deviceRect(placement, dev, SEED_A) : null;
+    if (rect === null) throw new Error(`${id} not placed`);
+    return rect;
+  };
+  // (a) has no built-in bars, so the catalog bars are bars 0 (PE) and 1 (N), in placement order.
+  const toBar = (c: Conductor, kind: "PE" | "N") =>
+    (c.to.type === "bar" && c.to.kind === kind) || (c.from.type === "bar" && c.from.kind === kind);
+
+  it("gives every circuit its PE on the catalog PE bar", () => {
+    for (const n of [1, 2, 4]) {
+      const pe = only(ofCircuit(conductors, n).filter((c) => c.role === "PE"));
+      expect(pe.to).toMatchObject({ type: "bar", kind: "PE", barIndex: 0 });
+    }
+  });
+
+  it("lands an ungrouped 1P circuit's N on the catalog N bar; grouped circuits keep their RCD's N", () => {
+    const n4 = only(ofCircuit(conductors, 4).filter((c) => c.role === "N"));
+    expect(n4.to).toMatchObject({ type: "bar", kind: "N", barIndex: 1 });
+    const n1 = only(ofCircuit(conductors, 1).filter((c) => c.role === "N"));
+    expect(n1.to.type).toBe("terminal");
+  });
+
+  it("ends each bar conductor on the bar's own rectangle", () => {
+    const bars = { PE: rectOf(PE_BAR.id), N: rectOf(N_BAR.id) };
+    for (const c of conductors) {
+      for (const [end, point] of [
+        [c.from, c.path[0]],
+        [c.to, c.path.at(-1)],
+      ] as const) {
+        if (end.type !== "bar" || point === undefined) continue;
+        const rect = bars[end.kind];
+        expect(point.x).toBeGreaterThanOrEqual(rect.x);
+        expect(point.x).toBeLessThanOrEqual(rect.x + rect.w);
+        expect(point.y).toBeCloseTo(rect.y + rect.h / 2, 6);
+      }
+    }
+  });
+
+  it("splits the PEN on the catalog PE bar in TN-C-S, like on a built-in one", () => {
+    const tnCS = routeConductors(
+      wiringInput(SEED_A, devices, circuits, { earthing_system: "TN-C-S", wlz_cross_section_mm2: 16 }),
+    );
+    const pen = only(tnCS.filter((c) => c.kind === "wlz" && c.role === "PEN"));
+    expect(toBar(pen, "PE")).toBe(true);
+    expect(tnCS.some((c) => c.kind === "feed" && c.role === "N" && c.from.type === "bar")).toBe(true);
+  });
+
+  it("feeds the N bar from the main switch and the RCD's line-side N from the N bar", () => {
+    const feeds = conductors.filter((c) => c.kind === "feed" && c.role === "N");
+    expect(feeds.some((c) => c.to.type === "bar" && c.to.kind === "N")).toBe(true);
+    expect(feeds.some((c) => c.from.type === "bar" && c.from.kind === "N")).toBe(true);
+  });
+});
+
 // ---------------------------------------------------------------------------------------------
 // Paths and lengths
 // ---------------------------------------------------------------------------------------------

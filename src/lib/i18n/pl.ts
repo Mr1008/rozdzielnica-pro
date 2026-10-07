@@ -879,6 +879,8 @@ export const pl = {
       rcd: "Wyłącznik różnicowoprądowy (RCD)",
       rcbo: "Wyłącznik różnicowonadprądowy (RCBO)",
       mcb: "Wyłącznik nadprądowy B (MCB)",
+      peBar: "Szyna PE (z katalogu)",
+      nBar: "Szyna N (z katalogu)",
     },
     /** Keyed by `SelectionNote` (camelCased). */
     notes: {
@@ -888,6 +890,9 @@ export const pl = {
     },
     /** A pole set as the gap text shows it: "1P / 1P+N / 2P". */
     polesSeparator: " / ",
+    /** The conductors a catalog bar must take, per cross-section: "3 × 2,5 mm²". */
+    barSections: (count: number, mm2: number) => `${String(count)} × ${formatNumber(mm2)} mm²`,
+    barSectionsSeparator: ", ",
     /** Keyed by the gap's `role`. Each names exactly the device the catalog is missing. */
     gaps: {
       mainSwitch: (minRatedA: number, poles: string) =>
@@ -906,6 +911,9 @@ export const pl = {
         `Brak w katalogu: wyłącznik różnicowonadprądowy B${String(ratedA)}, ${formatNumber(residualMa)} mA, typ ${minType} lub wyższy, ${poles} — obwód: „${circuitName}”.`,
       mcb: (ratedA: number, poles: string, circuitName: string) =>
         `Brak w katalogu: wyłącznik nadprądowy B${String(ratedA)}, ${poles} — obwód: „${circuitName}”.`,
+      /** A bar kind the cabinet has no built-in bar of, and no catalog bar takes every conductor. */
+      bar: (kind: string, terminals: number, sections: string) =>
+        `Brak w katalogu: szyna ${kind} z co najmniej ${String(terminals)} ${plural(terminals, { one: "zaciskiem pasującym", few: "zaciskami pasującymi", many: "zaciskami pasującymi" })} do przewodów: ${sections} — szafka nie ma wbudowanej szyny ${kind}.`,
       /** Appended to an RCD or MCB gap that is part of the RCD + MCB alternative to a missing RCBO. */
       fallbackSuffix: " To alternatywa dla brakującego wyłącznika RCBO tego obwodu.",
       contactAdmin: "Skontaktuj się z administratorem, aby uzupełnił katalog aparatów.",
@@ -929,6 +937,7 @@ export const pl = {
     blocks: {
       mainSwitch: "Rozłącznik główny (FR)",
       ungrouped: "Obwody bez grupy RCD",
+      bars: "Szyny PE/N z katalogu",
     },
     /** Labels on the devices in the cabinet drawing. `B16` is the B-characteristic rating. */
     drawing: {
@@ -1014,6 +1023,8 @@ export const pl = {
       lengthsNote: (slackPercent: number) =>
         `Długości zawierają ${formatNumber(slackPercent)} % zapasu montażowego. Trasy są przybliżone (po kanałach nad i pod szynami DIN i wzdłuż boków szafki), więc to szacunek do zamówienia przewodów, a nie wynik pomiaru. Połączenia między aparatami liczone są przekrojem WLZ.`,
       noBarsNote: "Szafka nie ma szyn PE ani N — przewodów do szyn nie narysowano i nie policzono.",
+      catalogBarsNote:
+        "Szafka nie ma wbudowanych szyn PE/N — szyny dobrane z katalogu aparatów stoją na szynie DIN i są w zestawieniu materiału.",
     },
     /** Keyed by `LayoutFailure["code"]` (camelCased). */
     failures: {
@@ -1159,7 +1170,8 @@ export const pl = {
         placedMedium: "Rozmieszczony z przewodami — szafka średnia (trzy rzędy, PE i N pionowo)",
         placedLarge: "Rozmieszczony z przewodami — szafka duża (pięć szyn, PE i N poziomo)",
         placedTnC: "Rozmieszczony z przewodami — układ TN-C (PEN zamiast N i PE, obwody bez RCD)",
-        placedNoBars: "Rozmieszczony z przewodami — szafka bez szyn PE/N (przewody do szyn pominięte)",
+        placedNoBars:
+          "Rozmieszczony z przewodami — szafka bez wbudowanych szyn PE/N (szyny PE i N dobrane z katalogu i umieszczone na szynie DIN)",
         missing: "Nie zaproponowany",
         doesNotFit: "Nie mieści się",
         outdated: "Nieaktualny (zapisane aparaty nachodzą na siebie)",
@@ -1190,6 +1202,7 @@ export const pl = {
           blockedTnC: "Zablokowane: układ TN-C z grupą RCD",
           stale: "Nieaktualny zapisany dobór",
           warnings: "Ostrzeżenia obwodów (przekrój, strona wprowadzenia, brak szyn PE/N) i niezapisany podgląd",
+          barGap: "Luka w katalogu: szafka bez szyn PE/N, a w katalogu brak pasującej szyny N",
         },
       },
     },

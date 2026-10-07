@@ -29,6 +29,8 @@ Zakres poszerzony przy planowaniu (decyzje użytkownika 2026-10-06):
 - (Faza 5b, nowa) szafka bez wbudowanych szyn PE/N dostaje szyny dobrane z katalogu aparatów
   (najtańsze pasujące albo luka w katalogu), umieszczone w układzie i użyte przez okablowanie —
   odwraca punkt „nie dobieramy szyn z katalogu” z planu;
+- (Faza 5c, nowa, po 5b) kable wchodzą do szafki obok siebie wzdłuż wprowadzenia, każdy z luzem —
+  nie w jednym punkcie; jeden przewód na jeden zacisk szyny PE/N, zaciski widoczne na rysunku;
 - zaparkowane w roadmapie: listwy zasilające 1F/3F do podłączania faz grup RCD.
 
 ### Kontrakty dla kolejnych plasterków

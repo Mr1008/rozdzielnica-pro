@@ -213,6 +213,30 @@ describe("circuitWarnings", () => {
     it("is skipped without a geometry", () => {
       expect(circuitWarnings([CIRCUIT], SUPPLY, null)).toEqual([]);
     });
+
+    it("raises nothing for bar kinds the match takes from the catalog", () => {
+      expect(circuitWarnings([CIRCUIT], SUPPLY, { ...GEOMETRY, bars: [] }, ["PE", "N"])).toEqual([]);
+      // The cabinet has a PE bar; the N bar comes from the catalog.
+      const peOnly: CabinetGeometry = { ...GEOMETRY, bars: [bar("PE", [{ count: 10, minMm2: 1.5, maxMm2: 16 }])] };
+      expect(circuitWarnings([CIRCUIT], SUPPLY, peOnly, ["N"])).toEqual([]);
+    });
+
+    it("keeps bars_missing when the match supplies no bar (a catalog gap)", () => {
+      expect(circuitWarnings([CIRCUIT], SUPPLY, { ...GEOMETRY, bars: [] }, [])).toEqual([{ code: "bars_missing" }]);
+    });
+
+    it("still checks a built-in kind's terminals when the other kind comes from the catalog", () => {
+      const geometry: CabinetGeometry = { ...GEOMETRY, bars: [bar("PE", [{ count: 1, minMm2: 1.5, maxMm2: 16 }])] };
+      expect(circuitWarnings([CIRCUIT], SUPPLY, geometry, ["N"])).toEqual([
+        { code: "bar_terminals_insufficient", kind: "PE", needed: 2, available: 1 },
+      ]);
+    });
+
+    it("needs no N bar in TN-C", () => {
+      const tnC: SupplyParams = { ...SUPPLY, earthing_system: "TN-C" };
+      const peOnly: CabinetGeometry = { ...GEOMETRY, bars: [bar("PE", [{ count: 10, minMm2: 1.5, maxMm2: 16 }])] };
+      expect(circuitWarnings([CIRCUIT], tnC, peOnly)).toEqual([]);
+    });
   });
 
   it("lists warnings per circuit in circuit order, then the bars", () => {

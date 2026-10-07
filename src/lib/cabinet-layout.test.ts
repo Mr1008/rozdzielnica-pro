@@ -342,6 +342,88 @@ describe("gaps between blocks", () => {
 // Rule 1 — one rail, except a group wider than every rail; does_not_fit
 // ---------------------------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------------------------
+// Catalog PE/N bars (plan Phase 5b)
+// ---------------------------------------------------------------------------------------------
+
+describe("catalog PE/N bars", () => {
+  const catalogBar = (role: "pe_bar" | "n_bar", width = 35): Draft => ({
+    id: role,
+    role,
+    kind: role,
+    rcd_group_id: null,
+    circuit_id: null,
+    width_mm: width,
+    height_mm: 15,
+    poles: null,
+    n_terminal_side: null,
+  });
+  const g = simpleGroup("G1", ["top", "top"]);
+
+  it("go last, PE then N, at the end of the WLZ entry's rail opposite the main switch", () => {
+    // (a): one 230 mm rail, top entry midpoint x 125 — both rail ends 115 mm away, no bars, so the FR
+    // takes the rail start. G1 (52.5) follows it; the bars (70) fill from the rail end: 230 − 70 = 160.
+    // Three blocks, 157.5 mm used, 72.5 free ≥ 2 gaps: G1 shifts one TE toward the middle.
+    // Snapshot order puts the bars first; placement order does not follow it.
+    const result = proposeValid({
+      devices: devices(catalogBar("pe_bar"), catalogBar("n_bar"), mainSwitch(), ...g.drafts),
+      groups: groups("G1"),
+      circuits: circuits(g.circuits),
+      geometry: SEED_A,
+    });
+    expect(at(result, "fr").xMm).toBe(0);
+    expect(at(result, "G1-rcd").xMm).toBe(52.5);
+    expect(at(result, "pe_bar")).toEqual({ projectDeviceId: "pe_bar", railIndex: 0, xMm: 160 });
+    expect(at(result, "n_bar")).toEqual({ projectDeviceId: "n_bar", railIndex: 0, xMm: 195 });
+  });
+
+  it("take the rail start when the main switch sits at the rail end", () => {
+    // (c) without its bars: entries[0] is bottom (midpoint x 300) → rails 3 and 4 tie; the FR goes to
+    // rail 3's end (30 mm from the entry, the earlier rail) and the bars to rail 3's start.
+    const result = proposeValid({
+      devices: devices(mainSwitch(), catalogBar("pe_bar"), catalogBar("n_bar")),
+      groups: [],
+      circuits: [],
+      geometry: { ...SEED_C, bars: [] },
+    });
+    expect(at(result, "fr")).toEqual({ projectDeviceId: "fr", railIndex: 3, xMm: 205 });
+    expect(at(result, "pe_bar")).toEqual({ projectDeviceId: "pe_bar", railIndex: 3, xMm: 0 });
+    expect(at(result, "n_bar")).toEqual({ projectDeviceId: "n_bar", railIndex: 3, xMm: 35 });
+  });
+
+  it("count toward does_not_fit like any device, and are named when they are what does not fit", () => {
+    // FR 35 + G1 (35 + 4 × 17.5 = 105) + two 70 mm bars = 280 mm = 16 TE on (a)'s 13 TE rail.
+    const big = simpleGroup("G1", ["top", "top", "top", "top"]);
+    const result = proposeLayout({
+      devices: devices(mainSwitch(), ...big.drafts, catalogBar("pe_bar", 70), catalogBar("n_bar", 70)),
+      groups: groups("G1"),
+      circuits: circuits(big.circuits),
+      geometry: SEED_A,
+    });
+    expect(result).toEqual({
+      ok: false,
+      reason: {
+        code: "does_not_fit",
+        requiredModules: 16,
+        availableModules: 13,
+        blockLabel: "Szyny PE/N z katalogu",
+      },
+    });
+  });
+
+  it("are not part of the ungrouped block", () => {
+    const result = proposeValid({
+      devices: devices(mainSwitch(), mcb("u0", null), catalogBar("pe_bar")),
+      groups: [],
+      circuits: circuits([["u0", "top"]]),
+      geometry: SEED_A,
+    });
+    // The ungrouped MCB follows the FR from the start; the bar fills from the end.
+    expect(at(result, "mcb-u0").xMm).toBeLessThan(at(result, "pe_bar").xMm);
+    expect(at(result, "pe_bar").xMm).toBe(230 - 35);
+  });
+});
+
 describe("rule 1 and the shortfall", () => {
   // RCD 4P (70 mm) + 16 MCBs (280 mm) = 350 mm = 20 TE: wider than every rail of (a) and (b).
   const wideIds = Array.from({ length: 16 }, (_, i) => `w${String(i)}`);

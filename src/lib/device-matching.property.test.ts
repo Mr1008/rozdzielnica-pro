@@ -1,6 +1,7 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import {
+  CIRCUIT_CROSS_SECTIONS_MM2,
   CIRCUIT_RATED_CURRENTS_A,
   RCD_MARGINS_PERCENT,
   RESIDUAL_CURRENTS_MA,
@@ -82,6 +83,52 @@ function compliantRcd(catalog: readonly Device[], group: RcdGroupInput, members:
   );
 }
 
+/**
+ * The conductors that land on a bar kind (plan Phase 5b): one per circuit at its cross-section, plus
+ * the WLZ at its own; none on the N bar in TN-C, where every PEN goes to the PE bar.
+ */
+function barSections(kind: "PE" | "N", circuits: readonly CircuitInput[], supply: SupplyParams): number[] {
+  if (kind === "N" && supply.earthing_system === "TN-C") return [];
+  return [...circuits.map((c) => c.cross_section_mm2), supply.wlz_cross_section_mm2].sort((a, b) => a - b);
+}
+
+/**
+ * Whether every conductor gets a terminal of its own whose range takes it — a maximum bipartite
+ * matching (augmenting paths) over the individual terminals. Deliberately not the matcher's greedy:
+ * an independent way to the same answer.
+ */
+function everyConductorFits(
+  sections: readonly number[],
+  groups: readonly { count: number; minMm2: number; maxMm2: number }[],
+): boolean {
+  const terminals = groups.flatMap((g) => Array.from({ length: g.count }, () => g));
+  const owner: (number | null)[] = terminals.map(() => null);
+  const tryAssign = (conductor: number, visited: boolean[]): boolean => {
+    for (let t = 0; t < terminals.length; t++) {
+      const { minMm2, maxMm2 } = terminals[t];
+      if (visited[t] || sections[conductor] < minMm2 || sections[conductor] > maxMm2) continue;
+      visited[t] = true;
+      const current = owner[t];
+      if (current === null || tryAssign(current, visited)) {
+        owner[t] = conductor;
+        return true;
+      }
+    }
+    return false;
+  };
+  return sections.every((_, conductor) =>
+    tryAssign(
+      conductor,
+      terminals.map(() => false),
+    ),
+  );
+}
+
+function compliantBar(catalog: readonly Device[], kind: "PE" | "N", sections: readonly number[]): Device[] {
+  const deviceKind = kind === "PE" ? "pe_bar" : "n_bar";
+  return catalog.filter((d) => d.kind === deviceKind && everyConductorFits(sections, d.terminal_groups));
+}
+
 function compliantRcbo(catalog: readonly Device[], group: RcdGroupInput, circuit: CircuitInput): Device[] {
   const poles = rcboPolesFor(circuit);
   return catalog.filter(
@@ -119,7 +166,8 @@ type Requirement =
   | { kind: "group_rcd"; groupId: string; set: Device[] }
   | { kind: "group_mcb"; groupId: string; circuitId: string; set: Device[] }
   | { kind: "ungrouped_mcb"; circuitId: string; set: Device[] }
-  | { kind: "single"; groupId: string; circuitId: string; rcbo: Device[]; rcd: Device[]; mcb: Device[] };
+  | { kind: "single"; groupId: string; circuitId: string; rcbo: Device[]; rcd: Device[]; mcb: Device[] }
+  | { kind: "bar"; barKind: "PE" | "N"; sections: number[]; set: Device[] };
 
 function requirements(input: MatchInput & { supply: SupplyParams }, catalog: readonly Device[]): Requirement[] {
   const { supply } = input;
@@ -152,6 +200,16 @@ function requirements(input: MatchInput & { supply: SupplyParams }, catalog: rea
   for (const circuit of input.circuits) {
     if (circuit.rcd_group_id === null) {
       reqs.push({ kind: "ungrouped_mcb", circuitId: circuit.id, set: compliantMcb(catalog, circuit, supply) });
+    }
+  }
+  // A bar kind the cabinet lacks; an unknown cabinet (absent / null) requires none.
+  const builtIn = input.cabinetBarKinds;
+  if (builtIn !== undefined && builtIn !== null) {
+    for (const barKind of ["PE", "N"] as const) {
+      if (builtIn.includes(barKind)) continue;
+      const sections = barSections(barKind, input.circuits, supply);
+      if (sections.length === 0) continue;
+      reqs.push({ kind: "bar", barKind, sections, set: compliantBar(catalog, barKind, sections) });
     }
   }
   return reqs;
@@ -190,6 +248,9 @@ function expectedSelections(reqs: readonly Requirement[]): ExpectedSelection[] {
       case "ungrouped_mcb":
         out.push({ key: selectionKey("mcb", null, req.circuitId), set: req.set, notes: ["no_rcd"] });
         break;
+      case "bar":
+        out.push({ key: selectionKey(barRole(req.barKind), null, null), set: req.set, notes: [] });
+        break;
       case "single":
         // The RCBO is the rule; the RCD + MCB pair only when no RCBO qualifies.
         if (req.rcbo.length > 0) {
@@ -222,6 +283,9 @@ function expectedGapKeys(reqs: readonly Requirement[]): string[] {
       case "ungrouped_mcb":
         keys.push(`mcb|-|${req.circuitId}|fallback:false`);
         break;
+      case "bar":
+        keys.push(`${barRole(req.barKind)}|${req.sections.join(",")}`);
+        break;
       case "single":
         keys.push(`rcbo|${req.groupId}|${req.circuitId}`);
         if (req.rcd.length === 0) keys.push(`rcd|${req.groupId}|fallback:true`);
@@ -242,7 +306,14 @@ function gapKey(gap: CatalogGap): string {
       return `rcbo|${gap.groupId}|${gap.circuitId}`;
     case "mcb":
       return `mcb|${gap.groupId ?? "-"}|${gap.circuitId}|fallback:${String(gap.fallback)}`;
+    case "pe_bar":
+    case "n_bar":
+      return `${gap.role}|${gap.sections.join(",")}`;
   }
+}
+
+function barRole(kind: "PE" | "N"): "pe_bar" | "n_bar" {
+  return kind === "PE" ? "pe_bar" : "n_bar";
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -288,7 +359,18 @@ const circuitSpecArb = fc.record({
   phaseRoll: fc.integer({ min: 0, max: 19 }),
   /** 0–7 → a group index (modulo the group count), 8–12 → ungrouped, 13 → unknown group. */
   groupRoll: fc.integer({ min: 0, max: 13 }),
+  cross_section_mm2: fc.constantFrom(...CIRCUIT_CROSS_SECTIONS_MM2),
 });
+
+/** The cabinet's built-in bar kinds: unknown (absent / null), none, one kind or both. */
+const cabinetBarKindsArb = fc.constantFrom<MatchInput["cabinetBarKinds"]>(
+  undefined,
+  null,
+  [],
+  ["PE"],
+  ["N"],
+  ["PE", "N"],
+);
 
 const inputArb: fc.Arbitrary<MatchInput> = fc
   .record({
@@ -299,8 +381,9 @@ const inputArb: fc.Arbitrary<MatchInput> = fc
       { weight: 30, arbitrary: fc.array(circuitSpecArb, { minLength: 1, maxLength: 5 }) },
     ),
     ghostRoll: fc.integer({ min: 0, max: 9 }),
+    cabinetBarKinds: cabinetBarKindsArb,
   })
-  .map(({ supply, groups: groupSpecs, circuits: circuitSpecs, ghostRoll }) => {
+  .map(({ supply, groups: groupSpecs, circuits: circuitSpecs, ghostRoll, cabinetBarKinds }) => {
     const groups: RcdGroupInput[] = groupSpecs.map((spec, i) => ({ id: groupId(i), label: `G${String(i)}`, ...spec }));
     const threePhaseSupply = supply?.phase_count === 3;
     const circuits: CircuitInput[] = circuitSpecs.map((spec, i) => {
@@ -315,12 +398,13 @@ const inputArb: fc.Arbitrary<MatchInput> = fc
         name: `C${String(i)}`,
         rated_current_a: spec.rated_current_a,
         phase_count: phase,
-        cross_section_mm2: 2.5,
+        cross_section_mm2: spec.cross_section_mm2,
         installation: "conduit_flush",
         entry_side: "top",
       };
     });
-    return { supply, groups, circuits };
+    const base: MatchInput = { supply, groups, circuits };
+    return cabinetBarKinds === undefined ? base : { ...base, cabinetBarKinds };
   });
 
 const common = { width_mm: 17.5, height_mm: 85, depth_mm: 70 };
@@ -423,11 +507,28 @@ function catalogArb(input: MatchInput): fc.Arbitrary<Device[]> {
     breaking_capacity_ka: fc.constant(6),
     price_grosze: price,
   });
+  // Bars with terminal counts around the conductor count and ranges around the cross-sections in
+  // use, so fitting, one-short and wrong-range bars all show up beside each other.
+  const conductorCount = input.circuits.length + 1;
+  const sectionValues = [...new Set([...CIRCUIT_CROSS_SECTIONS_MM2, 10, 25])].sort((a, b) => a - b);
+  const terminalGroup = fc
+    .record({
+      count: fc.integer({ min: 1, max: Math.max(2, conductorCount + 1) }),
+      lo: fc.constantFrom(...sectionValues),
+      hi: fc.constantFrom(...sectionValues),
+    })
+    .map(({ count, lo, hi }) => ({ count, minMm2: Math.min(lo, hi), maxMm2: Math.max(lo, hi) }));
+  const bar = fc.record({
+    kind: fc.constantFrom("pe_bar", "n_bar"),
+    terminal_groups: fc.array(terminalGroup, { minLength: 1, maxLength: 3 }),
+    price_grosze: price,
+  });
   const row = fc.oneof(
     { weight: 2, arbitrary: fc.oneof(fr) },
     { weight: 5, arbitrary: fc.oneof(mcb) },
     { weight: 3, arbitrary: fc.oneof(rcd) },
     { weight: 2, arbitrary: fc.oneof(rcbo) },
+    { weight: 3, arbitrary: fc.oneof(bar) },
   );
   return fc
     .array(row as fc.Arbitrary<Record<string, unknown>>, { minLength: 0, maxLength: 15, size: "max" })
@@ -503,5 +604,30 @@ describe("matchDevices — property: the result follows the S-04 rule table", ()
     expect(seen.blocked).toBeGreaterThan(0);
     expect(seen.matched).toBeGreaterThan(0);
     expect(seen.gaps).toBeGreaterThan(0);
+  });
+
+  it("never selects a bar that leaves a landing conductor without a fitting terminal", () => {
+    let barsSelected = 0;
+    fc.assert(
+      fc.property(scenarioArb, ({ input, catalog }) => {
+        const result = matchDevices(input, catalog);
+        if (result.status !== "matched" || input.supply === null) return;
+        for (const selection of result.selections) {
+          if (selection.role !== "pe_bar" && selection.role !== "n_bar") continue;
+          barsSelected += 1;
+          const barKind = selection.role === "pe_bar" ? "PE" : "N";
+          // Only ever for a kind the cabinet is known to lack.
+          expect(input.cabinetBarKinds ?? null).not.toBeNull();
+          expect(input.cabinetBarKinds).not.toContain(barKind);
+          const device = catalog.find((d) => d.id === selection.deviceId);
+          expect(device?.kind).toBe(selection.role);
+          const sections = barSections(barKind, input.circuits, input.supply);
+          expect(everyConductorFits(sections, device?.terminal_groups ?? [])).toBe(true);
+        }
+      }),
+      { numRuns: 1000 },
+    );
+    // Distribution guard: the property must not pass vacuously.
+    expect(barsSelected).toBeGreaterThan(0);
   });
 });

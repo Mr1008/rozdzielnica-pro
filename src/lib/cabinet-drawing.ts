@@ -121,7 +121,8 @@ export type DrawableDevice = Pick<
   | "n_terminal_side"
 >;
 
-export type DrawnRole = "main_switch" | "rcd" | "rcbo" | "mcb";
+/** `pe_bar` / `n_bar`: a catalog bar on a rail (plan Phase 5b), drawn like a built-in bar of its kind. */
+export type DrawnRole = "main_switch" | "rcd" | "rcbo" | "mcb" | "pe_bar" | "n_bar";
 
 /** One device ready to draw: its rectangle in millimetres, its label lines and its group. */
 export interface DrawnDevice {
@@ -145,12 +146,21 @@ export interface GroupOutline {
   rect: Rect;
 }
 
-/** An unknown role is drawn as an MCB — the plainest device. */
-function drawnRole(role: string): DrawnRole {
-  return role === "main_switch" || role === "rcd" || role === "rcbo" ? role : "mcb";
+const DRAWN_ROLES: readonly string[] = ["main_switch", "rcd", "rcbo", "mcb", "pe_bar", "n_bar"] satisfies DrawnRole[];
+
+function isDrawnRole(role: string): role is DrawnRole {
+  return DRAWN_ROLES.includes(role);
 }
 
-/** The label lines for a device, e.g. "B16", or "RCD" / "40A" / "30mA". A missing rating is left out. */
+/** An unknown role is drawn as an MCB — the plainest device. */
+function drawnRole(role: string): DrawnRole {
+  return isDrawnRole(role) ? role : "mcb";
+}
+
+/**
+ * The label lines for a device, e.g. "B16", or "RCD" / "40A" / "30mA". A missing rating is left out. A
+ * catalog bar has none: it is labelled like a built-in bar, by the drawing.
+ */
 export function deviceLabelLines(
   role: DrawnRole,
   ratedCurrentA: number | null,
@@ -168,6 +178,9 @@ export function deviceLabelLines(
       return [d.rcbo, ...(ratedCurrentA === null ? [] : [d.mcbCharacteristic(ratedCurrentA)]), ...milliampere];
     case "mcb":
       return ratedCurrentA === null ? [] : [d.mcbCharacteristic(ratedCurrentA)];
+    case "pe_bar":
+    case "n_bar":
+      return [];
   }
 }
 
