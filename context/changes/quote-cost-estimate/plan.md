@@ -423,25 +423,25 @@ There are two nullable columns and no backfill. Old code ignores them, so the mi
 
 #### Automated
 
-- [x] 3.1 Lint, type check, unit tests and build pass: `npm run lint && npx astro check && npm run test:unit && npm run build`
+- [x] 3.1 Lint, type check, unit tests and build pass: `npm run lint && npx astro check && npm run test:unit && npm run build` — 962ace1
 
 #### Manual
 
-- [x] 3.2 `/dev/kitchen-sink` shows all seven quote states readably
-- [x] 3.3 Section numbers match a hand calculation on a real project
-- [x] 3.4 Override 4 h 30 min saves, persists after reload, and restores to the estimate
-- [x] 3.5 Override then re-match with an extra circuit shows the outdated warning
-- [x] 3.6 Missing profile and stale match each block the section without numbers
-- [x] 3.7 A rate of 600 zł/h warns on the quote and profile pages
-- [x] 3.8 Out-of-range and forged override input is refused
-- [x] 3.9 A second electrician cannot post to another's quote endpoint
+- [x] 3.2 `/dev/kitchen-sink` shows all seven quote states readably — 962ace1
+- [x] 3.3 Section numbers match a hand calculation on a real project — 962ace1
+- [x] 3.4 Override 4 h 30 min saves, persists after reload, and restores to the estimate — 962ace1
+- [x] 3.5 Override then re-match with an extra circuit shows the outdated warning — 962ace1
+- [x] 3.6 Missing profile and stale match each block the section without numbers — 962ace1
+- [x] 3.7 A rate of 600 zł/h warns on the quote and profile pages — 962ace1
+- [x] 3.8 Out-of-range and forged override input is refused — 962ace1
+- [x] 3.9 A second electrician cannot post to another's quote endpoint — 962ace1
 
 ### Phase 4: Docs and contracts
 
 #### Automated
 
-- [ ] 4.1 Formatting passes: `npm run lint && npx prettier --check AGENTS.md README.md`
+- [x] 4.1 Formatting passes: `npm run lint && npx prettier --check AGENTS.md README.md`
 
 #### Manual
 
-- [ ] 4.2 The AGENTS.md tripwire reads correctly next to the existing "guarded twice" entries
+- [x] 4.2 The AGENTS.md tripwire reads correctly next to the existing "guarded twice" entries

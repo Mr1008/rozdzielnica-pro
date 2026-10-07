@@ -3,7 +3,7 @@
 **RozdzielnicaPro** — a switchboard (rozdzielnica) planning and labour-quoting tool for a solo
 electrician. Scaffolded from `10x-astro-starter`. Product code so far is auth, i18n, the role/RLS
 baseline, the admin cabinet and device catalogs, the electrician pricing profile and projects (cabinet
-snapshot, OSD/WLZ supply and its warnings, circuits with RCD groups and device matching, the cabinet layout proposal with its wiring drawing) — `src/pages/auth/*`, `src/pages/admin/` (including
+snapshot, OSD/WLZ supply and its warnings, circuits with RCD groups and device matching, the cabinet layout proposal with its wiring drawing, the material and labour quote with its time override) — `src/pages/auth/*`, `src/pages/admin/` (including
 `src/pages/admin/devices/`), `src/pages/api/admin/`, `src/pages/dashboard.astro`,
 `src/pages/dashboard/profile.astro`, `src/pages/dashboard/projects/`, `src/pages/api/profile/`,
 `src/pages/api/projects/`, `src/components/cabinets/`, `src/components/devices/`,
@@ -103,6 +103,15 @@ These are correctness requirements, not preferences.
   table is `pricing_profiles`, not a column on `profiles`, because `profiles` has admin policies.
   **No row means "not configured"** — that is the contract S-08 reads: it must block and send the
   electrician to `/dashboard/profile`, never fall back to invented defaults.
+- **Quote numbers come only from `computeQuoteView`** (@src/lib/quote.ts), and only in state
+  `ready` — S-09 prints that view, never re-derives a sum. Every snapshot row counts as a device
+  (catalog bars too); the cabinet's snapshot price is its own material line; labour cost rounds
+  half-up in integers (`(minutes × rate + 30) div 60`). **The labour override bounds are guarded
+  twice, and the two guards must change together:** the `projects_labour_override_*` CHECKs in
+  `supabase/migrations/20261007120000_project_labour_override.sql` and the `*_LABOUR_OVERRIDE_*`
+  constants in `quote.ts`. The override is stored with the estimate it was set against
+  (`labour_override_base_minutes`, written only by the endpoint from a server-side recompute);
+  "outdated" is a comparison on render, never a stored flag, so a profile change counts too.
 - **A project must snapshot its cabinet's `geometry`, not reference it live** (S-03). Admin edits to
   a cabinet must never shift an existing project's layout or quote; archiving only hides the cabinet
   from the picker. The snapshot (`cabinet_geometry`, `cabinet_name`, `cabinet_manufacturer`,
