@@ -1034,6 +1034,24 @@ export const pl = {
       catalogBarsNote:
         "Szafka nie ma wbudowanych szyn PE/N — szyny dobrane z katalogu aparatów stoją na szynie DIN i są w zestawieniu materiału.",
     },
+    /**
+     * Keyed by `LayoutIssueCode` (camelCased): why a layout — a refused drop in the editor — breaks the
+     * invariants. See `layoutIssueMessage` in `src/lib/cabinet-layout.ts`; names come in unquoted.
+     */
+    issues: {
+      deviceNotPlaced: (device: string) => `Aparat „${device}” nie ma miejsca w układzie.`,
+      devicePlacedTwice: (device: string) => `Aparat „${device}” występuje w układzie więcej niż raz.`,
+      unknownDevice: (device: string) => `Układ zawiera aparat „${device}”, którego nie ma w doborze aparatów.`,
+      outsideRail: (device: string) => `Aparat „${device}” wystaje poza szynę DIN.`,
+      overlapsDevice: (device: string, other: string) => `Aparat „${device}” nachodzi na aparat „${other}”.`,
+      outsideInterior: (device: string) => `Aparat „${device}” wystaje poza wnętrze szafki.`,
+      overlapsBar: (device: string) => `Aparat „${device}” nachodzi na szynę PE/N.`,
+      overlapsOtherRailDevice: (device: string, other: string) =>
+        `Aparat „${device}” nachodzi na aparat „${other}” na sąsiedniej szynie DIN.`,
+      groupNotContiguous: (group: string) =>
+        `Aparaty grupy „${group}” muszą stać obok siebie na jednej szynie DIN — między nie nie może wejść inny aparat.`,
+      rcboNotAlone: (group: string) => `Wyłącznik RCBO grupy „${group}” musi być jedynym aparatem w tej grupie.`,
+    },
     /** Keyed by `LayoutFailure["code"]` (camelCased). */
     failures: {
       doesNotFit: (requiredModules: number, availableModules: number, blockLabel: string) =>

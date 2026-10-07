@@ -864,6 +864,35 @@ export type LayoutIssue =
 
 export type LayoutIssueCode = LayoutIssue["code"];
 
+/**
+ * Display names for issue messages, keyed by project device id and by RCD group id — serialisable,
+ * so an island can take them as props. A missing name falls back to the id.
+ */
+export interface LayoutIssueNames {
+  devices: Readonly<Record<string, string>>;
+  groups: Readonly<Record<string, string>>;
+}
+
+/** Polish text for one issue. The `Record` keeps it exhaustive over `LayoutIssueCode`. */
+export function layoutIssueMessage(issue: LayoutIssue, names: LayoutIssueNames): string {
+  const m = t.layout.issues;
+  const device = (id: string) => names.devices[id] ?? id;
+  const group = (id: string) => names.groups[id] ?? id;
+  const messages: { [C in LayoutIssueCode]: (issue: Extract<LayoutIssue, { code: C }>) => string } = {
+    device_not_placed: (i) => m.deviceNotPlaced(device(i.deviceId)),
+    device_placed_twice: (i) => m.devicePlacedTwice(device(i.deviceId)),
+    unknown_device: (i) => m.unknownDevice(device(i.deviceId)),
+    outside_rail: (i) => m.outsideRail(device(i.deviceId)),
+    overlaps_device: (i) => m.overlapsDevice(device(i.deviceId), device(i.otherDeviceId)),
+    outside_interior: (i) => m.outsideInterior(device(i.deviceId)),
+    overlaps_bar: (i) => m.overlapsBar(device(i.deviceId)),
+    overlaps_other_rail_device: (i) => m.overlapsOtherRailDevice(device(i.deviceId), device(i.otherDeviceId)),
+    group_not_contiguous: (i) => m.groupNotContiguous(group(i.groupId)),
+    rcbo_not_alone: (i) => m.rcboNotAlone(group(i.groupId)),
+  };
+  return (messages[issue.code] as (issue: LayoutIssue) => string)(issue);
+}
+
 interface Located {
   device: LayoutDevice;
   railIndex: number;
