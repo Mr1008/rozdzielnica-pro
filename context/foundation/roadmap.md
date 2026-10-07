@@ -40,7 +40,7 @@ Twardy guardrail całego produktu: **system nigdy nie proponuje aparatu niespeł
 
 > „Gwiazda przewodnia" (north star) znaczy tu: najmniejszy przepływ od końca do końca, którego udane dostarczenie dowodzi, że podstawowa hipoteza produktu jest prawdziwa — dlatego stawiamy go tak wcześnie, jak pozwalają zależności, bo reszta zakresu ma sens tylko wtedy, gdy ten element działa.
 
-Uwaga: S-05 jest dziś `blocked` — Otwarte pytanie #2 (pierwszeństwo reguł rozmieszczenia) musi zostać rozstrzygnięte, zanim heurystykę da się jednoznacznie zaplanować. Patrz `## Open Roadmap Questions`.
+Uwaga: pierwszeństwo reguł rozmieszczenia (Otwarte pytanie #2) zostało rozstrzygnięte 2026-10-06: grupowanie > bliskość wyprowadzeń > bliskość szyn PE/N — zapisane w `src/lib/cabinet-layout.ts`.
 
 ## At a glance
 
@@ -166,8 +166,8 @@ Foundations poniżej zakładają, że to istnieje, i **nie** budują tego od now
 - **Parallel with:** S-07
 - **Blockers:** —
 - **Unknowns:**
-  - Które z trzech reguł rozmieszczenia mają pierwszeństwo, gdy wskazują różne miejsca dla tej samej grupy? (Otwarte pytanie #2) — Owner: user. Block: yes.
-- **Risk:** Gwiazda przewodnia i zarazem jedyny element, którego PRD sam nie domyka. Implementacja i tak wymusi _jakąś_ kolejność reguł — jeśli zapadnie milcząco w kodzie, nie da się później powiedzieć, czy zły układ to zła reguła, czy zła precedencja. Dlatego plasterek stoi jako `blocked`, dopóki precedencja nie zostanie zapisana świadomie. To heurystyka stosowana wprost, nie optymalizator — droga do solvera jest zamknięta w `## Non-Goals`.
+  - ~~Które z trzech reguł rozmieszczenia mają pierwszeństwo?~~ Rozstrzygnięte 2026-10-06 (Otwarte pytanie #2): grupowanie > bliskość wyprowadzeń > bliskość szyn PE/N, zapisane w `src/lib/cabinet-layout.ts`.
+- **Risk:** Gwiazda przewodnia i zarazem jedyny element, którego PRD sam nie domyka. Implementacja i tak wymusiła _jakąś_ kolejność reguł — dlatego została zapisana świadomie (2026-10-06), żeby dało się odróżnić złą regułę od złej precedencji. To heurystyka stosowana wprost, nie optymalizator — droga do solvera jest zamknięta w `## Non-Goals`.
 - **Status:** in-progress
 
 ### S-06: Elektryk poprawia układ ręcznie
@@ -261,7 +261,7 @@ Foundations poniżej zakładają, że to istnieje, i **nie** budują tego od now
 | S-02       | `admin-cabinet-catalog`             | Katalog szafek rozdzielnic prowadzony przez admina         | done                  | Zarchiwizowane → `context/archive/2026-09-23-admin-cabinet-catalog/`                      |
 | S-03       | `project-setup-and-supply-params`   | Nowy projekt: wybór szafki + parametry OSD/WLZ             | no                    | Czeka na S-02                                                                             |
 | S-04       | `circuit-input-and-device-matching` | Obwody, grupy RCD i dobór aparatów z guardrailem           | no                    | Czeka na S-01, S-03                                                                       |
-| S-05       | `cabinet-layout-proposal`           | Heurystyczna propozycja układu aparatów w szafce           | no                    | `blocked` — wymaga rozstrzygnięcia Otwartego pytania #2                                   |
+| S-05       | `cabinet-layout-proposal`           | Heurystyczna propozycja układu aparatów w szafce           | no                    | Zaimplementowane (precedencja rozstrzygnięta 2026-10-06); czeka na `/10x-archive`         |
 | S-06       | `manual-layout-editing`             | Ręczna korekta zaproponowanego układu                      | no                    | Czeka na S-05                                                                             |
 | S-07       | `electrician-pricing-profile`       | Parametry wyceny w profilu elektryka                       | yes                   | Uruchom `/10x-plan electrician-pricing-profile`; może iść równolegle do toru projektowego |
 | S-08       | `quote-cost-estimate`               | Koszt materiału i robocizny z możliwością nadpisania czasu | no                    | Czeka na S-04, S-07                                                                       |
@@ -272,7 +272,7 @@ Foundations poniżej zakładają, że to istnieje, i **nie** budują tego od now
 ## Open Roadmap Questions
 
 1. **Kryteria akceptacji dla ścieżki admina** — FR-001 i FR-002 nie mają żadnej historyjki użytkownika ani kryteriów akceptacji; cała rola admina jest nieopisana od strony zachowania. Owner: user. Block: `S-01`, `S-02` (nie blokuje planowania, ale utrudnia napisanie dla nich testu akceptacyjnego).
-2. **Jak rozstrzygać konflikt reguł rozmieszczenia?** — reguły (1) grupowania, (2) bliskości wyprowadzeń i (3) bliskości szyn PE/N mogą wskazywać różne miejsca dla tej samej grupy; pierwszeństwo nie zostało ustalone. Owner: user. Block: `S-05` — blokująco, a pośrednio wstrzymuje też `S-06` i `S-09`.
+2. ~~**Jak rozstrzygać konflikt reguł rozmieszczenia?**~~ — rozstrzygnięte 2026-10-06: (1) grupowanie > (2) bliskość wyprowadzeń > (3) bliskość szyn PE/N, zapisane w `src/lib/cabinet-layout.ts`. Nie blokuje już `S-05`, `S-06` ani `S-09`.
 3. **FR-013 nie przeszedł rundy kontrargumentu** — dodany po rundzie wyzwań, przy walidacji PRD. Owner: user. Block: `S-08` (nie blokuje planowania).
 4. **Który termin zgłoszenia obowiązuje: 4 listopada 2026 czy 6 grudnia 2026?** — cel to 4 listopada bez presji; przy przekroczeniu 3-tygodniowego szacunku akceptowalne jest przesunięcie na 6 grudnia bez cięcia zakresu. Owner: user. Block: roadmap-wide (nie blokuje planowania — roadmapa nie zawiera dat).
 

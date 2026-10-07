@@ -1075,27 +1075,27 @@ the admin should review them. Existing projects get no placements until their ne
 
 #### Automated
 
-- [x] 5c.1 Unit tests pass (no two cables share an entry point; cables keep their order along the entry; no two conductors share a bar terminal; each terminal's cross-section range fits its conductor; shortfall leaves conductors unrouted, never doubled; RCD → MCB feeds bridge on one side within the group): `npm run test:unit`
-- [x] 5c.2 Lint passes: `npm run lint`
-- [x] 5c.3 Type check passes: `npx astro check`
-- [x] 5c.4 Build passes: `npm run build`
+- [x] 5c.1 Unit tests pass (no two cables share an entry point; cables keep their order along the entry; no two conductors share a bar terminal; each terminal's cross-section range fits its conductor; shortfall leaves conductors unrouted, never doubled; RCD → MCB feeds bridge on one side within the group): `npm run test:unit` — 1321890
+- [x] 5c.2 Lint passes: `npm run lint` — 1321890
+- [x] 5c.3 Type check passes: `npx astro check` — 1321890
+- [x] 5c.4 Build passes: `npm run build` — 1321890
 
 #### Manual
 
-- [x] 5c.5 On seed (b) and (c) the cables enter side by side along each entry, and every bar terminal holds at most one wire
-- [x] 5c.6 RCD → MCB feeds are short jumpers along one side of the group; PEN is visibly green-yellow with blue stripes
+- [x] 5c.5 On seed (b) and (c) the cables enter side by side along each entry, and every bar terminal holds at most one wire — 1321890
+- [x] 5c.6 RCD → MCB feeds are short jumpers along one side of the group; PEN is visibly green-yellow with blue stripes — 1321890
 
 ### Phase 6: Landing, docs and closure
 
 #### Automated
 
-- [ ] 6.1 Lint passes: `npm run lint`
-- [ ] 6.2 Type check passes: `npx astro check`
-- [ ] 6.3 Unit tests pass: `npm run test:unit`
-- [ ] 6.4 Build passes: `npm run build`
-- [ ] 6.5 Roadmap sync applied: `node scripts/roadmap-to-github.mjs --apply`
+- [x] 6.1 Lint passes: `npm run lint`
+- [x] 6.2 Type check passes: `npx astro check`
+- [x] 6.3 Unit tests pass: `npm run test:unit`
+- [x] 6.4 Build passes: `npm run build`
+- [x] 6.5 Roadmap sync applied: `node scripts/roadmap-to-github.mjs --apply`
 
 #### Manual
 
-- [ ] 6.6 Landing hero shows the wired demo layout and reads well
-- [ ] 6.7 Smoke flow still passes against the dev server: `npm run smoke`
+- [x] 6.6 Landing hero shows the wired demo layout and reads well
+- [x] 6.7 Smoke flow still passes against the dev server: `npm run smoke`

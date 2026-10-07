@@ -16,7 +16,7 @@ import {
   type EntrySide,
   type RcdGroupInput,
 } from "@/lib/circuit-params";
-import { DEMO_CABINET_GEOMETRY } from "@/lib/demo-cabinet";
+import { DEMO_CABINET_GEOMETRY, HERO_CABINET_GEOMETRY } from "@/lib/demo-cabinet";
 import { computeMatchView, type MatchContext, type MatchView, type SnapshotRow } from "@/lib/device-matching-server";
 import { activeCatalog, type DeviceSpecWithId, type Selection } from "@/lib/device-matching";
 import { deviceKindLabel, type DeviceKind, type NTerminalSide } from "@/lib/device-spec";
@@ -483,60 +483,73 @@ function matchedSelections(ctx: MatchContext): Selection[] {
   return fresh.selections;
 }
 
+function layoutFixture(
+  key: string,
+  caption: string,
+  geometry: CabinetGeometry,
+  stored: "none" | "proposal" | "broken",
+  overrides: Partial<MatchContext> = {},
+  snapshotRows?: SnapshotRow[],
+): LayoutFixture {
+  const base = context({ geometry, ...overrides });
+  const ctx = { ...base, snapshot: snapshotRows ?? snapshotFrom(matchedSelections(base)) };
+  const matchView = computeMatchView(ctx);
+  const empty = computeLayoutView(matchView, ctx, []);
+  const proposal = empty?.state === "missing" ? empty.proposal : [];
+  const placements =
+    stored === "none"
+      ? []
+      : stored === "proposal"
+        ? proposal
+        : proposal.map((placement, index) =>
+            index === 1 ? { ...placement, railIndex: proposal[0].railIndex, xMm: proposal[0].xMm } : placement,
+          );
+  const view = computeLayoutView(matchView, ctx, placements);
+  const devices =
+    view?.state === "placed" ? buildDrawnDevices(matchView.snapshot, view.placements, geometry, ctx.groups) : [];
+  const conductors = computeWiring(view, matchView, ctx);
+  return {
+    key,
+    caption,
+    view,
+    devices,
+    wires: buildDrawnWires(conductors, {
+      circuits: new Map(ctx.circuits.map((circuit) => [circuit.id, circuit.name])),
+      devices,
+    }),
+    cables: buildDrawnCables(conductors),
+    lengths: wireLengthsBySection(conductors),
+    geometry,
+  };
+}
+
+/**
+ * The landing page's hero layout: the filled circuits (two RCD groups and one ungrouped circuit,
+ * single-phase TN-C-S) matched by the real matcher, placed by `proposeLayout` in the small hero cabinet and
+ * wired by the real router. Computed once per Worker isolate: the hero shows everyone the same sheet
+ * and the Worker's CPU budget is small.
+ */
+let landingLayout: LayoutFixture | undefined;
+export function landingLayoutFixture(): LayoutFixture {
+  landingLayout ??= layoutFixture("landing", "", HERO_CABINET_GEOMETRY, "proposal");
+  return landingLayout;
+}
+
 /**
  * Every layout state, each from the real `computeLayoutView`: a proposal is computed from an empty
  * placement set and then fed back as the stored layout to reach `placed`; `outdated` stores that
  * proposal with the second device moved onto the first. A `placed` state carries its real wiring.
  */
 export function kitchenSinkLayoutStates(): LayoutFixture[] {
-  const fixture = (
-    key: string,
-    caption: string,
-    geometry: CabinetGeometry,
-    stored: "none" | "proposal" | "broken",
-    overrides: Partial<MatchContext> = {},
-    snapshotRows?: SnapshotRow[],
-  ): LayoutFixture => {
-    const base = context({ geometry, ...overrides });
-    const ctx = { ...base, snapshot: snapshotRows ?? snapshotFrom(matchedSelections(base)) };
-    const matchView = computeMatchView(ctx);
-    const empty = computeLayoutView(matchView, ctx, []);
-    const proposal = empty?.state === "missing" ? empty.proposal : [];
-    const placements =
-      stored === "none"
-        ? []
-        : stored === "proposal"
-          ? proposal
-          : proposal.map((placement, index) =>
-              index === 1 ? { ...placement, railIndex: proposal[0].railIndex, xMm: proposal[0].xMm } : placement,
-            );
-    const view = computeLayoutView(matchView, ctx, placements);
-    const devices =
-      view?.state === "placed" ? buildDrawnDevices(matchView.snapshot, view.placements, geometry, ctx.groups) : [];
-    const conductors = computeWiring(view, matchView, ctx);
-    return {
-      key,
-      caption,
-      view,
-      devices,
-      wires: buildDrawnWires(conductors, {
-        circuits: new Map(ctx.circuits.map((circuit) => [circuit.id, circuit.name])),
-        devices,
-      }),
-      cables: buildDrawnCables(conductors),
-      lengths: wireLengthsBySection(conductors),
-      geometry,
-    };
-  };
   const l = t.devTools.kitchenSink.layoutStates;
   return [
-    fixture("placed-b", l.placedMedium, SEED_B, "proposal"),
-    fixture("placed-c", l.placedLarge, SEED_C, "proposal"),
-    fixture("placed-tn-c", l.placedTnC, SEED_B, "proposal", TN_C_OVERRIDES),
-    fixture("placed-no-bars", l.placedNoBars, SEED_A, "proposal"),
-    fixture("missing", l.missing, SEED_B, "none"),
-    fixture("does-not-fit", l.doesNotFit, GEOMETRY_TOO_SMALL, "none"),
-    fixture("outdated", l.outdated, SEED_B, "broken"),
-    fixture("not-current", l.notCurrent, SEED_B, "none", {}, snapshotFrom(staleSelections())),
+    layoutFixture("placed-b", l.placedMedium, SEED_B, "proposal"),
+    layoutFixture("placed-c", l.placedLarge, SEED_C, "proposal"),
+    layoutFixture("placed-tn-c", l.placedTnC, SEED_B, "proposal", TN_C_OVERRIDES),
+    layoutFixture("placed-no-bars", l.placedNoBars, SEED_A, "proposal"),
+    layoutFixture("missing", l.missing, SEED_B, "none"),
+    layoutFixture("does-not-fit", l.doesNotFit, GEOMETRY_TOO_SMALL, "none"),
+    layoutFixture("outdated", l.outdated, SEED_B, "broken"),
+    layoutFixture("not-current", l.notCurrent, SEED_B, "none", {}, snapshotFrom(staleSelections())),
   ];
 }

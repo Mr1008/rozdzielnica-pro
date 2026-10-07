@@ -142,12 +142,13 @@ Uwaga (nie non-goal, doprecyzowanie zakresu): instalacje jednofazowe (1F) i tró
 ## Open Questions
 
 1. **Kryteria akceptacji dla ścieżki admina** — FR-001 i FR-002 nie mają żadnej historyjki użytkownika ani kryteriów akceptacji; cała rola admina jest nieopisana od strony zachowania. Owner: user. Block: nie (ale utrudnia napisanie testu dla tej ścieżki).
-2. **Jak rozstrzygać konflikt reguł rozmieszczenia?** — Reguły (1) grupowania, (2) bliskości wyprowadzeń i (3) bliskości szyn PE/N mogą wskazywać różne miejsca dla tej samej grupy. Nie ustalono, która ma pierwszeństwo, gdy się wykluczają. Owner: user. Block: nie (ale implementacja heurystyki wymusi jakąś kolejność — lepiej, żeby była świadoma).
+2. ~~Jak rozstrzygać konflikt reguł rozmieszczenia?~~ — rozstrzygnięte 2026-10-06, patrz niżej. (Numer zostaje, żeby odwołania z roadmapy nie rozjechały się.)
 3. **FR-013 nie przeszedł rundy Sokratesa** — dodany po rundzie wyzwań, przy walidacji PRD; nie skonfrontowany z kontrargumentem jak pozostałe FR-y. Owner: user. Block: nie.
 4. **Który termin zgłoszenia ostatecznie obowiązuje: 4 listopada 2026 czy 6 grudnia 2026?** — Cel to 4 listopada, ale bez presji; przy przekroczeniu 3-tygodniowego szacunku MVP akceptowalne jest przesunięcie na 6 grudnia bez cięcia zakresu. Dlatego frontmatter zapisuje `hard_deadline: null`. Owner: user. Block: nie.
 
 **Rozstrzygnięte przy walidacji:**
 
+- _(2026-10-06)_ Pierwszeństwo reguł rozmieszczenia, gdy wskazują różne miejsca dla tej samej grupy: (1) grupowanie > (2) bliskość wyprowadzeń przewodów > (3) bliskość szyn PE/N. Zapisane w nagłówku `src/lib/cabinet-layout.ts`; patrz `## Business Logic`.
 - _(2026-09-15)_ Źródło czasu montażu aparatu — uśredniony, statystyczny parametr profilu elektryka (obok stawki godzinowej), nie pole w katalogu aparatów i nie stała globalna systemu; patrz FR-010 i `## Business Logic`.
 - _(2026-09-16)_ Brak pasującego aparatu w katalogu — system zgłasza błąd z prośbą o kontakt z administratorem, zamiast schodzić na aparat niezgodny; patrz guardrail w `## Success Criteria`, `## Business Logic` i kryteria akceptacji US-01.
 - _(2026-09-16)_ Grupowanie RCD nie wystarcza jako realizacja "minimalnej długości przewodów" — heurystyka obejmuje dodatkowo bliskość wyprowadzeń przewodów do szafki (góra/lewo/prawo/dół) oraz bliskość szyn PE i N; patrz `## Business Logic`.
