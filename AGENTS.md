@@ -100,11 +100,13 @@ These are correctness requirements, not preferences.
   `save_project_layout` with `p_edited_manually: true`
   (`supabase/migrations/20261008120000_manual_layout_edits.sql`). The `edited_manually` flag lives on
   the placement rows, so it dies with them — a circuit save or re-match re-creates the rows, a supply
-  change deletes the snapshot — and a cabinet change clears it. A manual layout survives a circuit
-  save or re-match only through `carryOverPlacements`, reached via `chooseSelectionLayout` in
-  `layout-server.ts`: it applies only when the whole set still applies (devices matched by role,
-  `rcd_group_id`, `circuit_id`) and passes `validateLayout`; otherwise a fresh proposal is stored and
-  the redirect carries `layout_reset=1`.
+  change deletes the snapshot — and a cabinet change clears it. The flag is a convention, not
+  enforced by the database: the owner's own token can set it through either RPC or a direct INSERT,
+  so never let it decide more than the badge and whether a carry-over is attempted (which still runs
+  `validateLayout`). A manual layout survives a circuit save or re-match only through
+  `carryOverPlacements`, reached via `chooseSelectionLayout` in `layout-server.ts`: it applies only
+  when the whole set still applies (devices matched by role, `rcd_group_id`, `circuit_id`) and passes
+  `validateLayout`; otherwise a fresh proposal is stored and the redirect carries `layout_reset=1`.
 - **Catalog PE/N bars:** a cabinet without built-in bars gets `pe_bar` / `n_bar` selections from the
   catalog, snapshotted with `project_devices.terminal_groups`
   (`supabase/migrations/20261006140000_project_device_bars.sql`) and placed on a DIN rail; the
