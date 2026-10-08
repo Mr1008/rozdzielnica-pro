@@ -723,24 +723,24 @@ One new table, additive and backward-compatible with the deployed code. No data 
 
 #### Automated
 
-- [x] 3.1 Helper tests pass: `npx vitest run --config vitest.config.ts src/lib/quote-print.test.ts`
-- [x] 3.2 `npm run lint`, `npx astro check` and `npm run test:unit` pass
+- [x] 3.1 Helper tests pass: `npx vitest run --config vitest.config.ts src/lib/quote-print.test.ts` — 14177e5
+- [x] 3.2 `npm run lint`, `npx astro check` and `npm run test:unit` pass — 14177e5
 
 ### Phase 4: Print page and document
 
 #### Automated
 
-- [ ] 4.1 `npm run lint`, `npx astro check`, `npm run test:unit` and `npm run build` pass
-- [ ] 4.2 The existing `layout-server.test.ts` still passes after the extraction
+- [x] 4.1 `npm run lint`, `npx astro check`, `npm run test:unit` and `npm run build` pass
+- [x] 4.2 The existing `layout-server.test.ts` still passes after the extraction
 
 #### Manual
 
-- [ ] 4.3 Kitchen sink: two A4 sheets, the drawing fits page 2 with the legends, greyscale keeps L/N/PE/PEN distinguishable
-- [ ] 4.4 Real project: print preview shows exactly 2 pages, no chrome, colours visible, drawing unsplit; Save as PDF matches
-- [ ] 4.5 Itemised material lines add up to the project page's material subtotal
-- [ ] 4.6 Blocked states (no layout, stale match, no pricing profile) show their reasons and working links
-- [ ] 4.7 Outdated override warns on screen only; the printed time equals the override
-- [ ] 4.8 The project page renders unchanged after the extraction
+- [x] 4.3 Kitchen sink: two A4 sheets, the drawing fits page 2 with the legends, greyscale keeps L/N/PE/PEN distinguishable
+- [x] 4.4 Real project: print preview shows exactly 2 pages, no chrome, colours visible, drawing unsplit; Save as PDF matches
+- [x] 4.5 Itemised material lines add up to the project page's material subtotal
+- [x] 4.6 Blocked states (no layout, stale match, no pricing profile) show their reasons and working links
+- [x] 4.7 Outdated override warns on screen only; the printed time equals the override
+- [x] 4.8 The project page renders unchanged after the extraction
 
 ### Phase 5: Landing page, docs and contracts
 

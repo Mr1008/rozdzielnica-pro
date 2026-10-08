@@ -9,6 +9,9 @@ import BusinessProfileCard from "@/components/forms/BusinessProfileCard.astro";
 import { ToggleField } from "@/components/forms/fields";
 import LayoutSection from "@/components/projects/LayoutSection.astro";
 import MatchResult from "@/components/projects/MatchResult.astro";
+import PrintBlocked from "@/components/projects/PrintBlocked.astro";
+import PrintNotices from "@/components/projects/PrintNotices.astro";
+import QuoteDocument from "@/components/projects/QuoteDocument.astro";
 import QuoteSection from "@/components/projects/QuoteSection.astro";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -30,6 +33,7 @@ import {
   kitchenSinkEditorDrawings,
   kitchenSinkLayoutStates,
   kitchenSinkMatchStates,
+  kitchenSinkPrintStates,
   kitchenSinkQuoteStates,
 } from "@/lib/kitchen-sink-circuits";
 import { EARTHING_SYSTEMS } from "@/lib/supply-params";
@@ -224,10 +228,12 @@ const brandSizes = [16, 24, 48];
 const matchStates = enabled ? kitchenSinkMatchStates() : [];
 const layoutStates = enabled ? kitchenSinkLayoutStates() : [];
 const quoteStates = enabled ? kitchenSinkQuoteStates() : [];
+const printStates = enabled ? kitchenSinkPrintStates() : null;
 const editorDrawings = enabled ? kitchenSinkEditorDrawings(layoutStates) : [];
 const circuitsAnchor = "ks-circuits";
 const layoutAnchor = "ks-layout";
 const quoteAnchor = "ks-quote";
+const printAnchor = "ks-print";
 
 const businessFilled = businessFormDefaults({
   company_name: "Instalacje Elektryczne Jan Kowalski",
@@ -751,6 +757,38 @@ const subTitleClass = "text-sm font-medium text-muted-foreground";
           ))}
         </div>
       </section>
+
+      {printStates && (
+        <section class:list={sectionClass} aria-labelledby={printAnchor}>
+          <h2 id={printAnchor} class:list={sectionTitleClass}>
+            {k.sections.printout}
+          </h2>
+          <h3 class="text-lg font-semibold">{k.printTitle}</h3>
+          <div class="flex flex-col gap-10">
+            {printStates.documents.map((state) => (
+              <figure class="flex flex-col gap-2">
+                <figcaption class:list={subTitleClass}>{state.caption}</figcaption>
+                <PrintNotices notices={state.view.notices} />
+                <div class="overflow-x-auto bg-muted p-6">
+                  <QuoteDocument
+                    view={state.view}
+                    project={printStates.project}
+                    issuedAt={printStates.issuedAt}
+                    timeZone="Europe/Warsaw"
+                    geometry={printStates.geometry}
+                    drawing={printStates.drawing}
+                    class:list={state.className}
+                  />
+                </div>
+              </figure>
+            ))}
+            <figure class="flex flex-col gap-2">
+              <figcaption class:list={subTitleClass}>{k.printStates.blocked}</figcaption>
+              <PrintBlocked reasons={printStates.blockedReasons} projectId={KS_PROJECT_ID} />
+            </figure>
+          </div>
+        </section>
+      )}
 
       <section class:list={sectionClass} aria-labelledby="ks-business">
         <h2 id="ks-business" class:list={sectionTitleClass}>

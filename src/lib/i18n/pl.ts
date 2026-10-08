@@ -620,7 +620,9 @@ export const pl = {
       print: "Drukuj / zapisz jako PDF",
     },
     issuedOn: "Data wystawienia",
-    nip: "NIP",
+    nip: (nip: string) => `NIP ${nip}`,
+    /** The letterhead's contact line: NIP, phone and email, whichever are set. */
+    contactLine: (parts: readonly string[]) => parts.join(" · "),
     client: {
       project: "Projekt",
       client: "Klient",
@@ -629,9 +631,9 @@ export const pl = {
     },
     material: {
       title: "Materiał",
-      kind: "Rodzaj",
-      name: "Nazwa",
-      manufacturerModel: "Producent / model",
+      item: "Pozycja",
+      /** The muted line under an item's name: kind, manufacturer, model. */
+      itemDetails: (parts: readonly string[]) => parts.join(" · "),
       quantity: "Ilość",
       unitPrice: "Cena jedn.",
       lineTotal: "Wartość",
@@ -1280,6 +1282,7 @@ export const pl = {
         circuits: "Obwody i dobór aparatów",
         layout: "Układ w szafce",
         quote: "Wycena",
+        printout: "Wydruk wyceny",
         businessProfile: "Dane firmy do wyceny",
         brand: "Marka",
       },
@@ -1406,6 +1409,14 @@ export const pl = {
         invalid: "Nieprawidłowy NIP — komunikat o błędzie tylko na tej karcie",
       },
       quoteTitle: "Sekcja „Wycena”",
+      printTitle: "Dokument wyceny (dwie strony A4)",
+      /** Captions for the printout states; each is computed by the real `computePrintView`. */
+      printStates: {
+        full: "Gotowy dokument z pełnym nagłówkiem firmy",
+        fallback: "Bez danych firmy — nagłówek z imienia i emaila, uwagi widoczne tylko na ekranie",
+        grayscale: "Ten sam dokument w skali szarości (kontrola wydruku czarno-białego)",
+        blocked: "Blokada wydruku — wszystkie trzy powody, każdy z linkiem naprawczym",
+      },
       /** Captions for the quote section states; each is computed by the real `computeQuoteView`. */
       quoteStates: {
         noProfile: "Brak parametrów wyceny — blokada z linkiem do profilu, bez kwot",
