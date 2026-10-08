@@ -1,6 +1,7 @@
 ---
 import Banner from "@/components/Banner.astro";
 import PageHeader from "@/components/PageHeader.astro";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
@@ -20,19 +21,25 @@ import {
   pricingFormDefaults,
   type PricingFormDefaults,
 } from "@/lib/pricing-profile";
+import { RATE_WARNING_THRESHOLD_GROSZE, rateWarning } from "@/lib/quote";
 import { createClient } from "@/lib/supabase";
+import { TriangleAlertIcon } from "lucide-react";
 
 // No role check here on purpose: `/dashboard/*` is gated to electricians in
 // `src/lib/route-access.ts`, and RLS returns only the caller's own `pricing_profiles` row.
 const error = pricingErrorMessage(Astro.url.searchParams.get("error"));
 const saved = Astro.url.searchParams.get("saved") === "1" && error === null;
 
-async function loadDefaults(): Promise<{ defaults: PricingFormDefaults | null; loadError: string | null }> {
+async function loadDefaults(): Promise<{
+  defaults: PricingFormDefaults | null;
+  loadError: string | null;
+  rateWarning: boolean;
+}> {
   const supabase = createClient(Astro.request.headers, Astro.cookies);
-  if (!supabase) return { defaults: null, loadError: t.pricingErrors.notConfigured };
+  if (!supabase) return { defaults: null, loadError: t.pricingErrors.notConfigured, rateWarning: false };
   // The route gate guarantees a user; this only keeps `user.id` typed as present.
   const { user } = Astro.locals;
-  if (!user) return { defaults: null, loadError: t.pricingProfile.loadFailed };
+  if (!user) return { defaults: null, loadError: t.pricingProfile.loadFailed, rateWarning: false };
 
   const { data, error: queryError } = await supabase
     .from("pricing_profiles")
@@ -44,13 +51,17 @@ async function loadDefaults(): Promise<{ defaults: PricingFormDefaults | null; l
     // eslint-disable-next-line no-console
     console.error("pricing profile load failed", queryError.code);
     Astro.response.status = 500;
-    return { defaults: null, loadError: t.pricingProfile.loadFailed };
+    return { defaults: null, loadError: t.pricingProfile.loadFailed, rateWarning: false };
   }
   // No row is the "not configured" state: the form starts empty, with no invented defaults.
-  return { defaults: pricingFormDefaults(data), loadError: null };
+  return {
+    defaults: pricingFormDefaults(data),
+    loadError: null,
+    rateWarning: data !== null && rateWarning(data.hourly_rate_grosze),
+  };
 }
 
-const { defaults, loadError } = await loadDefaults();
+const { defaults, loadError, rateWarning: showRateWarning } = await loadDefaults();
 
 const fields = [
   {
@@ -101,6 +112,15 @@ const inputClass = "font-mono";
     backLabel={t.pricingProfile.backToDashboard}
     description={t.pricingProfile.description}
   />
+
+  {showRateWarning && (
+    <Alert variant="warning" role="status" className="mb-4 max-w-2xl">
+      <TriangleAlertIcon aria-hidden="true" />
+      <AlertDescription className="block">
+        <strong>{t.common.warningPrefix}</strong> {t.quote.rateWarning(RATE_WARNING_THRESHOLD_GROSZE / 100)}
+      </AlertDescription>
+    </Alert>
+  )}
 
   {defaults && (
     <Card className="max-w-2xl">

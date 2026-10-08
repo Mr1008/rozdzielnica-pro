@@ -27,6 +27,10 @@ export const PROJECT_ERROR = {
   layoutDeviceUnavailable: "layout_device_unavailable",
   /** `/placements`: the submitted manual layout fails `validateLayout` against the stored snapshot. */
   layoutInvalid: "layout_invalid",
+  /** `/quote` set an override while the match is not `current` — only a current match is quoted. */
+  quoteMatchNotCurrent: "quote_match_not_current",
+  /** `/quote` set an override with no pricing profile — the estimate has nothing to stand on. */
+  quotePricingNotConfigured: "quote_pricing_not_configured",
   unknown: "unknown",
 } as const;
 
@@ -44,6 +48,8 @@ const MESSAGES: Record<ProjectErrorCode, string> = {
   [PROJECT_ERROR.layoutDoesNotFit]: t.projectErrors.layoutDoesNotFit,
   [PROJECT_ERROR.layoutDeviceUnavailable]: t.projectErrors.layoutDeviceUnavailable,
   [PROJECT_ERROR.layoutInvalid]: t.projectErrors.layoutInvalid,
+  [PROJECT_ERROR.quoteMatchNotCurrent]: t.projectErrors.quoteMatchNotCurrent,
+  [PROJECT_ERROR.quotePricingNotConfigured]: t.projectErrors.quotePricingNotConfigured,
   [PROJECT_ERROR.unknown]: t.projectErrors.unknown,
 };
 

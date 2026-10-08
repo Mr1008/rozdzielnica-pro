@@ -518,6 +518,65 @@ export const pl = {
     unknown: "Coś poszło nie tak. Spróbuj ponownie",
   },
 
+  /** The project page's "Wycena" section (S-08). See `src/components/projects/QuoteSection.astro`. */
+  quote: {
+    section: "Wycena",
+    description:
+      "Koszt materiału z cen katalogowych i szacowany koszt robocizny: liczba aparatów × średni czas montażu + stały narzut, razy Twoja stawka. Czas możesz nadpisać.",
+    loadFailed: "Nie udało się wczytać parametrów wyceny. Spróbuj ponownie",
+    columns: { item: "Pozycja", detail: "Szczegóły", amount: "Kwota" },
+    groups: { material: "Materiał", labour: "Robocizna" },
+    cabinet: "Szafka",
+    devices: "Aparaty (w tym szyny z katalogu)",
+    deviceCount: (n: number) => `${String(n)} ${plural(n, { one: "aparat", few: "aparaty", many: "aparatów" })}`,
+    materialTotal: "Materiał razem",
+    estimatedTime: "Czas estymowany",
+    /** "11 aparatów × 15 min + 90 min": device count × mount time + project overhead. */
+    formula: (count: number, mountMinutes: number, overheadMinutes: number) =>
+      `${String(count)} ${plural(count, { one: "aparat", few: "aparaty", many: "aparatów" })} × ${String(mountMinutes)} min + ${String(overheadMinutes)} min`,
+    timeUsed: "Czas robocizny",
+    overriddenMarker: "nadpisany",
+    estimateMarker: "estymacja",
+    hourlyRate: "Stawka godzinowa",
+    perHour: (money: string) => `${money} / h`,
+    labourCost: "Koszt robocizny",
+    total: "Razem (materiał + robocizna)",
+    /** 4 h 15 min · 4 h · 45 min — the zero part is left out. */
+    duration: (hours: number, minutes: number) => {
+      if (hours === 0) return `${String(minutes)} min`;
+      return minutes === 0 ? `${String(hours)} h` : `${String(hours)} h ${String(minutes)} min`;
+    },
+    notCurrentTitle: "Wycena czeka na aktualny dobór aparatów",
+    notCurrent:
+      "Wycenę liczymy tylko z aktualnego, zapisanego doboru aparatów — bez niego nie pokazujemy żadnych kwot.",
+    notCurrentLink: "Przejdź do doboru aparatów",
+    override: {
+      legend: "Nadpisz czas robocizny",
+      hint: "Estymacja jest punktem wyjścia — wpisz czas, który uważasz za realny. Zapisana wartość trafi do wyceny.",
+      hours: "Godziny",
+      minutes: "Minuty",
+      hoursUnit: "h",
+      minutesUnit: "min",
+      set: "Zapisz czas",
+      clear: "Przywróć estymację",
+      /** Shown by the browser when both fields are 0 — the per-field limits cannot say it. */
+      zeroTotal: "Podaj czas co najmniej 1 minuty.",
+    },
+    outdatedTitle: "Nadpisany czas może być nieaktualny",
+    /** `estimate` is the current estimated time, already formatted by `duration`. */
+    outdated: (estimate: string) =>
+      `Od zapisania nadpisanego czasu zmienił się dobór aparatów albo parametry wyceny; obecna estymacja to ${estimate}. Nadal liczymy z Twojego czasu — zapisz go ponownie albo przywróć estymację.`,
+    /** `thresholdZl` is the ceiling in złote; the profile page shows the same text. */
+    rateWarning: (thresholdZl: number) =>
+      `Stawka godzinowa przekracza ${formatNumber(thresholdZl)} zł/h — sprawdź, czy to nie literówka. Zapis nie jest blokowany.`,
+    /** The aside row's badge texts; a ready quote shows its total instead. */
+    badges: {
+      notConfigured: "Brak parametrów wyceny",
+      notCurrent: "Czeka na dobór",
+      unavailable: "Niedostępna",
+    },
+  },
+
   projects: {
     dashboardLink: "Projekty",
     dashboardLinkDescription: "Twoje projekty rozdzielnic: szafka, przyłącze, a w kolejnych krokach obwody i wycena.",
@@ -584,6 +643,7 @@ export const pl = {
       savedRematch: "Dobór aparatów został wykonany ponownie. Wynik znajdziesz poniżej.",
       savedLayout: "Zaproponowano nowy układ aparatów w szafce.",
       savedLayoutEdited: "Poprawiony układ aparatów został zapisany.",
+      savedQuote: "Czas robocizny został zapisany.",
       /** The aside's device-matching row: its label and one badge text per `MatchViewState`. */
       matchingStatus: "Dobór aparatów",
       matchingCurrent: (n: number) =>
@@ -602,6 +662,8 @@ export const pl = {
       layoutNotCurrent: "Czeka na dobór",
       layoutUnavailable: "Niedostępny",
       layoutEditedManually: "Poprawiony ręcznie",
+      /** The aside's quote row: its label; the badge texts live in `t.quote.badges`. */
+      quoteStatus: "Wycena",
     },
     cabinet: {
       section: "Szafka rozdzielnicy",
@@ -642,6 +704,10 @@ export const pl = {
     layoutDeviceUnavailable: "Dobór aparatów zmienił się w trakcie zapisu układu — spróbuj ponownie",
     layoutInvalid:
       "Układ nie został zapisany, bo nie spełnia zasad rozmieszczenia (aparaty nachodzą na siebie lub na szyny PE/N, wychodzą poza szynę DIN albo grupa RCD nie stoi razem) — popraw go i zapisz ponownie",
+    quoteMatchNotCurrent:
+      "Czas robocizny można nadpisać tylko dla aktualnego doboru aparatów — najpierw dobierz aparaty ponownie",
+    quotePricingNotConfigured:
+      "Nie ustawiono parametrów wyceny — uzupełnij je w profilu, zanim nadpiszesz czas robocizny",
     unknown: "Coś poszło nie tak. Spróbuj ponownie",
   },
 
@@ -1079,6 +1145,7 @@ export const pl = {
         drawing: "Rysunek szafki",
         circuits: "Obwody i dobór aparatów",
         layout: "Układ w szafce",
+        quote: "Wycena",
         brand: "Marka",
       },
       tokenGroups: {
@@ -1196,6 +1263,17 @@ export const pl = {
       circuitEditorTitle: "Edytor obwodów",
       matchResultTitle: "Wynik doboru aparatów",
       layoutTitle: "Sekcja „Układ w szafce”",
+      quoteTitle: "Sekcja „Wycena”",
+      /** Captions for the quote section states; each is computed by the real `computeQuoteView`. */
+      quoteStates: {
+        noProfile: "Brak parametrów wyceny — blokada z linkiem do profilu, bez kwot",
+        notCurrent: "Dobór nieaktualny — blokada z linkiem do doboru, bez kwot",
+        ready: "Gotowa wycena z estymowanym czasem",
+        override: "Czas nadpisany (4 h 30 min)",
+        outdated: "Nadpisany czas nieaktualny — ostrzeżenie z nową estymacją",
+        rateWarning: "Stawka powyżej 500 zł/h — ostrzeżenie o literówce",
+        catalogBars: "Szafka bez wbudowanych szyn PE/N — szyny z katalogu liczone jak aparaty",
+      },
       /** Captions for the layout section states; each is computed by the real `computeLayoutView`. */
       layoutStates: {
         placedMedium: "Rozmieszczony z przewodami — szafka średnia (trzy rzędy, PE i N pionowo)",
@@ -1211,6 +1289,7 @@ export const pl = {
       /** Fixture data and state captions for the circuit section; see `src/lib/kitchen-sink-circuits.ts`. */
       circuitFixtures: {
         manufacturer: "Przykładowy producent",
+        cabinet: "Szafka przykładowa",
         circuits: {
           kitchen: "Gniazda kuchnia",
           living: "Gniazda salon",
