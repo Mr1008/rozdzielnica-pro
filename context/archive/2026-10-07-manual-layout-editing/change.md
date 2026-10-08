@@ -1,9 +1,10 @@
 ---
 change_id: manual-layout-editing
 title: Ręczna korekta zaproponowanego układu aparatów
-status: impl_reviewed
+status: archived
 created: 2026-10-07
 updated: 2026-10-08
+archived_at: 2026-10-08T13:04:01Z
 ---
 
 ## Notes
