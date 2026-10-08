@@ -3,7 +3,7 @@ project: "RozdzielnicaPro"
 version: 1
 status: draft
 created: 2026-09-21
-updated: 2026-10-07
+updated: 2026-10-08
 prd_version: 2
 main_goal: low-complexity
 top_blocker: decisions
@@ -54,7 +54,7 @@ Uwaga: pierwszeństwo reguł rozmieszczenia (Otwarte pytanie #2) zostało rozstr
 | S-05 | `cabinet-layout-proposal`           | Elektryk widzi zaproponowany układ aparatów w swojej szafce                                | S-02, S-04    | FR-008, US-01                        | done        |
 | S-06 | `manual-layout-editing`             | Elektryk poprawia zaproponowany układ przed wyceną                                         | S-05          | FR-009, US-01                        | in-progress |
 | S-07 | `electrician-pricing-profile`       | Elektryk ustawia w profilu stawkę, średni czas montażu i narzut na projekt                 | F-01          | FR-010                               | done        |
-| S-08 | `quote-cost-estimate`               | Elektryk widzi koszt materiału i robocizny i nadpisuje estymowany czas                     | S-04, S-07    | FR-011, FR-013, US-01                | in-progress |
+| S-08 | `quote-cost-estimate`               | Elektryk widzi koszt materiału i robocizny i nadpisuje estymowany czas                     | S-04, S-07    | FR-011, FR-013, US-01                | done        |
 | S-09 | `printable-quote-export`            | Elektryk drukuje/eksportuje wycenę z wizualizacją układu szafki                            | S-06, S-08    | FR-012, US-01                        | proposed    |
 | S-10 | `ui-layout-theme`                   | Elektryk i admin pracują w spójnym, jasnym interfejsie „Arkusz techniczny" pod desktop     | S-03, S-07    | NFR (UI po polsku), FR-012 pośrednio | done        |
 | S-11 | `realistic-wiring-render`           | Elektryk widzi rysunek okablowania szafki wyglądający jak prawdziwa rozdzielnica           | S-09          | poza PRD (FR-012 pośrednio)          | proposed    |
@@ -208,7 +208,7 @@ Foundations poniżej zakładają, że to istnieje, i **nie** budują tego od now
 - **Unknowns:**
   - FR-013 (zestawienie kosztu materiału) nie przeszedł rundy kontrargumentu przy pisaniu PRD (Otwarte pytanie #3) — Owner: user. Block: no.
 - **Risk:** Estymacja nigdy nie może być pokazana jako wartość ostateczna — możliwość nadpisania czasu jest częścią wymagania, nie udogodnieniem; bez niej „estymacja z powietrza" podkopuje zaufanie do całego narzędzia. Kwoty w PLN idą przez wspólne formatowanie, nie przez ręcznie sklejany format.
-- **Status:** in-progress
+- **Status:** done
 
 ### S-09: Elektryk drukuje wycenę z wizualizacją układu
 
@@ -330,3 +330,4 @@ Foundations poniżej zakładają, że to istnieje, i **nie** budują tego od now
 - **S-10: Elektryk i admin pracują w spójnym, jasnym interfejsie „Arkusz techniczny" — jedno źródło tokenów (papier, tusz, indygo, kolory żył wg IEC 60445), komponenty shadcn, wspólna powłoka aplikacji z paskiem nagłówka, własne logo i favicon — zoptymalizowanym pod pracę na komputerze.** — Archived 2026-09-29 → `context/archive/2026-09-25-ui-layout-theme/`. Lesson: —.
 - **S-04: Elektryk może podać liczbę i parametry obwodów oraz wskazać, które dzielą wspólną grupę RCD, i dostaje zestaw dobranych aparatów — najtańszych spośród spełniających parametry — albo czytelny błąd z prośbą o kontakt z administratorem, gdy w katalogu nie ma pasującego aparatu.** — Archived 2026-09-30 → `context/archive/2026-09-29-circuit-input-and-device-matching/`. Lesson: —.
 - **S-05: Elektryk widzi propozycję fizycznego rozmieszczenia dobranych aparatów w wybranej szafce, wyliczoną z trzech reguł stosowanych łącznie: grupowanie nadprądowych przy RCD swojej grupy (z RCBO zamiast dwóch aparatów dla grupy jednoobwodowej), bliskość strony, którą wchodzą przewody, oraz odległość do szyn PE i N.** — Archived 2026-10-07 → `context/archive/2026-10-06-cabinet-layout-proposal/`. Lesson: —.
+- **S-08: Elektryk widzi wyliczony czas pracy (liczba aparatów × średni czas montażu + stały narzut), koszt robocizny (czas × stawka) oraz koszt materiału z cen katalogowych, i może nadpisać estymowany czas przed sfinalizowaniem wyceny.** — Archived 2026-10-08 → `context/archive/2026-10-07-quote-cost-estimate/`. Lesson: —.

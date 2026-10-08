@@ -120,10 +120,11 @@ These are correctness requirements, not preferences.
   (catalog bars too); the cabinet's snapshot price is its own material line; labour cost rounds
   half-up in integers (`(minutes × rate + 30) div 60`). **The labour override bounds are guarded
   twice, and the two guards must change together:** the `projects_labour_override_*` CHECKs in
-  `supabase/migrations/20261007120000_project_labour_override.sql` and the `*_LABOUR_OVERRIDE_*`
+  `supabase/migrations/20261008090000_project_labour_override.sql` and the `*_LABOUR_OVERRIDE_*`
   constants in `quote.ts`. The override is stored with the estimate it was set against
-  (`labour_override_base_minutes`, written only by the endpoint from a server-side recompute);
-  "outdated" is a comparison on render, never a stored flag, so a profile change counts too.
+  (`labour_override_base_minutes`, written by the endpoint from a server-side recompute — a
+  convention, not enforced by the database: the owner's own token can write it); "outdated" is a
+  comparison on render, never a stored flag, so a profile change counts too.
 - **A project must snapshot its cabinet's `geometry`, not reference it live** (S-03). Admin edits to
   a cabinet must never shift an existing project's layout or quote; archiving only hides the cabinet
   from the picker. The snapshot (`cabinet_geometry`, `cabinet_name`, `cabinet_manufacturer`,
@@ -218,7 +219,10 @@ These are correctness requirements, not preferences.
   and plans by default (no `--apply` = no writes). It needs the **`Mr1008`** gh account — the
   `jakubmichalek-cambridge` account has read-only access and the script refuses to run under it;
   use `gh auth switch --user Mr1008` or a one-shot
-  `GH_TOKEN=$(gh auth token --user Mr1008)` prefix.
+  `GH_TOKEN=$(gh auth token --user Mr1008)` prefix. **A status never moves backwards:** parallel
+  sessions keep their own roadmap copy in other worktrees, so the script lifts each item to the most
+  advanced status in any worktree's roadmap, any open `context/changes/<change-id>/` folder, or the
+  card's current board column, and prints every lift. A real step back needs `--allow-regress`.
 
 ## Architecture
 

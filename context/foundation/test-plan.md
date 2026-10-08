@@ -126,6 +126,7 @@ wdrożenia, nie do testów.
 ### 6.3 Adding an e2e test for an electrician flow
 
 - TBD — see §3 Phase 3 (wzorzec: błąd luki w katalogu widoczny na stronie projektu, bez zamiennika).
+- Kandydaci z S-08 (`quote-cost-estimate`, impl-review F7) — dziś sprawdzane tylko ręcznie, bo żaden zestaw nie pokrywa HTTP: `POST /api/projects/[id]/quote` odmawia nadpisania czasu bez profilu wyceny i przy nieaktualnym doborze; zapisuje bazę estymacji policzoną na serwerze, nie z formularza; „Przywróć estymację” działa zawsze; drugi elektryk dostaje `not_found`.
 
 ### 6.4 Adding a test for a new table or endpoint
 
