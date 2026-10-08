@@ -3,7 +3,7 @@
 **RozdzielnicaPro** — a switchboard (rozdzielnica) planning and labour-quoting tool for a solo
 electrician. Scaffolded from `10x-astro-starter`. Product code so far is auth, i18n, the role/RLS
 baseline, the admin cabinet and device catalogs, the electrician pricing profile and projects (cabinet
-snapshot, OSD/WLZ supply and its warnings, circuits with RCD groups and device matching, the cabinet layout proposal with its wiring drawing, the material and labour quote with its time override) — `src/pages/auth/*`, `src/pages/admin/` (including
+snapshot, OSD/WLZ supply and its warnings, circuits with RCD groups and device matching, the cabinet layout proposal with its wiring drawing and manual layout editing, the material and labour quote with its time override) — `src/pages/auth/*`, `src/pages/admin/` (including
 `src/pages/admin/devices/`), `src/pages/api/admin/`, `src/pages/dashboard.astro`,
 `src/pages/dashboard/profile.astro`, `src/pages/dashboard/projects/`, `src/pages/api/profile/`,
 `src/pages/api/projects/`, `src/components/cabinets/`, `src/components/devices/`,
@@ -92,7 +92,19 @@ These are correctness requirements, not preferences.
   outdated or missing one is never drawn. `project_device_placements` is written only by the
   `save_project_circuits` / `save_project_layout` RPCs
   (`supabase/migrations/20261006130000_project_device_placements.sql`) — never from TypeScript — and a
-  cabinet change clears it.
+  cabinet change clears it. Placements have no UPDATE grant on purpose: every save replaces the whole
+  set.
+  **Manual edits (S-06):** the editor island (@src/components/projects/LayoutEditor.tsx, model in
+  @src/lib/layout-editing.ts) saves through `POST /api/projects/[id]/placements`, which requires a
+  `current` match, runs `validateLayout` (refusal: `layout_invalid`) and only then calls
+  `save_project_layout` with `p_edited_manually: true`
+  (`supabase/migrations/20261008120000_manual_layout_edits.sql`). The `edited_manually` flag lives on
+  the placement rows, so it dies with them — a circuit save or re-match re-creates the rows, a supply
+  change deletes the snapshot — and a cabinet change clears it. A manual layout survives a circuit
+  save or re-match only through `carryOverPlacements`, reached via `chooseSelectionLayout` in
+  `layout-server.ts`: it applies only when the whole set still applies (devices matched by role,
+  `rcd_group_id`, `circuit_id`) and passes `validateLayout`; otherwise a fresh proposal is stored and
+  the redirect carries `layout_reset=1`.
 - **Catalog PE/N bars:** a cabinet without built-in bars gets `pe_bar` / `n_bar` selections from the
   catalog, snapshotted with `project_devices.terminal_groups`
   (`supabase/migrations/20261006140000_project_device_bars.sql`) and placed on a DIN rail; the

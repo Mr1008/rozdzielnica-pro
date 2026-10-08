@@ -732,27 +732,27 @@ plus the existing render. Carry-over adds one `validateLayout` per circuit save 
 
 #### Automated
 
-- [x] 3.1 Unit tests pass: `npm run test:unit`
-- [x] 3.2 Type checking passes: `npx astro check`
-- [x] 3.3 Linting passes: `npm run lint`
-- [x] 3.4 Build succeeds: `npm run build`
-- [x] 3.5 No palette classes, hex values or `rgba()` in the new components: a grep over `src/components/projects/LayoutEditor.tsx` and `WireLengthsTable.tsx`
+- [x] 3.1 Unit tests pass: `npm run test:unit` — c9ba2af
+- [x] 3.2 Type checking passes: `npx astro check` — c9ba2af
+- [x] 3.3 Linting passes: `npm run lint` — c9ba2af
+- [x] 3.4 Build succeeds: `npm run build` — c9ba2af
+- [x] 3.5 No palette classes, hex values or `rgba()` in the new components: a grep over `src/components/projects/LayoutEditor.tsx` and `WireLengthsTable.tsx` — c9ba2af
 
 #### Manual
 
-- [x] 3.6 On each starter cabinet: drag a group to another rail, reorder an MCB inside its group, move the main switch, save. The reload shows the wires re-routed, the lengths updated and the badge
-- [x] 3.7 A drop onto another device, a bar, or outside the group snaps back with a Polish reason
-- [x] 3.8 Keyboard only: pick up, move across rails, an invalid drop is announced, Escape restores, a valid drop saves
-- [x] 3.9 Undo/redo and Anuluj restore exact positions; leaving the page with a dirty draft prompts
-- [x] 3.10 "Zaproponuj układ od nowa" asks first, then replaces the layout and clears the badge
-- [x] 3.11 Before hydration (throttled network) the static wired drawing is visible
-- [x] 3.12 Kitchen sink shows every new editor state
+- [x] 3.6 On each starter cabinet: drag a group to another rail, reorder an MCB inside its group, move the main switch, save. The reload shows the wires re-routed, the lengths updated and the badge — c9ba2af
+- [x] 3.7 A drop onto another device, a bar, or outside the group snaps back with a Polish reason — c9ba2af
+- [x] 3.8 Keyboard only: pick up, move across rails, an invalid drop is announced, Escape restores, a valid drop saves — c9ba2af
+- [x] 3.9 Undo/redo and Anuluj restore exact positions; leaving the page with a dirty draft prompts — c9ba2af
+- [x] 3.10 "Zaproponuj układ od nowa" asks first, then replaces the layout and clears the badge — c9ba2af
+- [x] 3.11 Before hydration (throttled network) the static wired drawing is visible — c9ba2af
+- [x] 3.12 Kitchen sink shows every new editor state — c9ba2af
 
 ### Phase 4: Docs and roadmap
 
 #### Automated
 
-- [ ] 4.1 Linting passes (Prettier on markdown runs via lint-staged): `npm run lint`
+- [x] 4.1 Linting passes (Prettier on markdown runs via lint-staged): `npm run lint`
 - [ ] 4.2 The roadmap sync plan shows no unexpected changes: `node scripts/roadmap-to-github.mjs`
 
 #### Manual
