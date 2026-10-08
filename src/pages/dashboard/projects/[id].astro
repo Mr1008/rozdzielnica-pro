@@ -22,6 +22,7 @@ import { isUuid, sortForCatalogList } from "@/lib/catalog";
 import { payloadToDraft } from "@/lib/circuit-draft";
 import { computeMatchView, type MatchView } from "@/lib/device-matching-server";
 import { formatMoney, t } from "@/lib/i18n";
+import { layoutIssueNames, toEditorDevices, type LayoutEditorData } from "@/lib/layout-editor-data";
 import { computeLayoutView, computeWiring, loadLayoutContext, type LayoutView } from "@/lib/layout-server";
 import {
   PROJECTS_PATH,
@@ -149,6 +150,16 @@ const placedWires = buildDrawnWires(conductors, {
   devices: placedDevices,
 });
 const placedCables = buildDrawnCables(conductors);
+// What the layout editor island is mounted with: the snapshot the placed layout covers, never a live query.
+const layoutEditor: LayoutEditorData | null =
+  layoutView?.state === "placed" && matchContext && matchView
+    ? {
+        devices: toEditorDevices(matchView.snapshot),
+        groups: matchContext.groups.map(({ id: groupId, label }) => ({ id: groupId, label })),
+        placements: layoutView.placements,
+        names: layoutIssueNames(matchView.snapshot, matchContext.groups, matchContext.circuits),
+      }
+    : null;
 const wireLengths = wireLengthsBySection(conductors);
 
 /**
@@ -525,6 +536,8 @@ const headingClass = "scroll-mt-6 text-lg leading-none font-semibold";
                   geometry={matchContext.geometry}
                   projectId={project.id}
                   matchAnchor={circuitsSectionId}
+                  editor={layoutEditor}
+                  restoreDraft={restoreCircuitDraft}
                 />
               ) : (
                 <Alert variant="destructive" role={undefined}>

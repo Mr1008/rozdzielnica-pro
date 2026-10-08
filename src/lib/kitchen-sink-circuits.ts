@@ -7,6 +7,7 @@ import {
   type DrawnWire,
 } from "@/lib/cabinet-drawing";
 import type { CabinetGeometry } from "@/lib/cabinet-geometry";
+import type { Placement } from "@/lib/cabinet-layout";
 import { SEED_A, SEED_B, SEED_C, geometry as parseFixtureGeometry } from "@/lib/cabinet-layout.fixtures";
 import { wireLengthsBySection, type WireLengthRow } from "@/lib/cabinet-wiring";
 import { payloadToDraft, type CircuitDraftState } from "@/lib/circuit-draft";
@@ -21,6 +22,8 @@ import { computeMatchView, type MatchContext, type MatchView, type SnapshotRow }
 import { activeCatalog, type DeviceSpecWithId, type Selection } from "@/lib/device-matching";
 import { deviceKindLabel, type DeviceKind, type NTerminalSide } from "@/lib/device-spec";
 import { t } from "@/lib/i18n";
+import { layoutIssueNames, toEditorDevices, type LayoutEditorData } from "@/lib/layout-editor-data";
+import { editUnits, moveDevice, snapX, type LayoutDraft } from "@/lib/layout-editing";
 import { computeLayoutView, computeWiring, type LayoutView } from "@/lib/layout-server";
 import type { PricingProfile } from "@/lib/pricing-profile";
 import { computeQuoteView, estimateLabourMinutes, type QuoteView } from "@/lib/quote";
@@ -457,6 +460,16 @@ export interface LayoutFixture {
   cables: DrawnCable[];
   lengths: WireLengthRow[];
   geometry: CabinetGeometry;
+  /** What the editor island is mounted with; null unless the layout is `placed`. */
+  editor: LayoutEditorData | null;
+}
+
+/** What a layout fixture adds on top of its stored layout (S-06). */
+interface LayoutFixtureOptions {
+  /** The stored layout carries the "edited manually" marker. */
+  editedManually?: boolean;
+  /** The editor starts from an unsaved draft: the main switch moved by the real move operation. */
+  moved?: boolean;
 }
 
 /** One 100 mm rail: far too short for the filled circuits' devices. */
@@ -492,6 +505,7 @@ function layoutFixture(
   stored: "none" | "proposal" | "broken",
   overrides: Partial<MatchContext> = {},
   snapshotRows?: SnapshotRow[],
+  options: LayoutFixtureOptions = {},
 ): LayoutFixture {
   const base = context({ geometry, ...overrides });
   const ctx = { ...base, snapshot: snapshotRows ?? snapshotFrom(matchedSelections(base)) };
@@ -506,7 +520,7 @@ function layoutFixture(
         : proposal.map((placement, index) =>
             index === 1 ? { ...placement, railIndex: proposal[0].railIndex, xMm: proposal[0].xMm } : placement,
           );
-  const view = computeLayoutView(matchView, ctx, placements);
+  const view = computeLayoutView(matchView, ctx, placements, options.editedManually ?? false);
   const devices =
     view?.state === "placed" ? buildDrawnDevices(matchView.snapshot, view.placements, geometry, ctx.groups) : [];
   const conductors = computeWiring(view, matchView, ctx);
@@ -522,7 +536,44 @@ function layoutFixture(
     cables: buildDrawnCables(conductors),
     lengths: wireLengthsBySection(conductors),
     geometry,
+    editor:
+      view?.state === "placed"
+        ? {
+            devices: toEditorDevices(matchView.snapshot),
+            groups: ctx.groups.map(({ id, label }) => ({ id, label })),
+            placements: view.placements,
+            names: layoutIssueNames(matchView.snapshot, ctx.groups, ctx.circuits),
+            initialDraft: options.moved
+              ? movedMainSwitch(toEditorDevices(matchView.snapshot), geometry, ctx.groups, view.placements)
+              : undefined,
+          }
+        : null,
   };
+}
+
+/**
+ * The stored layout with the main switch moved by `moveDevice` — the first rail end that accepts it, so the
+ * kitchen sink's unsaved state is a draft the editor itself could have produced. Unchanged when no end does.
+ */
+function movedMainSwitch(
+  devices: ReturnType<typeof toEditorDevices>,
+  geometry: CabinetGeometry,
+  groups: readonly Pick<RcdGroupInput, "id">[],
+  placements: readonly Placement[],
+): Placement[] {
+  const unit = editUnits(devices, groups).find(
+    (candidate) => candidate.kind === "device" && candidate.groupId === null,
+  );
+  const device = unit?.kind === "device" ? devices.find((candidate) => candidate.id === unit.deviceId) : undefined;
+  const draft: LayoutDraft = { placements: [...placements] };
+  if (device === undefined) return draft.placements;
+  for (const [railIndex, rail] of [...geometry.rails.entries()].reverse()) {
+    for (const xMm of [snapX(rail, rail.lengthMm, device.width_mm), 0]) {
+      const result = moveDevice({ devices, geometry, groups }, draft, device.id, { railIndex, xMm });
+      if (result.ok && JSON.stringify(result.draft) !== JSON.stringify(draft)) return result.draft.placements;
+    }
+  }
+  return draft.placements;
 }
 
 /**
@@ -549,6 +600,8 @@ export function kitchenSinkLayoutStates(): LayoutFixture[] {
     layoutFixture("placed-c", l.placedLarge, SEED_C, "proposal"),
     layoutFixture("placed-tn-c", l.placedTnC, SEED_B, "proposal", TN_C_OVERRIDES),
     layoutFixture("placed-no-bars", l.placedNoBars, SEED_A, "proposal"),
+    layoutFixture("placed-manual", l.editorManual, SEED_B, "proposal", {}, undefined, { editedManually: true }),
+    layoutFixture("placed-dirty", l.editorDirty, SEED_B, "proposal", {}, undefined, { moved: true }),
     layoutFixture("missing", l.missing, SEED_B, "none"),
     layoutFixture("does-not-fit", l.doesNotFit, GEOMETRY_TOO_SMALL, "none"),
     layoutFixture("outdated", l.outdated, SEED_B, "broken"),
@@ -613,5 +666,49 @@ export function kitchenSinkQuoteStates(): QuoteFixture[] {
     }),
     fixture("rate-warning", s.rateWarning, current, { ...KS_PROFILE, hourly_rate_grosze: 60_000 }),
     fixture("catalog-bars", s.catalogBars, noBars, KS_PROFILE),
+  ];
+}
+
+// ——— Editor interaction states ———
+
+export interface EditorDrawingFixture {
+  key: string;
+  caption: string;
+  geometry: CabinetGeometry;
+  devices: DrawnDevice[];
+  selectedId: string | null;
+  liftedIds: string[];
+  refusedIds: string[];
+}
+
+/**
+ * The drawing's transient editor states — a focused device, a lifted one, a lifted one whose drop was
+ * refused — on the first placed layout's real devices. They have no island of their own to reach them
+ * without a pointer, so the kitchen sink draws them from the drawing's own interaction props.
+ */
+export function kitchenSinkEditorDrawings(states: readonly LayoutFixture[]): EditorDrawingFixture[] {
+  const l = t.devTools.kitchenSink.layoutStates;
+  const base = states.find((state) => state.view?.state === "placed");
+  if (base === undefined) return [];
+  const mcbs = base.devices.filter((device) => device.role === "mcb");
+  const first = mcbs.at(0)?.id ?? null;
+  const second = mcbs.at(1)?.id ?? null;
+  const drawing = (key: string, caption: string, fields: Partial<EditorDrawingFixture>): EditorDrawingFixture => ({
+    key,
+    caption,
+    geometry: base.geometry,
+    devices: base.devices,
+    selectedId: null,
+    liftedIds: [],
+    refusedIds: [],
+    ...fields,
+  });
+  return [
+    drawing("selected", l.editorSelected, { selectedId: first }),
+    drawing("lifted", l.editorLifted, { liftedIds: second === null ? [] : [second] }),
+    drawing("refused", l.editorRefused, {
+      liftedIds: second === null ? [] : [second],
+      refusedIds: second === null ? [] : [second],
+    }),
   ];
 }

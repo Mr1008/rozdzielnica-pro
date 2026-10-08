@@ -1,3 +1,4 @@
+import type { SVGProps } from "react";
 import {
   LABEL_LINE_EM,
   clampRect,
@@ -19,6 +20,25 @@ import type { ConductorKind } from "@/lib/cabinet-wiring";
 import { t } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
+/**
+ * What the layout editor island (S-06) adds to the drawing: props spread onto each device's `<g>` and
+ * onto each group's label handle, and which devices to mark. The drawing stays hook-free — the island
+ * owns all the state — and renders exactly as before when this is absent.
+ */
+export interface DrawingInteraction {
+  deviceProps(deviceId: string): SVGProps<SVGGElement>;
+  /** `groupId` is the RCD group's id; a group continued on a second rail has one handle per rail. */
+  groupHandleProps(groupId: string): SVGProps<SVGGElement>;
+  /** The device with focus: outlined. */
+  selectedId?: string | null;
+  /** The group handle with focus: outlined. */
+  selectedGroupId?: string | null;
+  /** Devices being dragged or picked up: outlined, tinted and painted over the others. */
+  liftedIds?: readonly string[];
+  /** Lifted devices whose drop was refused: outlined as errors. */
+  refusedIds?: readonly string[];
+}
+
 interface CabinetDrawingProps {
   geometry: CabinetGeometry;
   /** The element to outline, e.g. the row being edited. `index` is 0-based. */
@@ -31,6 +51,10 @@ interface CabinetDrawingProps {
   wires?: readonly DrawnWire[];
   /** The cables' sheathed runs from their entry points, from `buildDrawnCables`. Omitted: none. */
   cables?: readonly DrawnCable[];
+  /** Make devices and group labels interactive (the layout editor). Wires then ignore the pointer. */
+  interactive?: DrawingInteraction;
+  /** Draw no wires or cables — the editor hides them while the layout has unsaved changes. */
+  hideWires?: boolean;
   className?: string;
 }
 
@@ -167,24 +191,49 @@ function WireShape({ wire, screwRadius }: { wire: DrawnWire; screwRadius: Readon
   );
 }
 
+/** The outline an editor state paints over a device: focus, lifted (tinted) or a refused drop. */
+const STATE_OUTLINE_CLASSES = {
+  selected: "stroke-drawing-highlight fill-none",
+  lifted: "stroke-drawing-highlight fill-drawing-highlight/20",
+  refused: "stroke-destructive fill-destructive/20",
+} as const;
+
 function DeviceShape({
   device,
   barLabelSizeMm,
   interior,
+  gProps,
+  state,
 }: {
   device: DrawnDevice;
   barLabelSizeMm: number;
   interior: Interior;
+  gProps?: SVGProps<SVGGElement>;
+  state?: keyof typeof STATE_OUTLINE_CLASSES | null;
 }) {
   const { rect, lines, fontSizeMm } = device;
   // A catalog PE/N bar on a rail (plan Phase 5b) looks exactly like a built-in bar of its kind.
   const { bar } = device;
+  const outline = state ? (
+    <rect
+      x={rect.x}
+      y={rect.y}
+      width={rect.w}
+      height={rect.h}
+      className={STATE_OUTLINE_CLASSES[state]}
+      strokeDasharray={state === "lifted" ? "5 3" : undefined}
+      pointerEvents="none"
+      vectorEffect="non-scaling-stroke"
+      strokeWidth={3}
+    />
+  ) : null;
   if (bar !== null) {
     return (
-      <g>
+      <g {...gProps}>
         <BarBody bar={bar} labelSizeMm={barLabelSizeMm} />
         <BarLabel bar={bar} fontSizeMm={barLabelSizeMm} />
         <BarScrews bar={bar} interior={interior} />
+        {outline}
       </g>
     );
   }
@@ -192,7 +241,7 @@ function DeviceShape({
   const lineHeight = fontSizeMm * LABEL_LINE_EM;
   const firstY = rect.y + rect.h / 2 - ((lines.length - 1) * lineHeight) / 2;
   return (
-    <g>
+    <g {...gProps}>
       <rect
         x={rect.x}
         y={rect.y}
@@ -227,6 +276,7 @@ function DeviceShape({
           {t.layout.drawing.nTerminal}
         </text>
       )}
+      {outline}
     </g>
   );
 }
@@ -322,6 +372,8 @@ export function CabinetDrawing({
   devices = [],
   wires = [],
   cables = [],
+  interactive,
+  hideWires = false,
   className,
 }: CabinetDrawingProps) {
   const { interior, rails, entries, bars } = geometry;
@@ -330,6 +382,19 @@ export function CabinetDrawing({
   const barOrder = bars.map((bar, index) => ({ bar, index })).sort((a, b) => a.bar.zMm - b.bar.zMm);
   const labelSizeMm = barLabelFontMm(interior);
   const outlines = groupOutlines(devices);
+  // A group's outline is keyed by its group and its order among the group's outlines, not by its rail:
+  // moving a group to another rail then keeps its handle's element (and the keyboard focus on it).
+  const seenGroups = new Map<string, number>();
+  const outlineKeys = outlines.map((outline) => {
+    const id = outline.key.slice(0, outline.key.lastIndexOf(":"));
+    const occurrence = seenGroups.get(id) ?? 0;
+    seenGroups.set(id, occurrence + 1);
+    return `${id}#${String(occurrence)}`;
+  });
+  const lifted = new Set(interactive?.liftedIds);
+  const refused = new Set(interactive?.refusedIds);
+  const stateOf = (id: string) =>
+    refused.has(id) ? "refused" : lifted.has(id) ? "lifted" : interactive?.selectedId === id ? "selected" : null;
   // Where each screw mark is, so a wire ending on a bar terminal fills exactly that mark.
   const screwRadius = new Map(
     [...bars, ...devices.flatMap((device) => device.bar ?? [])]
@@ -416,20 +481,52 @@ export function CabinetDrawing({
         ))}
 
         {devices.map((device) => (
-          <DeviceShape key={`device-${device.id}`} device={device} barLabelSizeMm={labelSizeMm} interior={interior} />
+          <DeviceShape
+            key={`device-${device.id}`}
+            device={device}
+            barLabelSizeMm={labelSizeMm}
+            interior={interior}
+            gProps={interactive?.deviceProps(device.id)}
+            state={interactive ? stateOf(device.id) : null}
+          />
         ))}
 
-        {wires.length > 0 && (
+        {interactive && lifted.size > 0 && (
+          // A lifted device is painted again over everything the pointer passes it. The real, focusable
+          // element keeps its place in the tree — moving it in the DOM would drop the keyboard focus.
+          <g aria-hidden="true" pointerEvents="none">
+            {devices
+              .filter((device) => lifted.has(device.id))
+              .map((device) => (
+                <DeviceShape
+                  key={`lifted-${device.id}`}
+                  device={device}
+                  barLabelSizeMm={labelSizeMm}
+                  interior={interior}
+                  state={stateOf(device.id)}
+                />
+              ))}
+          </g>
+        )}
+
+        {!hideWires && wires.length > 0 && (
           // Hovering one wire dims every other, so a single conductor can be followed through a crowded
           // board; its <title> names it. CSS only — the drawing stays hook-free and server-rendered.
-          <g aria-hidden="true" className="[&:has(.wire:hover)_.wire:not(:hover)]:opacity-20">
+          // In the editor the wires ignore the pointer, so a device under one can still be picked up.
+          <g
+            aria-hidden="true"
+            className={cn(
+              "[&:has(.wire:hover)_.wire:not(:hover)]:opacity-20",
+              interactive && "[&_*]:pointer-events-none",
+            )}
+          >
             {wires.map((wire) => (
               <WireShape key={`wire-${wire.key}`} wire={wire} screwRadius={screwRadius} />
             ))}
           </g>
         )}
 
-        {cables.length > 0 && (
+        {!hideWires && cables.length > 0 && (
           // Each cable's sheath from its entry point, over its cores, which emerge where it ends.
           <g aria-hidden="true" pointerEvents="none">
             {cables.map((cable) => (
@@ -453,18 +550,11 @@ export function CabinetDrawing({
           </g>
         )}
 
-        {outlines.map((group) => (
-          <g key={`group-${group.key}`}>
-            <rect
-              x={group.rect.x}
-              y={group.rect.y}
-              width={group.rect.w}
-              height={group.rect.h}
-              className="stroke-drawing-group fill-none"
-              strokeDasharray="6 3"
-              vectorEffect="non-scaling-stroke"
-              strokeWidth={1.5}
-            />
+        {outlines.map((group, outlineIndex) => {
+          // The outline's key is "<group id>:<rail index>"; the handle names the group alone.
+          const groupId = group.key.slice(0, group.key.lastIndexOf(":"));
+          const handleSelected = interactive?.selectedGroupId === groupId;
+          const label = (
             <text
               x={group.rect.x + 1}
               y={group.rect.y - GROUP_LABEL_MM * 0.6}
@@ -477,8 +567,43 @@ export function CabinetDrawing({
             >
               {group.label}
             </text>
-          </g>
-        ))}
+          );
+          return (
+            <g key={`group-${outlineKeys[outlineIndex]}`}>
+              <rect
+                x={group.rect.x}
+                y={group.rect.y}
+                width={group.rect.w}
+                height={group.rect.h}
+                className="stroke-drawing-group fill-none"
+                strokeDasharray="6 3"
+                pointerEvents={interactive ? "none" : undefined}
+                vectorEffect="non-scaling-stroke"
+                strokeWidth={1.5}
+              />
+              {interactive ? (
+                // The group's grab handle: a paper tab behind its label, so the whole tab is the target.
+                <g {...interactive.groupHandleProps(groupId)}>
+                  <rect
+                    x={group.rect.x}
+                    y={group.rect.y - GROUP_LABEL_MM * 1.7}
+                    width={group.label.length * GROUP_LABEL_MM * 0.62 + 4}
+                    height={GROUP_LABEL_MM * 1.7}
+                    className={cn(
+                      "fill-drawing-paper",
+                      handleSelected ? "stroke-drawing-highlight" : "stroke-drawing-group",
+                    )}
+                    vectorEffect="non-scaling-stroke"
+                    strokeWidth={handleSelected ? 3 : 1}
+                  />
+                  {label}
+                </g>
+              ) : (
+                label
+              )}
+            </g>
+          );
+        })}
       </svg>
 
       <rect

@@ -24,6 +24,7 @@ import { formatMoney, t } from "@/lib/i18n";
 import {
   KS_EDITOR_STATES,
   KS_PROJECT_ID,
+  kitchenSinkEditorDrawings,
   kitchenSinkLayoutStates,
   kitchenSinkMatchStates,
   kitchenSinkQuoteStates,
@@ -220,6 +221,7 @@ const brandSizes = [16, 24, 48];
 const matchStates = enabled ? kitchenSinkMatchStates() : [];
 const layoutStates = enabled ? kitchenSinkLayoutStates() : [];
 const quoteStates = enabled ? kitchenSinkQuoteStates() : [];
+const editorDrawings = enabled ? kitchenSinkEditorDrawings(layoutStates) : [];
 const circuitsAnchor = "ks-circuits";
 const layoutAnchor = "ks-layout";
 const quoteAnchor = "ks-quote";
@@ -667,9 +669,31 @@ const subTitleClass = "text-sm font-medium text-muted-foreground";
                     geometry={state.geometry}
                     projectId={KS_PROJECT_ID}
                     matchAnchor={circuitsAnchor}
+                    editor={state.editor}
+                    editorId={`ks-layout-editor-${state.key}`}
+                    draftScope={`ks-layout-${state.key}`}
                   />
                 </CardContent>
               </Card>
+            </figure>
+          ))}
+        </div>
+        <h3 class="text-lg font-semibold">{k.editorDrawingsTitle}</h3>
+        <div class="grid gap-6 md:grid-cols-3">
+          {editorDrawings.map((drawing) => (
+            <figure class="flex flex-col gap-2">
+              <CabinetDrawing
+                geometry={drawing.geometry}
+                devices={drawing.devices}
+                interactive={{
+                  deviceProps: () => ({}),
+                  groupHandleProps: () => ({}),
+                  selectedId: drawing.selectedId,
+                  liftedIds: drawing.liftedIds,
+                  refusedIds: drawing.refusedIds,
+                }}
+              />
+              <figcaption class:list={subTitleClass}>{drawing.caption}</figcaption>
             </figure>
           ))}
         </div>

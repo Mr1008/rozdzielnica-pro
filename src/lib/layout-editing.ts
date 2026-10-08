@@ -185,6 +185,23 @@ function packed(devices: readonly LayoutDevice[], railIndex: number, xMm: number
 }
 
 /**
+ * What the editor draws while a unit is dragged or lifted: the unit's devices laid side by side, in
+ * their current order, from `target` — with no verdict. Overlaps and rule 1 are not checked here; the
+ * drop is judged by `moveUnit`. Never mutates the draft.
+ */
+export function previewMove(context: EditContext, draft: LayoutDraft, unit: EditUnit, target: MoveTarget): LayoutDraft {
+  const members = locatedMembers(context, draft, unit);
+  return withPlacements(
+    draft,
+    packed(
+      members.map((member) => member.device),
+      target.railIndex,
+      target.xMm,
+    ),
+  );
+}
+
+/**
  * Moves a unit so its left edge lands on `target`. A block keeps its devices packed, in their current
  * x order; a device unit is `moveDevice`. Accepted only when the result passes `validateLayout`;
  * never mutates the draft.
@@ -269,7 +286,14 @@ function reorderInGroup(
   if (centre < spanStart - EPS || centre > spanEnd + EPS) return null;
 
   const others = onRail.filter((member) => member.device.id !== device.id);
-  const index = others.findIndex((member) => centre < member.placement.xMm + member.device.width_mm / 2);
+  // A centre that lands exactly on a neighbour's centre passes it in the direction of the move, so a
+  // one-module step past a same-width neighbour swaps the two instead of changing nothing.
+  const current = onRail.find((member) => member.device.id === device.id)?.placement.xMm;
+  const movingLeft = current !== undefined && target.xMm < current - EPS;
+  const index = others.findIndex((member) => {
+    const memberCentre = member.placement.xMm + member.device.width_mm / 2;
+    return movingLeft ? centre <= memberCentre + EPS : centre < memberCentre - EPS;
+  });
   const order = others.map((member) => member.device);
   order.splice(index === -1 ? order.length : index, 0, device);
   return packed(order, target.railIndex, spanStart);

@@ -715,38 +715,38 @@ plus the existing render. Carry-over adds one `validateLayout` per circuit save 
 
 #### Automated
 
-- [x] 2.1 The migration applies cleanly on a fresh stack: `npx supabase db reset`
-- [x] 2.2 Types are regenerated and committed: `npm run db:types`, then `git diff --exit-code` after a second run
-- [x] 2.3 Unit tests pass: `npm run test:unit`
-- [x] 2.4 RLS/RPC integration tests pass: `npm run test:integration`
-- [x] 2.5 Type checking passes: `npx astro check`
-- [x] 2.6 Linting passes: `npm run lint`
-- [x] 2.7 Build succeeds: `npm run build`
+- [x] 2.1 The migration applies cleanly on a fresh stack: `npx supabase db reset` — eb552fa
+- [x] 2.2 Types are regenerated and committed: `npm run db:types`, then `git diff --exit-code` after a second run — eb552fa
+- [x] 2.3 Unit tests pass: `npm run test:unit` — eb552fa
+- [x] 2.4 RLS/RPC integration tests pass: `npm run test:integration` — eb552fa
+- [x] 2.5 Type checking passes: `npx astro check` — eb552fa
+- [x] 2.6 Linting passes: `npm run lint` — eb552fa
+- [x] 2.7 Build succeeds: `npm run build` — eb552fa
 
 #### Manual
 
-- [x] 2.8 A scripted POST to `/api/projects/[id]/placements` with an overlapping set redirects with `layout_invalid` and stores nothing
-- [x] 2.9 On a project with a manual layout, renaming a circuit keeps the layout and the badge; adding a circuit shows the reset notice and a fresh proposal
+- [x] 2.8 A scripted POST to `/api/projects/[id]/placements` with an overlapping set redirects with `layout_invalid` and stores nothing — eb552fa
+- [x] 2.9 On a project with a manual layout, renaming a circuit keeps the layout and the badge; adding a circuit shows the reset notice and a fresh proposal — eb552fa
 
 ### Phase 3: Editor island
 
 #### Automated
 
-- [ ] 3.1 Unit tests pass: `npm run test:unit`
-- [ ] 3.2 Type checking passes: `npx astro check`
-- [ ] 3.3 Linting passes: `npm run lint`
-- [ ] 3.4 Build succeeds: `npm run build`
-- [ ] 3.5 No palette classes, hex values or `rgba()` in the new components: a grep over `src/components/projects/LayoutEditor.tsx` and `WireLengthsTable.tsx`
+- [x] 3.1 Unit tests pass: `npm run test:unit`
+- [x] 3.2 Type checking passes: `npx astro check`
+- [x] 3.3 Linting passes: `npm run lint`
+- [x] 3.4 Build succeeds: `npm run build`
+- [x] 3.5 No palette classes, hex values or `rgba()` in the new components: a grep over `src/components/projects/LayoutEditor.tsx` and `WireLengthsTable.tsx`
 
 #### Manual
 
-- [ ] 3.6 On each starter cabinet: drag a group to another rail, reorder an MCB inside its group, move the main switch, save. The reload shows the wires re-routed, the lengths updated and the badge
-- [ ] 3.7 A drop onto another device, a bar, or outside the group snaps back with a Polish reason
-- [ ] 3.8 Keyboard only: pick up, move across rails, an invalid drop is announced, Escape restores, a valid drop saves
-- [ ] 3.9 Undo/redo and Anuluj restore exact positions; leaving the page with a dirty draft prompts
-- [ ] 3.10 "Zaproponuj układ od nowa" asks first, then replaces the layout and clears the badge
-- [ ] 3.11 Before hydration (throttled network) the static wired drawing is visible
-- [ ] 3.12 Kitchen sink shows every new editor state
+- [x] 3.6 On each starter cabinet: drag a group to another rail, reorder an MCB inside its group, move the main switch, save. The reload shows the wires re-routed, the lengths updated and the badge
+- [x] 3.7 A drop onto another device, a bar, or outside the group snaps back with a Polish reason
+- [x] 3.8 Keyboard only: pick up, move across rails, an invalid drop is announced, Escape restores, a valid drop saves
+- [x] 3.9 Undo/redo and Anuluj restore exact positions; leaving the page with a dirty draft prompts
+- [x] 3.10 "Zaproponuj układ od nowa" asks first, then replaces the layout and clears the badge
+- [x] 3.11 Before hydration (throttled network) the static wired drawing is visible
+- [x] 3.12 Kitchen sink shows every new editor state
 
 ### Phase 4: Docs and roadmap
 
