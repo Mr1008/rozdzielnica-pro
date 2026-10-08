@@ -34,6 +34,47 @@ export type Database = {
   }
   public: {
     Tables: {
+      business_profiles: {
+        Row: {
+          address: string | null
+          company_name: string | null
+          created_at: string
+          email: string | null
+          nip: string | null
+          phone: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          address?: string | null
+          company_name?: string | null
+          created_at?: string
+          email?: string | null
+          nip?: string | null
+          phone?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          address?: string | null
+          company_name?: string | null
+          created_at?: string
+          email?: string | null
+          nip?: string | null
+          phone?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_profiles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cabinets: {
         Row: {
           archived_at: string | null
