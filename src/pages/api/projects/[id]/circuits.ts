@@ -2,8 +2,8 @@ import type { APIRoute } from "astro";
 import { isUuid } from "@/lib/catalog";
 import { CIRCUIT_FORM_FIELDS, parseCircuitsPayload } from "@/lib/circuit-params";
 import { matchDevices } from "@/lib/device-matching";
-import { cabinetBarKinds, circuitsRpcErrorCode, saveCircuitsArgs } from "@/lib/device-matching-server";
-import { chooseSelectionLayout, loadLayoutContext } from "@/lib/layout-server";
+import { cabinetBarKinds, circuitsRpcErrorCode, loadMatchBase, saveCircuitsArgs } from "@/lib/device-matching-server";
+import { chooseSelectionLayout, loadPreviousLayout } from "@/lib/layout-server";
 import { projectFormErrorPath, projectPath, projectsErrorPath } from "@/lib/project";
 import { PROJECT_ERROR } from "@/lib/project-errors";
 import { SIGN_IN_PATH } from "@/lib/route-access";
@@ -53,10 +53,11 @@ export const POST: APIRoute = async (context) => {
   if (!supabase) return back(PROJECT_ERROR.notConfigured);
 
   // The match runs on the submitted groups and circuits. The stored snapshot and placements are read
-  // here, before the RPC deletes them, only so a manual layout can be carried over.
-  const loaded = await loadLayoutContext(supabase, id);
-  if (!loaded.ok) return loaded.code === "not_found" ? notFound() : back(PROJECT_ERROR.unknown);
-  const { supply, geometry, catalog, snapshot } = loaded.context;
+  // here, before the RPC deletes them, only so a manual layout can be carried over — and never block
+  // the save: the stored groups and circuits are not re-parsed, since this save replaces them.
+  const [base, previous] = await Promise.all([loadMatchBase(supabase, id), loadPreviousLayout(supabase, id)]);
+  if (!base.ok) return base.code === "not_found" ? notFound() : back(PROJECT_ERROR.unknown);
+  const { supply, geometry, catalog } = base.base;
 
   const result = matchDevices(
     {
@@ -70,13 +71,7 @@ export const POST: APIRoute = async (context) => {
 
   // The layout is carried over or proposed on the same match and stored in the same RPC; one that
   // does not fit stores the devices with no placements, and the page reports it.
-  const choice = chooseSelectionLayout(
-    { snapshot, placements: loaded.placements, editedManually: loaded.editedManually },
-    result,
-    catalog,
-    parsed.value,
-    geometry,
-  );
+  const choice = chooseSelectionLayout(previous, result, catalog, parsed.value, geometry);
   const { error } = await supabase.rpc(
     "save_project_circuits",
     saveCircuitsArgs(id, parsed.value, result, choice.layout, choice.editedManually),

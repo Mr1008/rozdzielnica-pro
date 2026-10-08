@@ -303,3 +303,61 @@ export async function loadLayoutContext(
     editedManually: placements.data.some((row) => row.edited_manually),
   };
 }
+
+/** The stored layout a circuit save may carry over (`chooseSelectionLayout`'s `previous`). */
+export interface PreviousLayout {
+  snapshot: LayoutDevice[];
+  placements: Placement[];
+  editedManually: boolean;
+}
+
+interface Read<T> {
+  data: T[] | null;
+  error: { code?: string | null } | null;
+}
+
+/**
+ * The previous layout from its two reads, never failing: carry-over is optional, so a read error must
+ * not block the circuit save. A failed placements read means no manual layout is known — a fresh
+ * proposal, as for a proposed layout. A failed snapshot read keeps the marker with no devices, so
+ * `carryOverPlacements` refuses and the redirect still tells the electrician (`layout_reset=1`).
+ */
+export function previousLayoutFromReads(snapshot: Read<LayoutDevice>, placements: Read<PlacementRow>): PreviousLayout {
+  if (placements.error !== null || placements.data === null) {
+    return { snapshot: [], placements: [], editedManually: false };
+  }
+  return {
+    snapshot: snapshot.error === null ? (snapshot.data ?? []) : [],
+    placements: placementsFromRows(placements.data),
+    editedManually: placements.data.some((row) => row.edited_manually),
+  };
+}
+
+/**
+ * The stored snapshot and placements, for the circuit save's carry-over. Unlike `loadLayoutContext` it
+ * never re-parses the stored groups and circuits — the save replaces them — so stored data that no
+ * longer parses cannot block the save that would overwrite it. Errors are logged by code only.
+ */
+export async function loadPreviousLayout(
+  supabase: SupabaseClient<Database>,
+  projectId: string,
+): Promise<PreviousLayout> {
+  const [snapshot, placements] = await Promise.all([
+    supabase.from("project_devices").select("*").eq("project_id", projectId).order("position"),
+    supabase
+      .from("project_device_placements")
+      .select("project_device_id, rail_index, x_mm, edited_manually")
+      .eq("project_id", projectId),
+  ]);
+  for (const [what, error] of [
+    ["project_devices", snapshot.error],
+    ["project_device_placements", placements.error],
+  ] as const) {
+    if (error !== null) {
+      // Only the SQLSTATE / PostgREST code — never Supabase's message text.
+      // eslint-disable-next-line no-console
+      console.error(`previous layout load failed: ${what}`, error.code);
+    }
+  }
+  return previousLayoutFromReads(snapshot, placements);
+}

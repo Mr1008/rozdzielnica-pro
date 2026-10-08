@@ -197,7 +197,7 @@ export default function LayoutEditor({
 
   const context = useMemo<EditContext>(() => ({ devices, geometry, groups }), [devices, geometry, groups]);
   const saved = useMemo(() => normalised(placements, devices), [placements, devices]);
-  const units = useMemo(() => editUnits(devices, groups), [devices, groups]);
+  const units = useMemo(() => editUnits(devices, groups, geometry), [devices, groups, geometry]);
   const unitByDevice = useMemo(
     () => new Map(units.flatMap((unit) => (unit.kind === "device" ? [[unit.deviceId, unit] as const] : []))),
     [units],
@@ -776,6 +776,8 @@ export default function LayoutEditor({
           action={reproposeAction}
           onSubmit={() => {
             leaving.current = true;
+            // Re-proposing discards the manual draft, so a failed re-propose must not bring it back.
+            clearStoredDraft(draftKey);
           }}
         />
 

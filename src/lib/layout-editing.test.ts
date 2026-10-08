@@ -125,6 +125,13 @@ describe("editUnits", () => {
   it("skips an empty group", () => {
     expect(editUnits(DEVICES, [...GROUPS, { id: "G3" }]).filter((unit) => unit.kind === "block")).toHaveLength(2);
   });
+
+  it("gives no block to a group wider than every rail (impl review F3)", () => {
+    const g1Width = DEVICES.filter((device) => device.rcd_group_id === "G1").reduce((sum, d) => sum + d.width_mm, 0);
+    const rail = { xMm: 0, yMm: 0, lengthMm: g1Width - 1 };
+    const blocks = editUnits(DEVICES, GROUPS, { rails: [rail, rail] }).filter((unit) => unit.kind === "block");
+    expect(blocks).toEqual([{ kind: "block", groupId: "G2", deviceIds: ["G2-rcbo"] }]);
+  });
 });
 
 // ---------------------------------------------------------------------------------------------

@@ -17,6 +17,8 @@ import { DIN_MODULE_MM } from "@/lib/din-module";
  * `validateLayout`, the same validator that guards the proposal and every render. A draft that
  * started valid therefore stays valid, and a refused move never changes it. Rule 1 is not relaxed:
  * a group's devices may only reorder inside the group, and a whole group moves as one packed block.
+ * A group wider than every rail (rule 1's continuation across rails) has no block unit: one packed
+ * block would never fit a rail, so it is edited device by device.
  *
  * The 0.5 TE grid (`snapX`) is an editor affordance only — the proposal itself places devices off it
  * when it fills from a rail end, so nothing here or on the server enforces it.
@@ -81,9 +83,15 @@ function leadFirst(devices: readonly LayoutDevice[]): LayoutDevice[] {
 /**
  * The movable units: one `block` per non-empty RCD group (stored group order, then any group id the
  * list lacks, in snapshot order; RCD / RCBO first), then one `device` unit per device in snapshot
- * order.
+ * order. With `geometry`, a group wider than every rail gets no block: packed onto one rail it would
+ * always be refused, so its handle would do nothing.
  */
-export function editUnits(devices: readonly LayoutDevice[], groups: readonly Pick<LayoutGroup, "id">[]): EditUnit[] {
+export function editUnits(
+  devices: readonly LayoutDevice[],
+  groups: readonly Pick<LayoutGroup, "id">[],
+  geometry?: Pick<CabinetGeometry, "rails">,
+): EditUnit[] {
+  const maxRailMm = geometry === undefined ? Infinity : Math.max(...geometry.rails.map((rail) => rail.lengthMm));
   const sorted = [...devices].sort((a, b) => a.position - b.position);
   const groupIds = groups.map((group) => group.id);
   for (const device of sorted) {
@@ -93,6 +101,7 @@ export function editUnits(devices: readonly LayoutDevice[], groups: readonly Pic
   const blocks: EditUnit[] = groupIds.flatMap((groupId) => {
     const members = sorted.filter((device) => groupOf(device) === groupId);
     if (members.length === 0) return [];
+    if (members.reduce((sum, device) => sum + device.width_mm, 0) > maxRailMm + EPS) return [];
     return [{ kind: "block" as const, groupId, deviceIds: leadFirst(members).map((device) => device.id) }];
   });
   const singles: EditUnit[] = sorted.map((device) => ({

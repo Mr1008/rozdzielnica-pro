@@ -42,6 +42,12 @@ export const POST: APIRoute = async (context) => {
   // The route gate already refuses an anonymous request.
   if (!context.locals.user) return context.redirect(SIGN_IN_PATH);
 
+  // A body that is not form data parses as an empty form, and so as `invalid_input`: the island
+  // submits only drafts it built, so a rejection here means a tampered or scripted POST.
+  const form = await context.request.formData().catch(() => new FormData());
+  const parsed = parsePlacementsPayload(readPayload(form));
+  if (!parsed.ok) return back(PROJECT_ERROR.invalidInput);
+
   const supabase = createClient(context.request.headers, context.cookies);
   if (!supabase) return back(PROJECT_ERROR.notConfigured);
 
@@ -52,12 +58,6 @@ export const POST: APIRoute = async (context) => {
   if (computeMatchView(match).state !== "current") return back(PROJECT_ERROR.layoutMatchNotCurrent);
   // Unreachable: only the cabinet trigger writes the snapshot, from a parsed geometry.
   if (match.geometry === null) return back(PROJECT_ERROR.unknown);
-
-  // A body that is not form data parses as an empty form, and so as `invalid_input`: the island
-  // submits only drafts it built, so a rejection here means a tampered or scripted POST.
-  const form = await context.request.formData().catch(() => new FormData());
-  const parsed = parsePlacementsPayload(readPayload(form));
-  if (!parsed.ok) return back(PROJECT_ERROR.invalidInput);
 
   // Coverage, rails, overlaps, bars and group contiguity — the same check as every render.
   if (validateLayout(match.snapshot, parsed.placements, match.geometry, match.groups).length > 0) {

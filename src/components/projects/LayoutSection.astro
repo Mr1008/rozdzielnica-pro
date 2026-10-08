@@ -50,6 +50,8 @@ interface Props {
   editorId?: string;
   /** What the editor's draft key is scoped by instead of the project id (the kitchen sink has several). */
   draftScope?: string;
+  /** Replaces every form action in the panel; the kitchen sink passes `"#"` so nothing posts for real. */
+  formAction?: string;
 }
 
 const {
@@ -65,7 +67,10 @@ const {
   restoreDraft = false,
   editorId = "layout-editor",
   draftScope,
+  formAction,
 } = Astro.props;
+const layoutAction = formAction ?? projectLayoutApiPath(projectId);
+const placementsAction = formAction ?? projectPlacementsApiPath(projectId);
 const s = t.layout.section;
 const slackPercent = Math.round(WIRE_SLACK_RATIO * 100);
 ---
@@ -89,7 +94,7 @@ const slackPercent = Math.round(WIRE_SLACK_RATIO * 100);
       <AlertTitle>{s.missingTitle}</AlertTitle>
       <AlertDescription className="flex flex-col items-start gap-3">
         <span>{s.missing}</span>
-        <form method="POST" action={projectLayoutApiPath(projectId)}>
+        <form method="POST" action={layoutAction}>
           <Button type="submit" size="sm">
             {s.propose}
           </Button>
@@ -104,7 +109,7 @@ const slackPercent = Math.round(WIRE_SLACK_RATIO * 100);
       <AlertTitle>{s.outdatedTitle}</AlertTitle>
       <AlertDescription className="flex flex-col items-start gap-3">
         <span>{s.outdated}</span>
-        <form method="POST" action={projectLayoutApiPath(projectId)}>
+        <form method="POST" action={layoutAction}>
           <Button type="submit" size="sm">
             {s.proposeAgain}
           </Button>
@@ -137,8 +142,8 @@ const slackPercent = Math.round(WIRE_SLACK_RATIO * 100);
             cables={[...cables]}
             lengths={[...lengths]}
             slackPercent={slackPercent}
-            saveAction={projectPlacementsApiPath(projectId)}
-            reproposeAction={projectLayoutApiPath(projectId)}
+            saveAction={placementsAction}
+            reproposeAction={layoutAction}
             draftKey={`layout-draft:${draftScope ?? projectId}`}
             restoreDraft={restoreDraft}
             initialDraft={editor.initialDraft}

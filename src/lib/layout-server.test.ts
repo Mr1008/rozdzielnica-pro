@@ -20,6 +20,7 @@ import {
   computeWiring,
   layoutRpcErrorCode,
   placementsFromRows,
+  previousLayoutFromReads,
   proposeSelectionLayout,
   saveLayoutArgs,
 } from "./layout-server";
@@ -558,5 +559,46 @@ describe("render path CPU budget", () => {
     );
     // Generous on purpose so a slow CI runner never flakes; the recorded median is the real signal.
     expect(median).toBeLessThan(100);
+  });
+});
+
+describe("previousLayoutFromReads (circuit save carry-over input, review F1)", () => {
+  const device = {
+    id: "d1",
+    position: 0,
+    role: "mcb",
+    rcd_group_id: null,
+    circuit_id: "c1",
+    kind: "mcb_b",
+    width_mm: 17.5,
+    height_mm: 85,
+    poles: "1P",
+    n_terminal_side: null,
+  } as const;
+  const row = { project_device_id: "d1", rail_index: 0, x_mm: 8.75, edited_manually: true };
+  const failed = { data: null, error: { code: "PGRST000" } };
+
+  it("returns the stored snapshot, placements and marker when both reads succeed", () => {
+    expect(previousLayoutFromReads({ data: [device], error: null }, { data: [row], error: null })).toEqual({
+      snapshot: [device],
+      placements: [{ projectDeviceId: "d1", railIndex: 0, xMm: 8.75 }],
+      editedManually: true,
+    });
+  });
+
+  it("knows no manual layout when the placements read fails, so nothing blocks the save", () => {
+    expect(previousLayoutFromReads({ data: [device], error: null }, failed)).toEqual({
+      snapshot: [],
+      placements: [],
+      editedManually: false,
+    });
+  });
+
+  it("keeps the marker with no devices when only the snapshot read fails, so the save reports a reset", () => {
+    expect(previousLayoutFromReads(failed, { data: [row], error: null })).toEqual({
+      snapshot: [],
+      placements: [{ projectDeviceId: "d1", railIndex: 0, xMm: 8.75 }],
+      editedManually: true,
+    });
   });
 });
