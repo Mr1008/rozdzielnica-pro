@@ -752,9 +752,9 @@ plus the existing render. Carry-over adds one `validateLayout` per circuit save 
 
 #### Automated
 
-- [x] 4.1 Linting passes (Prettier on markdown runs via lint-staged): `npm run lint`
-- [ ] 4.2 The roadmap sync plan shows no unexpected changes: `node scripts/roadmap-to-github.mjs`
+- [x] 4.1 Linting passes (Prettier on markdown runs via lint-staged): `npm run lint` — f8e6a1e
+- [x] 4.2 The roadmap sync plan shows no unexpected changes: `node scripts/roadmap-to-github.mjs` — 5465e06
 
 #### Manual
 
-- [ ] 4.3 The GitHub issue #7 and S-09 issue bodies match the roadmap after `--apply`
+- [x] 4.3 The GitHub issue #7 and S-09 issue bodies match the roadmap after `--apply` — 5465e06
