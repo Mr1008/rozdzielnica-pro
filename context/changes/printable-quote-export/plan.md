@@ -697,27 +697,27 @@ One new table, additive and backward-compatible with the deployed code. No data 
 
 #### Automated
 
-- [x] 1.1 Migration applies on a fresh stack: `npx supabase db reset`
-- [x] 1.2 Regenerated types are committed and `git diff` shows only the new table: `npm run db:types`
-- [x] 1.3 Parser tests pass: `npx vitest run --config vitest.config.ts src/lib/business-profile.test.ts`
-- [x] 1.4 RLS test passes against the local stack: `npm run test:integration`
-- [x] 1.5 `npm run lint`, `npx astro check` and `npm run test:unit` pass
+- [x] 1.1 Migration applies on a fresh stack: `npx supabase db reset` — 250583b
+- [x] 1.2 Regenerated types are committed and `git diff` shows only the new table: `npm run db:types` — 250583b
+- [x] 1.3 Parser tests pass: `npx vitest run --config vitest.config.ts src/lib/business-profile.test.ts` — 250583b
+- [x] 1.4 RLS test passes against the local stack: `npm run test:integration` — 250583b
+- [x] 1.5 `npm run lint`, `npx astro check` and `npm run test:unit` pass — 250583b
 
 #### Manual
 
-- [x] 1.6 In local Studio, an admin session cannot select `business_profiles` rows
+- [x] 1.6 In local Studio, an admin session cannot select `business_profiles` rows — 250583b
 
 ### Phase 2: Company details — profile form
 
 #### Automated
 
-- [ ] 2.1 Error-mapping tests pass: `npx vitest run --config vitest.config.ts src/lib/business-errors.test.ts`
-- [ ] 2.2 `npm run lint`, `npx astro check`, `npm run test:unit` and `npm run build` pass
+- [x] 2.1 Error-mapping tests pass: `npx vitest run --config vitest.config.ts src/lib/business-errors.test.ts`
+- [x] 2.2 `npm run lint`, `npx astro check`, `npm run test:unit` and `npm run build` pass
 
 #### Manual
 
-- [ ] 2.3 Company details save, pre-fill, clear to nulls; a bad NIP errors on this card only; the pricing card still saves independently
-- [ ] 2.4 The kitchen sink shows the three card states
+- [x] 2.3 Company details save, pre-fill, clear to nulls; a bad NIP errors on this card only; the pricing card still saves independently
+- [x] 2.4 The kitchen sink shows the three card states
 
 ### Phase 3: Print view model
 

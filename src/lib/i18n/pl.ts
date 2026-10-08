@@ -518,6 +518,38 @@ export const pl = {
     unknown: "Coś poszło nie tak. Spróbuj ponownie",
   },
 
+  /** The profile page's "Dane firmy do wyceny" card (S-09). See `src/components/forms/BusinessProfileCard.astro`. */
+  businessProfile: {
+    title: "Dane firmy do wyceny",
+    description:
+      "Te dane pojawią się w nagłówku wydrukowanej wyceny. Wszystkie pola są opcjonalne — puste pola zostaną pominięte.",
+    companyNameLabel: "Nazwa firmy",
+    companyNamePlaceholder: "np. Instalacje Elektryczne Jan Kowalski",
+    nipLabel: "NIP",
+    nipHint: "10 cyfr, z kreskami lub bez",
+    nipPlaceholder: "np. 123-456-32-18",
+    addressLabel: "Adres",
+    addressHint: "Ulica, kod pocztowy i miejscowość — w kilku wierszach, jeśli chcesz.",
+    phoneLabel: "Telefon",
+    phonePlaceholder: "np. +48 600 100 200",
+    emailLabel: "Adres email",
+    emailPlaceholder: "np. biuro@przyklad.pl",
+    save: "Zapisz dane firmy",
+    saved: "Dane firmy zostały zapisane.",
+    loadFailed: "Nie udało się wczytać danych firmy. Spróbuj ponownie",
+  },
+
+  /**
+   * Keyed by the `?businessError=` code the company-details endpoint redirects with. See
+   * `businessErrorMessage` in `src/lib/business-errors.ts` for the mapping.
+   */
+  businessErrors: {
+    notConfigured: "Dane firmy są chwilowo niedostępne — baza danych nie jest skonfigurowana",
+    forbidden: "Nie masz uprawnień do zmiany danych firmy",
+    invalidInput: "Formularz zawiera nieprawidłowe dane — sprawdź NIP, telefon i adres email",
+    unknown: "Coś poszło nie tak. Spróbuj ponownie",
+  },
+
   /** The project page's "Wycena" section (S-08). See `src/components/projects/QuoteSection.astro`. */
   quote: {
     section: "Wycena",
@@ -1186,6 +1218,7 @@ export const pl = {
         circuits: "Obwody i dobór aparatów",
         layout: "Układ w szafce",
         quote: "Wycena",
+        businessProfile: "Dane firmy do wyceny",
         brand: "Marka",
       },
       tokenGroups: {
@@ -1304,6 +1337,12 @@ export const pl = {
       matchResultTitle: "Wynik doboru aparatów",
       layoutTitle: "Sekcja „Układ w szafce”",
       editorDrawingsTitle: "Rysunek edytora: stany interakcji",
+      businessProfileTitle: "Karta „Dane firmy do wyceny”",
+      businessProfileStates: {
+        empty: "Pusta — firma jeszcze nie uzupełniona",
+        filled: "Wypełniona i zapisana (z komunikatem o zapisie)",
+        invalid: "Nieprawidłowy NIP — komunikat o błędzie tylko na tej karcie",
+      },
       quoteTitle: "Sekcja „Wycena”",
       /** Captions for the quote section states; each is computed by the real `computeQuoteView`. */
       quoteStates: {

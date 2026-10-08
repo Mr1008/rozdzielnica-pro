@@ -5,6 +5,7 @@ import DraftingSheet from "@/components/brand/DraftingSheet.astro";
 import Logo from "@/components/brand/Logo.astro";
 import { CabinetDrawing } from "@/components/cabinets/CabinetDrawing";
 import CircuitEditor from "@/components/circuits/CircuitEditor";
+import BusinessProfileCard from "@/components/forms/BusinessProfileCard.astro";
 import { ToggleField } from "@/components/forms/fields";
 import LayoutSection from "@/components/projects/LayoutSection.astro";
 import MatchResult from "@/components/projects/MatchResult.astro";
@@ -17,6 +18,8 @@ import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import Layout from "@/layouts/Layout.astro";
+import { businessErrorMessage } from "@/lib/business-errors";
+import { businessFormDefaults } from "@/lib/business-profile";
 import { DEMO_CABINET_GEOMETRY } from "@/lib/demo-cabinet";
 import { fieldControlProps, fieldErrorId, fieldHintId } from "@/lib/field-a11y";
 import { deviceKindLabel, N_TERMINAL_SIDES, type NTerminalSide } from "@/lib/device-spec";
@@ -225,6 +228,31 @@ const editorDrawings = enabled ? kitchenSinkEditorDrawings(layoutStates) : [];
 const circuitsAnchor = "ks-circuits";
 const layoutAnchor = "ks-layout";
 const quoteAnchor = "ks-quote";
+
+const businessFilled = businessFormDefaults({
+  company_name: "Instalacje Elektryczne Jan Kowalski",
+  nip: "1234563218",
+  address: "ul. Przykładowa 12\n00-001 Warszawa",
+  phone: "+48 600 100 200",
+  email: "biuro@przyklad.pl",
+});
+const businessCards = [
+  {
+    key: "empty",
+    caption: k.businessProfileStates.empty,
+    defaults: businessFormDefaults(null),
+    error: null,
+    saved: false,
+  },
+  { key: "filled", caption: k.businessProfileStates.filled, defaults: businessFilled, error: null, saved: true },
+  {
+    key: "invalid",
+    caption: k.businessProfileStates.invalid,
+    defaults: { ...businessFilled, nip: "1234563219" },
+    error: businessErrorMessage("invalid_input"),
+    saved: false,
+  },
+];
 
 const sectionClass = "flex flex-col gap-4";
 const sectionTitleClass = "text-xl font-semibold tracking-tight";
@@ -719,6 +747,26 @@ const subTitleClass = "text-sm font-medium text-muted-foreground";
                   />
                 </CardContent>
               </Card>
+            </figure>
+          ))}
+        </div>
+      </section>
+
+      <section class:list={sectionClass} aria-labelledby="ks-business">
+        <h2 id="ks-business" class:list={sectionTitleClass}>
+          {k.sections.businessProfile}
+        </h2>
+        <h3 class="text-lg font-semibold">{k.businessProfileTitle}</h3>
+        <div class="flex flex-col gap-6">
+          {businessCards.map((state) => (
+            <figure class="flex flex-col gap-2">
+              <figcaption class:list={subTitleClass}>{state.caption}</figcaption>
+              <BusinessProfileCard
+                defaults={state.defaults}
+                error={state.error}
+                saved={state.saved}
+                idPrefix={`ks-business-${state.key}`}
+              />
             </figure>
           ))}
         </div>
