@@ -1,0 +1,13 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  // THROWAWAY benchmark Worker. Never "rozdzielnica-pro": that name is the deployed production Worker.
+  "name": "rozdzielnica-pro-wiring-bench",
+  "main": "./worker.ts",
+  "compatibility_date": "2026-05-08",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "preview_urls": false,
+  "observability": {
+    "enabled": true,
+  },
+}
