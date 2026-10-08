@@ -18,6 +18,7 @@ import {
   projectFormErrorPath,
   projectLayoutApiPath,
   projectPlacementsApiPath,
+  projectQuoteApiPath,
   projectRematchApiPath,
   projectsErrorPath,
   projectSupplyApiPath,
@@ -62,6 +63,7 @@ describe("project paths", () => {
     expect(projectRematchApiPath("x")).toBe("/api/projects/x/rematch");
     expect(projectLayoutApiPath("x")).toBe("/api/projects/x/layout");
     expect(projectPlacementsApiPath("x")).toBe("/api/projects/x/placements");
+    expect(projectQuoteApiPath("x")).toBe("/api/projects/x/quote");
   });
 
   it("build the error redirects, encoding the code", () => {

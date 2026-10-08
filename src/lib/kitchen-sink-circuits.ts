@@ -22,6 +22,8 @@ import { activeCatalog, type DeviceSpecWithId, type Selection } from "@/lib/devi
 import { deviceKindLabel, type DeviceKind, type NTerminalSide } from "@/lib/device-spec";
 import { t } from "@/lib/i18n";
 import { computeLayoutView, computeWiring, type LayoutView } from "@/lib/layout-server";
+import type { PricingProfile } from "@/lib/pricing-profile";
+import { computeQuoteView, estimateLabourMinutes, type QuoteView } from "@/lib/quote";
 import type { SupplyParams } from "@/lib/supply-params";
 
 /**
@@ -551,5 +553,65 @@ export function kitchenSinkLayoutStates(): LayoutFixture[] {
     layoutFixture("does-not-fit", l.doesNotFit, GEOMETRY_TOO_SMALL, "none"),
     layoutFixture("outdated", l.outdated, SEED_B, "broken"),
     layoutFixture("not-current", l.notCurrent, SEED_B, "none", {}, snapshotFrom(staleSelections())),
+  ];
+}
+
+// ——— Quote states ———
+
+export interface QuoteFixture {
+  key: string;
+  caption: string;
+  view: QuoteView;
+  profile: PricingProfile | null;
+}
+
+const KS_PROFILE: PricingProfile = {
+  hourly_rate_grosze: 12_050,
+  mount_minutes_per_device: 15,
+  project_overhead_minutes: 90,
+};
+
+const KS_QUOTE_CABINET = { name: k.cabinet, priceGrosze: 24_999 };
+
+/** The labour time the override fixtures hold: 4 h 30 min. */
+const KS_OVERRIDE_MINUTES = 270;
+
+/**
+ * Every quote state, each from the real `computeQuoteView` over the match fixtures: a current match for
+ * the ready states, the stale snapshot for `not_current`, and a cabinet without built-in bars for the
+ * catalog-bar line. The outdated override is stored against an estimate one minute off.
+ */
+export function kitchenSinkQuoteStates(): QuoteFixture[] {
+  const s = t.devTools.kitchenSink.quoteStates;
+  const current = computeMatchView(context({ snapshot: snapshotFrom(freshSelections()) }));
+  const stale = computeMatchView(context({ snapshot: snapshotFrom(staleSelections()) }));
+  const noBarsContext = context({ geometry: GEOMETRY_WITHOUT_BARS });
+  const noBars = computeMatchView({ ...noBarsContext, snapshot: snapshotFrom(matchedSelections(noBarsContext)) });
+
+  const fixture = (
+    key: string,
+    caption: string,
+    matchView: MatchView,
+    profile: PricingProfile | null,
+    override: { minutes: number; baseMinutes: number } | null = null,
+  ): QuoteFixture => ({
+    key,
+    caption,
+    view: computeQuoteView({ matchView, cabinet: KS_QUOTE_CABINET, profile, override }),
+    profile,
+  });
+
+  const estimate = estimateLabourMinutes(current.snapshot.length, KS_PROFILE);
+  return [
+    fixture("no-profile", s.noProfile, current, null),
+    fixture("not-current", s.notCurrent, stale, KS_PROFILE),
+    fixture("ready", s.ready, current, KS_PROFILE),
+    fixture("override", s.override, current, KS_PROFILE, { minutes: KS_OVERRIDE_MINUTES, baseMinutes: estimate }),
+    fixture("outdated", s.outdated, current, KS_PROFILE, {
+      minutes: KS_OVERRIDE_MINUTES,
+      baseMinutes: estimate - 1,
+    }),
+    fixture("rate-warning", s.rateWarning, current, { ...KS_PROFILE, hourly_rate_grosze: 60_000 }),
+    fixture("catalog-bars", s.catalogBars, noBars, KS_PROFILE),
   ];
 }

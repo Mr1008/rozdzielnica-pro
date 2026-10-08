@@ -66,6 +66,11 @@ export function projectPlacementsApiPath(id: string): string {
   return `${projectApiPath(id)}/placements`;
 }
 
+/** Sets or clears the electrician's labour-time override on the quote. */
+export function projectQuoteApiPath(id: string): string {
+  return `${projectApiPath(id)}/quote`;
+}
+
 export const MAX_PROJECT_NAME_LENGTH = 200;
 export const MAX_CLIENT_NAME_LENGTH = 200;
 export const MAX_SITE_ADDRESS_LENGTH = 300;

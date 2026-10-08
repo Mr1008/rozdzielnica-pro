@@ -405,43 +405,43 @@ There are two nullable columns and no backfill. Old code ignores them, so the mi
 
 #### Automated
 
-- [x] 1.1 Unit tests pass: `npm run test:unit`
-- [x] 1.2 Lint passes: `npm run lint`
-- [x] 1.3 Type check passes: `npx astro check`
+- [x] 1.1 Unit tests pass: `npm run test:unit` — adb9ca4
+- [x] 1.2 Lint passes: `npm run lint` — adb9ca4
+- [x] 1.3 Type check passes: `npx astro check` — adb9ca4
 
 ### Phase 2: Override storage and endpoint
 
 #### Automated
 
-- [ ] 2.1 Migration applies cleanly: `npx supabase db reset`
-- [ ] 2.2 Types regenerated with no unrelated diff: `npm run db:types`
-- [ ] 2.3 Integration tests pass against the local stack: `npm run test:integration`
-- [ ] 2.4 Unit tests pass: `npm run test:unit`
-- [ ] 2.5 Lint and type check pass: `npm run lint && npx astro check`
+- [x] 2.1 Migration applies cleanly: `npx supabase db reset` — 5dc5092
+- [x] 2.2 Types regenerated with no unrelated diff: `npm run db:types` — 5dc5092
+- [x] 2.3 Integration tests pass against the local stack: `npm run test:integration` — 5dc5092
+- [x] 2.4 Unit tests pass: `npm run test:unit` — 5dc5092
+- [x] 2.5 Lint and type check pass: `npm run lint && npx astro check` — 5dc5092
 
 ### Phase 3: Quote section on the project page
 
 #### Automated
 
-- [ ] 3.1 Lint, type check, unit tests and build pass: `npm run lint && npx astro check && npm run test:unit && npm run build`
+- [x] 3.1 Lint, type check, unit tests and build pass: `npm run lint && npx astro check && npm run test:unit && npm run build` — 962ace1
 
 #### Manual
 
-- [ ] 3.2 `/dev/kitchen-sink` shows all seven quote states readably
-- [ ] 3.3 Section numbers match a hand calculation on a real project
-- [ ] 3.4 Override 4 h 30 min saves, persists after reload, and restores to the estimate
-- [ ] 3.5 Override then re-match with an extra circuit shows the outdated warning
-- [ ] 3.6 Missing profile and stale match each block the section without numbers
-- [ ] 3.7 A rate of 600 zł/h warns on the quote and profile pages
-- [ ] 3.8 Out-of-range and forged override input is refused
-- [ ] 3.9 A second electrician cannot post to another's quote endpoint
+- [x] 3.2 `/dev/kitchen-sink` shows all seven quote states readably — 962ace1
+- [x] 3.3 Section numbers match a hand calculation on a real project — 962ace1
+- [x] 3.4 Override 4 h 30 min saves, persists after reload, and restores to the estimate — 962ace1
+- [x] 3.5 Override then re-match with an extra circuit shows the outdated warning — 962ace1
+- [x] 3.6 Missing profile and stale match each block the section without numbers — 962ace1
+- [x] 3.7 A rate of 600 zł/h warns on the quote and profile pages — 962ace1
+- [x] 3.8 Out-of-range and forged override input is refused — 962ace1
+- [x] 3.9 A second electrician cannot post to another's quote endpoint — 962ace1
 
 ### Phase 4: Docs and contracts
 
 #### Automated
 
-- [ ] 4.1 Formatting passes: `npm run lint && npx prettier --check AGENTS.md README.md`
+- [x] 4.1 Formatting passes: `npm run lint && npx prettier --check AGENTS.md README.md` — a730936
 
 #### Manual
 
-- [ ] 4.2 The AGENTS.md tripwire reads correctly next to the existing "guarded twice" entries
+- [x] 4.2 The AGENTS.md tripwire reads correctly next to the existing "guarded twice" entries — a730936

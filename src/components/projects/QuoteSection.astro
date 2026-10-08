@@ -1,0 +1,276 @@
+---
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Field, FieldLabel } from "@/components/ui/field";
+import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from "@/components/ui/input-group";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { formatMoney, t } from "@/lib/i18n";
+import { projectQuoteApiPath } from "@/lib/project";
+import { PRICING_PROFILE_PATH, type PricingProfile } from "@/lib/pricing-profile";
+import {
+  MAX_LABOUR_OVERRIDE_HOURS,
+  QUOTE_FIELDS,
+  RATE_WARNING_THRESHOLD_GROSZE,
+  splitMinutes,
+  type QuoteView,
+} from "@/lib/quote";
+import { cn } from "@/lib/utils";
+import { InfoIcon, TriangleAlertIcon } from "lucide-react";
+
+/**
+ * The "Wycena" panel of the project page (FR-011, FR-013): one message per blocked state, and for a
+ * ready quote the breakdown table and the time-override form. It does no arithmetic of its own — every
+ * amount and duration comes from `computeQuoteView`; this only formats. `profile` is read for the
+ * formula line only (mount minutes and overhead), and is non-null whenever the view is `ready`.
+ */
+interface Props {
+  view: QuoteView;
+  profile: Pick<PricingProfile, "mount_minutes_per_device" | "project_overhead_minutes"> | null;
+  projectId: string;
+  /** The in-page anchor of the match result's section, the link for a match that is not current. */
+  matchAnchor: string;
+  /** Prefix of the form's input ids, so several panels can share a page (the kitchen sink). */
+  idPrefix?: string;
+}
+
+const { view, profile, projectId, matchAnchor, idPrefix = "quote" } = Astro.props;
+const q = t.quote;
+const money = (grosze: number) => formatMoney(grosze / 100);
+const duration = (minutes: number) => {
+  const parts = splitMinutes(minutes);
+  return q.duration(parts.hours, parts.minutes);
+};
+
+const headClass = "h-9 text-xs font-medium text-muted-foreground";
+const cellClass = "py-2 align-top";
+const amountClass = "text-right font-mono whitespace-nowrap tabular-nums";
+const groupClass = "bg-muted/50 py-1.5 text-xs font-semibold text-muted-foreground";
+const totalClass = "border-t-2 font-semibold";
+const hoursId = `${idPrefix}-hours`;
+const minutesId = `${idPrefix}-minutes`;
+const defaults = view.state === "ready" ? splitMinutes(view.labourMinutes) : { hours: 0, minutes: 0 };
+---
+
+<div class="flex flex-col gap-6">
+  {view.state === "no_profile" && (
+    <Alert variant="warning" role="status">
+      <TriangleAlertIcon aria-hidden="true" />
+      <AlertDescription className="block">
+        {t.pricingProfile.notConfigured}{" "}
+        <a href={PRICING_PROFILE_PATH} class="font-semibold underline underline-offset-4">
+          {t.pricingProfile.notConfiguredLink}
+        </a>
+      </AlertDescription>
+    </Alert>
+  )}
+
+  {view.state === "not_current" && (
+    <Alert variant="info" role="status">
+      <InfoIcon aria-hidden="true" />
+      <AlertTitle>{q.notCurrentTitle}</AlertTitle>
+      <AlertDescription className="block">
+        {q.notCurrent}{" "}
+        <a href={`#${matchAnchor}`} class="font-semibold underline underline-offset-4">
+          {q.notCurrentLink}
+        </a>
+      </AlertDescription>
+    </Alert>
+  )}
+
+  {view.state === "ready" && (
+    <>
+      <div class="rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead scope="col" className={cn(headClass, "pl-4")}>
+                {q.columns.item}
+              </TableHead>
+              <TableHead scope="col" className={headClass}>
+                {q.columns.detail}
+              </TableHead>
+              <TableHead scope="col" className={cn(headClass, "pr-4 text-right")}>
+                {q.columns.amount}
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow>
+              <TableCell colSpan={3} className={cn(groupClass, "px-4")}>
+                {q.groups.material}
+              </TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell className={cn(cellClass, "pl-4")}>{q.cabinet}</TableCell>
+              <TableCell className={cn(cellClass, "text-muted-foreground")}>{view.cabinet.name}</TableCell>
+              <TableCell className={cn(cellClass, amountClass, "pr-4")}>{money(view.cabinet.priceGrosze)}</TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell className={cn(cellClass, "pl-4")}>{q.devices}</TableCell>
+              <TableCell className={cn(cellClass, "text-muted-foreground")}>
+                {q.deviceCount(view.deviceCount)}
+              </TableCell>
+              <TableCell className={cn(cellClass, amountClass, "pr-4")}>{money(view.devicesGrosze)}</TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell className={cn(cellClass, "pl-4 font-semibold")}>{q.materialTotal}</TableCell>
+              <TableCell className={cellClass} />
+              <TableCell className={cn(cellClass, amountClass, "pr-4 font-semibold")}>
+                {money(view.materialGrosze)}
+              </TableCell>
+            </TableRow>
+
+            <TableRow>
+              <TableCell colSpan={3} className={cn(groupClass, "px-4")}>
+                {q.groups.labour}
+              </TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell className={cn(cellClass, "pl-4")}>{q.estimatedTime}</TableCell>
+              <TableCell className={cn(cellClass, "text-muted-foreground")}>
+                {profile && (
+                  <span class="font-mono tabular-nums">
+                    {q.formula(view.deviceCount, profile.mount_minutes_per_device, profile.project_overhead_minutes)}
+                  </span>
+                )}
+              </TableCell>
+              <TableCell className={cn(cellClass, amountClass, "pr-4")}>{duration(view.estimateMinutes)}</TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell className={cn(cellClass, "pl-4")}>{q.timeUsed}</TableCell>
+              <TableCell className={cellClass}>
+                <Badge variant={view.override === null ? "secondary" : view.override.outdated ? "warning" : "default"}>
+                  {view.override === null ? q.estimateMarker : q.overriddenMarker}
+                </Badge>
+              </TableCell>
+              <TableCell className={cn(cellClass, amountClass, "pr-4")}>{duration(view.labourMinutes)}</TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell className={cn(cellClass, "pl-4")}>{q.hourlyRate}</TableCell>
+              <TableCell className={cellClass} />
+              <TableCell className={cn(cellClass, amountClass, "pr-4")}>{q.perHour(money(view.rateGrosze))}</TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell className={cn(cellClass, "pl-4 font-semibold")}>{q.labourCost}</TableCell>
+              <TableCell className={cellClass} />
+              <TableCell className={cn(cellClass, amountClass, "pr-4 font-semibold")}>
+                {money(view.labourGrosze)}
+              </TableCell>
+            </TableRow>
+
+            <TableRow>
+              <TableCell className={cn(cellClass, totalClass, "pl-4")}>{q.total}</TableCell>
+              <TableCell className={cn(cellClass, totalClass)} />
+              <TableCell className={cn(cellClass, amountClass, totalClass, "pr-4")}>
+                {money(view.totalGrosze)}
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </div>
+
+      {view.override?.outdated && (
+        <Alert variant="warning" role="status">
+          <TriangleAlertIcon aria-hidden="true" />
+          <AlertTitle>{q.outdatedTitle}</AlertTitle>
+          <AlertDescription className="block">{q.outdated(duration(view.estimateMinutes))}</AlertDescription>
+        </Alert>
+      )}
+
+      {view.rateWarning && (
+        <Alert variant="warning" role="status">
+          <TriangleAlertIcon aria-hidden="true" />
+          <AlertDescription className="block">
+            <strong>{t.common.warningPrefix}</strong> {q.rateWarning(RATE_WARNING_THRESHOLD_GROSZE / 100)}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      <form
+        method="POST"
+        action={projectQuoteApiPath(projectId)}
+        class="flex flex-col gap-4"
+        data-quote-override
+        data-zero-total={q.override.zeroTotal}
+      >
+        <fieldset class="flex flex-col gap-3">
+          <legend class="mb-1 font-medium">{q.override.legend}</legend>
+          <p class="text-sm text-muted-foreground">{q.override.hint}</p>
+          <div class="grid max-w-md items-start gap-4 sm:grid-cols-2">
+            <Field>
+              <FieldLabel htmlFor={hoursId}>{q.override.hours}</FieldLabel>
+              <InputGroup>
+                <InputGroupInput
+                  id={hoursId}
+                  name={QUOTE_FIELDS.hours}
+                  type="number"
+                  inputMode="numeric"
+                  step="1"
+                  min={0}
+                  max={MAX_LABOUR_OVERRIDE_HOURS}
+                  required
+                  defaultValue={defaults.hours}
+                  className="font-mono"
+                />
+                <InputGroupAddon align="inline-end" aria-hidden="true">
+                  <InputGroupText className="font-mono">{q.override.hoursUnit}</InputGroupText>
+                </InputGroupAddon>
+              </InputGroup>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor={minutesId}>{q.override.minutes}</FieldLabel>
+              <InputGroup>
+                <InputGroupInput
+                  id={minutesId}
+                  name={QUOTE_FIELDS.minutes}
+                  type="number"
+                  inputMode="numeric"
+                  step="1"
+                  min={0}
+                  max={59}
+                  required
+                  defaultValue={defaults.minutes}
+                  className="font-mono"
+                />
+                <InputGroupAddon align="inline-end" aria-hidden="true">
+                  <InputGroupText className="font-mono">{q.override.minutesUnit}</InputGroupText>
+                </InputGroupAddon>
+              </InputGroup>
+            </Field>
+          </div>
+        </fieldset>
+        <div class="flex flex-wrap items-center gap-3">
+          <Button type="submit" name={QUOTE_FIELDS.intent} value="set">
+            {q.override.set}
+          </Button>
+          {view.override !== null && (
+            <Button type="submit" variant="outline" name={QUOTE_FIELDS.intent} value="clear" formNoValidate>
+              {q.override.clear}
+            </Button>
+          )}
+        </div>
+      </form>
+    </>
+  )}
+</div>
+
+<script>
+  import { QUOTE_FIELDS } from "@/lib/quote";
+
+  // Each field's min/max cannot express "the total is at least 1 minute", so 0 h 0 min would pass
+  // native validation and only be refused by the server. Mark the minutes field invalid instead;
+  // the "clear" button is `formNoValidate`, so restoring the estimate is never blocked.
+  for (const form of document.querySelectorAll<HTMLFormElement>("form[data-quote-override]")) {
+    const hours = form.elements.namedItem(QUOTE_FIELDS.hours);
+    const minutes = form.elements.namedItem(QUOTE_FIELDS.minutes);
+    if (!(hours instanceof HTMLInputElement) || !(minutes instanceof HTMLInputElement)) continue;
+    const check = () => {
+      const zero = hours.value !== "" && minutes.value !== "" && Number(hours.value) + Number(minutes.value) === 0;
+      minutes.setCustomValidity(zero ? (form.dataset.zeroTotal ?? "") : "");
+    };
+    hours.addEventListener("input", check);
+    minutes.addEventListener("input", check);
+    check();
+  }
+</script>

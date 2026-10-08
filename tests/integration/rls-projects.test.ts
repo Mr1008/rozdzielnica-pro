@@ -501,6 +501,115 @@ describe("row level security and the cabinet snapshot on public.projects", () =>
     });
   });
 
+  /**
+   * The database half of the override guard pair: the CHECKs mirror `MIN_LABOUR_OVERRIDE_MINUTES` /
+   * `MAX_LABOUR_OVERRIDE_MINUTES` in `src/lib/quote.ts`, at the parser tests' boundary values
+   * (1, 59 999, 60 000).
+   */
+  describe("the labour override", () => {
+    async function readOverride(projectId: string) {
+      const { data, error } = await service
+        .from("projects")
+        .select("labour_minutes_override, labour_override_base_minutes")
+        .eq("id", projectId)
+        .single();
+      if (error) throw new Error(`Could not read project ${projectId}: ${error.code}`);
+      return data;
+    }
+
+    it("is null on a new project", async () => {
+      const id = await insertProjectAsA(cabinetA);
+      expect(await readOverride(id)).toEqual({ labour_minutes_override: null, labour_override_base_minutes: null });
+    });
+
+    it("accepts both columns set at the bounds, a zero base, and clearing both", async () => {
+      const id = await insertProjectAsA(cabinetA);
+      for (const [minutes, base] of [
+        [1, 0],
+        [59_999, 255],
+        [270, 255],
+      ]) {
+        const { error } = await clientA
+          .from("projects")
+          .update({ labour_minutes_override: minutes, labour_override_base_minutes: base })
+          .eq("id", id);
+        expect(error, `${String(minutes)}/${String(base)}`).toBeNull();
+        expect(await readOverride(id)).toEqual({
+          labour_minutes_override: minutes,
+          labour_override_base_minutes: base,
+        });
+      }
+
+      const { error } = await clientA
+        .from("projects")
+        .update({ labour_minutes_override: null, labour_override_base_minutes: null })
+        .eq("id", id);
+      expect(error).toBeNull();
+      expect(await readOverride(id)).toEqual({ labour_minutes_override: null, labour_override_base_minutes: null });
+    });
+
+    it("refuses only one of the two columns set with 23514", async () => {
+      const id = await insertProjectAsA(cabinetA);
+      const cases = [
+        { labour_minutes_override: 270 },
+        { labour_override_base_minutes: 255 },
+        { labour_minutes_override: 270, labour_override_base_minutes: null },
+        { labour_minutes_override: null, labour_override_base_minutes: 255 },
+      ];
+      for (const patch of cases) {
+        const { error } = await clientA.from("projects").update(patch).eq("id", id);
+        expect(error?.code, JSON.stringify(patch)).toBe("23514");
+      }
+      expect(await readOverride(id)).toEqual({ labour_minutes_override: null, labour_override_base_minutes: null });
+    });
+
+    it("refuses an override out of range or a negative base with 23514", async () => {
+      const id = await insertProjectAsA(cabinetA);
+      const cases = [
+        { labour_minutes_override: 0, labour_override_base_minutes: 255 },
+        { labour_minutes_override: 60_000, labour_override_base_minutes: 255 },
+        { labour_minutes_override: -1, labour_override_base_minutes: 255 },
+        { labour_minutes_override: 270, labour_override_base_minutes: -1 },
+      ];
+      for (const patch of cases) {
+        const { error } = await clientA.from("projects").update(patch).eq("id", id);
+        expect(error?.code, JSON.stringify(patch)).toBe("23514");
+      }
+      expect(await readOverride(id)).toEqual({ labour_minutes_override: null, labour_override_base_minutes: null });
+    });
+
+    it("lets another electrician update zero rows of A's override", async () => {
+      const id = await insertProjectAsA(cabinetA);
+      const set = await clientA
+        .from("projects")
+        .update({ labour_minutes_override: 270, labour_override_base_minutes: 255 })
+        .eq("id", id);
+      expect(set.error).toBeNull();
+
+      for (const patch of [
+        { labour_minutes_override: 1, labour_override_base_minutes: 0 },
+        { labour_minutes_override: null, labour_override_base_minutes: null },
+      ]) {
+        const { data, error } = await clientB.from("projects").update(patch).eq("id", id).select("id");
+        expect(error).toBeNull();
+        expect(data).toEqual([]);
+      }
+      expect(await readOverride(id)).toEqual({ labour_minutes_override: 270, labour_override_base_minutes: 255 });
+    });
+
+    it("lets the admin update zero rows of an electrician's override", async () => {
+      const id = await insertProjectAsA(cabinetA);
+      const { data, error } = await adminClient
+        .from("projects")
+        .update({ labour_minutes_override: 1, labour_override_base_minutes: 0 })
+        .eq("id", id)
+        .select("id");
+      expect(error).toBeNull();
+      expect(data).toEqual([]);
+      expect(await readOverride(id)).toEqual({ labour_minutes_override: null, labour_override_base_minutes: null });
+    });
+  });
+
   it("cascades projects away when their account is deleted", async () => {
     const doomed = await createElectrician(service, "projects-cascade");
     createdUserIds.push(doomed.id);

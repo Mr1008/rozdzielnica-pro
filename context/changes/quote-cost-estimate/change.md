@@ -1,9 +1,9 @@
 ---
 change_id: quote-cost-estimate
 title: Koszt materiału i robocizny z nadpisywanym czasem pracy
-status: implementing
+status: implemented
 created: 2026-10-07
-updated: 2026-10-07
+updated: 2026-10-08
 ---
 
 ## Notes
