@@ -44,20 +44,20 @@ Uwaga: pierwszeństwo reguł rozmieszczenia (Otwarte pytanie #2) zostało rozstr
 
 ## At a glance
 
-| ID   | Change ID                           | Outcome (elektryk / admin może …)                                                          | Prerequisites | PRD refs                             | Status      |
-| ---- | ----------------------------------- | ------------------------------------------------------------------------------------------ | ------------- | ------------------------------------ | ----------- |
-| F-01 | `roles-and-rls-baseline`            | (foundation) role `admin` / `elektryk` rozróżnialne, dane elektryka izolowane przez RLS    | —             | Access Control, NFR-izolacja         | done        |
-| S-01 | `admin-device-catalog`              | Admin prowadzi katalog aparatów z wymiarami, ceną i parametrami elektrycznymi              | F-01          | FR-001                               | done        |
-| S-02 | `admin-cabinet-catalog`             | Admin prowadzi katalog szafek z wymiarami i układem szyn                                   | F-01          | FR-002                               | done        |
-| S-03 | `project-setup-and-supply-params`   | Elektryk zakłada projekt, wybiera szafkę i opisuje przyłącze OSD/WLZ                       | F-01, S-02    | FR-003, FR-004, FR-005, US-01        | done        |
-| S-04 | `circuit-input-and-device-matching` | Elektryk podaje obwody i grupy RCD i dostaje dobrane aparaty (albo błąd o luce w katalogu) | S-01, S-03    | FR-006, FR-007, US-01                | done        |
-| S-05 | `cabinet-layout-proposal`           | Elektryk widzi zaproponowany układ aparatów w swojej szafce                                | S-02, S-04    | FR-008, US-01                        | done        |
-| S-06 | `manual-layout-editing`             | Elektryk poprawia zaproponowany układ przed wyceną                                         | S-05          | FR-009, US-01                        | in-progress |
-| S-07 | `electrician-pricing-profile`       | Elektryk ustawia w profilu stawkę, średni czas montażu i narzut na projekt                 | F-01          | FR-010                               | done        |
-| S-08 | `quote-cost-estimate`               | Elektryk widzi koszt materiału i robocizny i nadpisuje estymowany czas                     | S-04, S-07    | FR-011, FR-013, US-01                | done        |
-| S-09 | `printable-quote-export`            | Elektryk drukuje/eksportuje wycenę z wizualizacją układu szafki                            | S-06, S-08    | FR-012, US-01                        | proposed    |
-| S-10 | `ui-layout-theme`                   | Elektryk i admin pracują w spójnym, jasnym interfejsie „Arkusz techniczny" pod desktop     | S-03, S-07    | NFR (UI po polsku), FR-012 pośrednio | done        |
-| S-11 | `realistic-wiring-render`           | Elektryk widzi rysunek okablowania szafki wyglądający jak prawdziwa rozdzielnica           | S-09          | poza PRD (FR-012 pośrednio)          | proposed    |
+| ID   | Change ID                           | Outcome (elektryk / admin może …)                                                          | Prerequisites | PRD refs                             | Status   |
+| ---- | ----------------------------------- | ------------------------------------------------------------------------------------------ | ------------- | ------------------------------------ | -------- |
+| F-01 | `roles-and-rls-baseline`            | (foundation) role `admin` / `elektryk` rozróżnialne, dane elektryka izolowane przez RLS    | —             | Access Control, NFR-izolacja         | done     |
+| S-01 | `admin-device-catalog`              | Admin prowadzi katalog aparatów z wymiarami, ceną i parametrami elektrycznymi              | F-01          | FR-001                               | done     |
+| S-02 | `admin-cabinet-catalog`             | Admin prowadzi katalog szafek z wymiarami i układem szyn                                   | F-01          | FR-002                               | done     |
+| S-03 | `project-setup-and-supply-params`   | Elektryk zakłada projekt, wybiera szafkę i opisuje przyłącze OSD/WLZ                       | F-01, S-02    | FR-003, FR-004, FR-005, US-01        | done     |
+| S-04 | `circuit-input-and-device-matching` | Elektryk podaje obwody i grupy RCD i dostaje dobrane aparaty (albo błąd o luce w katalogu) | S-01, S-03    | FR-006, FR-007, US-01                | done     |
+| S-05 | `cabinet-layout-proposal`           | Elektryk widzi zaproponowany układ aparatów w swojej szafce                                | S-02, S-04    | FR-008, US-01                        | done     |
+| S-06 | `manual-layout-editing`             | Elektryk poprawia zaproponowany układ przed wyceną                                         | S-05          | FR-009, US-01                        | done     |
+| S-07 | `electrician-pricing-profile`       | Elektryk ustawia w profilu stawkę, średni czas montażu i narzut na projekt                 | F-01          | FR-010                               | done     |
+| S-08 | `quote-cost-estimate`               | Elektryk widzi koszt materiału i robocizny i nadpisuje estymowany czas                     | S-04, S-07    | FR-011, FR-013, US-01                | done     |
+| S-09 | `printable-quote-export`            | Elektryk drukuje/eksportuje wycenę z wizualizacją układu szafki                            | S-06, S-08    | FR-012, US-01                        | proposed |
+| S-10 | `ui-layout-theme`                   | Elektryk i admin pracują w spójnym, jasnym interfejsie „Arkusz techniczny" pod desktop     | S-03, S-07    | NFR (UI po polsku), FR-012 pośrednio | done     |
+| S-11 | `realistic-wiring-render`           | Elektryk widzi rysunek okablowania szafki wyglądający jak prawdziwa rozdzielnica           | S-09          | poza PRD (FR-012 pośrednio)          | proposed |
 
 ## Streams
 
@@ -181,7 +181,7 @@ Foundations poniżej zakładają, że to istnieje, i **nie** budują tego od now
 - **Blockers:** —
 - **Unknowns:** —
 - **Risk:** To bezpiecznik na niedoskonałą heurystykę — bez niego jedna zła sugestia blokuje cały projekt, a kryterium akceptacji US-01 („układ jest edytowalny przed wygenerowaniem wyceny") nie jest spełnione. Ryzyko zakresowe: edytor kusi, żeby urósł w mini-CAD; MVP potrzebuje punktowej korekty, bo taka jest deklarowana miara sukcesu — „tylko punktowe poprawki, nie budowa od zera". Docelowo mysz i klawiatura; dotyk jest poza zakresem.
-- **Status:** in-progress
+- **Status:** done
 
 ### S-07: Elektryk ustawia parametry wyceny w profilu
 
@@ -331,3 +331,4 @@ Foundations poniżej zakładają, że to istnieje, i **nie** budują tego od now
 - **S-04: Elektryk może podać liczbę i parametry obwodów oraz wskazać, które dzielą wspólną grupę RCD, i dostaje zestaw dobranych aparatów — najtańszych spośród spełniających parametry — albo czytelny błąd z prośbą o kontakt z administratorem, gdy w katalogu nie ma pasującego aparatu.** — Archived 2026-09-30 → `context/archive/2026-09-29-circuit-input-and-device-matching/`. Lesson: —.
 - **S-05: Elektryk widzi propozycję fizycznego rozmieszczenia dobranych aparatów w wybranej szafce, wyliczoną z trzech reguł stosowanych łącznie: grupowanie nadprądowych przy RCD swojej grupy (z RCBO zamiast dwóch aparatów dla grupy jednoobwodowej), bliskość strony, którą wchodzą przewody, oraz odległość do szyn PE i N.** — Archived 2026-10-07 → `context/archive/2026-10-06-cabinet-layout-proposal/`. Lesson: —.
 - **S-08: Elektryk widzi wyliczony czas pracy (liczba aparatów × średni czas montażu + stały narzut), koszt robocizny (czas × stawka) oraz koszt materiału z cen katalogowych, i może nadpisać estymowany czas przed sfinalizowaniem wyceny.** — Archived 2026-10-08 → `context/archive/2026-10-07-quote-cost-estimate/`. Lesson: —.
+- **S-06: Elektryk może zmodyfikować zaproponowany układ aparatów w szafce, zanim wygeneruje wycenę.** — Archived 2026-10-08 → `context/archive/2026-10-07-manual-layout-editing/`. Lesson: —.
