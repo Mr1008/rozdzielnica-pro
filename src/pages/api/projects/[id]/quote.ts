@@ -1,7 +1,6 @@
 import type { APIRoute } from "astro";
 import { isUuid } from "@/lib/catalog";
-import { computeMatchView } from "@/lib/device-matching-server";
-import { loadLayoutContext } from "@/lib/layout-server";
+import { computeMatchView, loadMatchContext } from "@/lib/device-matching-server";
 import { projectFormErrorPath, projectPath, projectsErrorPath } from "@/lib/project";
 import { PROJECT_ERROR, projectErrorFromPostgrest } from "@/lib/project-errors";
 import { computeQuoteView, parseLabourOverrideForm } from "@/lib/quote";
@@ -11,7 +10,7 @@ import { createClient } from "@/lib/supabase";
 /** The quote section of the project page, where every redirect from here lands. */
 const SECTION_HASH = "#quote";
 
-/** The project columns the quote needs: what `loadLayoutContext` reads, plus the cabinet line. */
+/** The project columns the quote needs: what `loadMatchContext` reads, plus the cabinet line. */
 const PROJECT_COLUMNS =
   "premeter_protection_a, earthing_system, phase_count, wlz_length_m, wlz_cross_section_mm2, wlz_material, wlz_installation, cabinet_geometry, cabinet_name, cabinet_price_grosze";
 
@@ -69,7 +68,7 @@ export const POST: APIRoute = async (context) => {
     // RLS hides another electrician's project: it reads as missing, like one that does not exist.
     if (project.data === null) return notFound();
 
-    const loaded = await loadLayoutContext(supabase, id, project.data);
+    const loaded = await loadMatchContext(supabase, id, project.data);
     if (!loaded.ok) return loaded.code === "not_found" ? notFound() : back(PROJECT_ERROR.unknown);
 
     const view = computeQuoteView({
@@ -81,6 +80,11 @@ export const POST: APIRoute = async (context) => {
     if (view.state === "no_profile") return back(PROJECT_ERROR.quotePricingNotConfigured);
     if (view.state === "not_current") return back(PROJECT_ERROR.quoteMatchNotCurrent);
 
+    // The base is today's estimate, recomputed here — never the client's. Accepted gap (impl-review
+    // F3, 2026-10-08): an estimate that moved between the page render and this POST (a re-match in
+    // another tab) becomes the base, so the override is not flagged outdated against a number the
+    // electrician never saw. Rare with one user per account; a hidden "displayed estimate" field
+    // compared here would close it.
     patch = { labour_minutes_override: parsed.minutes, labour_override_base_minutes: view.estimateMinutes };
   }
 

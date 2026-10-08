@@ -562,7 +562,6 @@ export interface QuoteFixture {
   key: string;
   caption: string;
   view: QuoteView;
-  profile: PricingProfile | null;
 }
 
 const KS_PROFILE: PricingProfile = {
@@ -598,7 +597,6 @@ export function kitchenSinkQuoteStates(): QuoteFixture[] {
     key,
     caption,
     view: computeQuoteView({ matchView, cabinet: KS_QUOTE_CABINET, profile, override }),
-    profile,
   });
 
   const estimate = estimateLabourMinutes(current.snapshot.length, KS_PROFILE);
