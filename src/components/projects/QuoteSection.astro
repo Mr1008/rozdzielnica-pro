@@ -7,9 +7,10 @@ import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from "@/
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatMoney, t } from "@/lib/i18n";
 import { projectQuoteApiPath } from "@/lib/project";
-import { PRICING_PROFILE_PATH, type PricingProfile } from "@/lib/pricing-profile";
+import { PRICING_PROFILE_PATH } from "@/lib/pricing-profile";
 import {
   MAX_LABOUR_OVERRIDE_HOURS,
+  MAX_LABOUR_OVERRIDE_MINUTE_PART,
   QUOTE_FIELDS,
   RATE_WARNING_THRESHOLD_GROSZE,
   splitMinutes,
@@ -21,12 +22,10 @@ import { InfoIcon, TriangleAlertIcon } from "lucide-react";
 /**
  * The "Wycena" panel of the project page (FR-011, FR-013): one message per blocked state, and for a
  * ready quote the breakdown table and the time-override form. It does no arithmetic of its own — every
- * amount and duration comes from `computeQuoteView`; this only formats. `profile` is read for the
- * formula line only (mount minutes and overhead), and is non-null whenever the view is `ready`.
+ * amount and duration comes from `computeQuoteView`; this only formats.
  */
 interface Props {
   view: QuoteView;
-  profile: Pick<PricingProfile, "mount_minutes_per_device" | "project_overhead_minutes"> | null;
   projectId: string;
   /** The in-page anchor of the match result's section, the link for a match that is not current. */
   matchAnchor: string;
@@ -34,7 +33,7 @@ interface Props {
   idPrefix?: string;
 }
 
-const { view, profile, projectId, matchAnchor, idPrefix = "quote" } = Astro.props;
+const { view, projectId, matchAnchor, idPrefix = "quote" } = Astro.props;
 const q = t.quote;
 const money = (grosze: number) => formatMoney(grosze / 100);
 const duration = (minutes: number) => {
@@ -129,11 +128,9 @@ const defaults = view.state === "ready" ? splitMinutes(view.labourMinutes) : { h
             <TableRow>
               <TableCell className={cn(cellClass, "pl-4")}>{q.estimatedTime}</TableCell>
               <TableCell className={cn(cellClass, "text-muted-foreground")}>
-                {profile && (
-                  <span class="font-mono tabular-nums">
-                    {q.formula(view.deviceCount, profile.mount_minutes_per_device, profile.project_overhead_minutes)}
-                  </span>
-                )}
+                <span class="font-mono tabular-nums">
+                  {q.formula(view.deviceCount, view.mountMinutesPerDevice, view.overheadMinutes)}
+                </span>
               </TableCell>
               <TableCell className={cn(cellClass, amountClass, "pr-4")}>{duration(view.estimateMinutes)}</TableCell>
             </TableRow>
@@ -228,7 +225,7 @@ const defaults = view.state === "ready" ? splitMinutes(view.labourMinutes) : { h
                   inputMode="numeric"
                   step="1"
                   min={0}
-                  max={59}
+                  max={MAX_LABOUR_OVERRIDE_MINUTE_PART}
                   required
                   defaultValue={defaults.minutes}
                   className="font-mono"

@@ -99,6 +99,8 @@ describe("computeQuoteView", () => {
       devicesGrosze: 11_000,
       cabinet: { name: "Szafka testowa", priceGrosze: 24_999 },
       materialGrosze: 35_999,
+      mountMinutesPerDevice: 15,
+      overheadMinutes: 90,
       estimateMinutes: 255,
       override: null,
       labourMinutes: 255,
