@@ -278,8 +278,8 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          project_device_id?: string
           edited_manually?: boolean
+          project_device_id?: string
           project_id?: string
           rail_index?: number
           x_mm?: number
