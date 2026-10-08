@@ -133,7 +133,12 @@ wdrożenia, nie do testów.
 
 ### 6.5 Adding a test for layout or quote
 
-- TBD — see §3 Phase 4 (wzorzec: niezmienniki układu po propozycji i edycji; wycena z przykładu policzonego ręcznie).
+- **Układ — gdzie:** `src/lib/layout-editing.property.test.ts` (obok modelu edycji `layout-editing.ts`; propozycję i walidację pokrywa `cabinet-layout.test.ts`). Uruchomienie: `npm run test:unit`.
+- **Układ — niezmiennik:** po propozycji i po każdym przyjętym ruchu `validateLayout` zwraca `[]` (każdy aparat umieszczony raz, bez nakładania, w obrębie szyny i wnętrza, grupa RCD w jednym kawałku, RCBO sam w grupie). Ruch odrzucony zwraca niepustą listę problemów i nie zmienia szkicu. Predykatem jest `validateLayout` — to jedyna definicja poprawności układu, test nie pisze własnej.
+- **Układ — nazewnictwo:** `every accepted move on <szafka> passes validateLayout; every refused one changes nothing`, jeden test na geometrię szafki.
+- **Układ — strażnik rozkładu:** test nie jest pusty tylko wtedy, gdy ruchy przyjęte, odrzucone i ruchy całych bloków występują w liczbie ponad progiem (`expect(accepted).toBeGreaterThan(…)`); przy nowej geometrii sprawdź te progi.
+- **Układ — jak dodać regułę:** dopisz kod problemu do `validateLayout` i jego przypadek do `describe("validateLayout")` w `cabinet-layout.test.ts`, a odrzucony ruch z tym kodem — do `describe("moves")` w `layout-editing.test.ts`; property test przejmie regułę bez zmian.
+- **Wycena:** TBD — see §3 Phase 4 (wzorzec: wycena z przykładu policzonego ręcznie).
 
 ### 6.6 Per-rollout-phase notes
 

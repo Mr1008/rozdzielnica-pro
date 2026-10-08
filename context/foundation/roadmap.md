@@ -219,7 +219,8 @@ Foundations poniżej zakładają, że to istnieje, i **nie** budują tego od now
 - **Prerequisites:** S-06, S-08
 - **Parallel with:** —
 - **Blockers:** —
-- **Unknowns:** —
+- **Unknowns:**
+  - Nakładające się etykiety szyn PE/N na rysunku szafki, odłożone z S-02, są teraz do poprawienia w tym plasterku — wydruk z wizualizacją układu nie może ich zawierać. — Owner: user. Block: no.
 - **Risk:** Domyka główne Kryterium sukcesu — bez tego elektryk nie wynosi z narzędzia żadnego artefaktu. Twarde ograniczenie środowiska: dokument musi powstać po stronie przeglądarki (patrz `context/foundation/infrastructure.md`), więc wizualizacja układu musi być drukowalna, a nie tylko interaktywna. Wizualizacja jest wymaganą częścią dokumentu, nie dodatkiem — sam cennik degraduje wydruk do zwykłej listy pozycji.
 - **Status:** proposed
 
