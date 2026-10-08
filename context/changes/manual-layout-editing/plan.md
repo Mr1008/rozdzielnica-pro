@@ -715,18 +715,18 @@ plus the existing render. Carry-over adds one `validateLayout` per circuit save 
 
 #### Automated
 
-- [ ] 2.1 The migration applies cleanly on a fresh stack: `npx supabase db reset`
-- [ ] 2.2 Types are regenerated and committed: `npm run db:types`, then `git diff --exit-code` after a second run
-- [ ] 2.3 Unit tests pass: `npm run test:unit`
-- [ ] 2.4 RLS/RPC integration tests pass: `npm run test:integration`
-- [ ] 2.5 Type checking passes: `npx astro check`
-- [ ] 2.6 Linting passes: `npm run lint`
-- [ ] 2.7 Build succeeds: `npm run build`
+- [x] 2.1 The migration applies cleanly on a fresh stack: `npx supabase db reset`
+- [x] 2.2 Types are regenerated and committed: `npm run db:types`, then `git diff --exit-code` after a second run
+- [x] 2.3 Unit tests pass: `npm run test:unit`
+- [x] 2.4 RLS/RPC integration tests pass: `npm run test:integration`
+- [x] 2.5 Type checking passes: `npx astro check`
+- [x] 2.6 Linting passes: `npm run lint`
+- [x] 2.7 Build succeeds: `npm run build`
 
 #### Manual
 
-- [ ] 2.8 A scripted POST to `/api/projects/[id]/placements` with an overlapping set redirects with `layout_invalid` and stores nothing
-- [ ] 2.9 On a project with a manual layout, renaming a circuit keeps the layout and the badge; adding a circuit shows the reset notice and a fresh proposal
+- [x] 2.8 A scripted POST to `/api/projects/[id]/placements` with an overlapping set redirects with `layout_invalid` and stores nothing
+- [x] 2.9 On a project with a manual layout, renaming a circuit keeps the layout and the badge; adding a circuit shows the reset notice and a fresh proposal
 
 ### Phase 3: Editor island
 
