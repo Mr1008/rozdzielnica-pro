@@ -207,7 +207,10 @@ These are correctness requirements, not preferences.
   and plans by default (no `--apply` = no writes). It needs the **`Mr1008`** gh account — the
   `jakubmichalek-cambridge` account has read-only access and the script refuses to run under it;
   use `gh auth switch --user Mr1008` or a one-shot
-  `GH_TOKEN=$(gh auth token --user Mr1008)` prefix.
+  `GH_TOKEN=$(gh auth token --user Mr1008)` prefix. **A status never moves backwards:** parallel
+  sessions keep their own roadmap copy in other worktrees, so the script lifts each item to the most
+  advanced status in any worktree's roadmap, any open `context/changes/<change-id>/` folder, or the
+  card's current board column, and prints every lift. A real step back needs `--allow-regress`.
 
 ## Architecture
 

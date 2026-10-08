@@ -24,16 +24,25 @@
  *   node scripts/roadmap-to-github.mjs            # fetch + diff, prints the planned operations, writes nothing
  *   node scripts/roadmap-to-github.mjs --apply    # …and execute them on GitHub
  *
+ * A status never moves backwards. Several sessions work in parallel worktrees, each with its own
+ * copy of roadmap.md, so the local file is often behind. Before the diff, each item's status is
+ * lifted to the most advanced one found in: this roadmap, the roadmap of every other git worktree
+ * (read from disk, uncommitted edits included), any `context/changes/<change-id>/` folder in any
+ * worktree (its change.md status: implementing / implemented / impl_reviewed → "in-progress",
+ * anything else → "planning"), and the card's current Status column on the board. Every lift is
+ * printed. `blocked` is explicit and never lifted. To really move an item back (say, a slice
+ * dropped to "proposed"), run with `--allow-regress`, which trusts this roadmap.md alone.
+ *
  * The active `gh` account must have write access to REPO. To use a non-active
  * account for one run:
  *
  *   GH_TOKEN=$(gh auth token --user Mr1008) node scripts/roadmap-to-github.mjs --apply
  */
 
-import { execFile } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { execFile, execFileSync } from "node:child_process";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 
 const REPO = process.env.ROADMAP_REPO ?? "Mr1008/rozdzielnica-pro";
@@ -41,6 +50,7 @@ const [OWNER, REPO_NAME] = REPO.split("/");
 const ROADMAP = "context/foundation/roadmap.md";
 const APPLY = process.argv.includes("--apply");
 const WRITE_BACK = APPLY && !process.argv.includes("--no-write-back");
+const ALLOW_REGRESS = process.argv.includes("--allow-regress");
 /** How many independent write lanes run at once. Modest on purpose: GitHub throttles bursts of writes. */
 const CONCURRENCY = 4;
 
@@ -194,6 +204,61 @@ for (const it of items) {
 }
 
 if (items.length === 0) throw new Error(`No F-NN/S-NN items parsed from ${ROADMAP}`);
+
+/* ── status lifting: other worktrees, change folders, the board ───────────── */
+
+/** The forward order of statuses. `blocked` is not on it: it is explicit, never lifted or used to lift. */
+const STATUS_RANK = { proposed: 0, ready: 1, planning: 2, "in-progress": 3, done: 4 };
+const IMPLEMENTING = new Set(["implementing", "implemented", "impl_reviewed"]);
+
+/** Every git worktree of this repository, this one included. Empty when git is unavailable. */
+function worktreePaths() {
+  try {
+    const out = execFileSync("git", ["worktree", "list", "--porcelain"], { encoding: "utf8" });
+    return out
+      .split(/\r?\n/)
+      .filter((l) => l.startsWith("worktree "))
+      .map((l) => l.slice("worktree ".length).trim())
+      .filter((path) => existsSync(path));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Each candidate status per item id, with where it came from. The local roadmap is the item's own
+ * `status`; this adds the other worktrees' roadmaps and the change folders of all of them.
+ */
+function worktreeHints() {
+  const here = resolve(".").toLowerCase();
+  const hints = new Map(items.map((it) => [it.id, []]));
+  for (const path of worktreePaths()) {
+    const other = resolve(path).toLowerCase() !== here;
+    const name = other ? `worktree ${path}` : "ten worktree";
+    if (other) {
+      const file = join(path, ROADMAP);
+      if (existsSync(file)) {
+        const text = readFileSync(file, "utf8");
+        for (const m of text.replace(/\r\n/g, "\n").matchAll(/^### ([FS]-\d\d): .+?\n([\s\S]*?)(?=\n### |\n## )/gm)) {
+          hints.get(m[1])?.push({ status: field(m[2], "Status"), from: `roadmap w ${name}` });
+        }
+      }
+    }
+    for (const it of items) {
+      const change = join(path, "context", "changes", it.changeId, "change.md");
+      if (!it.changeId || !existsSync(change)) continue;
+      const status = readFileSync(change, "utf8").match(/^status:\s*(\S+)/m)?.[1] ?? "";
+      if (status === "archived") continue;
+      hints.get(it.id).push({
+        status: IMPLEMENTING.has(status) ? "in-progress" : "planning",
+        from: `context/changes/${it.changeId} (${status || "bez statusu"}) w ${name}`,
+      });
+    }
+  }
+  return hints;
+}
+
+const hints = ALLOW_REGRESS ? new Map() : worktreeHints();
 
 /**
  * `## Parked` entries: `- **Title** — Why parked: reason`, continued on indented lines. `issue` is
@@ -1356,6 +1421,38 @@ async function execute(plan) {
 
 /* ── main ────────────────────────────────────────────────────────────────── */
 
+/**
+ * Lifts each item's status to the most advanced candidate (see the header): the worktree hints plus
+ * the card's current column, so a card another session moved forward is never pulled back. Runs
+ * before the diff, so bodies, labels, open/closed and the board all agree with the lifted status.
+ */
+function liftStatuses() {
+  if (ALLOW_REGRESS) {
+    console.log("--allow-regress: stany wyłącznie z tego roadmap.md (bez worktree i tablicy)");
+    return;
+  }
+  const fromBoard = Object.fromEntries(Object.entries(STATUS_PL).map(([k, v]) => [v, k]));
+  const lifts = [];
+  for (const it of items) {
+    if (!(it.status in STATUS_RANK)) continue;
+    const candidates = [...(hints.get(it.id) ?? [])];
+    const card = state.project?.items.find((i) => i.values["Roadmap ID"] === it.id);
+    const column = card?.values.Status;
+    if (column && fromBoard[column]) candidates.push({ status: fromBoard[column], from: `tablica (${column})` });
+    let best = { status: it.status, from: null };
+    for (const c of candidates) {
+      if ((STATUS_RANK[c.status] ?? -1) > STATUS_RANK[best.status]) best = c;
+    }
+    if (best.from === null) continue;
+    lifts.push(`  ${it.id}: ${STATUS_PL[it.status]} → ${STATUS_PL[best.status]} — ${best.from}`);
+    it.status = best.status;
+  }
+  if (lifts.length === 0) return;
+  console.log("\nStany podniesione ponad ten roadmap.md (stan nigdy się nie cofa; --allow-regress, żeby cofnąć):");
+  for (const line of lifts) console.log(line);
+  console.log(`Uzupełnij ${ROADMAP}, jeśli to ten worktree jest w tyle.`);
+}
+
 async function main() {
   console.log(`${APPLY ? "APPLY" : "PLAN (nic nie zostanie utworzone — dodaj --apply)"}  repo=${REPO}`);
   console.log(
@@ -1389,6 +1486,8 @@ async function main() {
     );
     process.exit(1);
   }
+
+  liftStatuses();
 
   // Step 2 — diff. A dry run plans every stage at once, with stand-ins for what does not exist yet;
   // --apply plans stage by stage, because later stages need the real numbers of earlier ones.
