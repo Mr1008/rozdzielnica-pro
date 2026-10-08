@@ -440,8 +440,8 @@ There are two nullable columns and no backfill. Old code ignores them, so the mi
 
 #### Automated
 
-- [x] 4.1 Formatting passes: `npm run lint && npx prettier --check AGENTS.md README.md`
+- [x] 4.1 Formatting passes: `npm run lint && npx prettier --check AGENTS.md README.md` — a730936
 
 #### Manual
 
-- [x] 4.2 The AGENTS.md tripwire reads correctly next to the existing "guarded twice" entries
+- [x] 4.2 The AGENTS.md tripwire reads correctly next to the existing "guarded twice" entries — a730936
