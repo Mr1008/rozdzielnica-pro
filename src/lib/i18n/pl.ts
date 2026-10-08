@@ -609,6 +609,68 @@ export const pl = {
     },
   },
 
+  /** The printable quote (S-09): the print page, its blocked states and its screen-only notices. See `src/lib/quote-print.ts`. */
+  quotePrint: {
+    /** The entry link on the project page. */
+    open: "Drukuj wycenę",
+    title: "Wycena",
+    pageTitle: (projectName: string) => `Wycena — ${projectName}`,
+    toolbar: {
+      back: "Wróć do projektu",
+      print: "Drukuj / zapisz jako PDF",
+    },
+    issuedOn: "Data wystawienia",
+    nip: "NIP",
+    client: {
+      project: "Projekt",
+      client: "Klient",
+      siteAddress: "Adres inwestycji",
+      cabinet: "Szafka",
+    },
+    material: {
+      title: "Materiał",
+      kind: "Rodzaj",
+      name: "Nazwa",
+      manufacturerModel: "Producent / model",
+      quantity: "Ilość",
+      unitPrice: "Cena jedn.",
+      lineTotal: "Wartość",
+      cabinetRow: "Szafka rozdzielnicy",
+      subtotal: "Materiał razem",
+    },
+    labour: {
+      title: "Robocizna",
+      time: "Czas robocizny",
+      hourlyRate: "Stawka godzinowa",
+      cost: "Koszt robocizny",
+    },
+    grandTotal: "Razem (materiał + robocizna)",
+    quantity: (n: number) => `${String(n)} szt.`,
+    informationalNote:
+      "Dokument informacyjny — nie jest fakturą ani fakturą VAT. Ceny aparatów pochodzą z katalogu z chwili doboru aparatów.",
+    drawingTitle: "Układ aparatów w szafce",
+    blockedTitle: "Nie można wydrukować wyceny",
+    blocked: {
+      noProfile: "Nie ustawiono parametrów wyceny — uzupełnij je w profilu.",
+      matchNotCurrent: "Dobór aparatów nie jest aktualny — dobierz aparaty ponownie.",
+      layoutNotPlaced: "Aparaty nie mają zapisanego, aktualnego układu w szafce — zaproponuj układ.",
+      noProfileLink: "Uzupełnij parametry wyceny",
+      matchNotCurrentLink: "Przejdź do doboru aparatów",
+      layoutNotPlacedLink: "Przejdź do układu w szafce",
+    },
+    /** Screen-only notices above the document; they never print. */
+    notices: {
+      /** `estimate` is the current estimated time, already formatted by `t.quote.duration`. */
+      overrideOutdated: (estimate: string) =>
+        `Nadpisany czas robocizny może być nieaktualny — obecna estymacja to ${estimate}. Na wydruku jest Twój czas.`,
+      businessMissing:
+        "Nie uzupełniono danych firmy — w nagłówku wydruku zamiast nazwy firmy będzie Twoje imię i nazwisko albo adres email. Dane firmy uzupełnisz w profilu.",
+      rateWarning: "Stawka godzinowa jest bardzo wysoka — sprawdź, czy to nie literówka, zanim wydrukujesz wycenę.",
+    },
+    notFound: "Nie znaleziono tego projektu.",
+    loadFailed: "Nie udało się wczytać wyceny. Spróbuj ponownie",
+  },
+
   projects: {
     dashboardLink: "Projekty",
     dashboardLinkDescription: "Twoje projekty rozdzielnic: szafka, przyłącze, a w kolejnych krokach obwody i wycena.",
