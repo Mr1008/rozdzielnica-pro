@@ -1,4 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  buildDrawnCables,
+  buildDrawnDevices,
+  buildDrawnWires,
+  type DrawnCable,
+  type DrawnDevice,
+  type DrawnWire,
+} from "@/lib/cabinet-drawing";
 import type { CabinetGeometry } from "@/lib/cabinet-geometry";
 import {
   proposeLayout,
@@ -8,7 +16,7 @@ import {
   type LayoutIssue,
   type Placement,
 } from "@/lib/cabinet-layout";
-import { routeConductors, type Conductor } from "@/lib/cabinet-wiring";
+import { routeConductors, wireLengthsBySection, type Conductor, type WireLengthRow } from "@/lib/cabinet-wiring";
 import type { CircuitsPayload } from "@/lib/circuit-params";
 import type { Database, Tables } from "@/lib/database.types";
 import type { DeviceSpecWithId, MatchResult } from "@/lib/device-matching";
@@ -112,6 +120,40 @@ export function computeWiring(
     circuits: context.circuits,
     supply: context.supply,
   });
+}
+
+/** Everything the cabinet drawing and its legends are built from; the project page and the printout share it. */
+export interface LayoutDrawing {
+  devices: DrawnDevice[];
+  wires: DrawnWire[];
+  cables: DrawnCable[];
+  lengths: WireLengthRow[];
+}
+
+/**
+ * The drawing of a layout: devices only for a `placed` layout over a parsed cabinet geometry, and the
+ * wires, cables and lengths of whatever `computeWiring` routes (nothing unless `placed`). The project
+ * page and the print page both call this, so they draw the identical sheet.
+ */
+export function buildLayoutDrawing(
+  layoutView: LayoutView | null,
+  matchView: MatchView,
+  context: Pick<MatchContext, "geometry" | "circuits" | "supply" | "groups">,
+): LayoutDrawing {
+  const devices =
+    layoutView?.state === "placed" && context.geometry
+      ? buildDrawnDevices(matchView.snapshot, layoutView.placements, context.geometry, context.groups)
+      : [];
+  const conductors = computeWiring(layoutView, matchView, context);
+  return {
+    devices,
+    wires: buildDrawnWires(conductors, {
+      circuits: new Map(context.circuits.map((circuit) => [circuit.id, circuit.name])),
+      devices,
+    }),
+    cables: buildDrawnCables(conductors),
+    lengths: wireLengthsBySection(conductors),
+  };
 }
 
 /**

@@ -1,0 +1,183 @@
+---
+import PrintBlocked from "@/components/projects/PrintBlocked.astro";
+import PrintNotices from "@/components/projects/PrintNotices.astro";
+import QuoteDocument from "@/components/projects/QuoteDocument.astro";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button, buttonVariants } from "@/components/ui/button";
+import Layout from "@/layouts/Layout.astro";
+import { isUuid } from "@/lib/catalog";
+import { computeMatchView } from "@/lib/device-matching-server";
+import { t } from "@/lib/i18n";
+import { buildLayoutDrawing, computeLayoutView, loadLayoutContext } from "@/lib/layout-server";
+import { PROJECTS_PATH, projectPath } from "@/lib/project";
+import { computeQuoteView } from "@/lib/quote";
+import { computePrintView } from "@/lib/quote-print";
+import { createClient } from "@/lib/supabase";
+import { CircleAlertIcon } from "lucide-react";
+
+// No role check here on purpose: `/dashboard/*` is gated to electricians in
+// `src/lib/route-access.ts`, and RLS returns only the caller's own rows — another electrician's
+// project id reads exactly like one that does not exist.
+const { id } = Astro.params;
+const issuedAt = new Date();
+const supabase = createClient(Astro.request.headers, Astro.cookies);
+
+async function loadProject() {
+  // Checked before querying: a non-UUID would reach PostgREST as `22P02` and read as a failure,
+  // when it is simply a project that does not exist.
+  if (!isUuid(id)) return { project: null, loadError: null };
+  if (!supabase) return { project: null, loadError: t.quotePrint.loadFailed };
+
+  const { data, error: queryError } = await supabase
+    .from("projects")
+    .select(
+      "id, name, client_name, site_address, cabinet_id, cabinet_name, cabinet_manufacturer, cabinet_model, cabinet_geometry, premeter_protection_a, earthing_system, phase_count, wlz_length_m, wlz_cross_section_mm2, wlz_material, wlz_installation, cabinet_price_grosze, labour_minutes_override, labour_override_base_minutes",
+    )
+    .eq("id", id)
+    .maybeSingle();
+  if (queryError) {
+    // The SQLSTATE only, never Supabase's message.
+    // eslint-disable-next-line no-console
+    console.error("print project load failed", queryError.code);
+    return { project: null, loadError: t.quotePrint.loadFailed };
+  }
+  return { project: data, loadError: null };
+}
+
+/** The electrician's own rows the quote and the letterhead read. A failure is reported, never defaulted. */
+async function loadOwnRows() {
+  const { user } = Astro.locals;
+  if (!supabase || !user) return { failed: true as const };
+  const [pricing, business, profile] = await Promise.all([
+    supabase
+      .from("pricing_profiles")
+      .select("hourly_rate_grosze, mount_minutes_per_device, project_overhead_minutes")
+      .eq("user_id", user.id)
+      .maybeSingle(),
+    supabase
+      .from("business_profiles")
+      .select("company_name, nip, address, phone, email")
+      .eq("user_id", user.id)
+      .maybeSingle(),
+    supabase.from("profiles").select("full_name").eq("id", user.id).maybeSingle(),
+  ]);
+  for (const [what, result] of [
+    ["pricing_profiles", pricing],
+    ["business_profiles", business],
+    ["profiles", profile],
+  ] as const) {
+    if (result.error) {
+      // eslint-disable-next-line no-console
+      console.error(`print ${what} load failed`, result.error.code);
+      return { failed: true as const };
+    }
+  }
+  return {
+    failed: false as const,
+    pricing: pricing.data,
+    business: business.data,
+    fullName: profile.data?.full_name ?? null,
+  };
+}
+
+const { project, loadError: projectLoadError } = await loadProject();
+if (!project && !projectLoadError) Astro.response.status = 404;
+
+const own = project ? await loadOwnRows() : null;
+const layoutLoad = project && supabase ? await loadLayoutContext(supabase, project.id, project) : null;
+const context = layoutLoad?.ok ? layoutLoad.context : null;
+const matchView = context ? computeMatchView(context) : null;
+const layoutView =
+  layoutLoad?.ok && matchView
+    ? computeLayoutView(matchView, layoutLoad.context, layoutLoad.placements, layoutLoad.editedManually)
+    : null;
+
+const loadError =
+  projectLoadError ?? (project && (own === null || own.failed || !context) ? t.quotePrint.loadFailed : null);
+if (loadError) Astro.response.status = 500;
+
+const view =
+  project && own && !own.failed && matchView
+    ? computePrintView({
+        quote: computeQuoteView({
+          matchView,
+          cabinet: { name: project.cabinet_name, priceGrosze: project.cabinet_price_grosze },
+          profile: own.pricing,
+          override:
+            project.labour_minutes_override !== null && project.labour_override_base_minutes !== null
+              ? { minutes: project.labour_minutes_override, baseMinutes: project.labour_override_base_minutes }
+              : null,
+        }),
+        matchCurrent: matchView.state === "current",
+        layout: layoutView,
+        snapshot: matchView.snapshot,
+        business: own.business,
+        fullName: own.fullName,
+        userEmail: Astro.locals.user?.email ?? null,
+      })
+    : null;
+const drawing = context && matchView ? buildLayoutDrawing(layoutView, matchView, context) : null;
+
+const title = project ? t.quotePrint.pageTitle(project.name) : t.quotePrint.title;
+---
+
+<Layout title={title}>
+  <main class="min-h-screen bg-muted px-4 py-6 print:min-h-0 print:bg-background print:p-0">
+    <div class="mx-auto flex w-fit max-w-full flex-col gap-4">
+      <div class="flex flex-col gap-4 print:hidden">
+        {project ? (
+          <div class="flex flex-wrap items-center gap-3">
+            <a href={projectPath(project.id)} class:list={buttonVariants({ variant: "outline" })}>
+              {t.quotePrint.toolbar.back}
+            </a>
+            {view?.state === "ready" && (
+              <Button type="button" data-print-button>
+                {t.quotePrint.toolbar.print}
+              </Button>
+            )}
+          </div>
+        ) : (
+          <div class="flex flex-wrap items-center gap-3">
+            <a href={PROJECTS_PATH} class:list={buttonVariants({ variant: "outline" })}>
+              {t.projects.page.backToList}
+            </a>
+          </div>
+        )}
+
+        {!project && (
+          <Alert variant={loadError ? "destructive" : "warning"} role="status">
+            <CircleAlertIcon aria-hidden="true" />
+            <AlertDescription>{loadError ?? t.quotePrint.notFound}</AlertDescription>
+          </Alert>
+        )}
+        {project && loadError && (
+          <Alert variant="destructive" role="status">
+            <CircleAlertIcon aria-hidden="true" />
+            <AlertDescription>{loadError}</AlertDescription>
+          </Alert>
+        )}
+        {view?.state === "blocked" && project && <PrintBlocked reasons={view.reasons} projectId={project.id} />}
+        {view?.state === "ready" && <PrintNotices notices={view.notices} />}
+      </div>
+
+      {project && view?.state === "ready" && context?.geometry && drawing && (
+        <QuoteDocument
+          view={view}
+          project={project}
+          issuedAt={issuedAt}
+          timeZone={Astro.locals.timeZone}
+          geometry={context.geometry}
+          drawing={drawing}
+        />
+      )}
+    </div>
+  </main>
+</Layout>
+
+<script>
+  for (const button of document.querySelectorAll<HTMLButtonElement>("[data-print-button]")) {
+    button.addEventListener("click", () => {
+      window.print();
+    });
+  }
+</script>

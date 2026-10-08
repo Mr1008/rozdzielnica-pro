@@ -1,0 +1,205 @@
+---
+import { CabinetDrawing } from "@/components/cabinets/CabinetDrawing";
+import { LayoutLegend } from "@/components/projects/LayoutLegend";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import type { CabinetGeometry } from "@/lib/cabinet-geometry";
+import { deviceKindLabel } from "@/lib/device-spec";
+import { formatDate, formatMoney, t } from "@/lib/i18n";
+import type { LayoutDrawing } from "@/lib/layout-server";
+import type { PrintView } from "@/lib/quote-print";
+import { splitMinutes } from "@/lib/quote";
+import { cn } from "@/lib/utils";
+
+/**
+ * The printed quote (FR-012, S-09): two A4 sheets — the price breakdown, then the cabinet drawing with
+ * its legends. It renders a ready `PrintView` and does no arithmetic of its own: every amount is a
+ * `view.quote` total or a `view.lines` entry, both settled by `computePrintView`. Colours print because
+ * the root sets `print-color-adjust: exact`; the page rules live in `global.css` (`.quote-page`).
+ */
+interface Props {
+  view: Extract<PrintView, { state: "ready" }>;
+  project: {
+    name: string;
+    client_name: string | null;
+    site_address: string | null;
+    cabinet_name: string;
+    cabinet_manufacturer: string;
+    cabinet_model: string;
+  };
+  issuedAt: Date;
+  timeZone: string;
+  geometry: CabinetGeometry;
+  drawing: LayoutDrawing;
+  class?: string;
+}
+
+const { view, project, issuedAt, timeZone, geometry, drawing, class: className } = Astro.props;
+const { quote, lines, letterhead } = view;
+const p = t.quotePrint;
+const money = (grosze: number) => formatMoney(grosze / 100);
+const labourParts = splitMinutes(quote.labourMinutes);
+const cabinetMakerModel = t.projects.cabinet.manufacturerModel(project.cabinet_manufacturer, project.cabinet_model);
+
+const present = (value: string | null) => (value !== null && value.trim() !== "" ? value : null);
+const clientRows = [
+  { label: p.client.project, value: present(project.name) },
+  { label: p.client.client, value: present(project.client_name) },
+  { label: p.client.siteAddress, value: present(project.site_address) },
+  { label: p.client.cabinet, value: `${project.cabinet_name} — ${cabinetMakerModel}` },
+].flatMap((row) => (row.value === null ? [] : [{ label: row.label, value: row.value }]));
+
+// With no company name the title falls back to the email; the contact line does not repeat it.
+const contactEmail = letterhead.email === letterhead.title ? null : letterhead.email;
+const contactLine = [letterhead.nip === null ? null : p.nip(letterhead.nip), letterhead.phone, contactEmail].filter(
+  (part): part is string => part !== null,
+);
+const materialRows = [
+  {
+    name: quote.cabinet.name,
+    details: [p.material.cabinetRow, project.cabinet_manufacturer, project.cabinet_model],
+    quantity: 1,
+    unitGrosze: quote.cabinet.priceGrosze,
+    totalGrosze: quote.cabinet.priceGrosze,
+  },
+  ...lines.map((line) => ({
+    name: line.name,
+    details: [deviceKindLabel(line.kind), line.manufacturer, line.model],
+    quantity: line.quantity,
+    unitGrosze: line.unitGrosze,
+    totalGrosze: line.totalGrosze,
+  })),
+];
+
+// Sized for paper: a dense 12px table so a typical project's page 1 stays on one A4 sheet.
+const headClass = "h-7 px-2 text-[11px] font-medium text-foreground";
+const cellClass = "px-2 py-1 align-top whitespace-normal";
+const amountClass = "text-right font-mono whitespace-nowrap tabular-nums";
+const strongClass = "font-semibold";
+---
+
+<div
+  class:list={[
+    "quote-document flex flex-col items-center gap-6 text-xs text-foreground print:block print:gap-0",
+    className,
+  ]}
+>
+  <section class="quote-page flex min-h-[297mm] w-[210mm] flex-col gap-4 bg-background p-[12mm] shadow-md">
+    <header class="flex flex-col gap-0.5 border-b pb-3">
+      {letterhead.title !== null && <p class="text-base font-bold">{letterhead.title}</p>}
+      {letterhead.address !== null && <p class="whitespace-pre-line">{letterhead.address}</p>}
+      {contactLine.length > 0 && <p class="tabular-nums">{p.contactLine(contactLine)}</p>}
+    </header>
+
+    <div class="flex items-baseline justify-between gap-4">
+      <h1 class="text-xl font-bold">{p.title}</h1>
+      <p class="text-muted-foreground">
+        {p.issuedOn}: <span class="font-mono tabular-nums">{formatDate(issuedAt, timeZone)}</span>
+      </p>
+    </div>
+
+    <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-0.5">
+      {clientRows.map((row) => (
+        <>
+          <dt class="text-muted-foreground">{row.label}</dt>
+          <dd class="font-medium">{row.value}</dd>
+        </>
+      ))}
+    </dl>
+
+    <section class="flex flex-col gap-1.5">
+      <h2 class="text-sm font-semibold">{p.material.title}</h2>
+      <div class="rounded-md border">
+        <Table className="text-xs">
+          <TableHeader>
+            <TableRow>
+              <TableHead scope="col" className={headClass}>
+                {p.material.item}
+              </TableHead>
+              <TableHead scope="col" className={cn(headClass, "text-right")}>
+                {p.material.quantity}
+              </TableHead>
+              <TableHead scope="col" className={cn(headClass, "text-right")}>
+                {p.material.unitPrice}
+              </TableHead>
+              <TableHead scope="col" className={cn(headClass, "text-right")}>
+                {p.material.lineTotal}
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {materialRows.map((row) => (
+              <TableRow className="break-inside-avoid">
+                <TableCell className={cellClass}>
+                  <span class="block font-medium">{row.name}</span>
+                  <span class="block text-[11px] text-muted-foreground">{p.material.itemDetails(row.details)}</span>
+                </TableCell>
+                <TableCell className={cn(cellClass, amountClass)}>{p.quantity(row.quantity)}</TableCell>
+                <TableCell className={cn(cellClass, amountClass)}>{money(row.unitGrosze)}</TableCell>
+                <TableCell className={cn(cellClass, amountClass)}>{money(row.totalGrosze)}</TableCell>
+              </TableRow>
+            ))}
+            <TableRow className="border-t-2">
+              <TableCell colSpan={3} className={cn(cellClass, strongClass)}>
+                {p.material.subtotal}
+              </TableCell>
+              <TableCell className={cn(cellClass, amountClass, strongClass)}>{money(quote.materialGrosze)}</TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </div>
+    </section>
+
+    <section class="flex flex-col gap-1.5 break-inside-avoid">
+      <h2 class="text-sm font-semibold">{p.labour.title}</h2>
+      <div class="rounded-md border">
+        <Table className="text-xs">
+          <TableBody>
+            <TableRow>
+              <TableCell className={cellClass}>{p.labour.time}</TableCell>
+              <TableCell className={cn(cellClass, amountClass)}>
+                {t.quote.duration(labourParts.hours, labourParts.minutes)}
+              </TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell className={cellClass}>{p.labour.hourlyRate}</TableCell>
+              <TableCell className={cn(cellClass, amountClass)}>{t.quote.perHour(money(quote.rateGrosze))}</TableCell>
+            </TableRow>
+            <TableRow className="border-t-2">
+              <TableCell className={cn(cellClass, strongClass)}>{p.labour.cost}</TableCell>
+              <TableCell className={cn(cellClass, amountClass, strongClass)}>{money(quote.labourGrosze)}</TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </div>
+    </section>
+
+    <div class="flex items-baseline justify-between gap-4 border-t-2 pt-2 text-base font-bold break-inside-avoid">
+      <span>{p.grandTotal}</span>
+      <span class="font-mono tabular-nums">{money(quote.totalGrosze)}</span>
+    </div>
+
+    <p class="text-xs text-muted-foreground">{p.informationalNote}</p>
+  </section>
+
+  <section class="quote-page flex min-h-[297mm] w-[210mm] flex-col gap-4 bg-background p-[12mm] shadow-md break-before-page break-inside-avoid">
+    <header class="flex flex-col gap-1">
+      <h2 class="text-xl font-bold">{p.drawingTitle}</h2>
+      <p class="text-muted-foreground">{project.cabinet_name}</p>
+    </header>
+    <CabinetDrawing
+      geometry={geometry}
+      devices={drawing.devices}
+      wires={drawing.wires}
+      cables={drawing.cables}
+      className="mx-auto max-h-[190mm] w-full"
+    />
+    <LayoutLegend geometry={geometry} devices={drawing.devices} wires={drawing.wires} cables={drawing.cables} />
+  </section>
+</div>
+
+<style>
+  .quote-document {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+</style>

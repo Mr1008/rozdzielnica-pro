@@ -17,6 +17,11 @@ export function projectPath(id: string): string {
   return `${PROJECTS_PATH}/${id}`;
 }
 
+/** The printable quote of a project. */
+export function projectPrintPath(id: string): string {
+  return `${projectPath(id)}/print`;
+}
+
 /** The project list with an `?error=` banner — where a project that is not found lands. */
 export function projectsErrorPath(code: string): string {
   return `${PROJECTS_PATH}?error=${encodeURIComponent(code)}`;

@@ -15,15 +15,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import AppLayout from "@/layouts/AppLayout.astro";
-import { buildDrawnCables, buildDrawnDevices, buildDrawnWires } from "@/lib/cabinet-drawing";
-import { wireLengthsBySection } from "@/lib/cabinet-wiring";
 import { ENTRY_SIDES, parseCabinetGeometry } from "@/lib/cabinet-geometry";
 import { isUuid, sortForCatalogList } from "@/lib/catalog";
 import { payloadToDraft } from "@/lib/circuit-draft";
 import { computeMatchView, type MatchView } from "@/lib/device-matching-server";
 import { formatMoney, t } from "@/lib/i18n";
 import { layoutIssueNames, toEditorDevices, type LayoutEditorData } from "@/lib/layout-editor-data";
-import { computeLayoutView, computeWiring, loadLayoutContext, type LayoutView } from "@/lib/layout-server";
+import { buildLayoutDrawing, computeLayoutView, loadLayoutContext, type LayoutView } from "@/lib/layout-server";
 import {
   PROJECTS_PATH,
   PROJECT_FIELDS,
@@ -141,17 +139,12 @@ const layoutView =
   matchLoad?.ok && matchView
     ? computeLayoutView(matchView, matchLoad.context, matchLoad.placements, matchLoad.editedManually)
     : null;
-const placedDevices =
-  layoutView?.state === "placed" && matchContext?.geometry
-    ? buildDrawnDevices(matchView?.snapshot ?? [], layoutView.placements, matchContext.geometry, matchContext.groups)
-    : [];
 // Wires are display-only and drawn only over a `placed` layout; the aside thumbnail stays without them.
-const conductors = matchContext && matchView ? computeWiring(layoutView, matchView, matchContext) : [];
-const placedWires = buildDrawnWires(conductors, {
-  circuits: new Map((matchContext?.circuits ?? []).map((circuit) => [circuit.id, circuit.name])),
-  devices: placedDevices,
-});
-const placedCables = buildDrawnCables(conductors);
+const drawing = matchContext && matchView ? buildLayoutDrawing(layoutView, matchView, matchContext) : null;
+const placedDevices = drawing?.devices ?? [];
+const placedWires = drawing?.wires ?? [];
+const placedCables = drawing?.cables ?? [];
+const wireLengths = drawing?.lengths ?? [];
 // What the layout editor island is mounted with: the snapshot the placed layout covers, never a live query.
 const layoutEditor: LayoutEditorData | null =
   layoutView?.state === "placed" && matchContext && matchView
@@ -162,7 +155,6 @@ const layoutEditor: LayoutEditorData | null =
         names: layoutIssueNames(matchView.snapshot, matchContext.groups, matchContext.circuits),
       }
     : null;
-const wireLengths = wireLengthsBySection(conductors);
 
 /**
  * The electrician's pricing profile, for the quote. No row is "not configured" (null) and blocks the

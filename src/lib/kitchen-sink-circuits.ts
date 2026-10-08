@@ -24,9 +24,17 @@ import { deviceKindLabel, type DeviceKind, type NTerminalSide } from "@/lib/devi
 import { t } from "@/lib/i18n";
 import { layoutIssueNames, toEditorDevices, type LayoutEditorData } from "@/lib/layout-editor-data";
 import { editUnits, moveDevice, snapX, type LayoutDraft } from "@/lib/layout-editing";
-import { computeLayoutView, computeWiring, type LayoutView } from "@/lib/layout-server";
+import {
+  buildLayoutDrawing,
+  computeLayoutView,
+  computeWiring,
+  type LayoutDrawing,
+  type LayoutView,
+} from "@/lib/layout-server";
+import type { BusinessProfile } from "@/lib/business-profile";
 import type { PricingProfile } from "@/lib/pricing-profile";
 import { computeQuoteView, estimateLabourMinutes, type QuoteView } from "@/lib/quote";
+import { computePrintView, type PrintBlockReason, type PrintView } from "@/lib/quote-print";
 import type { SupplyParams } from "@/lib/supply-params";
 
 /**
@@ -665,6 +673,124 @@ export function kitchenSinkQuoteStates(): QuoteFixture[] {
     fixture("rate-warning", s.rateWarning, current, { ...KS_PROFILE, hourly_rate_grosze: 60_000 }),
     fixture("catalog-bars", s.catalogBars, noBars, KS_PROFILE),
   ];
+}
+
+// ——— Printout states ———
+
+type ReadyPrintView = Extract<PrintView, { state: "ready" }>;
+
+export interface PrintFixture {
+  key: string;
+  caption: string;
+  view: ReadyPrintView;
+  /** A wrapper class for the document: `grayscale` for the black-and-white check. */
+  className?: string;
+}
+
+export interface PrintStates {
+  geometry: CabinetGeometry;
+  drawing: LayoutDrawing;
+  project: {
+    name: string;
+    client_name: string | null;
+    site_address: string | null;
+    cabinet_name: string;
+    cabinet_manufacturer: string;
+    cabinet_model: string;
+  };
+  issuedAt: Date;
+  documents: PrintFixture[];
+  /** Every reason the print can be blocked, each from a real blocked `computePrintView`. */
+  blockedReasons: PrintBlockReason[];
+}
+
+const KS_BUSINESS: BusinessProfile = {
+  company_name: "Instalacje Elektryczne Jan Kowalski",
+  nip: "1234563218",
+  address: "ul. Przykładowa 12\n00-001 Warszawa",
+  phone: "+48 600 100 200",
+  email: "biuro@przyklad.pl",
+};
+
+/**
+ * The printed quote's states, each through the real `computePrintView`: one current match, its placed
+ * layout (SEED_B, wired by the real router) and quote feed the full letterhead, the fallback letterhead
+ * (no company row, an outdated override and a high rate to raise screen notices) and the greyscale
+ * check. The blocked reasons come from a view with no profile (also an unplaced layout) and one with a
+ * stale match.
+ */
+export function kitchenSinkPrintStates(): PrintStates {
+  const p = t.devTools.kitchenSink.printStates;
+  const base = context({ geometry: SEED_B });
+  const ctx = { ...base, snapshot: snapshotFrom(matchedSelections(base)) };
+  const matchView = computeMatchView(ctx);
+  const proposal = computeLayoutView(matchView, ctx, []);
+  const placements = proposal?.state === "missing" ? proposal.proposal : [];
+  const layout = computeLayoutView(matchView, ctx, placements);
+  const drawing = buildLayoutDrawing(layout, matchView, ctx);
+  const estimate = estimateLabourMinutes(matchView.snapshot.length, KS_PROFILE);
+
+  const print = (
+    profile: PricingProfile | null,
+    options: {
+      layout?: LayoutView | null;
+      match?: MatchView;
+      business?: BusinessProfile | null;
+      override?: { minutes: number; baseMinutes: number } | null;
+    } = {},
+  ): PrintView => {
+    const match = options.match ?? matchView;
+    return computePrintView({
+      quote: computeQuoteView({
+        matchView: match,
+        cabinet: KS_QUOTE_CABINET,
+        profile,
+        override: options.override ?? null,
+      }),
+      matchCurrent: match.state === "current",
+      layout: options.layout === undefined ? layout : options.layout,
+      snapshot: match.snapshot,
+      business: options.business === undefined ? KS_BUSINESS : options.business,
+      fullName: "Jan Kowalski",
+      userEmail: "jan@przyklad.pl",
+    });
+  };
+  const ready = (view: PrintView): ReadyPrintView => {
+    if (view.state !== "ready") throw new Error("kitchen-sink fixture: the print view must be ready");
+    return view;
+  };
+
+  const full = ready(print(KS_PROFILE));
+  const fallback = ready(
+    print(
+      { ...KS_PROFILE, hourly_rate_grosze: 60_000 },
+      { business: null, override: { minutes: KS_OVERRIDE_MINUTES, baseMinutes: estimate - 1 } },
+    ),
+  );
+  const staleMatch = computeMatchView({ ...ctx, snapshot: snapshotFrom(staleSelections()) });
+  const blocked = [print(null, { layout: null }), print(KS_PROFILE, { match: staleMatch, layout: null })].flatMap(
+    (view) => (view.state === "blocked" ? view.reasons : []),
+  );
+
+  return {
+    geometry: SEED_B,
+    drawing,
+    project: {
+      name: "Dom Kowalskich",
+      client_name: "Anna i Piotr Kowalscy",
+      site_address: "ul. Leśna 5, 05-500 Piaseczno",
+      cabinet_name: KS_QUOTE_CABINET.name,
+      cabinet_manufacturer: k.manufacturer,
+      cabinet_model: "KS-1",
+    },
+    issuedAt: new Date("2026-10-08T12:00:00Z"),
+    documents: [
+      { key: "full", caption: p.full, view: full },
+      { key: "fallback", caption: p.fallback, view: fallback },
+      { key: "grayscale", caption: p.grayscale, view: full, className: "grayscale" },
+    ],
+    blockedReasons: [...new Set(blocked)],
+  };
 }
 
 // ——— Editor interaction states ———
