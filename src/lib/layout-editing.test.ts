@@ -10,6 +10,7 @@ import {
   moveDevice,
   moveUnit,
   parsePlacementsPayload,
+  previewMove,
   snapX,
   type EditContext,
   type EditUnit,
@@ -164,6 +165,18 @@ describe("moves", () => {
     );
   });
 
+  it("swaps same-width neighbours on a one-module step, in either direction", () => {
+    // b one module left (87.5, centre 96.25) lands exactly on a's centre and passes it leftwards;
+    // a one module right (105, centre 113.75) lands exactly on b's centre and passes it rightwards.
+    const swapped = patched(START, [
+      { projectDeviceId: "G1-rcd", railIndex: 0, xMm: 52.5 },
+      { projectDeviceId: "mcb-b", railIndex: 0, xMm: 87.5 },
+      { projectDeviceId: "mcb-a", railIndex: 0, xMm: 105 },
+    ]);
+    expect(accepted(moveDevice(CONTEXT, START, "mcb-b", { railIndex: 0, xMm: 87.5 }))).toEqual(swapped);
+    expect(accepted(moveDevice(CONTEXT, START, "mcb-a", { railIndex: 0, xMm: 105 }))).toEqual(swapped);
+  });
+
   it("refuses a group device dropped outside its group (group_not_contiguous)", () => {
     // G1 spans 52.5–122.5 on rail 0: a at 200 (centre 208.75) is outside; rail 2 holds no G1 device.
     expect(refused(moveDevice(CONTEXT, START, "mcb-a", { railIndex: 0, xMm: 200 }))).toEqual([
@@ -278,6 +291,30 @@ describe("keyboardStep", () => {
     const atRcbo = patched(START, [{ projectDeviceId: "mcb-u", railIndex: 1, xMm: 17.5 }]);
     expect(keyboardStep(CONTEXT, atRcbo, u, "right")).toEqual({ railIndex: 1, xMm: 26.25 });
     expect(moveUnit(CONTEXT, atRcbo, u, { railIndex: 1, xMm: 26.25 }).ok).toBe(false);
+  });
+});
+
+describe("previewMove", () => {
+  it("packs a block at the target with no verdict, and leaves the draft alone", () => {
+    // RCD 0–35, a 35–52.5, b 52.5–70 on rail 1 at x 0 — right over mcb-u, which a drop would refuse.
+    const preview = previewMove(CONTEXT, START, G1_BLOCK, { railIndex: 1, xMm: 0 });
+    expect(preview.placements.slice(1, 5)).toEqual([
+      { projectDeviceId: "G1-rcd", railIndex: 1, xMm: 0 },
+      { projectDeviceId: "mcb-a", railIndex: 1, xMm: 35 },
+      { projectDeviceId: "mcb-b", railIndex: 1, xMm: 52.5 },
+      { projectDeviceId: "mcb-u", railIndex: 1, xMm: 0 },
+    ]);
+    expect(moveUnit(CONTEXT, START, G1_BLOCK, { railIndex: 1, xMm: 0 }).ok).toBe(false);
+    expect(START).toEqual(startCopy);
+  });
+
+  it("places a single device where it is dropped", () => {
+    const fr: EditUnit = { kind: "device", deviceId: "fr", groupId: null };
+    expect(previewMove(CONTEXT, START, fr, { railIndex: 2, xMm: 17.5 }).placements[0]).toEqual({
+      projectDeviceId: "fr",
+      railIndex: 2,
+      xMm: 17.5,
+    });
   });
 });
 

@@ -1123,6 +1123,46 @@ export const pl = {
         `Aparaty grupy „${group}” muszą stać obok siebie na jednej szynie DIN — między nie nie może wejść inny aparat.`,
       rcboNotAlone: (group: string) => `Wyłącznik RCBO grupy „${group}” musi być jedynym aparatem w tej grupie.`,
     },
+    /** The layout editor island (S-06), `src/components/projects/LayoutEditor.tsx`. */
+    editor: {
+      label: "Edytor układu aparatów w szafce",
+      hint: "Przeciągnij aparat albo całą grupę (za jej etykietę), żeby go przesunąć. Pozycje przeskakują co pół modułu (0,5 TE). Układ zapisze się dopiero po kliknięciu „Zapisz układ”.",
+      instructions:
+        "Aby podnieść aparat albo grupę, zaznacz go klawiszem Tab i naciśnij spację lub Enter. Strzałkami w lewo i w prawo przesuwasz o pół modułu, strzałkami w górę i w dół — na sąsiednią szynę DIN. Enter lub spacja upuszcza, Escape anuluje. Ctrl+Z cofa, Ctrl+Shift+Z albo Ctrl+Y ponawia.",
+      deviceLabel: (name: string, rail: number, position: string) =>
+        `Aparat „${name}”, szyna DIN ${String(rail)}, pozycja ${position} TE`,
+      groupLabel: (group: string, rail: number, position: string) =>
+        `Grupa „${group}”, szyna DIN ${String(rail)}, pozycja ${position} TE`,
+      /** Screen-reader announcements; `subject` is "aparat „B16 Oświetlenie”" or "grupę „Kuchnia”". */
+      deviceSubject: (name: string) => `aparat „${name}”`,
+      groupSubject: (group: string) => `grupę „${group}”`,
+      pickedUp: (subject: string) => `Podniesiono ${subject}.`,
+      movedTo: (subject: string, rail: number, position: string) =>
+        `Przesunięto ${subject} na szynę DIN ${String(rail)}, pozycja ${position} TE.`,
+      dropped: (subject: string, rail: number, position: string) =>
+        `Upuszczono ${subject} na szynie DIN ${String(rail)}, pozycja ${position} TE.`,
+      droppedInPlace: (subject: string) => `Upuszczono ${subject} w tym samym miejscu.`,
+      refused: (subject: string, reason: string) => `Nie można upuścić: ${subject}. ${reason}`,
+      refusedSnapBack: (subject: string, reason: string) => `${reason} Przywrócono ${subject} na poprzednie miejsce.`,
+      cancelled: (subject: string) => `Anulowano przenoszenie. Przywrócono ${subject} na poprzednie miejsce.`,
+      undone: "Cofnięto ostatnią zmianę układu.",
+      redone: "Ponowiono zmianę układu.",
+      discarded: "Odrzucono niezapisane zmiany układu.",
+      refusalTitle: "Nie można tak ustawić aparatu",
+      save: "Zapisz układ",
+      saving: "Zapisywanie...",
+      cancel: "Anuluj",
+      undo: "Cofnij",
+      redo: "Ponów",
+      unsaved: "Masz niezapisane zmiany układu.",
+      wiresAfterSave: "Przewody zostaną przeliczone po zapisaniu",
+      repropose: "Zaproponuj układ od nowa",
+      reproposeTitle: "Zaproponować układ od nowa?",
+      reproposeDescription:
+        "System zastąpi obecny układ nową propozycją. Ręczne poprawki oraz niezapisane zmiany zostaną utracone.",
+      reproposeConfirm: "Zaproponuj od nowa",
+      reproposeKeep: "Zostaw mój układ",
+    },
     /** Keyed by `LayoutFailure["code"]` (camelCased). */
     failures: {
       doesNotFit: (requiredModules: number, availableModules: number, blockLabel: string) =>
@@ -1263,6 +1303,7 @@ export const pl = {
       circuitEditorTitle: "Edytor obwodów",
       matchResultTitle: "Wynik doboru aparatów",
       layoutTitle: "Sekcja „Układ w szafce”",
+      editorDrawingsTitle: "Rysunek edytora: stany interakcji",
       quoteTitle: "Sekcja „Wycena”",
       /** Captions for the quote section states; each is computed by the real `computeQuoteView`. */
       quoteStates: {
@@ -1285,6 +1326,11 @@ export const pl = {
         doesNotFit: "Nie mieści się",
         outdated: "Nieaktualny (zapisane aparaty nachodzą na siebie)",
         notCurrent: "Dobór nieaktualny — brak układu",
+        editorManual: "Edytor: układ poprawiony ręcznie (znaczek „Poprawiony ręcznie”)",
+        editorDirty: "Edytor: niezapisane zmiany — przewody i długości ukryte, przyciski zapisu aktywne",
+        editorSelected: "Rysunek edytora: zaznaczony aparat (fokus)",
+        editorLifted: "Rysunek edytora: podniesiony aparat (przenoszenie)",
+        editorRefused: "Rysunek edytora: podniesiony aparat, upuszczenie odrzucone",
       },
       /** Fixture data and state captions for the circuit section; see `src/lib/kitchen-sink-circuits.ts`. */
       circuitFixtures: {

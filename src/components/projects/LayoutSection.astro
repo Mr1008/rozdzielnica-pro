@@ -1,16 +1,18 @@
 ---
 import { CabinetDrawing } from "@/components/cabinets/CabinetDrawing";
+import LayoutEditor from "@/components/projects/LayoutEditor";
+import { LayoutLegend } from "@/components/projects/LayoutLegend";
+import { WireLengthsTable } from "@/components/projects/WireLengthsTable";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { CabinetGeometry } from "@/lib/cabinet-geometry";
 import type { DrawnCable, DrawnDevice, DrawnWire } from "@/lib/cabinet-drawing";
 import { layoutFailureMessage } from "@/lib/cabinet-layout";
 import { WIRE_SLACK_RATIO, type WireLengthRow } from "@/lib/cabinet-wiring";
+import type { LayoutEditorData } from "@/lib/layout-editor-data";
 import type { LayoutView } from "@/lib/layout-server";
 import { t } from "@/lib/i18n";
-import { cn } from "@/lib/utils";
-import { projectLayoutApiPath } from "@/lib/project";
+import { projectLayoutApiPath, projectPlacementsApiPath } from "@/lib/project";
 import { CircleAlertIcon, InfoIcon, TriangleAlertIcon } from "lucide-react";
 
 /**
@@ -19,6 +21,9 @@ import { CircleAlertIcon, InfoIcon, TriangleAlertIcon } from "lucide-react";
  * `does_not_fit` has nothing to draw. `view` is null while the match is not `current`, and the panel
  * then points back at the match result. A placed layout carries its wires (with sag) and, under the
  * drawing, the conductor lengths per cross-section with the installation slack included.
+ *
+ * With `editor` data a placed layout is the interactive editor island (FR-009, S-06); its fallback slot
+ * is the static drawing, so the layout shows before the island hydrates.
  */
 interface Props {
   view: LayoutView | null;
@@ -34,18 +39,35 @@ interface Props {
   projectId: string;
   /** The in-page anchor of the match result's section, the link for a match that is not current. */
   matchAnchor: string;
+  /**
+   * The snapshot devices, groups, placements and names the editor island needs. Given, a `placed`
+   * layout is the interactive editor; omitted, it is the static drawing.
+   */
+  editor?: LayoutEditorData | null;
+  /** The page came back from a rejection (`?error=`): the editor restores the draft stored on submit. */
+  restoreDraft?: boolean;
+  /** The editor wrapper's anchor id; unique per editor on a page. */
+  editorId?: string;
+  /** What the editor's draft key is scoped by instead of the project id (the kitchen sink has several). */
+  draftScope?: string;
 }
 
-const { view, devices, wires = [], cables = [], lengths = [], geometry, projectId, matchAnchor } = Astro.props;
+const {
+  view,
+  devices,
+  wires = [],
+  cables = [],
+  lengths = [],
+  geometry,
+  projectId,
+  matchAnchor,
+  editor = null,
+  restoreDraft = false,
+  editorId = "layout-editor",
+  draftScope,
+} = Astro.props;
 const s = t.layout.section;
-const legendBox = "inline-block h-4 w-6 shrink-0 rounded-xs";
-const legendLine = "h-2 w-6 shrink-0";
-const headClass = "h-9 text-xs font-medium text-muted-foreground";
-const cellClass = "py-2 align-top";
 const slackPercent = Math.round(WIRE_SLACK_RATIO * 100);
-// A cabinet without built-in bars gets them from the catalog (plan Phase 5b), placed on a DIN rail.
-const catalogBars = devices.some((device) => device.role === "pe_bar" || device.role === "n_bar");
-const noBars = geometry !== null && geometry.bars.length === 0 && !catalogBars;
 ---
 
 <div class="flex flex-col gap-6">
@@ -102,139 +124,44 @@ const noBars = geometry !== null && geometry.bars.length === 0 && !catalogBars;
   {view?.state === "placed" && geometry && (
     <div class="flex flex-col gap-3">
       <h3 class="text-sm font-semibold">{s.drawingTitle}</h3>
-      <div class="mx-auto w-full max-w-3xl">
-        <CabinetDrawing geometry={geometry} devices={devices} wires={wires} cables={cables} />
-      </div>
-      <ul aria-label={s.legendLabel} class="flex flex-wrap gap-x-6 gap-y-2 text-xs text-muted-foreground">
-        <li class="flex items-center gap-2">
-          <span class:list={[legendBox, "border border-drawing-frame bg-drawing-frame"]} aria-hidden="true" />
-          {s.legend.mainSwitch}
-        </li>
-        <li class="flex items-center gap-2">
-          <span
-            class:list={[legendBox, "border-2 border-drawing-frame bg-drawing-device-protect"]}
-            aria-hidden="true"
-          />
-          {s.legend.protection}
-        </li>
-        <li class="flex items-center gap-2">
-          <span class:list={[legendBox, "border border-drawing-frame bg-drawing-paper"]} aria-hidden="true" />
-          {s.legend.mcb}
-        </li>
-        <li class="flex items-center gap-2">
-          <span class:list={[legendBox, "border border-dashed border-drawing-group"]} aria-hidden="true" />
-          {s.legend.group}
-        </li>
-      </ul>
-      {wires.length > 0 && (
-        <ul aria-label={s.wireLegendLabel} class="flex flex-wrap gap-x-6 gap-y-2 text-xs text-muted-foreground">
-          <li class="flex items-center gap-2">
-            <svg viewBox="0 0 24 8" class:list={legendLine} aria-hidden="true">
-              <line x1="0" y1="4" x2="24" y2="4" class="stroke-wire-l1" stroke-width="2" />
-            </svg>
-            {s.wireLegend.l}
-          </li>
-          <li class="flex items-center gap-2">
-            <svg viewBox="0 0 24 8" class:list={legendLine} aria-hidden="true">
-              <line x1="0" y1="4" x2="24" y2="4" class="stroke-wire-n" stroke-width="2" stroke-dasharray="6 3" />
-            </svg>
-            {s.wireLegend.n}
-          </li>
-          <li class="flex items-center gap-2">
-            <svg viewBox="0 0 24 8" class:list={legendLine} aria-hidden="true">
-              <line x1="0" y1="4" x2="24" y2="4" class="stroke-wire-pe" stroke-width="2" />
-              <line
-                x1="0"
-                y1="4"
-                x2="24"
-                y2="4"
-                class="stroke-wire-pe-stripe"
-                stroke-width="1"
-                stroke-dasharray="3 3"
-              />
-            </svg>
-            {s.wireLegend.pe}
-          </li>
-          {wires.some((wire) => wire.role === "PEN") && (
-            <li class="flex items-center gap-2">
-              <svg viewBox="0 0 24 8" class:list={legendLine} aria-hidden="true">
-                <line x1="0" y1="4" x2="24" y2="4" class="stroke-wire-pe" stroke-width="3.5" />
-                <line x1="0" y1="4" x2="24" y2="4" class="stroke-wire-pe-stripe" stroke-width="1.5" />
-                <line x1="0" y1="4" x2="24" y2="4" class="stroke-wire-n" stroke-width="1.5" stroke-dasharray="3 3" />
-              </svg>
-              {s.wireLegend.pen}
-            </li>
-          )}
-          {wires.some((wire) => wire.barEnds.length > 0) && (
-            <li class="flex items-center gap-2">
-              <svg viewBox="0 0 24 8" class:list={legendLine} aria-hidden="true">
-                <circle cx="6" cy="4" r="3" class="fill-drawing-paper stroke-drawing-frame" stroke-width="0.75" />
-                <circle cx="17" cy="4" r="3" class="fill-drawing-paper stroke-drawing-frame" stroke-width="0.75" />
-                <circle cx="17" cy="4" r="2.2" class="fill-wire-pe stroke-drawing-frame" stroke-width="0.5" />
-              </svg>
-              {s.wireLegend.terminal}
-            </li>
-          )}
-          {cables.length > 0 && (
-            <li class="flex items-center gap-2">
-              <svg viewBox="0 0 24 8" class:list={legendLine} aria-hidden="true">
-                <line x1="0" y1="4" x2="24" y2="4" class="stroke-drawing-frame" stroke-width="6" />
-                <line x1="0" y1="4" x2="24" y2="4" class="stroke-drawing-paper" stroke-width="3.5" />
-              </svg>
-              {s.wireLegend.cable}
-            </li>
-          )}
-        </ul>
+      {editor ? (
+        <div id={editorId} tabindex="-1" class="scroll-mt-6">
+          <LayoutEditor
+            geometry={geometry}
+            devices={editor.devices}
+            groups={editor.groups}
+            placements={editor.placements}
+            editedManually={view.editedManually}
+            names={editor.names}
+            wires={[...wires]}
+            cables={[...cables]}
+            lengths={[...lengths]}
+            slackPercent={slackPercent}
+            saveAction={projectPlacementsApiPath(projectId)}
+            reproposeAction={projectLayoutApiPath(projectId)}
+            draftKey={`layout-draft:${draftScope ?? projectId}`}
+            restoreDraft={restoreDraft}
+            initialDraft={editor.initialDraft}
+            client:only="react"
+          >
+            <div slot="fallback" class="flex flex-col gap-3">
+              <div class="mx-auto w-full max-w-3xl">
+                <CabinetDrawing geometry={geometry} devices={devices} wires={wires} cables={cables} />
+              </div>
+              <LayoutLegend geometry={geometry} devices={devices} wires={wires} cables={cables} />
+              {lengths.length > 0 && <WireLengthsTable lengths={lengths} slackPercent={slackPercent} />}
+            </div>
+          </LayoutEditor>
+        </div>
+      ) : (
+        <>
+          <div class="mx-auto w-full max-w-3xl">
+            <CabinetDrawing geometry={geometry} devices={devices} wires={wires} cables={cables} />
+          </div>
+          <LayoutLegend geometry={geometry} devices={devices} wires={wires} cables={cables} />
+          {lengths.length > 0 && <WireLengthsTable lengths={lengths} slackPercent={slackPercent} />}
+        </>
       )}
-      {noBars && <p class="text-xs text-muted-foreground">{s.noBarsNote}</p>}
-      {catalogBars && <p class="text-xs text-muted-foreground">{s.catalogBarsNote}</p>}
-    </div>
-  )}
-
-  {view?.state === "placed" && lengths.length > 0 && (
-    <div class="flex flex-col gap-3">
-      <h3 class="text-sm font-semibold">{s.lengthsTitle}</h3>
-      <div class="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead scope="col" className={cn(headClass, "pl-4")}>
-                {s.lengthsColumns.crossSection}
-              </TableHead>
-              <TableHead scope="col" className={headClass}>
-                {s.lengthsColumns.conductor}
-              </TableHead>
-              <TableHead scope="col" className={headClass}>
-                {s.lengthsColumns.usage}
-              </TableHead>
-              <TableHead scope="col" className={cn(headClass, "text-right")}>
-                {s.lengthsColumns.count}
-              </TableHead>
-              <TableHead scope="col" className={cn(headClass, "pr-4 text-right")}>
-                {s.lengthsColumns.length}
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {lengths.map((row) => (
-              <TableRow>
-                <TableCell className={cn(cellClass, "pl-4 font-mono whitespace-nowrap tabular-nums")}>
-                  {s.crossSection(row.crossSectionMm2)}
-                </TableCell>
-                <TableCell className={cellClass}>{s.wireClasses[row.wireClass]}</TableCell>
-                <TableCell className={cn(cellClass, "text-muted-foreground")}>
-                  {row.kinds.map((kind) => s.conductorKinds[kind]).join(s.kindsSeparator)}
-                </TableCell>
-                <TableCell className={cn(cellClass, "text-right font-mono tabular-nums")}>{row.count}</TableCell>
-                <TableCell className={cn(cellClass, "pr-4 text-right font-mono whitespace-nowrap tabular-nums")}>
-                  {s.metres(row.totalMm / 1000)}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-      <p class="text-xs text-muted-foreground">{s.lengthsNote(slackPercent)}</p>
     </div>
   )}
 
