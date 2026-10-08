@@ -702,14 +702,14 @@ plus the existing render. Carry-over adds one `validateLayout` per circuit save 
 
 #### Automated
 
-- [x] 1.1 Unit tests pass: `npm run test:unit`
-- [x] 1.2 Type checking passes: `npx astro check`
-- [x] 1.3 Linting passes: `npm run lint`
-- [x] 1.4 Mutation check: disabling the `validateLayout` call in `moveUnit` makes the property test fail
+- [x] 1.1 Unit tests pass: `npm run test:unit` — dcc599c
+- [x] 1.2 Type checking passes: `npx astro check` — dcc599c
+- [x] 1.3 Linting passes: `npm run lint` — dcc599c
+- [x] 1.4 Mutation check: disabling the `validateLayout` call in `moveUnit` makes the property test fail — dcc599c
 
 #### Manual
 
-- [x] 1.5 The literal expected placements in the named tests were checked by hand against the seed geometries (rail lengths, 17.5 mm modules)
+- [x] 1.5 The literal expected placements in the named tests were checked by hand against the seed geometries (rail lengths, 17.5 mm modules) — dcc599c
 
 ### Phase 2: Storage and write path
 

@@ -2,8 +2,8 @@ import type { APIRoute } from "astro";
 import { isUuid } from "@/lib/catalog";
 import { CIRCUIT_FORM_FIELDS, parseCircuitsPayload } from "@/lib/circuit-params";
 import { matchDevices } from "@/lib/device-matching";
-import { cabinetBarKinds, circuitsRpcErrorCode, loadMatchBase, saveCircuitsArgs } from "@/lib/device-matching-server";
-import { proposeSelectionLayout } from "@/lib/layout-server";
+import { cabinetBarKinds, circuitsRpcErrorCode, saveCircuitsArgs } from "@/lib/device-matching-server";
+import { chooseSelectionLayout, loadLayoutContext } from "@/lib/layout-server";
 import { projectFormErrorPath, projectPath, projectsErrorPath } from "@/lib/project";
 import { PROJECT_ERROR } from "@/lib/project-errors";
 import { SIGN_IN_PATH } from "@/lib/route-access";
@@ -27,7 +27,9 @@ function readPayload(form: FormData): unknown {
  * Saves a project's RCD groups and circuits and replaces its device snapshot — and, for a match,
  * its proposed layout — in one RPC (`save_project_circuits`). Matching runs on the submitted set
  * against the caller's supply and the active catalog; a gap or a blocker is stored as an empty
- * snapshot, never as a substitute device.
+ * snapshot, never as a substitute device. A manual layout (S-06) is kept when it still applies to the
+ * new device set as a whole and validates; otherwise a fresh proposal replaces it and the redirect
+ * says so (`layout_reset=1`).
  * `/api/projects` is elektryk-gated in `src/lib/route-access.ts`; RLS on the circuit tables is still
  * the real boundary.
  */
@@ -50,28 +52,40 @@ export const POST: APIRoute = async (context) => {
   const supabase = createClient(context.request.headers, context.cookies);
   if (!supabase) return back(PROJECT_ERROR.notConfigured);
 
-  // The stored rows are not needed: the match runs on the submitted groups and circuits.
-  const loaded = await loadMatchBase(supabase, id);
+  // The match runs on the submitted groups and circuits. The stored snapshot and placements are read
+  // here, before the RPC deletes them, only so a manual layout can be carried over.
+  const loaded = await loadLayoutContext(supabase, id);
   if (!loaded.ok) return loaded.code === "not_found" ? notFound() : back(PROJECT_ERROR.unknown);
+  const { supply, geometry, catalog, snapshot } = loaded.context;
 
   const result = matchDevices(
     {
-      supply: loaded.base.supply,
+      supply,
       groups: parsed.value.groups,
       circuits: parsed.value.circuits,
-      cabinetBarKinds: cabinetBarKinds(loaded.base.geometry),
+      cabinetBarKinds: cabinetBarKinds(geometry),
     },
-    loaded.base.catalog,
+    catalog,
   );
 
-  // The layout is proposed on the same match and stored in the same RPC; one that does not fit
-  // stores the devices with no placements, and the page reports it.
-  const layout = proposeSelectionLayout(result, loaded.base.catalog, parsed.value, loaded.base.geometry);
-  const { error } = await supabase.rpc("save_project_circuits", saveCircuitsArgs(id, parsed.value, result, layout));
+  // The layout is carried over or proposed on the same match and stored in the same RPC; one that
+  // does not fit stores the devices with no placements, and the page reports it.
+  const choice = chooseSelectionLayout(
+    { snapshot, placements: loaded.placements, editedManually: loaded.editedManually },
+    result,
+    catalog,
+    parsed.value,
+    geometry,
+  );
+  const { error } = await supabase.rpc(
+    "save_project_circuits",
+    saveCircuitsArgs(id, parsed.value, result, choice.layout, choice.editedManually),
+  );
   if (error) {
     const code = circuitsRpcErrorCode(error);
     return code === PROJECT_ERROR.notFound ? notFound() : back(code);
   }
 
-  return context.redirect(`${projectPath(id)}?saved=circuits${SECTION_HASH}`);
+  const reset = choice.reset ? "&layout_reset=1" : "";
+  return context.redirect(`${projectPath(id)}?saved=circuits${reset}${SECTION_HASH}`);
 };

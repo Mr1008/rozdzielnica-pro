@@ -262,6 +262,7 @@ export type Database = {
       project_device_placements: {
         Row: {
           created_at: string
+          edited_manually: boolean
           project_device_id: string
           project_id: string
           rail_index: number
@@ -269,6 +270,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          edited_manually?: boolean
           project_device_id: string
           project_id: string
           rail_index: number
@@ -277,6 +279,7 @@ export type Database = {
         Update: {
           created_at?: string
           project_device_id?: string
+          edited_manually?: boolean
           project_id?: string
           rail_index?: number
           x_mm?: number
@@ -571,7 +574,11 @@ export type Database = {
         Returns: undefined
       }
       save_project_layout: {
-        Args: { p_placements: Json; p_project_id: string }
+        Args: {
+          p_edited_manually?: boolean
+          p_placements: Json
+          p_project_id: string
+        }
         Returns: undefined
       }
     }

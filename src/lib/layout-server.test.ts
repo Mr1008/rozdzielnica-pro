@@ -15,6 +15,7 @@ import {
 } from "./device-matching-server";
 import { parseDeviceSpec, polesCarryN, type DeviceKind, type PoleConfig } from "./device-spec";
 import {
+  chooseSelectionLayout,
   computeLayoutView,
   computeWiring,
   layoutRpcErrorCode,
@@ -150,7 +151,21 @@ describe("computeLayoutView", () => {
   it("is placed when the stored placements cover the snapshot and validate", () => {
     const placements = proposal(SMALL.snapshot, SMALL);
     const view = computeLayoutView(matchView("current", SMALL.snapshot), SMALL_CONTEXT, placements);
-    expect(view).toEqual({ state: "placed", placements });
+    expect(view).toEqual({ state: "placed", placements, editedManually: false });
+  });
+
+  it("carries the manual marker only into the placed state", () => {
+    const placements = proposal(SMALL.snapshot, SMALL);
+    const current = matchView("current", SMALL.snapshot);
+    expect(computeLayoutView(current, SMALL_CONTEXT, placements, true)).toEqual({
+      state: "placed",
+      placements,
+      editedManually: true,
+    });
+    // An outdated manual layout is no longer shown as manual.
+    const outdated = computeLayoutView(current, SMALL_CONTEXT, placements.slice(1), true);
+    expect(outdated?.state).toBe("outdated");
+    expect(outdated).not.toHaveProperty("editedManually");
   });
 
   it("is missing when nothing is stored and a proposal fits — the proposal validates", () => {
@@ -302,6 +317,88 @@ describe("proposeSelectionLayout", () => {
 });
 
 // ---------------------------------------------------------------------------------------------
+// chooseSelectionLayout — carry-over of a manual layout (S-06)
+// ---------------------------------------------------------------------------------------------
+
+describe("chooseSelectionLayout", () => {
+  const payload: CircuitsPayload = { groups: SMALL.groups, circuits: SMALL.circuits };
+  const matched: MatchResult = { status: "matched", selections: selections(payload) };
+  // A manual layout on seed (b): the main switch at the start of rail 0, the group block (RCD 35 mm,
+  // then two 17.5 mm MCBs) packed at the start of rail 1.
+  const fixedManual: Placement[] = [
+    { projectDeviceId: SMALL.snapshot[0].id, railIndex: 0, xMm: 0 },
+    { projectDeviceId: SMALL.snapshot[1].id, railIndex: 1, xMm: 0 },
+    { projectDeviceId: SMALL.snapshot[2].id, railIndex: 1, xMm: 35 },
+    { projectDeviceId: SMALL.snapshot[3].id, railIndex: 1, xMm: 52.5 },
+  ];
+
+  it("keeps a manual layout that still applies, marked, keyed by selection index", () => {
+    expect(validateLayout(SMALL.snapshot, fixedManual, SEED_B, SMALL.groups)).toEqual([]);
+    const choice = chooseSelectionLayout(
+      { snapshot: SMALL.snapshot, placements: fixedManual, editedManually: true },
+      matched,
+      CATALOG,
+      payload,
+      SEED_B,
+    );
+    expect(choice).toEqual({
+      layout: fixedManual.map((p) => ({ railIndex: p.railIndex, xMm: p.xMm })),
+      editedManually: true,
+      reset: false,
+    });
+  });
+
+  it("re-proposes a layout that was not edited manually, without a reset notice", () => {
+    const choice = chooseSelectionLayout(
+      { snapshot: SMALL.snapshot, placements: fixedManual, editedManually: false },
+      matched,
+      CATALOG,
+      payload,
+      SEED_B,
+    );
+    expect(choice).toEqual({
+      layout: proposeSelectionLayout(matched, CATALOG, payload, SEED_B),
+      editedManually: false,
+      reset: false,
+    });
+  });
+
+  it("re-proposes and reports a reset when a circuit was added", () => {
+    const grown: CircuitsPayload = {
+      groups: payload.groups,
+      circuits: [...payload.circuits, circuit(3, payload.groups[0].id)],
+    };
+    const result: MatchResult = { status: "matched", selections: selections(grown) };
+    const choice = chooseSelectionLayout(
+      { snapshot: SMALL.snapshot, placements: fixedManual, editedManually: true },
+      result,
+      CATALOG,
+      grown,
+      SEED_B,
+    );
+    expect(choice).toEqual({
+      layout: proposeSelectionLayout(result, CATALOG, grown, SEED_B),
+      editedManually: false,
+      reset: true,
+    });
+    expect(choice.layout).toHaveLength(5);
+  });
+
+  it("stores nothing and reports no reset for a match that stores no snapshot", () => {
+    const blocked: MatchResult = { status: "blocked", reasons: [{ code: "no_circuits" }] };
+    expect(
+      chooseSelectionLayout(
+        { snapshot: SMALL.snapshot, placements: fixedManual, editedManually: true },
+        blocked,
+        CATALOG,
+        payload,
+        SEED_B,
+      ),
+    ).toEqual({ layout: undefined, editedManually: false, reset: false });
+  });
+});
+
+// ---------------------------------------------------------------------------------------------
 // RPC shapes and errors
 // ---------------------------------------------------------------------------------------------
 
@@ -316,7 +413,16 @@ describe("placementsFromRows and saveLayoutArgs", () => {
       { projectDeviceId: "d1", railIndex: 0, xMm: 0 },
       { projectDeviceId: "d2", railIndex: 2, xMm: 52.5 },
     ]);
-    expect(saveLayoutArgs(PROJECT_ID, placements)).toEqual({ p_project_id: PROJECT_ID, p_placements: rows });
+    expect(saveLayoutArgs(PROJECT_ID, placements)).toEqual({
+      p_project_id: PROJECT_ID,
+      p_placements: rows,
+      p_edited_manually: false,
+    });
+    expect(saveLayoutArgs(PROJECT_ID, placements, true)).toEqual({
+      p_project_id: PROJECT_ID,
+      p_placements: rows,
+      p_edited_manually: true,
+    });
   });
 });
 

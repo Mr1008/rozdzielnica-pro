@@ -57,7 +57,11 @@ const saved =
             ? t.projects.page.savedRematch
             : savedParam === "layout"
               ? t.projects.page.savedLayout
-              : null;
+              : savedParam === "layout_edited"
+                ? t.projects.page.savedLayoutEdited
+                : null;
+// A circuit save or re-match replaced a manual layout that no longer applied to the new device set.
+const layoutReset = error === null && Astro.url.searchParams.get("layout_reset") === "1";
 
 const supabase = createClient(Astro.request.headers, Astro.cookies);
 
@@ -127,7 +131,9 @@ const matchContext = matchLoad?.ok ? matchLoad.context : null;
 const matchView = matchContext ? computeMatchView(matchContext) : null;
 // The layout state is read only through `computeLayoutView`, never from the raw placement rows.
 const layoutView =
-  matchLoad?.ok && matchView ? computeLayoutView(matchView, matchLoad.context, matchLoad.placements) : null;
+  matchLoad?.ok && matchView
+    ? computeLayoutView(matchView, matchLoad.context, matchLoad.placements, matchLoad.editedManually)
+    : null;
 const placedDevices =
   layoutView?.state === "placed" && matchContext?.geometry
     ? buildDrawnDevices(matchView?.snapshot ?? [], layoutView.placements, matchContext.geometry, matchContext.groups)
@@ -172,7 +178,10 @@ function layoutBadge(view: LayoutView | null): {
   if (view === null) return { variant: "secondary", text: t.projects.page.layoutNotCurrent };
   switch (view.state) {
     case "placed":
-      return { variant: "success", text: t.projects.page.layoutPlaced };
+      return {
+        variant: "success",
+        text: view.editedManually ? t.projects.page.layoutEditedManually : t.projects.page.layoutPlaced,
+      };
     case "missing":
       return { variant: "secondary", text: t.projects.page.layoutMissing };
     case "does_not_fit":
@@ -237,6 +246,11 @@ const headingClass = "scroll-mt-6 text-lg leading-none font-semibold";
   {saved && (
     <Banner slot="banners" variant="success">
       {saved}
+    </Banner>
+  )}
+  {layoutReset && (
+    <Banner slot="banners" variant="warning">
+      {t.layout.section.manualReset}
     </Banner>
   )}
 

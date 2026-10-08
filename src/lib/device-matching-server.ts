@@ -257,14 +257,17 @@ export type SelectionPlacements = readonly (Pick<Placement, "railIndex" | "xMm">
 /**
  * The `save_project_circuits` arguments. Only a `matched` result stores a snapshot; a gap or a block
  * stores none (`p_device_ids: []`), so a partial or unguarded device set is never persisted. With a
- * `layout` (from `proposeSelectionLayout` in `src/lib/layout-server.ts`), each placed item also
- * carries `rail_index` / `x_mm` and the RPC stores its placement in the same transaction.
+ * `layout` (from `chooseSelectionLayout` in `src/lib/layout-server.ts`), each placed item also
+ * carries `rail_index` / `x_mm` and the RPC stores its placement in the same transaction; with
+ * `editedManually` (a manual layout carried over, S-06) each placed item also carries
+ * `edited_manually: true`. Unplaced items never carry the marker.
  */
 export function saveCircuitsArgs(
   projectId: string,
   payload: CircuitsPayload,
   result: MatchResult,
   layout?: SelectionPlacements,
+  editedManually = false,
 ): Database["public"]["Functions"]["save_project_circuits"]["Args"] {
   const devices =
     result.status === "matched"
@@ -276,7 +279,13 @@ export function saveCircuitsArgs(
             rcd_group_id: selection.groupId,
             circuit_id: selection.circuitId,
             notes: selection.notes,
-            ...(placement === null ? {} : { rail_index: placement.railIndex, x_mm: placement.xMm }),
+            ...(placement === null
+              ? {}
+              : {
+                  rail_index: placement.railIndex,
+                  x_mm: placement.xMm,
+                  ...(editedManually ? { edited_manually: true } : {}),
+                }),
           };
         })
       : [];

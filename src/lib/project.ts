@@ -61,6 +61,11 @@ export function projectLayoutApiPath(id: string): string {
   return `${projectApiPath(id)}/layout`;
 }
 
+/** Stores the electrician's manually edited layout, after re-validating it (S-06). */
+export function projectPlacementsApiPath(id: string): string {
+  return `${projectApiPath(id)}/placements`;
+}
+
 export const MAX_PROJECT_NAME_LENGTH = 200;
 export const MAX_CLIENT_NAME_LENGTH = 200;
 export const MAX_SITE_ADDRESS_LENGTH = 300;
