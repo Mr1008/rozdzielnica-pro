@@ -109,7 +109,9 @@ async function loadCabinets() {
   return { cabinets, cabinetsError: null };
 }
 
-const { project, loadError } = await loadProject();
+// The pricing profile needs only the signed-in user, so it loads alongside the project rather than
+// after the match. `loadPricingProfile` is a hoisted declaration below.
+const [{ project, loadError }, profileLoad] = await Promise.all([loadProject(), loadPricingProfile()]);
 if (!project && !loadError) Astro.response.status = 404;
 
 const { cabinets, cabinetsError } = project ? await loadCabinets() : { cabinets: [], cabinetsError: null };
@@ -166,7 +168,7 @@ async function loadPricingProfile() {
   return { profile: data, profileError: null };
 }
 
-const { profile, profileError } = project ? await loadPricingProfile() : { profile: null, profileError: null };
+const { profile, profileError } = project ? profileLoad : { profile: null, profileError: null };
 const quoteView =
   project && matchView && !profileError
     ? computeQuoteView({
@@ -534,12 +536,7 @@ const headingClass = "scroll-mt-6 text-lg leading-none font-semibold";
             </CardHeader>
             <CardContent>
               {quoteView ? (
-                <QuoteSection
-                  view={quoteView}
-                  profile={profile}
-                  projectId={project.id}
-                  matchAnchor={circuitsSectionId}
-                />
+                <QuoteSection view={quoteView} projectId={project.id} matchAnchor={circuitsSectionId} />
               ) : (
                 <Alert variant="destructive" role={undefined}>
                   <CircleAlertIcon aria-hidden="true" />

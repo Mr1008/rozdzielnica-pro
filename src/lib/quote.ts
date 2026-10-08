@@ -26,6 +26,9 @@ export const MAX_LABOUR_OVERRIDE_MINUTES = 59_999;
 
 const MINUTES_PER_HOUR = 60;
 
+/** The minutes field of the override form: 0–59, the rest goes in hours. */
+export const MAX_LABOUR_OVERRIDE_MINUTE_PART = MINUTES_PER_HOUR - 1;
+
 /**
  * An hourly rate above 500 zł/h warns as a likely typo (S-07 left the ceiling to S-08; the decision
  * was a warning, not a CHECK). Equality never warns, as in `supply-warnings.ts`.
@@ -87,6 +90,9 @@ export interface ReadyQuote {
   devicesGrosze: number;
   cabinet: QuoteCabinet;
   materialGrosze: number;
+  /** The estimate's two profile inputs, so a printout can show the formula from the view alone. */
+  mountMinutesPerDevice: number;
+  overheadMinutes: number;
   estimateMinutes: number;
   /** `outdated`: the estimate moved since the override was set; the override is still used. */
   override: (LabourOverride & { outdated: boolean }) | null;
@@ -128,6 +134,8 @@ export function computeQuoteView(input: QuoteInput): QuoteView {
     devicesGrosze,
     cabinet: { name: cabinet.name, priceGrosze: cabinet.priceGrosze },
     materialGrosze,
+    mountMinutesPerDevice: profile.mount_minutes_per_device,
+    overheadMinutes: profile.project_overhead_minutes,
     estimateMinutes,
     override:
       override === null
@@ -190,7 +198,7 @@ export function parseLabourOverrideForm(form: FormData): LabourOverrideFormResul
   if (intent !== "set") return { ok: false, code: "invalid_input" };
 
   const hours = parseWhole(readText(form, QUOTE_FIELDS.hours), MAX_LABOUR_OVERRIDE_HOURS);
-  const minutes = parseWhole(readText(form, QUOTE_FIELDS.minutes), MINUTES_PER_HOUR - 1);
+  const minutes = parseWhole(readText(form, QUOTE_FIELDS.minutes), MAX_LABOUR_OVERRIDE_MINUTE_PART);
   if (hours === null || minutes === null) return { ok: false, code: "invalid_input" };
 
   const total = hours * MINUTES_PER_HOUR + minutes;
