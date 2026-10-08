@@ -1,5 +1,6 @@
 ---
 import Banner from "@/components/Banner.astro";
+import BusinessProfileCard from "@/components/forms/BusinessProfileCard.astro";
 import PageHeader from "@/components/PageHeader.astro";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -7,6 +8,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from "@/components/ui/input-group";
 import AppLayout from "@/layouts/AppLayout.astro";
+import { businessErrorMessage } from "@/lib/business-errors";
+import { businessFormDefaults, type BusinessFormDefaults } from "@/lib/business-profile";
 import { fieldControlProps, fieldHintId } from "@/lib/field-a11y";
 import { t } from "@/lib/i18n";
 import { PRICE_INPUT_PATTERN } from "@/lib/price-input";
@@ -29,6 +32,9 @@ import { TriangleAlertIcon } from "lucide-react";
 // `src/lib/route-access.ts`, and RLS returns only the caller's own `pricing_profiles` row.
 const error = pricingErrorMessage(Astro.url.searchParams.get("error"));
 const saved = Astro.url.searchParams.get("saved") === "1" && error === null;
+// The company card reports on its own params, so a save on one card never shows on the other.
+const businessError = businessErrorMessage(Astro.url.searchParams.get("businessError"));
+const businessSaved = Astro.url.searchParams.get("businessSaved") === "1" && businessError === null;
 
 async function loadDefaults(): Promise<{
   defaults: PricingFormDefaults | null;
@@ -61,7 +67,32 @@ async function loadDefaults(): Promise<{
   };
 }
 
-const { defaults, loadError, rateWarning: showRateWarning } = await loadDefaults();
+async function loadBusinessDefaults(): Promise<{ defaults: BusinessFormDefaults | null; loadError: string | null }> {
+  const supabase = createClient(Astro.request.headers, Astro.cookies);
+  if (!supabase) return { defaults: null, loadError: t.businessErrors.notConfigured };
+  const { user } = Astro.locals;
+  if (!user) return { defaults: null, loadError: t.businessProfile.loadFailed };
+
+  const { data, error: queryError } = await supabase
+    .from("business_profiles")
+    .select("company_name, nip, address, phone, email")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (queryError) {
+    // The SQLSTATE only, never Supabase's message.
+    // eslint-disable-next-line no-console
+    console.error("business profile load failed", queryError.code);
+    Astro.response.status = 500;
+    return { defaults: null, loadError: t.businessProfile.loadFailed };
+  }
+  // No row: every field starts empty, since every field is optional.
+  return { defaults: businessFormDefaults(data), loadError: null };
+}
+
+const [{ defaults, loadError, rateWarning: showRateWarning }, business] = await Promise.all([
+  loadDefaults(),
+  loadBusinessDefaults(),
+]);
 
 const fields = [
   {
@@ -198,4 +229,13 @@ const inputClass = "font-mono";
       </CardContent>
     </Card>
   )}
+
+  <div class="mt-6">
+    <BusinessProfileCard
+      defaults={business.defaults}
+      loadError={business.loadError}
+      error={businessError}
+      saved={businessSaved}
+    />
+  </div>
 </AppLayout>

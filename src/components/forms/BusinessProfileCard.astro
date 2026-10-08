@@ -1,0 +1,123 @@
+---
+import Banner from "@/components/Banner.astro";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  BUSINESS_API_PATH,
+  BUSINESS_FIELDS,
+  MAX_ADDRESS_LENGTH,
+  MAX_COMPANY_NAME_LENGTH,
+  MAX_EMAIL_LENGTH,
+  MAX_PHONE_LENGTH,
+  type BusinessFormDefaults,
+} from "@/lib/business-profile";
+import { fieldControlProps, fieldHintId } from "@/lib/field-a11y";
+import { t } from "@/lib/i18n";
+
+/**
+ * The profile page's "Dane firmy do wyceny" card (FR-012): the five optional company fields the
+ * printed quote shows in its header, posting to `BUSINESS_API_PATH`. Its saved / error banners live
+ * inside the card, so it reports independently of the pricing card. `maxlength` counts UTF-16 units,
+ * so it can only be stricter than the parser's code points, never looser. Shared by the profile page
+ * and `/dev/kitchen-sink`; `idPrefix` keeps the control ids unique when several render on one page.
+ */
+interface Props {
+  /** The stored values; null (a failed load) renders the load error instead of the form. */
+  defaults: BusinessFormDefaults | null;
+  loadError?: string | null;
+  error?: string | null;
+  saved?: boolean;
+  idPrefix?: string;
+}
+
+const { defaults, loadError = null, error = null, saved = false, idPrefix = "business" } = Astro.props;
+const m = t.businessProfile;
+const id = (name: string) => `${idPrefix}-${name}`;
+---
+
+<Card className="max-w-2xl">
+  <CardHeader>
+    <CardTitle>{m.title}</CardTitle>
+    <CardDescription>{m.description}</CardDescription>
+  </CardHeader>
+  <CardContent className="flex flex-col gap-5">
+    {loadError && <Banner variant="error">{loadError}</Banner>}
+    {error && <Banner variant="error">{error}</Banner>}
+    {saved && !error && <Banner variant="success">{m.saved}</Banner>}
+    {defaults && (
+      <form method="POST" action={BUSINESS_API_PATH} class="flex flex-col gap-5">
+        <Field>
+          <FieldLabel htmlFor={id("company-name")}>{m.companyNameLabel}</FieldLabel>
+          <Input
+            name={BUSINESS_FIELDS.companyName}
+            type="text"
+            autoComplete="organization"
+            maxLength={MAX_COMPANY_NAME_LENGTH}
+            defaultValue={defaults.company_name}
+            placeholder={m.companyNamePlaceholder}
+            {...fieldControlProps(id("company-name"))}
+          />
+        </Field>
+        <Field>
+          <FieldLabel htmlFor={id("nip")}>{m.nipLabel}</FieldLabel>
+          <Input
+            name={BUSINESS_FIELDS.nip}
+            type="text"
+            inputMode="numeric"
+            autoComplete="off"
+            maxLength={20}
+            defaultValue={defaults.nip}
+            placeholder={m.nipPlaceholder}
+            className="font-mono"
+            {...fieldControlProps(id("nip"), { hint: m.nipHint })}
+          />
+          <FieldDescription id={fieldHintId(id("nip"))}>{m.nipHint}</FieldDescription>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor={id("address")}>{m.addressLabel}</FieldLabel>
+          <Textarea
+            name={BUSINESS_FIELDS.address}
+            rows={3}
+            autoComplete="street-address"
+            maxLength={MAX_ADDRESS_LENGTH}
+            defaultValue={defaults.address}
+            {...fieldControlProps(id("address"), { hint: m.addressHint })}
+          />
+          <FieldDescription id={fieldHintId(id("address"))}>{m.addressHint}</FieldDescription>
+        </Field>
+        <div class="grid items-start gap-5 sm:grid-cols-2">
+          <Field>
+            <FieldLabel htmlFor={id("phone")}>{m.phoneLabel}</FieldLabel>
+            <Input
+              name={BUSINESS_FIELDS.phone}
+              type="tel"
+              autoComplete="tel"
+              maxLength={MAX_PHONE_LENGTH}
+              defaultValue={defaults.phone}
+              placeholder={m.phonePlaceholder}
+              {...fieldControlProps(id("phone"))}
+            />
+          </Field>
+          <Field>
+            <FieldLabel htmlFor={id("email")}>{m.emailLabel}</FieldLabel>
+            <Input
+              name={BUSINESS_FIELDS.email}
+              type="email"
+              autoComplete="email"
+              maxLength={MAX_EMAIL_LENGTH}
+              defaultValue={defaults.email}
+              placeholder={m.emailPlaceholder}
+              {...fieldControlProps(id("email"))}
+            />
+          </Field>
+        </div>
+        <div>
+          <Button type="submit">{m.save}</Button>
+        </div>
+      </form>
+    )}
+  </CardContent>
+</Card>
