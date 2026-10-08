@@ -711,20 +711,20 @@ One new table, additive and backward-compatible with the deployed code. No data 
 
 #### Automated
 
-- [x] 2.1 Error-mapping tests pass: `npx vitest run --config vitest.config.ts src/lib/business-errors.test.ts`
-- [x] 2.2 `npm run lint`, `npx astro check`, `npm run test:unit` and `npm run build` pass
+- [x] 2.1 Error-mapping tests pass: `npx vitest run --config vitest.config.ts src/lib/business-errors.test.ts` — 93a633b
+- [x] 2.2 `npm run lint`, `npx astro check`, `npm run test:unit` and `npm run build` pass — 93a633b
 
 #### Manual
 
-- [x] 2.3 Company details save, pre-fill, clear to nulls; a bad NIP errors on this card only; the pricing card still saves independently
-- [x] 2.4 The kitchen sink shows the three card states
+- [x] 2.3 Company details save, pre-fill, clear to nulls; a bad NIP errors on this card only; the pricing card still saves independently — 93a633b
+- [x] 2.4 The kitchen sink shows the three card states — 93a633b
 
 ### Phase 3: Print view model
 
 #### Automated
 
-- [ ] 3.1 Helper tests pass: `npx vitest run --config vitest.config.ts src/lib/quote-print.test.ts`
-- [ ] 3.2 `npm run lint`, `npx astro check` and `npm run test:unit` pass
+- [x] 3.1 Helper tests pass: `npx vitest run --config vitest.config.ts src/lib/quote-print.test.ts`
+- [x] 3.2 `npm run lint`, `npx astro check` and `npm run test:unit` pass
 
 ### Phase 4: Print page and document
 
