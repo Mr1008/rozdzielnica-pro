@@ -266,6 +266,20 @@ describe("saveCircuitsArgs", () => {
     expect(items[0]).toMatchObject({ device_id: FR_ID, role: "main_switch" });
   });
 
+  it("marks every placed item edited_manually for a carried manual layout, never an unplaced one", () => {
+    const result: MatchResult = { status: "matched", selections: EXPECTED };
+    const layout = [{ railIndex: 0, xMm: 285 }, { railIndex: 1, xMm: 0 }, null, { railIndex: 1, xMm: 52.5 }];
+    const manual = saveCircuitsArgs(PROJECT_ID, PAYLOAD, result, layout, true).p_device_ids as Record<
+      string,
+      unknown
+    >[];
+    expect(manual.map((item) => item.edited_manually)).toEqual([true, true, undefined, true]);
+    expect(manual[2]).not.toHaveProperty("edited_manually");
+
+    const proposed = saveCircuitsArgs(PROJECT_ID, PAYLOAD, result, layout).p_device_ids as Record<string, unknown>[];
+    expect(proposed.every((item) => !("edited_manually" in item))).toBe(true);
+  });
+
   it("ignores a layout for a match that stores no snapshot", () => {
     const result: MatchResult = { status: "blocked", reasons: [{ code: "no_circuits" }] };
     expect(saveCircuitsArgs(PROJECT_ID, PAYLOAD, result, [{ railIndex: 0, xMm: 0 }]).p_device_ids).toEqual([]);

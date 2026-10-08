@@ -20,7 +20,10 @@ import {
  * admin see nothing and write nothing; there is no UPDATE grant. Placements are written by
  * `save_project_circuits` (in the same transaction as the device set, joined by position) and by
  * `save_project_layout`; they cascade away with the device set, and
- * `projects_clear_layout_on_cabinet_change` drops them when the project's cabinet changes.
+ * `projects_clear_layout_on_cabinet_change` drops them when the project's cabinet changes. Each row
+ * carries the S-06 `edited_manually` marker: `save_project_layout`'s `p_edited_manually` (default
+ * false) and a device item's optional `edited_manually` in `save_project_circuits` set it, and it goes
+ * with the rows.
  *
  * Needs the local stack up with the `project_device_placements` migration applied:
  * `npx supabase start`, or `npx supabase db reset` for a clean one.
@@ -40,6 +43,7 @@ interface DeviceItem {
   notes: string[];
   rail_index?: number;
   x_mm?: number;
+  edited_manually?: boolean;
 }
 
 interface PlacementItem {
@@ -78,7 +82,7 @@ describe("row level security and lifetime of project device placements", () => {
   }
 
   /** One RCD group with two circuits: FR, RCD, two MCBs — placed or not, per `placements`. */
-  function payload(placements: ({ rail_index: number; x_mm: number } | null)[] = []) {
+  function payload(placements: ({ rail_index: number; x_mm: number; edited_manually?: boolean } | null)[] = []) {
     const groupId = randomUUID();
     const circuits = [randomUUID(), randomUUID()].map((id, i) => ({
       id,
@@ -125,6 +129,33 @@ describe("row level security and lifetime of project device placements", () => {
 
   function saveLayout(client: UserClient, projectId: string, placements: PlacementItem[]) {
     return client.rpc("save_project_layout", { p_project_id: projectId, p_placements: toJson(placements) });
+  }
+
+  /** The three-argument call the manual save makes. */
+  function saveManualLayout(client: UserClient, projectId: string, placements: PlacementItem[]) {
+    return client.rpc("save_project_layout", {
+      p_project_id: projectId,
+      p_placements: toJson(placements),
+      p_edited_manually: true,
+    });
+  }
+
+  /** The project's `edited_manually` flags in device position order, read past RLS. */
+  async function readFlags(projectId: string) {
+    const [devices, placements] = await Promise.all([
+      service.from("project_devices").select("id, position").eq("project_id", projectId),
+      service
+        .from("project_device_placements")
+        .select("project_device_id, edited_manually")
+        .eq("project_id", projectId),
+    ]);
+    if (devices.error) throw new Error(`Could not read devices: ${devices.error.code}`);
+    if (placements.error) throw new Error(`Could not read placements: ${placements.error.code}`);
+    const positionOf = new Map(devices.data.map((d) => [d.id, d.position]));
+    return placements.data
+      .map((p) => [positionOf.get(p.project_device_id) ?? -1, p.edited_manually] as const)
+      .sort((a, b) => a[0] - b[0])
+      .map(([, flag]) => flag);
   }
 
   /** The project's devices and placements, read past RLS; placements as [position, rail, x]. */
@@ -229,6 +260,17 @@ describe("row level security and lifetime of project device placements", () => {
       expect(count).toBe(0);
     });
 
+    it("stores edited_manually per placed item and defaults it to false", async () => {
+      const projectId = await insertProject(clientA, electricianA.id);
+      await saveCircuitsOrThrow(clientA, projectId, payload(FULL));
+      expect(await readFlags(projectId)).toEqual([false, false, false, false]);
+
+      const carried = FULL.map((p, i) => ({ ...p, edited_manually: i !== 1 }));
+      await saveCircuitsOrThrow(clientA, projectId, payload(carried));
+      expect(await readFlags(projectId)).toEqual([true, false, true, true]);
+      expect((await readLayout(projectId)).placements).toEqual(FULL_ROWS);
+    });
+
     it("refuses a negative rail index or offset with 23514 and rolls the whole save back", async () => {
       const projectId = await insertProject(clientA, electricianA.id);
       await saveCircuitsOrThrow(clientA, projectId, payload(FULL));
@@ -257,6 +299,25 @@ describe("row level security and lifetime of project device placements", () => {
       const after = await readLayout(projectId);
       expect(after.placements).toEqual([]);
       expect(after.deviceIds).toHaveLength(4);
+    });
+
+    it("clears a manual layout, and with it the marker, on a cabinet change", async () => {
+      const projectId = await insertProject(clientA, electricianA.id);
+      await saveCircuitsOrThrow(clientA, projectId, payload(FULL));
+      const { deviceIds: ids } = await readLayout(projectId);
+      const manual = ids.map((id, i) => ({
+        project_device_id: id,
+        rail_index: FULL[i].rail_index,
+        x_mm: FULL[i].x_mm,
+      }));
+      const saved = await saveManualLayout(clientA, projectId, manual);
+      expect(saved.error).toBeNull();
+      expect(await readFlags(projectId)).toEqual([true, true, true, true]);
+
+      const recabined = await clientA.from("projects").update({ cabinet_id: cabinetIds[1] }).eq("id", projectId);
+      expect(recabined.error).toBeNull();
+      expect(await readFlags(projectId)).toEqual([]);
+      expect((await readLayout(projectId)).deviceIds).toEqual(ids);
     });
 
     it("drops placements with the device set when the supply changes", async () => {
@@ -300,6 +361,23 @@ describe("row level security and lifetime of project device placements", () => {
       expect(after.placements).toEqual(next.map((p, i) => [i, 2, p.x_mm]));
     });
 
+    it("stores edited_manually on every row with p_edited_manually, and false without it", async () => {
+      const projectId = await insertProject(clientA, electricianA.id);
+      await saveCircuitsOrThrow(clientA, projectId, payload(FULL));
+      const { deviceIds: ids } = await readLayout(projectId);
+      const next = ids.map((id, i) => ({ project_device_id: id, rail_index: 1, x_mm: i * 35 }));
+
+      const manual = await saveManualLayout(clientA, projectId, next);
+      expect(manual.error).toBeNull();
+      expect(await readFlags(projectId)).toEqual([true, true, true, true]);
+      expect((await readLayout(projectId)).placements).toEqual(next.map((p, i) => [i, 1, p.x_mm]));
+
+      // The two-argument call (the deployed code's) still resolves, and stores a proposal.
+      const proposed = await saveLayout(clientA, projectId, next);
+      expect(proposed.error).toBeNull();
+      expect(await readFlags(projectId)).toEqual([false, false, false, false]);
+    });
+
     it("refuses another project's device id with P0002 project_device_unavailable and changes nothing", async () => {
       const before = await readLayout(projectA);
       const foreign = (await readLayout(projectB)).deviceIds[0];
@@ -320,12 +398,16 @@ describe("row level security and lifetime of project device placements", () => {
 
     it("refuses another electrician and the admin with P0002 project_not_found", async () => {
       const before = await readLayout(projectA);
+      const flags = await readFlags(projectA);
       for (const client of [clientB, adminClient]) {
-        const { error } = await saveLayout(client, projectA, []);
-        expect(error?.code).toBe("P0002");
-        expect(error?.message).toBe("project_not_found");
+        for (const save of [saveLayout, saveManualLayout]) {
+          const { error } = await save(client, projectA, []);
+          expect(error?.code).toBe("P0002");
+          expect(error?.message).toBe("project_not_found");
+        }
       }
       expect(await readLayout(projectA)).toEqual(before);
+      expect(await readFlags(projectA)).toEqual(flags);
     });
 
     it("refuses A's device id inside B's own project", async () => {
@@ -383,5 +465,7 @@ describe("row level security and lifetime of project device placements", () => {
     expect(read.error?.code).toBe("42501");
     const layout = await saveLayout(anon, projectA, []);
     expect(layout.error?.code).toBe("42501");
+    const manual = await saveManualLayout(anon, projectA, []);
+    expect(manual.error?.code).toBe("42501");
   });
 });

@@ -583,6 +583,7 @@ export const pl = {
       savedCircuits: "Obwody zostały zapisane. Wynik doboru aparatów znajdziesz poniżej.",
       savedRematch: "Dobór aparatów został wykonany ponownie. Wynik znajdziesz poniżej.",
       savedLayout: "Zaproponowano nowy układ aparatów w szafce.",
+      savedLayoutEdited: "Poprawiony układ aparatów został zapisany.",
       /** The aside's device-matching row: its label and one badge text per `MatchViewState`. */
       matchingStatus: "Dobór aparatów",
       matchingCurrent: (n: number) =>
@@ -600,6 +601,7 @@ export const pl = {
       layoutOutdated: "Nieaktualny",
       layoutNotCurrent: "Czeka na dobór",
       layoutUnavailable: "Niedostępny",
+      layoutEditedManually: "Poprawiony ręcznie",
     },
     cabinet: {
       section: "Szafka rozdzielnicy",
@@ -638,6 +640,8 @@ export const pl = {
     layoutDoesNotFit:
       "Dobrane aparaty nie mieszczą się na szynach DIN tej szafki — wybierz większą szafkę albo zmniejsz liczbę obwodów",
     layoutDeviceUnavailable: "Dobór aparatów zmienił się w trakcie zapisu układu — spróbuj ponownie",
+    layoutInvalid:
+      "Układ nie został zapisany, bo nie spełnia zasad rozmieszczenia (aparaty nachodzą na siebie lub na szyny PE/N, wychodzą poza szynę DIN albo grupa RCD nie stoi razem) — popraw go i zapisz ponownie",
     unknown: "Coś poszło nie tak. Spróbuj ponownie",
   },
 
@@ -968,6 +972,7 @@ export const pl = {
       outdated:
         "Zapisany układ nie pasuje już do dobranych aparatów albo do szafki. Zaproponuj go ponownie — nieaktualnego układu nie rysujemy.",
       proposeAgain: "Zaproponuj układ ponownie",
+      manualReset: "Ręczne poprawki układu nie pasowały do nowego doboru aparatów — zaproponowano układ od nowa.",
       doesNotFitTitle: "Aparaty nie mieszczą się w szafce",
       legendLabel: "Legenda rysunku",
       legend: {

@@ -19,6 +19,7 @@ import {
   type ProjectMatchRow,
   type SelectionPlacements,
 } from "@/lib/device-matching-server";
+import { carryOverPlacements } from "@/lib/layout-editing";
 import { PROJECT_ERROR, projectErrorFromPostgrest } from "@/lib/project-errors";
 
 /**
@@ -31,14 +32,20 @@ import { PROJECT_ERROR, projectErrorFromPostgrest } from "@/lib/project-errors";
  * `validateLayout` finds nothing. Placements are written only by the two RPCs.
  */
 
-export type PlacementRow = Pick<Tables<"project_device_placements">, "project_device_id" | "rail_index" | "x_mm">;
+export type PlacementRow = Pick<
+  Tables<"project_device_placements">,
+  "project_device_id" | "rail_index" | "x_mm" | "edited_manually"
+>;
 
-export function placementsFromRows(rows: readonly PlacementRow[]): Placement[] {
+export function placementsFromRows(
+  rows: readonly Pick<PlacementRow, "project_device_id" | "rail_index" | "x_mm">[],
+): Placement[] {
   return rows.map((row) => ({ projectDeviceId: row.project_device_id, railIndex: row.rail_index, xMm: row.x_mm }));
 }
 
 /**
  * - `placed`: the stored placements cover the snapshot exactly and pass `validateLayout`;
+ *   `editedManually` when the electrician saved them by hand (S-06);
  * - `missing`: nothing is stored, and a proposal fits — `proposal` is what "Zaproponuj układ" stores;
  * - `does_not_fit`: the devices cannot be placed on this cabinet's rails;
  * - `outdated`: placements are stored but incomplete or failing validation, and a proposal fits.
@@ -46,7 +53,7 @@ export function placementsFromRows(rows: readonly PlacementRow[]): Placement[] {
 export type LayoutViewState = "placed" | "missing" | "does_not_fit" | "outdated";
 
 export type LayoutView =
-  | { state: "placed"; placements: Placement[] }
+  | { state: "placed"; placements: Placement[]; editedManually: boolean }
   | { state: "missing"; proposal: Placement[] }
   | { state: "does_not_fit"; failure: LayoutFailure }
   | { state: "outdated"; issues: LayoutIssue[]; proposal: Placement[] };
@@ -57,12 +64,15 @@ export type LayoutView =
  * not parse (unreachable: only the cabinet trigger writes it, from a parsed geometry).
  *
  * A proposal is computed only when the stored placements are not `placed`. When the devices do not
- * fit, `does_not_fit` wins over `outdated`: re-proposing could not help.
+ * fit, `does_not_fit` wins over `outdated`: re-proposing could not help. `editedManually` (the stored
+ * marker, `LayoutContext.editedManually`) reaches only the `placed` state — an outdated manual layout
+ * is no longer shown as manual.
  */
 export function computeLayoutView(
   matchView: MatchView,
   context: Pick<MatchContext, "geometry" | "groups" | "circuits">,
   placements: readonly Placement[],
+  editedManually = false,
 ): LayoutView | null {
   if (matchView.state !== "current" || context.geometry === null) return null;
   const devices = matchView.snapshot;
@@ -70,7 +80,7 @@ export function computeLayoutView(
   let issues: LayoutIssue[] = [];
   if (placements.length > 0) {
     issues = validateLayout(devices, placements, context.geometry, context.groups);
-    if (issues.length === 0) return { state: "placed", placements: [...placements] };
+    if (issues.length === 0) return { state: "placed", placements: [...placements], editedManually };
   }
 
   const proposal = proposeLayout({
@@ -127,6 +137,53 @@ export function proposeSelectionLayout(
   return selectionPlacements(devices, layout.placements);
 }
 
+/** The layout a circuit save or a re-match stores with its fresh match (S-06 carry-over). */
+export interface SelectionLayoutChoice {
+  /** `undefined` stores no placements, like `proposeSelectionLayout`. */
+  layout: SelectionPlacements | undefined;
+  /** True when `layout` is the carried manual layout — every placed item then carries the marker. */
+  editedManually: boolean;
+  /** A manual layout was stored before and did not survive: the redirect adds `layout_reset=1`. */
+  reset: boolean;
+}
+
+/**
+ * Keeps a manual layout through a circuit save or a re-match when it still applies as a whole to the
+ * fresh match and passes `validateLayout` (`carryOverPlacements`); otherwise falls back to
+ * `proposeSelectionLayout`, as for a proposed layout. `previous` must be read **before**
+ * `save_project_circuits` runs, because the RPC deletes the old snapshot and its placements. A proposed
+ * (not manual) layout is never carried — it is re-proposed. `reset` is reported only for a `matched`
+ * result: a gap or a blocker stores no snapshot and no layout at all, and the page says so itself.
+ */
+export function chooseSelectionLayout(
+  previous: { snapshot: readonly LayoutDevice[]; placements: readonly Placement[]; editedManually: boolean },
+  result: MatchResult,
+  catalog: readonly DeviceSpecWithId[],
+  payload: CircuitsPayload,
+  geometry: CabinetGeometry | null,
+): SelectionLayoutChoice {
+  if (previous.editedManually && geometry !== null) {
+    const devices = selectionLayoutDevices(result, catalog);
+    const carried =
+      devices === undefined
+        ? null
+        : carryOverPlacements(
+            { devices: previous.snapshot, placements: previous.placements },
+            devices,
+            geometry,
+            payload.groups,
+          );
+    if (devices !== undefined && carried !== null) {
+      return { layout: selectionPlacements(devices, carried), editedManually: true, reset: false };
+    }
+  }
+  return {
+    layout: proposeSelectionLayout(result, catalog, payload, geometry),
+    editedManually: false,
+    reset: previous.editedManually && result.status === "matched",
+  };
+}
+
 /**
  * Placements keyed by the index ids of `selectionLayoutDevices`, as `SelectionPlacements` aligned with
  * the selections (null for a device without a placement).
@@ -176,17 +233,21 @@ export function selectionLayoutDevices(
   return devices;
 }
 
-/** The `save_project_layout` arguments. */
+/**
+ * The `save_project_layout` arguments: `editedManually` for the electrician's own layout (the manual
+ * save), false for a proposal.
+ */
 export function saveLayoutArgs(
   projectId: string,
   placements: readonly Placement[],
+  editedManually = false,
 ): Database["public"]["Functions"]["save_project_layout"]["Args"] {
   const rows = placements.map((placement) => ({
     project_device_id: placement.projectDeviceId,
     rail_index: placement.railIndex,
     x_mm: placement.xMm,
   }));
-  return { p_project_id: projectId, p_placements: rows };
+  return { p_project_id: projectId, p_placements: rows, p_edited_manually: editedManually };
 }
 
 /**
@@ -206,6 +267,8 @@ export function layoutRpcErrorCode(error: { code?: string | null; message?: stri
 export interface LayoutContext {
   context: MatchContext;
   placements: Placement[];
+  /** True when any stored placement carries the "edited manually" marker (S-06). */
+  editedManually: boolean;
 }
 
 export type LoadLayoutContextResult = ({ ok: true } & LayoutContext) | { ok: false; code: "not_found" | "unknown" };
@@ -223,7 +286,7 @@ export async function loadLayoutContext(
     loadMatchContext(supabase, projectId, project),
     supabase
       .from("project_device_placements")
-      .select("project_device_id, rail_index, x_mm")
+      .select("project_device_id, rail_index, x_mm, edited_manually")
       .eq("project_id", projectId),
   ]);
   if (!match.ok) return match;
@@ -233,5 +296,10 @@ export async function loadLayoutContext(
     console.error("layout context load failed: project_device_placements", placements.error.code);
     return { ok: false, code: "unknown" };
   }
-  return { ok: true, context: match.context, placements: placementsFromRows(placements.data) };
+  return {
+    ok: true,
+    context: match.context,
+    placements: placementsFromRows(placements.data),
+    editedManually: placements.data.some((row) => row.edited_manually),
+  };
 }

@@ -25,6 +25,8 @@ export const PROJECT_ERROR = {
   layoutDoesNotFit: "layout_does_not_fit",
   /** `save_project_layout`'s `project_device_unavailable`: the device set changed since the proposal. */
   layoutDeviceUnavailable: "layout_device_unavailable",
+  /** `/placements`: the submitted manual layout fails `validateLayout` against the stored snapshot. */
+  layoutInvalid: "layout_invalid",
   unknown: "unknown",
 } as const;
 
@@ -41,6 +43,7 @@ const MESSAGES: Record<ProjectErrorCode, string> = {
   [PROJECT_ERROR.layoutMatchNotCurrent]: t.projectErrors.layoutMatchNotCurrent,
   [PROJECT_ERROR.layoutDoesNotFit]: t.projectErrors.layoutDoesNotFit,
   [PROJECT_ERROR.layoutDeviceUnavailable]: t.projectErrors.layoutDeviceUnavailable,
+  [PROJECT_ERROR.layoutInvalid]: t.projectErrors.layoutInvalid,
   [PROJECT_ERROR.unknown]: t.projectErrors.unknown,
 };
 
