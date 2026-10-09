@@ -848,27 +848,27 @@ jumpers and shows the informational note.
 
 #### Automated
 
-- [x] 4.1 Unit tests pass: `npm run test:unit`
-- [x] 4.2 Type check, lint and build pass: `npx astro check && npm run lint && npm run build`
-- [x] 4.3 Smoke passes against the preview: `npm run build && npm run preview` + `npm run smoke`
+- [x] 4.1 Unit tests pass: `npm run test:unit` — f2b8ece
+- [x] 4.2 Type check, lint and build pass: `npx astro check && npm run lint && npm run build` — f2b8ece
+- [x] 4.3 Smoke passes against the preview: `npm run build && npm run preview` + `npm run smoke` — f2b8ece
 
 #### Manual
 
-- [x] 4.4 Project page, realistic and schematic views: busbars drawn along each busbar group, no phase jumpers there, N jumpers only where MCBs carry N; hover titles correct
-- [x] 4.5 A 3F group shows 1P MCBs on L1, L2, L3 in turn
-- [x] 4.6 The printout shows the busbars in the schematic drawing and the busbar pieces in the material table; a greyscale print preview stays legible
-- [x] 4.7 The editor hides busbars while dirty and shows them after save
-- [x] 4.8 Wiring renders without noticeable delay on the largest seed cabinet (no regression against S-11)
+- [x] 4.4 Project page, realistic and schematic views: busbars drawn along each busbar group, no phase jumpers there, N jumpers only where MCBs carry N; hover titles correct — f2b8ece
+- [x] 4.5 A 3F group shows 1P MCBs on L1, L2, L3 in turn — f2b8ece
+- [x] 4.6 The printout shows the busbars in the schematic drawing and the busbar pieces in the material table; a greyscale print preview stays legible — f2b8ece
+- [x] 4.7 The editor hides busbars while dirty and shows them after save — f2b8ece
+- [x] 4.8 Wiring renders without noticeable delay on the largest seed cabinet (no regression against S-11) — f2b8ece
 
 ### Phase 5: Kitchen sink, landing, docs
 
 #### Automated
 
-- [ ] 5.1 Full CI reproduction passes: `npm run lint && npx astro check && npm run test:unit && npm run build`
-- [ ] 5.2 Integration tests pass: `npm run test:integration`
+- [x] 5.1 Full CI reproduction passes: `npm run lint && npx astro check && npm run test:unit && npm run build`
+- [x] 5.2 Integration tests pass: `npm run test:integration`
 
 #### Manual
 
-- [ ] 5.3 `/dev/kitchen-sink` shows every new state correctly, including in greyscale print preview
-- [ ] 5.4 The landing page shows the busbar in the hero drawing
-- [ ] 5.5 End-to-end walk: admin adds busbars → electrician re-matches a project → proposes layout → sees busbars → prints a quote with busbar pieces
+- [x] 5.3 `/dev/kitchen-sink` shows every new state correctly, including in greyscale print preview
+- [x] 5.4 The landing page shows the busbar in the hero drawing
+- [x] 5.5 End-to-end walk: admin adds busbars → electrician re-matches a project → proposes layout → sees busbars → prints a quote with busbar pieces

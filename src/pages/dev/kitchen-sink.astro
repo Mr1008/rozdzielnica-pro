@@ -28,6 +28,7 @@ import { fieldControlProps, fieldErrorId, fieldHintId } from "@/lib/field-a11y";
 import { deviceKindLabel, N_TERMINAL_SIDES, type NTerminalSide } from "@/lib/device-spec";
 import { formatMoney, t } from "@/lib/i18n";
 import {
+  busbarTableRow,
   KS_EDITOR_STATES,
   KS_PROJECT_ID,
   kitchenSinkEditorDrawings,
@@ -204,6 +205,8 @@ const tableRows = [
   { kind: "mcb_b", parameters: "B16 1P, 6 kA", price: 18.5 },
   { kind: "rcd", parameters: "40 A 4P, 30 mA, typ A", price: 189 },
   { kind: "rcbo", parameters: "B10 1P+N, 30 mA, typ A, 6 kA", price: 142.9 },
+  // The comb busbar's row comes from the real parser and parameter summary.
+  ...(enabled ? [busbarTableRow()] : []),
 ] as const;
 
 const radioCards = [
@@ -777,7 +780,7 @@ const subTitleClass = "text-sm font-medium text-muted-foreground";
                     issuedAt={printStates.issuedAt}
                     timeZone="Europe/Warsaw"
                     geometry={printStates.geometry}
-                    drawing={printStates.drawing}
+                    drawing={state.drawing ?? printStates.drawing}
                     class:list={state.className}
                   />
                 </div>

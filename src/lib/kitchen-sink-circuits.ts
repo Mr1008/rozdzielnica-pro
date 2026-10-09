@@ -1,8 +1,6 @@
 import {
-  buildCableTies,
-  buildDrawnCables,
   buildDrawnDevices,
-  buildDrawnWires,
+  type DrawnBusbar,
   type DrawnCable,
   type DrawnDevice,
   type DrawnTie,
@@ -22,23 +20,18 @@ import {
 import { DEMO_CABINET_GEOMETRY, HERO_CABINET_GEOMETRY } from "@/lib/demo-cabinet";
 import { computeMatchView, type MatchContext, type MatchView, type SnapshotRow } from "@/lib/device-matching-server";
 import { activeCatalog, type DeviceSpecWithId, type Selection } from "@/lib/device-matching";
-import { deviceKindLabel, type DeviceKind, type NTerminalSide } from "@/lib/device-spec";
+import { deviceParameterSummary } from "@/lib/device-summary";
+import { deviceKindLabel, parseDeviceSpec, type DeviceKind, type NTerminalSide } from "@/lib/device-spec";
 import { t } from "@/lib/i18n";
 import { layoutIssueNames, toEditorDevices, type LayoutEditorData } from "@/lib/layout-editor-data";
 import { editUnits, moveDevice, snapX, type LayoutDraft } from "@/lib/layout-editing";
-import {
-  buildLayoutDrawing,
-  computeLayoutView,
-  computeWiring,
-  type LayoutDrawing,
-  type LayoutView,
-} from "@/lib/layout-server";
+import { buildLayoutDrawing, computeLayoutView, type LayoutDrawing, type LayoutView } from "@/lib/layout-server";
 import type { BusinessProfile } from "@/lib/business-profile";
 import type { PricingProfile } from "@/lib/pricing-profile";
 import { computeQuoteView, estimateLabourMinutes, type QuoteView } from "@/lib/quote";
 import { computePrintView, type PrintBlockReason, type PrintView } from "@/lib/quote-print";
 import type { SupplyParams } from "@/lib/supply-params";
-import type { WiringData } from "@/lib/wiring-island";
+import { buildWiringDrawing, type WiringData } from "@/lib/wiring-island";
 
 /**
  * Static fixtures for the kitchen sink's circuit section (dev only, never written anywhere): a small
@@ -163,26 +156,31 @@ const DEVICE_FIXTURES: DeviceFixture[] = [
   },
 ];
 
-/** Raw `devices`-shaped rows, run through `activeCatalog` like the page's own load. */
-const DEVICE_ROWS = DEVICE_FIXTURES.map((device, index) => ({
-  id: uuid(1, index + 1),
-  archived_at: null,
-  kind: device.kind,
-  name: deviceKindLabel(device.kind),
-  manufacturer: k.manufacturer,
-  model: device.model,
-  price_grosze: device.priceGrosze,
-  width_mm: device.widthMm,
-  height_mm: 85,
-  depth_mm: 70,
-  poles: device.poles,
-  rated_current_a: device.ratedCurrentA,
-  residual_current_ma: device.residualCurrentMa ?? null,
-  rcd_type: device.rcdType ?? null,
-  breaking_capacity_ka: device.breakingCapacityKa ?? null,
-  terminal_groups: null,
-  n_terminal_side: device.nTerminalSide ?? null,
-}));
+/** A raw `devices`-shaped row for a fixture, with the id its catalog index gives it. */
+function fixtureRow(device: DeviceFixture, id: string) {
+  return {
+    id,
+    archived_at: null,
+    kind: device.kind,
+    name: deviceKindLabel(device.kind),
+    manufacturer: k.manufacturer,
+    model: device.model,
+    price_grosze: device.priceGrosze,
+    width_mm: device.widthMm,
+    height_mm: 85,
+    depth_mm: 70,
+    poles: device.poles,
+    rated_current_a: device.ratedCurrentA,
+    residual_current_ma: device.residualCurrentMa ?? null,
+    rcd_type: device.rcdType ?? null,
+    breaking_capacity_ka: device.breakingCapacityKa ?? null,
+    terminal_groups: null,
+    n_terminal_side: device.nTerminalSide ?? null,
+  };
+}
+
+/** Raw rows, run through `activeCatalog` like the page's own load. */
+const DEVICE_ROWS = DEVICE_FIXTURES.map((device, index) => fixtureRow(device, uuid(1, index + 1)));
 
 /**
  * One PE and one N bar for a cabinet without built-in bars (plan Phase 5b): 1 TE wide, so the filled
@@ -215,8 +213,63 @@ const BAR_ROWS = (["pe_bar", "n_bar"] as const).map((kind, index) => ({
 
 export const KS_CATALOG: DeviceSpecWithId[] = activeCatalog([...DEVICE_ROWS, ...BAR_ROWS]);
 
+/**
+ * The three-phase and busbar additions (plan `rcd-group-busbars`, Phase 5), kept out of `KS_CATALOG` so the
+ * existing states stay as they were — a catalog without busbars is itself a state ("brak listwy"). The 4P
+ * parts cost more than their 2P twins, so no single-phase group ever picks them. A busbar is 12 pins, i.e.
+ * 12 TE (210 mm), at 63 A: it carries any RCD of the fixtures, and its price is per whole piece.
+ */
+const BUSBAR_FIXTURES: DeviceFixture[] = [
+  {
+    kind: "switch_disconnector",
+    model: "FR-440",
+    priceGrosze: 9990,
+    widthMm: 72,
+    poles: "4P",
+    ratedCurrentA: 40,
+    nTerminalSide: "left",
+  },
+  {
+    kind: "rcd",
+    model: "RCD-463-A",
+    priceGrosze: 21_900,
+    widthMm: 72,
+    poles: "4P",
+    ratedCurrentA: 63,
+    residualCurrentMa: 30,
+    rcdType: "A",
+    nTerminalSide: "right",
+  },
+  {
+    kind: "mcb_b",
+    model: "S-B16-3P",
+    priceGrosze: 5490,
+    widthMm: 54,
+    poles: "3P",
+    ratedCurrentA: 16,
+    breakingCapacityKa: 6,
+  },
+  { kind: "comb_busbar", model: "LZ-1F-12-63", priceGrosze: 1290, widthMm: 210, poles: "1P", ratedCurrentA: 63 },
+  { kind: "comb_busbar", model: "LZ-3F-12-63", priceGrosze: 1990, widthMm: 210, poles: "3P", ratedCurrentA: 63 },
+];
+const BUSBAR_ROWS = BUSBAR_FIXTURES.map((device, index) => ({
+  ...fixtureRow(device, uuid(1, DEVICE_FIXTURES.length + BAR_ROWS.length + index + 1)),
+  height_mm: device.kind === "comb_busbar" ? 20 : 85,
+  depth_mm: device.kind === "comb_busbar" ? 12 : 70,
+}));
+
+export const KS_CATALOG_BUSBARS: DeviceSpecWithId[] = activeCatalog([...DEVICE_ROWS, ...BAR_ROWS, ...BUSBAR_ROWS]);
+
 /** The catalog with its N bar archived: a cabinet without built-in bars then has a bar catalog gap. */
 const KS_CATALOG_WITHOUT_N_BAR: DeviceSpecWithId[] = KS_CATALOG.filter((device) => device.kind !== "n_bar");
+
+/** The device table's busbar row, from the real parser and summary: kind, parameters, price in zloty. */
+export function busbarTableRow(): { kind: DeviceKind; parameters: string; price: number } {
+  const row = BUSBAR_ROWS.find((candidate) => candidate.kind === "comb_busbar" && candidate.poles === "3P");
+  const parsed = parseDeviceSpec(row);
+  if (row === undefined || !parsed.ok) throw new Error("kitchen-sink fixture: the busbar row must parse");
+  return { kind: parsed.spec.kind, parameters: deviceParameterSummary(parsed.spec), price: row.price_grosze / 100 };
+}
 
 const PRICIER_B16_ID = uuid(1, 6);
 
@@ -233,6 +286,8 @@ const SUPPLY_TN_C_S: SupplyParams = {
 };
 
 const SUPPLY_TN_C: SupplyParams = { ...SUPPLY_TN_C_S, earthing_system: "TN-C" };
+
+const SUPPLY_THREE_PHASE: SupplyParams = { ...SUPPLY_TN_C_S, phase_count: 3 };
 
 export const KS_GEOMETRY: CabinetGeometry = DEMO_CABINET_GEOMETRY;
 const GEOMETRY_WITHOUT_BARS: CabinetGeometry = { ...DEMO_CABINET_GEOMETRY, bars: [] };
@@ -282,6 +337,25 @@ const FILLED_CIRCUITS = [
   circuit(3, GROUP_2.id, k.circuits.bathroom, { rated_current_a: 20 }),
   circuit(4, null, k.circuits.lighting, { rated_current_a: 10, cross_section_mm2: 1.5 }),
 ];
+
+/**
+ * One three-phase group (4P RCD): a three-phase oven (3P MCB) and two single-phase circuits whose 1P MCBs
+ * take the phases of their busbar pins.
+ */
+const THREE_PHASE_CIRCUITS = [
+  circuit(1, GROUP_1.id, k.circuits.oven, { phase_count: 3 }),
+  circuit(2, GROUP_1.id, k.circuits.kitchen),
+  circuit(3, GROUP_1.id, k.circuits.living, { rated_current_a: 10, entry_side: "bottom" }),
+];
+const THREE_PHASE_OVERRIDES: Partial<MatchContext> = {
+  supply: SUPPLY_THREE_PHASE,
+  groups: [GROUP_1],
+  circuits: THREE_PHASE_CIRCUITS,
+  catalog: KS_CATALOG_BUSBARS,
+};
+
+/** The filled circuits over the catalog with busbars: group 1 buys a piece, the single-MCB group 2 is cut from its offcut. */
+const BUSBAR_OVERRIDES: Partial<MatchContext> = { catalog: KS_CATALOG_BUSBARS };
 
 // ——— Editor states ———
 
@@ -345,7 +419,7 @@ export const KS_EDITOR_STATES: EditorFixture[] = [
 /** A `project_devices` snapshot as the RPC would store it: each selection with a copy of its device. */
 function snapshotFrom(selections: readonly Selection[]): SnapshotRow[] {
   return selections.map((selection, position) => {
-    const device = KS_CATALOG.find((entry) => entry.id === selection.deviceId);
+    const device = KS_CATALOG_BUSBARS.find((entry) => entry.id === selection.deviceId);
     if (device === undefined) throw new Error(`kitchen-sink fixture: unknown device ${selection.deviceId}`);
     return {
       id: uuid(4, position + 1),
@@ -415,6 +489,14 @@ export interface MatchFixture {
   view: MatchView;
 }
 
+/** A context whose stored snapshot is the matcher's own current answer. */
+function matchedContext(overrides: Partial<MatchContext>): MatchContext {
+  const base = context(overrides);
+  const fresh = computeMatchView(base).fresh;
+  if (fresh.status !== "matched") throw new Error("kitchen-sink fixture: the circuits must match");
+  return { ...base, snapshot: snapshotFrom(fresh.selections) };
+}
+
 function matchFixture(key: string, caption: string, ctx: MatchContext): MatchFixture {
   return { key, caption, context: ctx, view: computeMatchView(ctx) };
 }
@@ -458,6 +540,16 @@ export function kitchenSinkMatchStates(): MatchFixture[] {
       k.matchStates.barGap,
       context({ geometry: GEOMETRY_WITHOUT_BARS, catalog: KS_CATALOG_WITHOUT_N_BAR }),
     ),
+    matchFixture("busbars", k.matchStates.busbars, matchedContext(BUSBAR_OVERRIDES)),
+    matchFixture("busbars-3f", k.matchStates.busbarsThreePhase, matchedContext(THREE_PHASE_OVERRIDES)),
+    matchFixture(
+      "busbar-missing",
+      k.matchStates.busbarMissing,
+      matchedContext({
+        groups: [GROUP_1],
+        circuits: [circuit(1, GROUP_1.id, k.circuits.kitchen), circuit(2, GROUP_1.id, k.circuits.living)],
+      }),
+    ),
   ];
 }
 
@@ -471,6 +563,8 @@ export interface LayoutFixture {
   /** Routed on the server: the landing hero draws them without an island (memoised per isolate). */
   wires: DrawnWire[];
   cables: DrawnCable[];
+  /** The comb busbars of the groups that have one (none for a catalog without busbars). */
+  busbars: DrawnBusbar[];
   ties: DrawnTie[];
   /** The router's input the project page's island is given; null unless the layout is `placed`. */
   wiring: WiringData | null;
@@ -557,20 +651,21 @@ function layoutFixture(
   const view = computeLayoutView(matchView, ctx, placements, options.editedManually ?? false);
   const devices =
     view?.state === "placed" ? buildDrawnDevices(matchView.snapshot, view.placements, geometry, ctx.groups) : [];
-  const conductors = computeWiring(view, matchView, ctx);
+  const wiring = buildLayoutDrawing(view, matchView, ctx).wiring;
+  const wiringVariant = options.wiringVariant ?? "realistic";
+  // The same routing and drawing calls the project page's island makes; the landing hero draws them on the server.
+  const drawn = wiring === null ? null : buildWiringDrawing(wiring, devices, wiringVariant);
   return {
     key,
     caption,
     view,
     devices,
-    wires: buildDrawnWires(conductors, {
-      circuits: new Map(ctx.circuits.map((circuit) => [circuit.id, circuit.name])),
-      devices,
-    }),
-    cables: buildDrawnCables(conductors),
-    ties: buildCableTies(conductors),
-    wiring: buildLayoutDrawing(view, matchView, ctx).wiring,
-    wiringVariant: options.wiringVariant ?? "realistic",
+    wires: drawn?.wires ?? [],
+    cables: drawn?.cables ?? [],
+    busbars: drawn?.busbars ?? [],
+    ties: drawn?.ties ?? [],
+    wiring,
+    wiringVariant,
     geometry,
     editor:
       view?.state === "placed"
@@ -614,13 +709,13 @@ function movedMainSwitch(
 
 /**
  * The landing page's hero layout: the filled circuits (two RCD groups and one ungrouped circuit,
- * single-phase TN-C-S) matched by the real matcher, placed by `proposeLayout` in the small hero cabinet and
+ * single-phase TN-C-S) matched by the real matcher over the catalog with busbars, so its groups are fed by comb busbars, placed by `proposeLayout` in the small hero cabinet and
  * wired by the real router. Computed once per Worker isolate: the hero shows everyone the same sheet
  * and the Worker's CPU budget is small.
  */
 let landingLayout: LayoutFixture | undefined;
 export function landingLayoutFixture(): LayoutFixture {
-  landingLayout ??= layoutFixture("landing", "", HERO_CABINET_GEOMETRY, "proposal");
+  landingLayout ??= layoutFixture("landing", "", HERO_CABINET_GEOMETRY, "proposal", BUSBAR_OVERRIDES);
   return landingLayout;
 }
 
@@ -640,6 +735,28 @@ export function kitchenSinkLayoutStates(): LayoutFixture[] {
     layoutFixture("placed-overflow", l.placedOverflow, SEED_C, "proposal", OVERFLOW_OVERRIDES),
     layoutFixture("placed-tn-c", l.placedTnC, SEED_B, "proposal", TN_C_OVERRIDES),
     layoutFixture("placed-no-bars", l.placedNoBars, SEED_A, "proposal"),
+    layoutFixture("placed-busbars", l.placedBusbars, SEED_B, "proposal", BUSBAR_OVERRIDES),
+    layoutFixture(
+      "placed-busbars-schematic",
+      l.placedBusbarsSchematic,
+      SEED_B,
+      "proposal",
+      BUSBAR_OVERRIDES,
+      undefined,
+      {
+        wiringVariant: "schematic",
+      },
+    ),
+    layoutFixture("placed-busbars-3f", l.placedBusbarsThreePhase, SEED_B, "proposal", THREE_PHASE_OVERRIDES),
+    layoutFixture(
+      "placed-busbars-3f-schematic",
+      l.placedBusbarsThreePhaseSchematic,
+      SEED_B,
+      "proposal",
+      THREE_PHASE_OVERRIDES,
+      undefined,
+      { wiringVariant: "schematic" },
+    ),
     layoutFixture("placed-manual", l.editorManual, SEED_B, "proposal", {}, undefined, { editedManually: true }),
     layoutFixture("placed-dirty", l.editorDirty, SEED_B, "proposal", {}, undefined, { moved: true }),
     layoutFixture("missing", l.missing, SEED_B, "none"),
@@ -679,6 +796,7 @@ export function kitchenSinkQuoteStates(): QuoteFixture[] {
   const stale = computeMatchView(context({ snapshot: snapshotFrom(staleSelections()) }));
   const noBarsContext = context({ geometry: GEOMETRY_WITHOUT_BARS });
   const noBars = computeMatchView({ ...noBarsContext, snapshot: snapshotFrom(matchedSelections(noBarsContext)) });
+  const busbars = computeMatchView(matchedContext(BUSBAR_OVERRIDES));
 
   const fixture = (
     key: string,
@@ -704,6 +822,7 @@ export function kitchenSinkQuoteStates(): QuoteFixture[] {
     }),
     fixture("rate-warning", s.rateWarning, current, { ...KS_PROFILE, hourly_rate_grosze: 60_000 }),
     fixture("catalog-bars", s.catalogBars, noBars, KS_PROFILE),
+    fixture("busbars", s.busbars, busbars, KS_PROFILE),
   ];
 }
 
@@ -717,6 +836,8 @@ export interface PrintFixture {
   view: ReadyPrintView;
   /** A wrapper class for the document: `grayscale` for the black-and-white check. */
   className?: string;
+  /** The drawing this document prints, when it is not the states' shared one. */
+  drawing?: LayoutDrawing;
 }
 
 export interface PrintStates {
@@ -762,6 +883,16 @@ export function kitchenSinkPrintStates(): PrintStates {
   const drawing = buildLayoutDrawing(layout, matchView, ctx);
   const estimate = estimateLabourMinutes(matchView.snapshot.length, KS_PROFILE);
 
+  // The same cabinet over the catalog with busbars: the printout itemises pieces and draws the busbars.
+  const busbarBase = matchedContext({ ...BUSBAR_OVERRIDES, geometry: SEED_B });
+  const busbarMatch = computeMatchView(busbarBase);
+  const busbarProposal = computeLayoutView(busbarMatch, busbarBase, []);
+  const busbarLayout = computeLayoutView(
+    busbarMatch,
+    busbarBase,
+    busbarProposal?.state === "missing" ? busbarProposal.proposal : [],
+  );
+
   const print = (
     profile: PricingProfile | null,
     options: {
@@ -799,6 +930,7 @@ export function kitchenSinkPrintStates(): PrintStates {
       { business: null, override: { minutes: KS_OVERRIDE_MINUTES, baseMinutes: estimate - 1 } },
     ),
   );
+  const withBusbars = ready(print(KS_PROFILE, { match: busbarMatch, layout: busbarLayout }));
   const staleMatch = computeMatchView({ ...ctx, snapshot: snapshotFrom(staleSelections()) });
   const blocked = [print(null, { layout: null }), print(KS_PROFILE, { match: staleMatch, layout: null })].flatMap(
     (view) => (view.state === "blocked" ? view.reasons : []),
@@ -820,6 +952,12 @@ export function kitchenSinkPrintStates(): PrintStates {
       { key: "full", caption: p.full, view: full },
       { key: "fallback", caption: p.fallback, view: fallback },
       { key: "grayscale", caption: p.grayscale, view: full, className: "grayscale" },
+      {
+        key: "busbars",
+        caption: p.busbars,
+        view: withBusbars,
+        drawing: buildLayoutDrawing(busbarLayout, busbarMatch, busbarBase),
+      },
     ],
     blockedReasons: [...new Set(blocked)],
   };

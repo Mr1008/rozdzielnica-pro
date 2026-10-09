@@ -6,7 +6,8 @@ import { cn } from "@/lib/utils";
 /**
  * The landing page's product picture: the demo cabinet with a real layout proposal and its wires on a
  * drafting sheet. The devices come from the real matcher, `proposeLayout` and the wiring router
- * (`landingLayoutFixture`), so the hero shows what the product produces, in the realistic view (S-11);
+ * (`landingLayoutFixture`), so the hero shows what the product produces, in the realistic view (S-11), with
+ * its RCD groups fed by comb busbars (drawn by the same `CabinetDrawing`, never by hand);
  * also on `/dev/kitchen-sink`.
  */
 interface Props {
@@ -16,7 +17,7 @@ interface Props {
 
 const { caption, class: className } = Astro.props;
 
-const { geometry, devices, wires, cables, ties } = landingLayoutFixture();
+const { geometry, devices, wires, cables, busbars, ties } = landingLayoutFixture();
 const { widthMm, heightMm } = geometry.interior;
 ---
 
@@ -32,6 +33,7 @@ const { widthMm, heightMm } = geometry.interior;
       devices={devices}
       wires={wires}
       cables={cables}
+      busbars={busbars}
       ties={ties}
       wiring="realistic"
       className="absolute inset-0 h-full w-full"

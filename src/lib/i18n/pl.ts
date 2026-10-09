@@ -117,7 +117,7 @@ export const pl = {
     subline:
       "Podajesz obwody i grupy RCD, a RozdzielnicaPro dobiera aparaty z katalogu, proponuje ich układ w wybranej szafce i liczy koszt materiału oraz robocizny według Twojej stawki.",
     drawingCaption:
-      "Przykładowa szafka: aparaty rozmieszczone przez system w grupach RCD, z przewodami od wprowadzeń do aparatów i szyn PE/N.",
+      "Przykładowa szafka: aparaty rozmieszczone przez system w grupach RCD zasilanych listwami, z przewodami od wprowadzeń do aparatów i szyn PE/N.",
     stepsTitle: "Od obwodów do wyceny w trzech krokach",
     steps: {
       circuits: {
@@ -1488,6 +1488,8 @@ export const pl = {
         fallback: "Bez danych firmy — nagłówek z imienia i emaila, uwagi widoczne tylko na ekranie",
         grayscale: "Ten sam dokument w skali szarości (kontrola wydruku czarno-białego)",
         blocked: "Blokada wydruku — wszystkie trzy powody, każdy z linkiem naprawczym",
+        busbars:
+          "Dokument z listwami zasilającymi — jedna pozycja „Listwa zasilająca” liczona od sztuk, rysunek z listwami przy aparatach grup",
       },
       /** Captions for the quote section states; each is computed by the real `computeQuoteView`. */
       quoteStates: {
@@ -1498,6 +1500,8 @@ export const pl = {
         outdated: "Nadpisany czas nieaktualny — ostrzeżenie z nową estymacją",
         rateWarning: "Stawka powyżej 500 zł/h — ostrzeżenie o literówce",
         catalogBars: "Szafka bez wbudowanych szyn PE/N — szyny z katalogu liczone jak aparaty",
+        busbars:
+          "Listwy zasilające: odcinki dwóch grup z jednej kupionej sztuki — sztuka wyceniona raz, każdy odcinek liczony jak aparat w robociźnie",
       },
       /** Captions for the layout section states; each is computed by the real `computeLayoutView`. */
       layoutStates: {
@@ -1511,6 +1515,12 @@ export const pl = {
         placedTnC: "Rozmieszczony z przewodami — układ TN-C (PEN zamiast N i PE, obwody bez RCD)",
         placedNoBars:
           "Rozmieszczony z przewodami — szafka bez wbudowanych szyn PE/N (szyny PE i N dobrane z katalogu i umieszczone na szynie DIN)",
+        placedBusbars:
+          "Rozmieszczony z listwami zasilającymi 1F, widok realistyczny — dwie grupy zasilane z jednej sztuki, bez przewodów fazowych między RCD a MCB",
+        placedBusbarsSchematic: "Rozmieszczony z listwami zasilającymi 1F, widok schematyczny",
+        placedBusbarsThreePhase:
+          "Rozmieszczony z listwą zasilającą 3F, widok realistyczny — grupa z RCD 4P, MCB 1P na fazach L1, L2 i L3 oraz MCB 3P",
+        placedBusbarsThreePhaseSchematic: "Rozmieszczony z listwą zasilającą 3F, widok schematyczny",
         missing: "Nie zaproponowany",
         doesNotFit: "Nie mieści się",
         outdated: "Nieaktualny (zapisane aparaty nachodzą na siebie)",
@@ -1548,6 +1558,11 @@ export const pl = {
           stale: "Nieaktualny zapisany dobór",
           warnings: "Ostrzeżenia obwodów (przekrój, strona wprowadzenia, brak szyn PE/N) i niezapisany podgląd",
           barGap: "Luka w katalogu: szafka bez szyn PE/N, a w katalogu brak pasującej szyny N",
+          busbars:
+            "Listwy zasilające: dwie grupy 1F cięte z jednej sztuki (wspólna cena sztuki), RCD + MCB zamiast RCBO",
+          busbarsThreePhase: "Listwa zasilająca 3F: grupa z RCD 4P, MCB 1P i MCB 3P",
+          busbarMissing:
+            "Brak listwy w katalogu: grupa zachowuje przewody między RCD a MCB — informacja, nie luka w katalogu",
         },
       },
     },
