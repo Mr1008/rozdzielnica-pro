@@ -23,7 +23,7 @@ import {
   type DrawnDevice,
 } from "./cabinet-drawing";
 import { RAIL_HEIGHT_MM, parseCabinetGeometry, type CabinetGeometry } from "./cabinet-geometry";
-import { WIRE_TRACK_PITCH_MM, type Conductor } from "./cabinet-wiring";
+import { WIRE_CLEARANCE_MM, type Conductor } from "./cabinet-wiring";
 
 const INTERIOR = { widthMm: 400, heightMm: 300, depthMm: 100 };
 
@@ -394,6 +394,8 @@ describe("buildDrawnWires", () => {
     ],
     routedMm: 10,
     lengthMm: 11.5,
+    diameterMm: 3.6,
+    squeezed: [],
   });
 
   it("paints protective conductors first, then the rest in routing order", () => {
@@ -425,6 +427,8 @@ describe("sag of parallel runs", () => {
     ],
     routedMm: 300,
     lengthMm: 390,
+    diameterMm: 3.6,
+    squeezed: [],
   });
   /** The depth a drawn path's long horizontal run sags to: half its quadratic control offset. */
   const sagOf = (d: string, y: number) => {
@@ -432,14 +436,17 @@ describe("sag of parallel runs", () => {
     return control ? (Number(control[1]) - y) / 2 : 0;
   };
 
-  it("keeps a run above its neighbour one pitch below — they never touch or swap", () => {
+  /** Two 2.5 mm² cores (3.6 mm) on neighbouring tracks: the router's true-scale spacing. */
+  const spacing = 3.6 + WIRE_CLEARANCE_MM;
+
+  it("keeps a run above its neighbour one track below — they never touch or swap", () => {
     const upper = run("a", 10);
-    const lower = run("b", 10 + WIRE_TRACK_PITCH_MM);
+    const lower = run("b", 10 + spacing);
     const [a, b] = buildDrawnWires([upper, lower]);
-    expect(sagOf(a.d, 10)).toBeLessThan(WIRE_TRACK_PITCH_MM);
+    expect(sagOf(a.d, 10)).toBeLessThan(spacing);
     expect(sagOf(a.d, 10)).toBeGreaterThan(0);
     // Nothing beneath the lowest run of the bundle: it hangs as deep as its span allows.
-    expect(sagOf(b.d, 10 + WIRE_TRACK_PITCH_MM)).toBe(MAX_SAG_MM);
+    expect(sagOf(b.d, 10 + spacing)).toBe(MAX_SAG_MM);
   });
 
   it("leaves a run with no neighbour below unlimited", () => {
@@ -482,6 +489,8 @@ describe("wireTitle", () => {
     ],
     routedMm: 10,
     lengthMm: 423,
+    diameterMm: 3.6,
+    squeezed: [],
     ...overrides,
   });
 
@@ -598,6 +607,8 @@ describe("bar terminals and cables in the drawn wires", () => {
     ],
     routedMm: 100,
     lengthMm: 130,
+    diameterMm: 3.6,
+    squeezed: [],
   };
 
   it("marks the end that lands on a bar terminal, and no other", () => {

@@ -16,6 +16,7 @@ import {
 } from "@/lib/cabinet-layout";
 import type { CircuitInput } from "@/lib/circuit-params";
 import type { SupplyParams } from "@/lib/supply-params";
+import { conductorDiameterMm, type WireCrossSectionMm2 } from "@/lib/wire-dimensions";
 
 /**
  * The wiring of a placed layout (S-05, plan Phase 5): which conductors run where, their orthogonal
@@ -53,7 +54,7 @@ import type { SupplyParams } from "@/lib/supply-params";
  * cross right after the entry; its cores share that point and leave it together along one stub. Two
  * cables never share a point, however many there are (the spacing closes up instead). The cores then
  * leave the stub one at a time, each at its own lane — a progressive split, like stripping a cable (the
- * electrician, 2026-10-07): a core that has turned off keeps a pitch off its own cable's stub, and at
+ * electrician, 2026-10-07): a core that has turned off keeps its spacing off its own cable's stub, and at
  * most the last one carries straight on along its line (`avoidPins`, `place`). The drawing's sheath runs
  * to the last turn-off (`buildDrawnCables`).
  *
@@ -85,11 +86,15 @@ import type { SupplyParams } from "@/lib/supply-params";
  * it (the `bars_missing` / `bar_terminals_insufficient` circuit warnings explain it).
  *
  * Tracks: the router sends many conductors through the same lane and passage, so a last step
- * (`nudgeTracks`) gives each its own track — parallel segments whose extents overlap end up at least
- * `WIRE_TRACK_PITCH_MM` apart, ordered so they leave the channel without crossing. Horizontal runs
- * stay in their free channel; a crowded vertical passage may spread behind the devices beside it —
- * wires may run under the DIN rail, behind the devices (the electrician, 2026-10-06) — and the drawing
- * paints wires over the devices, so such a run stays traceable. The segments that touch an endpoint
+ * (`nudgeTracks`) gives each its own track at true scale — parallel segments whose extents overlap end
+ * up `rA + rB + WIRE_CLEARANCE_MM` apart centre to centre (r: half a conductor's outer diameter, from
+ * `conductorDiameterMm`), ordered so they leave the channel without crossing. Where a range is too
+ * narrow the tracks still close up, but never silently: the affected segments — and any segment still
+ * overlapping a neighbour's body, such as two fixed stubs closer than their radii — are listed in
+ * `Conductor.squeezed` (`recordOverlaps`). Horizontal runs stay in their free channel; a crowded
+ * vertical passage may spread behind the devices beside it — wires may run under the DIN rail, behind
+ * the devices (the electrician, 2026-10-06) — and the drawing paints wires over the devices, so such a
+ * run stays traceable. The segments that touch an endpoint
  * never move: conductors sharing a device terminal share its stub, as the cores of one cable share
  * their entry point and its stub.
  * Lengths are measured on the nudged path. The router itself still prefers passages clear of devices.
@@ -166,6 +171,15 @@ export interface Conductor {
   routedMm: number;
   /** `routedMm` with `WIRE_SLACK_RATIO` added. */
   lengthMm: number;
+  /** The insulated core's outer diameter, from `crossSectionMm2` (`conductorDiameterMm`). */
+  diameterMm: number;
+  /**
+   * Indices of the `path` segments (segment `i` runs from point `i` to `i + 1`) that could not keep
+   * true-scale spacing from their neighbours: a crowded range closed their tracks up, a stub left them
+   * no room, or they still overlap another conductor's body (`recordOverlaps`). Sorted, empty when
+   * every segment kept its spacing. The overflow signal builds on it.
+   */
+  squeezed: number[];
 }
 
 export function wireClass(role: ConductorRole): WireClass {
@@ -204,6 +218,8 @@ interface RawRoute {
   firstVertical: boolean;
   /** The route starts at a cable entry: its first segment is its cable's stub (see `avoidPins`). */
   fromEntry: boolean;
+  /** The conductor's outer diameter: the width its track takes (see `WIRE_CLEARANCE_MM`). */
+  diameterMm: number;
 }
 
 interface Located {
@@ -429,13 +445,13 @@ class Router {
    * segment may have zero length — where the passage continues straight on from a stub, say. Keeping
    * the stub as its own segment lets the nudging move the passage off it with a jog.
    */
-  route(from: Stub, to: Stub): RawRoute {
+  route(from: Stub, to: Stub): Pick<RawRoute, "points" | "firstVertical"> {
     let middle: Point[];
     if (from.axis === "h" && to.axis === "h") middle = this.joinHorizontalLanes(from.stub, to.stub);
     else if (from.axis === "h") middle = [from.stub, { x: to.stub.x, y: from.stub.y }, to.stub];
     else if (to.axis === "h") middle = [from.stub, { x: from.stub.x, y: to.stub.y }, to.stub];
     else middle = this.joinVerticalLanes(from.stub, to.stub);
-    return { points: [from.point, ...middle, to.point], firstVertical: from.axis === "h", fromEntry: false };
+    return { points: [from.point, ...middle, to.point], firstVertical: from.axis === "h" };
   }
 
   /**
@@ -522,14 +538,19 @@ class Router {
 // ---------------------------------------------------------------------------------------------
 
 /**
- * The distance between two parallel conductors sharing a channel or a passage. The drawing renders
- * a seed cabinet at roughly 1.3–2 px per millimetre, and its strokes are 1.5 px (circuit), 2.25 px
- * (feed) and 2.5 px (WLZ), PE 1.6× and PEN 2.2× heavier (`CabinetDrawing.tsx`): 3 mm is 4–6 px
- * centre to centre, so two ordinary strokes always keep a visible gap and two heavy protective ones
- * at most touch, never merge. A wider pitch would empty the 1-TE block gaps (11.5 mm usable) after
- * four conductors.
+ * The visual gap between the insulation of two conductors on neighbouring parallel tracks: the tracks
+ * sit `rA + rB + WIRE_CLEARANCE_MM` apart centre to centre, r being each conductor's half outer
+ * diameter (`conductorDiameterMm`, typical H07V-K). Half a millimetre keeps two cores visibly apart
+ * at true scale — about a pixel at the 1.3–2 px per millimetre a seed cabinet is drawn at — while the
+ * channel packs as tightly as a carefully wired one: a 1-TE block gap (11.5 mm usable) still holds
+ * three 2.5 mm² cores.
  */
-export const WIRE_TRACK_PITCH_MM = 3;
+export const WIRE_CLEARANCE_MM = 0.5;
+
+/** Centre-to-centre distance of two neighbouring tracks holding conductors of these diameters. */
+function trackSpacing(diameterA: number, diameterB: number): number {
+  return diameterA / 2 + diameterB / 2 + WIRE_CLEARANCE_MM;
+}
 
 /**
  * The nudging passes, in order: verticals first, because moving a passage off the stub it continues
@@ -539,18 +560,19 @@ export const WIRE_TRACK_PITCH_MM = 3;
 const NUDGE_PASSES: readonly Axis[] = ["v", "h"];
 
 /**
- * How far a crowded vertical passage may spread behind the devices beside it: ten tracks either side,
- * which holds every passage of the seed cabinets at full pitch while keeping a run near the gap the
- * router chose (and the search for pins around it short).
+ * How far a crowded vertical passage may spread behind the devices beside it: 30 mm either side,
+ * which holds every passage of the seed cabinets while keeping a run near the gap the router chose
+ * (and the search for pins around it short).
  */
-const BEHIND_DEVICES_MM = 10 * WIRE_TRACK_PITCH_MM;
+const BEHIND_DEVICES_MM = 30;
 
 /**
  * How far past its ends a vertical run counts as alongside another (see `nudgeAxis`): the horizontal
  * pass after it moves a run's end by a few tracks at most. Needed since every bar conductor has a
- * terminal of its own (plan Phase 5c), so their verticals often meet end to end.
+ * terminal of its own (plan Phase 5c), so their verticals often meet end to end. A run whose ends still
+ * move further and end up alongside another is caught by `recordOverlaps`.
  */
-const VERTICAL_REACH_MM = 3 * WIRE_TRACK_PITCH_MM;
+const VERTICAL_REACH_MM = 9;
 
 /** The closest a track may come to a device, a bar or the interior edge when a gap is crowded. */
 const TRACK_EDGE_MM = 1;
@@ -578,6 +600,8 @@ interface Segment {
   /** The extent along the segment, fixed for the pass. */
   from: number;
   to: number;
+  /** The conductor's outer diameter. */
+  diameter: number;
   /** The coordinate of its own cable's stub when the segment lies on that stub's line; else null. */
   anchor: number | null;
   /** For an anchored segment, the side it turns to at its far end (-1, 0, 1); else 0. */
@@ -639,35 +663,39 @@ interface Pin {
   end: Point;
   /** A cable's stub from its entry point: an obstacle even to its own cores (see `avoidPins`). */
   cable: boolean;
+  /** Half the widest conductor on the stub. */
+  radius: number;
 }
 
 /**
- * `range` narrowed so the segment keeps a pitch off every other conductor's end segment it runs
- * alongside. The pins cut the range into cells; the segment keeps the cell it starts in, unless that
- * cell has room for fewer than three tracks or the segment starts on a pin — then it takes whichever
- * neighbouring cell has the most room. A stub into one of the segment's own endpoints is no obstacle:
- * conductors sharing an endpoint share its stub, and a run continuing straight into it merges with it.
+ * `range` narrowed so the segment keeps its true-scale spacing (`trackSpacing`) off every other
+ * conductor's end segment it runs alongside. The pins cut the range into cells; the segment keeps the
+ * cell it starts in, unless that cell has room for fewer than three of its tracks or the segment
+ * starts on a pin — then it takes whichever neighbouring cell has the most room. A stub into one of
+ * the segment's own endpoints is no obstacle: conductors sharing an endpoint share its stub, and a run
+ * continuing straight into it merges with it.
  * Except a cable's stub (plan Phase 5c, progressive split): a core leaves its cable one at a time, at its
- * own lane, and from there runs on its own track — so its passage keeps a pitch off its own cable's stub
- * too, which the other cores still run along until they turn off. The later pass still moves where each
- * core turns off (by `reach`), so that stub counts as alongside within `reach` of the segment's extent.
- * A run lying on the stub's own line is the exception: it continues the cable, and its bundle keeps
- * one slot exactly on that line and the others whole pitches off it (`Bundle.anchor`), so only the last
- * core stays on the line.
+ * own lane, and from there runs on its own track — so its passage keeps its spacing off its own cable's
+ * stub too, which the other cores still run along until they turn off. The later pass still moves where
+ * each core turns off (by `reach`), so that stub counts as alongside within `reach` of the segment's
+ * extent. A run lying on the stub's own line is the exception: it continues the cable, and its bundle
+ * keeps one slot exactly on that line and the others their spacing off it (`Bundle.anchor`), so only the
+ * last core stays on the line.
  * The cell is chosen on the hard range and applies to both; when it leaves no room at all the range is
- * left as it was (an overlap beats crossing a device), and a preferred range it empties falls back to
- * the hard one.
+ * left as it was (an overlap beats crossing a device) and `cramped` reports it, and a preferred range
+ * it empties falls back to the hard one. `maxRadius` bounds every pin's radius, for the search window.
  */
 function avoidPins(
   range: TrackRange,
   pins: readonly Pin[],
   ends: readonly [Point, Point],
-  desired: number,
-  from: number,
-  to: number,
-  reach: number,
-): TrackRange {
-  const pitch = WIRE_TRACK_PITCH_MM;
+  segment: { desired: number; from: number; to: number; reach: number; diameter: number },
+  maxRadius: number,
+): { range: TrackRange; cramped: boolean } {
+  const { desired, from, to, reach, diameter } = segment;
+  const radius = diameter / 2;
+  const gapTo = (pin: Pin) => pin.radius + radius + WIRE_CLEARANCE_MM;
+  const window = maxRadius + radius + WIRE_CLEARANCE_MM;
   const [start, finish] = ends;
   const relevant = (pin: Pin) => {
     const { x, y } = pin.end;
@@ -691,34 +719,39 @@ function avoidPins(
     if (pins[mid].at < desired - EPS) first = mid + 1;
     else last = mid;
   }
-  const above: number[] = [];
-  for (let i = first; i < pins.length && above.length < 2 && pins[i].at < range.hiHard + pitch; i++) {
-    if (relevant(pins[i])) above.push(pins[i].at);
+  const above: Pin[] = [];
+  for (let i = first; i < pins.length && above.length < 2 && pins[i].at < range.hiHard + window; i++) {
+    if (relevant(pins[i])) above.push(pins[i]);
   }
-  const below: number[] = [];
-  for (let i = first - 1; i >= 0 && below.length < 2 && pins[i].at > range.loHard - pitch; i--) {
-    if (relevant(pins[i])) below.push(pins[i].at);
+  const below: Pin[] = [];
+  for (let i = first - 1; i >= 0 && below.length < 2 && pins[i].at > range.loHard - window; i--) {
+    if (relevant(pins[i])) below.push(pins[i]);
   }
-  if (above.length === 0 && below.length === 0) return range;
+  if (above.length === 0 && below.length === 0) return { range, cramped: false };
 
-  const cell = (low: number | undefined, high: number | undefined): [number, number] => [
-    Math.max(range.loHard, low === undefined ? -Infinity : low + pitch),
-    Math.min(range.hiHard, high === undefined ? Infinity : high - pitch),
+  const cell = (low: Pin | undefined, high: Pin | undefined): [number, number] => [
+    Math.max(range.loHard, low === undefined ? -Infinity : low.at + gapTo(low)),
+    Math.min(range.hiHard, high === undefined ? Infinity : high.at - gapTo(high)),
   ];
   const room = ([low, high]: [number, number]) => high - low;
-  const onPin = above.length > 0 && above[0] < desired + EPS;
-  const cells: [number, number][] = onPin
-    ? [cell(below[0], above[0]), cell(above[0], above[1])]
-    : [cell(below[0], above[0]), cell(above[0], above[1]), cell(below[1], below[0])];
+  const onPin = above.length > 0 && above[0].at < desired + EPS;
+  // The cell it starts in, then the cells past its nearest pin on either side — only where there is
+  // such a pin: past none, there is no other cell.
+  const cells: [number, number][] = [cell(below[0], above[0])];
+  if (above.length > 0) cells.push(cell(above[0], above[1]));
+  if (!onPin && below.length > 0) cells.push(cell(below[1], below[0]));
   let chosen = cells[0];
-  if (onPin || room(chosen) < 2 * pitch) {
+  if (onPin || room(chosen) < 2 * trackSpacing(diameter, diameter)) {
     for (const candidate of cells) if (room(candidate) > room(chosen) + EPS) chosen = candidate;
   }
   const [loHard, hiHard] = chosen;
-  if (loHard > hiHard + EPS) return range;
+  if (loHard > hiHard + EPS) return { range, cramped: true };
   const lo = Math.max(range.lo, loHard);
   const hi = Math.min(range.hi, hiHard);
-  return lo > hi + EPS ? { lo: loHard, hi: hiHard, loHard, hiHard } : { lo, hi, loHard, hiHard };
+  return {
+    range: lo > hi + EPS ? { lo: loHard, hi: hiHard, loHard, hiHard } : { lo, hi, loHard, hiHard },
+    cramped: false,
+  };
 }
 
 /** Indices below this pack into one sort key with their value; see `sortIndices`. */
@@ -742,13 +775,18 @@ function sortIndices(indices: readonly number[], value: (i: number) => number): 
 }
 
 /**
- * Segments laid out together. While bundles are being merged, `slots` is an upper bound on the slots
- * they need (the merged bundles' slots added up) and `lo`…`hi` the span that many would take; the
- * final layout (`layBundle`) needs no more, centred on the same track.
+ * Segments laid out together. While bundles are being merged, `widths` is an upper bound on the slots
+ * they need (the merged bundles' slot widths, one after the other) and `lo`…`hi` the span those would
+ * take; the final layout (`layBundle`) reassigns the slots and is centred on the same track.
  */
 interface Bundle {
   members: number[];
-  slots: number;
+  /** Each slot's width: its widest member's diameter. */
+  widths: number[];
+  /** The offset of the last slot from the first: `slotOffsets(widths)`'s last entry. */
+  span: number;
+  /** The widest slot. */
+  maxWidth: number;
   desiredSum: number;
   lo: number;
   hi: number;
@@ -761,49 +799,80 @@ interface Bundle {
   lean: number;
 }
 
-/** `slots` tracks a pitch apart centred on `centre` inside `low…high`, closing up when it is too narrow. */
-function spread(slots: number, centre: number, low: number, high: number): { start: number; pitch: number } {
-  const gaps = slots - 1;
-  let pitch = WIRE_TRACK_PITCH_MM;
-  if (high - low < gaps * pitch) pitch = gaps > 0 ? (high - low) / gaps : 0;
-  return { start: Math.min(Math.max(centre - (gaps * pitch) / 2, low), high - gaps * pitch), pitch };
+/**
+ * Each slot's track offset from the first one: neighbouring slots `trackSpacing` apart, so a slot is
+ * as wide as its widest member. The last offset is the bundle's span.
+ */
+function slotOffsets(widths: readonly number[]): number[] {
+  const offsets = [0];
+  for (let k = 1; k < widths.length; k++) offsets.push(offsets[k - 1] + trackSpacing(widths[k - 1], widths[k]));
+  return offsets;
+}
+
+function slotSpan(widths: readonly number[]): number {
+  let span = 0;
+  for (let k = 1; k < widths.length; k++) span += trackSpacing(widths[k - 1], widths[k]);
+  return span;
 }
 
 /**
- * The first track of `slots` tracks `pitch` apart centred on `centre`, inside a range; and the pitch.
+ * Slots spanning `span` at true scale, centred on `centre` inside `low…high`; the first track and the scale
+ * the offsets are laid out at. When the range is narrower than the span, the slots close up evenly to
+ * fill it (`scale` below 1) — closer than true scale, still distinct.
+ */
+function spread(span: number, centre: number, low: number, high: number): { start: number; scale: number } {
+  let scale = 1;
+  if (high - low < span) scale = span > 0 ? Math.max(0, high - low) / span : 0;
+  const width = span * scale;
+  return { start: Math.min(Math.max(centre - width / 2, low), high - width), scale };
+}
+
+/**
+ * The first track of slots `widths` wide (spanning `span`, see `slotOffsets`) centred on `centre`
+ * inside a range; and the scale. `offsets`, when the caller has them, saves recomputing them.
  *
- * With an `anchor` (its members' cable stub line, see `avoidPins`) the tracks keep to that line's
- * grid: shifted by whole pitches so one lies exactly on the anchor — the core there continues the
- * cable, the others leave it on tracks whole pitches off it. Of two shifts equally near the centred
- * span, the one towards the side the members turn to (`lean`) wins. When the range cannot hold a track
- * on the anchor at full pitch, the whole bundle keeps at least a pitch off it, on the side with more
- * room — closing up there if it must, never onto the stub.
+ * With an `anchor` (its members' cable stub line, see `avoidPins`) the tracks keep to that line: the
+ * slots shift so one lies exactly on the anchor — the core there continues the cable, the others leave
+ * it on their own tracks. Of the shifts nearest the centred span, the one towards the side the members
+ * turn to (`lean`) wins. When the range cannot hold a track on the anchor at true scale, the whole
+ * bundle keeps `anchorGap` off it, on the side with more room — closing up there if it must, never onto
+ * the stub.
  */
 function place(
-  slots: number,
+  widths: readonly number[],
+  span: number,
   centre: number,
   range: TrackRange,
   anchor: number | null = null,
   lean = 0,
-): { start: number; pitch: number } | null {
+  anchorGap = 0,
+  known?: readonly number[],
+): { start: number; scale: number } | null {
   if (range.loHard > range.hiHard + EPS) return null;
-  const pitch = WIRE_TRACK_PITCH_MM;
-  const gaps = slots - 1;
-  const soft = range.hi - range.lo >= gaps * pitch - EPS;
+  const soft = range.hi - range.lo >= span - EPS;
   const low = soft ? range.lo : range.loHard;
   const high = soft ? range.hi : range.hiHard;
-  const plain = spread(slots, centre, low, high);
+  const plain = spread(span, centre, low, high);
   if (anchor === null) return plain;
 
-  if (plain.pitch === pitch) {
-    const below = anchor - Math.ceil((anchor - plain.start) / pitch - EPS) * pitch;
-    const candidates = [below, below + pitch, below - pitch, below + 2 * pitch].sort(
-      (p, q) => Math.abs(p - plain.start) - Math.abs(q - plain.start) || lean * (q - p),
-    );
+  if (plain.scale === 1) {
+    const offsets = known ?? slotOffsets(widths);
+    // Slot k on the anchor starts the bundle at `anchor - offsets[k]`: the first such start at or below
+    // the centred one, the next one above it, and one further each way.
+    const needed = anchor - plain.start - EPS;
+    let k = 0;
+    let end = offsets.length;
+    while (k < end) {
+      const mid = (k + end) >> 1;
+      if (offsets[mid] < needed) k = mid + 1;
+      else end = mid;
+    }
+    const candidates = [k, k - 1, k + 1, k - 2]
+      .filter((slot) => slot >= 0 && slot < offsets.length)
+      .map((slot) => anchor - offsets[slot])
+      .sort((p, q) => Math.abs(p - plain.start) - Math.abs(q - plain.start) || lean * (q - p));
     for (const candidate of candidates) {
-      const onAnchor = candidate <= anchor + EPS && anchor <= candidate + gaps * pitch + EPS;
-      if (onAnchor && candidate >= low - EPS && candidate + gaps * pitch <= high + EPS)
-        return { start: candidate, pitch };
+      if (candidate >= low - EPS && candidate + span <= high + EPS) return { start: candidate, scale: 1 };
     }
   }
 
@@ -813,58 +882,67 @@ function place(
     [range.loHard, range.hiHard],
   ]) {
     const sides: [number, number][] = [
-      [lo, Math.min(hi, anchor - pitch)],
-      [Math.max(lo, anchor + pitch), hi],
+      [lo, Math.min(hi, anchor - anchorGap)],
+      [Math.max(lo, anchor + anchorGap), hi],
     ];
     for (const side of sides) {
       if (side[1] - side[0] < -EPS) continue;
       if (best === null || side[1] - side[0] > best[1] - best[0] + EPS) best = side;
     }
-    if (best !== null && best[1] - best[0] >= gaps * pitch - EPS) break;
+    if (best !== null && best[1] - best[0] >= span - EPS) break;
   }
-  return best === null ? plain : spread(slots, centre, best[0], best[1]);
+  return best === null ? plain : spread(span, centre, best[0], best[1]);
 }
 
 /**
  * Each member's slot: members in order of where they start take the first slot whose last member has
  * ended (interval partitioning — no two overlapping members share a slot, and no more slots than the
  * deepest overlap needs). The slots are then numbered in key order (by their members' mean key rank),
- * so the bundle leaves its channel without needless crossings.
+ * so the bundle leaves its channel without needless crossings. Each slot is as wide as its widest
+ * member.
  */
 function assignSlots(
   members: readonly number[],
   segments: readonly Segment[],
   keyOf: ((segment: number) => number) | null,
-): { slots: number; slotOf: Map<number, number> } {
+): { widths: number[]; slotOf: Map<number, number> } {
   const ends: number[] = [];
+  const widths: number[] = [];
   const slotOf = new Map<number, number>();
   if (members.length === 1) {
     slotOf.set(members[0], 0);
-    return { slots: 1, slotOf };
+    return { widths: [segments[members[0]].diameter], slotOf };
   }
   for (const m of sortIndices(members, (i) => segments[i].from)) {
-    const { from, to } = segments[m];
+    const { from, to, diameter } = segments[m];
     let slot = 0;
     while (slot < ends.length && ends[slot] > from + EPS) slot++;
-    if (slot === ends.length) ends.push(to);
-    else ends[slot] = to;
+    if (slot === ends.length) {
+      ends.push(to);
+      widths.push(diameter);
+    } else {
+      ends[slot] = to;
+      widths[slot] = Math.max(widths[slot], diameter);
+    }
     slotOf.set(m, slot);
   }
-  if (ends.length < 2 || keyOf === null) return { slots: ends.length, slotOf };
-  const keySum = ends.map(() => 0);
-  const count = ends.map(() => 0);
-  for (const [m, slot] of slotOf) {
-    keySum[slot] += keyOf(m);
-    count[slot] += 1;
+  if (ends.length >= 2 && keyOf !== null) {
+    const keySum = ends.map(() => 0);
+    const count = ends.map(() => 0);
+    for (const [m, slot] of slotOf) {
+      keySum[slot] += keyOf(m);
+      count[slot] += 1;
+    }
+    const position = ends.map((_, slot) => slot).sort((p, q) => keySum[p] / count[p] - keySum[q] / count[q] || p - q);
+    const renumber = position.map(() => 0);
+    position.forEach((slot, n) => (renumber[slot] = n));
+    for (const [m, slot] of slotOf) slotOf.set(m, renumber[slot]);
+    return { widths: position.map((slot) => widths[slot]), slotOf };
   }
-  const position = ends.map((_, slot) => slot).sort((p, q) => keySum[p] / count[p] - keySum[q] / count[q] || p - q);
-  const renumber = position.map(() => 0);
-  position.forEach((slot, n) => (renumber[slot] = n));
-  for (const [m, slot] of slotOf) slotOf.set(m, renumber[slot]);
-  return { slots: ends.length, slotOf };
+  return { widths, slotOf };
 }
 
-function bundleOf(members: number[], slots: number, segments: readonly Segment[]): Bundle {
+function bundleOf(members: number[], widths: number[], segments: readonly Segment[]): Bundle {
   const range: TrackRange = { lo: -Infinity, hi: Infinity, loHard: -Infinity, hiHard: Infinity };
   let desiredSum = 0;
   let from = Infinity;
@@ -882,17 +960,37 @@ function bundleOf(members: number[], slots: number, segments: readonly Segment[]
   const anchor = segments[members[0]].anchor;
   const shared = members.every((m) => segments[m].anchor === anchor) ? anchor : null;
   const lean = members.reduce((sum, m) => sum + segments[m].lean, 0);
-  return withSpan({ members, slots, desiredSum, lo: 0, hi: 0, from, to, range, anchor: shared, lean });
+  return withSpan({
+    members,
+    widths,
+    span: slotSpan(widths),
+    maxWidth: Math.max(...widths),
+    desiredSum,
+    lo: 0,
+    hi: 0,
+    from,
+    to,
+    range,
+    anchor: shared,
+    lean,
+  });
+}
+
+/** How far a bundle's tracks keep off its anchor when no slot can sit on it: its widest core, twice. */
+function anchorGapOf(maxWidth: number): number {
+  return trackSpacing(maxWidth, maxWidth);
 }
 
 /** Sets the bundle's span from its slots, centre and range; returns it. */
 function withSpan(bundle: Bundle): Bundle {
   const placed = place(
-    bundle.slots,
+    bundle.widths,
+    bundle.span,
     bundle.desiredSum / bundle.members.length,
     bundle.range,
     bundle.anchor,
     bundle.lean,
+    anchorGapOf(bundle.maxWidth),
   );
   if (placed === null) {
     // No common range (pins on both sides): the members split into runs (`layBundle`).
@@ -900,15 +998,17 @@ function withSpan(bundle: Bundle): Bundle {
     bundle.hi = bundle.range.hiHard;
   } else {
     bundle.lo = placed.start;
-    bundle.hi = placed.start + (bundle.slots - 1) * placed.pitch;
+    bundle.hi = placed.start + bundle.span * placed.scale;
   }
   return bundle;
 }
 
-/** `a` with `b` merged into it — `a`'s member list is extended in place, so a long chain stays linear. */
+/** `a` with `b` merged into it — `a`'s lists are extended in place, so a long chain stays linear. */
 function merge(a: Bundle, b: Bundle): Bundle {
   for (const m of b.members) a.members.push(m);
-  a.slots += b.slots;
+  a.span += trackSpacing(a.widths[a.widths.length - 1], b.widths[0]) + b.span;
+  for (const width of b.widths) a.widths.push(width);
+  a.maxWidth = Math.max(a.maxWidth, b.maxWidth);
   a.desiredSum += b.desiredSum;
   a.from = Math.min(a.from, b.from);
   a.to = Math.max(a.to, b.to);
@@ -923,29 +1023,46 @@ function merge(a: Bundle, b: Bundle): Bundle {
 
 /**
  * The final layout of a bundle, into `track`, by `assignSlots`: members that merely share the channel
- * share a slot, and the key order runs from the first slot up. The slots are a pitch apart, centred on
- * the members' mean desired track and shifted into their common range: the preferred one when it holds them, else
- * the hard one. Crowding fallback: when even that is too narrow, the slots close up evenly to fill it
- * — closer than the pitch, but still distinct. Members whose ranges have nothing in common (pins on
- * both sides) split into runs whose ranges do — by the low end of their hard range, each run taking
- * members while their common range lasts — and each run is laid out on its own; the runs' common
- * ranges are disjoint and ordered, so they never share a track.
+ * share a slot, and the key order runs from the first slot up. The slots sit at true-scale spacing
+ * (`slotOffsets`), centred on the members' mean desired track and shifted into their common range: the
+ * preferred one when it holds them, else the hard one. Crowding fallback: when even that is too narrow,
+ * the slots close up evenly to fill it — closer than true scale, but still distinct — and every member
+ * is marked in `squeezed`, as is a lone member forced outside its own range. Members whose ranges have
+ * nothing in common (pins on both sides) split into runs whose ranges do — by the low end of their hard
+ * range, each run taking members while their common range lasts — and each run is laid out on its own;
+ * the runs' common ranges are disjoint and ordered, so they never share a track.
  */
 function layBundle(
   bundle: Bundle,
   segments: readonly Segment[],
   keyOf: (segment: number) => number,
   track: number[],
+  squeezed: boolean[],
 ): void {
-  const { slots, slotOf } = assignSlots(bundle.members, segments, keyOf);
-  const placed = place(slots, bundle.desiredSum / bundle.members.length, bundle.range, bundle.anchor, bundle.lean);
+  const { widths, slotOf } = assignSlots(bundle.members, segments, keyOf);
+  const offsets = slotOffsets(widths);
+  const placed = place(
+    widths,
+    offsets[offsets.length - 1],
+    bundle.desiredSum / bundle.members.length,
+    bundle.range,
+    bundle.anchor,
+    bundle.lean,
+    anchorGapOf(Math.max(...widths)),
+    offsets,
+  );
   if (placed !== null) {
-    for (const m of bundle.members) track[m] = placed.start + (slotOf.get(m) ?? 0) * placed.pitch;
+    const closedUp = widths.length > 1 && placed.scale < 1 - EPS;
+    for (const m of bundle.members) {
+      track[m] = placed.start + offsets[slotOf.get(m) ?? 0] * placed.scale;
+      if (closedUp) squeezed[m] = true;
+    }
     return;
   }
   if (bundle.members.length === 1) {
     const { range, desired } = segments[bundle.members[0]];
     track[bundle.members[0]] = Math.min(Math.max(desired, range.loHard), range.hiHard);
+    squeezed[bundle.members[0]] = true;
     return;
   }
   const ordered = sortIndices(bundle.members, (m) => segments[m].range.loHard);
@@ -953,7 +1070,7 @@ function layBundle(
   let runHigh = Infinity;
   const flush = () => {
     if (run.length === 0) return;
-    layBundle(bundleOf(run, assignSlots(run, segments, null).slots, segments), segments, keyOf, track);
+    layBundle(bundleOf(run, assignSlots(run, segments, null).widths, segments), segments, keyOf, track, squeezed);
     run = [];
     runHigh = Infinity;
   };
@@ -968,23 +1085,27 @@ function layBundle(
 
 /**
  * Moves the interior segments of `axis` (vertical ones in x, horizontal ones in y) so that no two
- * whose extents overlap share a track. One sweep in track order: segments on one track form a bundle,
- * a bundle within a pitch of the previous one (extents overlapping) merges into it, and each final
- * bundle is laid out once (`layBundle`) — O(n log n) plus the slot assignment. A route's first and
- * last segments stay put — they pass through the endpoint — and the segments beside a moved one only
- * change length. A segment within a pitch of another conductor's stub is pushed off it (`avoidPins`).
+ * whose extents overlap share a track, and neighbours keep true-scale spacing. One sweep in track
+ * order: segments on one track form a bundle, a bundle closer than its spacing to the previous one
+ * (extents overlapping) merges into it, and each final bundle is laid out once (`layBundle`) —
+ * O(n log n) plus the slot assignment. A route's first and last segments stay put — they pass through
+ * the endpoint — and the segments beside a moved one only change length. A segment closer than its
+ * spacing to another conductor's stub is pushed off it (`avoidPins`). Every segment that could not keep
+ * its spacing is added to its route's `squeezed` set (raw segment indices).
  */
-function nudgeAxis(routes: readonly RawRoute[], axis: Axis, router: Router): void {
+function nudgeAxis(routes: readonly RawRoute[], axis: Axis, router: Router, squeezedOf: Set<number>[]): void {
   // By parity, not by geometry: a zero-length segment still has its orientation.
   const isAxis = (route: RawRoute, index: number) => ((index % 2 === 0) === route.firstVertical) === (axis === "v");
   const paths = routes.map((route) => route.points);
 
-  // The end segments of `axis` cannot move; a movable one keeps a pitch off them. The stubs into one
-  // endpoint are one pin, spanning all of them.
+  // The end segments of `axis` cannot move; a movable one keeps its spacing off them. The stubs into
+  // one endpoint are one pin, spanning all of them, as wide as the widest.
   const byEnd = new Map<number, Pin>();
+  let maxRadius = 0;
   for (const route of routes) {
     const path = route.points;
     const last = path.length - 2;
+    const radius = route.diameterMm / 2;
     for (let index = 0; index <= last; index += last > 0 ? last : 1) {
       if (!isAxis(route, index)) continue;
       const a = path[index];
@@ -992,14 +1113,16 @@ function nudgeAxis(routes: readonly RawRoute[], axis: Axis, router: Router): voi
       const end = index === 0 ? a : b;
       const from = Math.min(along(a, axis), along(b, axis));
       const to = Math.max(along(a, axis), along(b, axis));
+      maxRadius = Math.max(maxRadius, radius);
       // One number per endpoint: micrometre coordinates, exact below 2^53 for any cabinet.
       const id = Math.round(end.x * 1000) * 1e8 + Math.round(end.y * 1000);
       const pin = byEnd.get(id);
       if (pin === undefined) {
-        byEnd.set(id, { at: coordinate(a, axis), from, to, end, cable: index === 0 && route.fromEntry });
+        byEnd.set(id, { at: coordinate(a, axis), from, to, end, cable: index === 0 && route.fromEntry, radius });
       } else {
         pin.from = Math.min(pin.from, from);
         pin.to = Math.max(pin.to, to);
+        pin.radius = Math.max(pin.radius, radius);
       }
     }
   }
@@ -1007,6 +1130,7 @@ function nudgeAxis(routes: readonly RawRoute[], axis: Axis, router: Router): voi
 
   const vertical = axis === "v";
   const segments: Segment[] = [];
+  const squeezed: boolean[] = [];
   routes.forEach((route, pathIndex) => {
     const path = route.points;
     const ends = [path[0], path[path.length - 1]] as const;
@@ -1024,12 +1148,30 @@ function nudgeAxis(routes: readonly RawRoute[], axis: Axis, router: Router): voi
       // The horizontal pass still moves the runs a vertical one ends on, which can stretch two
       // end-to-end verticals into overlap: verticals within `VERTICAL_REACH_MM` count as alongside.
       const reach = vertical ? VERTICAL_REACH_MM : 0;
-      const range = avoidPins(router.trackRange(axis, desired, from, to), pins, ends, desired, from, to, reach);
+      const diameter = route.diameterMm;
+      const avoided = avoidPins(
+        router.trackRange(axis, desired, from, to),
+        pins,
+        ends,
+        { desired, from, to, reach, diameter },
+        maxRadius,
+      );
       // The cable's stub is this axis's first segment; a run on its line continues the cable.
       const onStub = route.fromEntry && route.firstVertical === vertical;
       const anchor = onStub && Math.abs(coordinate(path[0], axis) - desired) < EPS ? desired : null;
       const lean = anchor === null ? 0 : turnAt(path, index + 2, 1, b, axis);
-      segments.push({ path: pathIndex, index, desired, range, from: from - reach, to: to + reach, anchor, lean });
+      squeezed.push(avoided.cramped);
+      segments.push({
+        path: pathIndex,
+        index,
+        desired,
+        range: avoided.range,
+        from: from - reach,
+        to: to + reach,
+        diameter,
+        anchor,
+        lean,
+      });
     }
   });
   if (segments.length === 0) return;
@@ -1047,8 +1189,8 @@ function nudgeAxis(routes: readonly RawRoute[], axis: Axis, router: Router): voi
   const track = segments.map((segment) => segment.desired);
 
   // Bundles, swept in order of their track: segments on one track start as one bundle; a bundle that
-  // comes within a pitch of the one before it, with extents that overlap, merges with it — until it
-  // stands clear of everything before it. Each bundle is laid out once, at the end.
+  // comes closer than its spacing to the one before it, with extents that overlap, merges with it —
+  // until it stands clear of everything before it. Each bundle is laid out once, at the end.
   const order = sortIndices(
     segments.map((_, i) => i),
     (i) => segments[i].desired,
@@ -1058,10 +1200,12 @@ function nudgeAxis(routes: readonly RawRoute[], axis: Axis, router: Router): voi
     let end = i + 1;
     while (end < order.length && segments[order[end]].desired - segments[order[i]].desired < EPS) end++;
     const members = order.slice(i, end);
-    let bundle = bundleOf(members, assignSlots(members, segments, null).slots, segments);
+    let bundle = bundleOf(members, assignSlots(members, segments, null).widths, segments);
     i = end;
     for (let top = stack.at(-1); top !== undefined; top = stack.at(-1)) {
-      const near = top.hi + WIRE_TRACK_PITCH_MM - EPS > bundle.lo && bundle.hi + WIRE_TRACK_PITCH_MM - EPS > top.lo;
+      // The widest slot of each: an upper bound on the spacing their facing slots need.
+      const spacing = trackSpacing(top.maxWidth, bundle.maxWidth);
+      const near = top.hi + spacing - EPS > bundle.lo && bundle.hi + spacing - EPS > top.lo;
       const alongside = Math.min(top.to, bundle.to) - Math.max(top.from, bundle.from) > EPS;
       if (!near || !alongside) break;
       stack.pop();
@@ -1069,7 +1213,7 @@ function nudgeAxis(routes: readonly RawRoute[], axis: Axis, router: Router): voi
     }
     stack.push(bundle);
   }
-  for (const bundle of stack) layBundle(bundle, segments, keyOf, track);
+  for (const bundle of stack) layBundle(bundle, segments, keyOf, track, squeezed);
 
   segments.forEach((segment, i) => {
     const path = paths[segment.path];
@@ -1077,23 +1221,132 @@ function nudgeAxis(routes: readonly RawRoute[], axis: Axis, router: Router): voi
       if (axis === "v") point.x = track[i];
       else point.y = track[i];
     }
+    if (squeezed[i]) squeezedOf[segment.path].add(segment.index);
   });
+}
+
+/**
+ * The simplified path's segments that the raw segments `raw` (indices into `points`) lie on: each
+ * non-zero raw segment lies along exactly one simplified segment, in order. Sorted, without repeats.
+ */
+function simplifiedSegments(
+  points: readonly Point[],
+  simplified: readonly Point[],
+  raw: ReadonlySet<number>,
+): number[] {
+  const out = new Set<number>();
+  let j = 0;
+  for (const i of [...raw].sort((p, q) => p - q)) {
+    const [a, b] = [points[i], points[i + 1]];
+    if (Math.abs(a.x - b.x) + Math.abs(a.y - b.y) <= EPS) continue;
+    for (; j + 1 < simplified.length; j++) {
+      const [p, q] = [simplified[j], simplified[j + 1]];
+      const within = (value: number, u: number, v: number) =>
+        value >= Math.min(u, v) - EPS && value <= Math.max(u, v) + EPS;
+      const onLine =
+        (Math.abs(p.x - q.x) < EPS && Math.abs(a.x - p.x) < EPS && Math.abs(b.x - p.x) < EPS) ||
+        (Math.abs(p.y - q.y) < EPS && Math.abs(a.y - p.y) < EPS && Math.abs(b.y - p.y) < EPS);
+      if (onLine && within(a.x, p.x, q.x) && within(b.x, p.x, q.x) && within(a.y, p.y, q.y) && within(b.y, p.y, q.y)) {
+        out.add(j);
+        break;
+      }
+    }
+  }
+  return [...out];
+}
+
+/**
+ * Records, in `squeezed`, every segment whose body overlaps another conductor's alongside it at true
+ * scale — two parallel segments of different routes whose extents overlap and whose centre lines lie
+ * closer than `rA + rB`. The nudging keeps the segments it moves apart, but not everything can move:
+ * a route's end segments pass through their endpoints (entry points, terminals, bar terminals lie where
+ * the geometry puts them, often closer than two thick cores), and the second pass lengthens the stubs
+ * and runs the first pass laid out. Whatever overlaps in the end is recorded, never hidden. The same
+ * exceptions as the router's own: segments ending on one shared endpoint share its stub, and the cores
+ * of one cable run along their cable's stub together. One sweep per axis in track order.
+ */
+function recordOverlaps(routes: readonly RawRoute[], paths: readonly Point[][], squeezed: Set<number>[]): void {
+  let count = 0;
+  for (const path of paths) count += Math.max(0, path.length - 1);
+  // Flat typed columns, one entry per segment: this runs on every render, over every segment.
+  const route = new Int32Array(count);
+  const index = new Int32Array(count);
+  const at = new Float64Array(count);
+  const low = new Float64Array(count);
+  const high = new Float64Array(count);
+  const radius = new Float64Array(count);
+  /** The endpoint an end segment touches (NaN for an interior one), and whether it is a cable's stub. */
+  const endX = new Float64Array(count);
+  const endY = new Float64Array(count);
+  const onStub = new Uint8Array(count);
+  const byAxis: Record<Axis, number[]> = { v: [], h: [] };
+  let maxRadius = 0;
+  let n = 0;
+  paths.forEach((path, r) => {
+    const half = routes[r].diameterMm / 2;
+    maxRadius = Math.max(maxRadius, half);
+    for (let i = 0; i + 1 < path.length; i++, n++) {
+      const a = path[i];
+      const b = path[i + 1];
+      const vertical = Math.abs(a.x - b.x) < EPS;
+      byAxis[vertical ? "v" : "h"].push(n);
+      route[n] = r;
+      index[n] = i;
+      at[n] = vertical ? a.x : a.y;
+      low[n] = vertical ? Math.min(a.y, b.y) : Math.min(a.x, b.x);
+      high[n] = vertical ? Math.max(a.y, b.y) : Math.max(a.x, b.x);
+      radius[n] = half;
+      const end = i === 0 ? a : i === path.length - 2 ? b : null;
+      endX[n] = end === null ? NaN : end.x;
+      endY[n] = end === null ? NaN : end.y;
+      onStub[n] = i === 0 && routes[r].fromEntry ? 1 : 0;
+    }
+  });
+  // NaN never compares close, so an interior segment never shares an endpoint.
+  const sameEnd = (p: number, q: number) => Math.abs(endX[p] - endX[q]) < EPS && Math.abs(endY[p] - endY[q]) < EPS;
+  for (const list of [byAxis.v, byAxis.h]) {
+    const ordered = sortIndices(list, (i) => at[i]);
+    for (let p = 0; p < ordered.length; p++) {
+      const s = ordered[p];
+      const reach = at[s] + radius[s] + maxRadius - EPS;
+      for (let q = p + 1; q < ordered.length; q++) {
+        const t = ordered[q];
+        if (at[t] >= reach) break;
+        if (route[t] === route[s] || at[t] - at[s] >= radius[s] + radius[t] - EPS) continue;
+        if (Math.min(high[s], high[t]) - Math.max(low[s], low[t]) <= EPS) continue;
+        if (onStub[s] === onStub[t] && sameEnd(s, t)) continue;
+        squeezed[route[s]].add(index[s]);
+        squeezed[route[t]].add(index[t]);
+      }
+    }
+  }
 }
 
 /**
  * Every conductor on its own track (see `NUDGE_PASSES`). Horizontal runs stay in the free channel
  * they run in, so no route turns or ends behind a device; vertical runs may spread behind the devices
  * when their passage is crowded. Endpoints never move. Returns new paths, simplified (a move can line
- * two segments up, and the zero-length joins of the raw routes drop out).
+ * two segments up, and the zero-length joins of the raw routes drop out), with the indices of their
+ * squeezed segments: the ones the nudging closed up, and every one still overlapping a neighbour at
+ * true scale (`recordOverlaps`).
  */
-function nudgeTracks(routes: readonly RawRoute[], router: Router): Point[][] {
+function nudgeTracks(routes: readonly RawRoute[], router: Router): { path: Point[]; squeezed: number[] }[] {
   const working = routes.map((route) => ({
     points: route.points.map((point) => ({ ...point })),
     firstVertical: route.firstVertical,
     fromEntry: route.fromEntry,
+    diameterMm: route.diameterMm,
   }));
-  for (const axis of NUDGE_PASSES) nudgeAxis(working, axis, router);
-  return working.map((route) => simplify(route.points));
+  const squeezedOf = working.map(() => new Set<number>());
+  for (const axis of NUDGE_PASSES) nudgeAxis(working, axis, router, squeezedOf);
+  const paths = working.map((route) => simplify(route.points));
+  const squeezed = working.map((route, index) =>
+    squeezedOf[index].size === 0
+      ? new Set<number>()
+      : new Set(simplifiedSegments(route.points, paths[index], squeezedOf[index])),
+  );
+  recordOverlaps(working, paths, squeezed);
+  return paths.map((path, index) => ({ path, squeezed: [...squeezed[index]].sort((p, q) => p - q) }));
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1196,7 +1449,7 @@ interface Pending {
   kind: ConductorKind;
   role: ConductorRole;
   circuitId: string | null;
-  crossSectionMm2: number;
+  crossSectionMm2: WireCrossSectionMm2;
   from: PendingEnd;
   to: PendingEnd;
 }
@@ -1364,7 +1617,7 @@ export function routeConductors(input: WiringInput): Conductor[] {
     kind: ConductorKind,
     role: ConductorRole,
     circuitId: string | null,
-    crossSectionMm2: number,
+    crossSectionMm2: WireCrossSectionMm2,
     from: PendingEnd,
     to: PendingEnd,
   ) => {
@@ -1521,8 +1774,9 @@ export function routeConductors(input: WiringInput): Conductor[] {
   const conductors: Conductor[] = routable.map((item, index) => {
     const from = resolve(item.from, item.role);
     const to = resolve(item.to, item.role);
+    const diameterMm = conductorDiameterMm(item.crossSectionMm2);
     // The path and its lengths are filled in after nudging.
-    routes.push({ ...router.route(from.stub, to.stub), fromEntry: item.from.type === "entry" });
+    routes.push({ ...router.route(from.stub, to.stub), fromEntry: item.from.type === "entry", diameterMm });
     return {
       key: `w${String(index)}`,
       kind: item.kind,
@@ -1534,14 +1788,16 @@ export function routeConductors(input: WiringInput): Conductor[] {
       path: [],
       routedMm: 0,
       lengthMm: 0,
+      diameterMm,
+      squeezed: [],
     };
   });
 
-  const paths = nudgeTracks(routes, router);
+  const nudged = nudgeTracks(routes, router);
   return conductors.map((conductor, index) => {
-    const path = paths[index];
+    const { path, squeezed } = nudged[index];
     const routedMm = pathLength(path);
-    return { ...conductor, path, routedMm, lengthMm: withSlack(routedMm) };
+    return { ...conductor, path, routedMm, lengthMm: withSlack(routedMm), squeezed };
   });
 }
 
