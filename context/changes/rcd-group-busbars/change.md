@@ -1,7 +1,7 @@
 ---
 change_id: rcd-group-busbars
 title: Listwy zasilające 1F/3F zamiast mostków RCD → MCB w grupach RCD
-status: implementing
+status: implemented
 created: 2026-10-09
 updated: 2026-10-09
 archived_at: null
