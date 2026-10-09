@@ -1,5 +1,6 @@
 import type { CabinetGeometry } from "@/lib/cabinet-geometry";
 import {
+  isBusbarRole,
   validateLayout,
   type LayoutDevice,
   type LayoutGroup,
@@ -92,7 +93,8 @@ export function editUnits(
   geometry?: Pick<CabinetGeometry, "rails">,
 ): EditUnit[] {
   const maxRailMm = geometry === undefined ? Infinity : Math.max(...geometry.rails.map((rail) => rail.lengthMm));
-  const sorted = [...devices].sort((a, b) => a.position - b.position);
+  // A busbar row carries `rcd_group_id` but is no placement subject: never a member, never draggable.
+  const sorted = devices.filter((device) => !isBusbarRole(device.role)).sort((a, b) => a.position - b.position);
   const groupIds = groups.map((group) => group.id);
   for (const device of sorted) {
     const groupId = groupOf(device);
@@ -243,14 +245,16 @@ export function moveUnit(context: EditContext, draft: LayoutDraft, unit: EditUni
  * Accepted only when the result passes `validateLayout`; never mutates the draft.
  */
 export function moveDevice(context: EditContext, draft: LayoutDraft, deviceId: string, target: MoveTarget): MoveResult {
-  const device = context.devices.find((candidate) => candidate.id === deviceId);
+  const device = context.devices.find((candidate) => candidate.id === deviceId && !isBusbarRole(candidate.role));
   if (device === undefined) return { ok: false, issues: [{ code: "unknown_device", deviceId }] };
 
   const groupId = groupOf(device);
   const mates =
     groupId === null
       ? []
-      : context.devices.filter((candidate) => candidate.id !== device.id && groupOf(candidate) === groupId);
+      : context.devices.filter(
+          (candidate) => candidate.id !== device.id && !isBusbarRole(candidate.role) && groupOf(candidate) === groupId,
+        );
 
   let changed: Placement[];
   if (groupId === null || mates.length === 0) {
@@ -282,7 +286,9 @@ function reorderInGroup(
     .filter((placement) => placement.railIndex === target.railIndex)
     .flatMap((placement) => {
       const member = byId.get(placement.projectDeviceId);
-      return member !== undefined && groupOf(member) === groupId ? [{ device: member, placement }] : [];
+      return member !== undefined && !isBusbarRole(member.role) && groupOf(member) === groupId
+        ? [{ device: member, placement }]
+        : [];
     })
     .sort((a, b) => a.placement.xMm - b.placement.xMm);
   const first = onRail.at(0);
@@ -434,19 +440,23 @@ function keyed(devices: readonly LayoutDevice[]): Map<string, LayoutDevice> | nu
  * in `next`'s position order. Null when a key repeats on either side, a new device has no old
  * counterpart, an old placement has no new device, or the carried set fails `validateLayout` (say, a
  * wider replacement device now overlaps its neighbour). There is no partial carry-over: the caller
- * then stores a fresh proposal.
+ * then stores a fresh proposal. Busbar rows are ignored on both sides: they have no placement, so they
+ * neither need a counterpart nor get a carried placement.
  */
 export function carryOverPlacements(
   old: { devices: readonly LayoutDevice[]; placements: readonly Placement[] },
-  next: readonly LayoutDevice[],
+  nextDevices: readonly LayoutDevice[],
   geometry: CabinetGeometry,
   groups: readonly Pick<LayoutGroup, "id">[],
 ): Placement[] | null {
-  const oldByKey = keyed(old.devices);
+  const placeable = (devices: readonly LayoutDevice[]) => devices.filter((device) => !isBusbarRole(device.role));
+  const oldDevices = placeable(old.devices);
+  const next = placeable(nextDevices);
+  const oldByKey = keyed(oldDevices);
   const nextByKey = keyed(next);
   if (oldByKey === null || nextByKey === null) return null;
 
-  const oldById = new Map(old.devices.map((device) => [device.id, device]));
+  const oldById = new Map(oldDevices.map((device) => [device.id, device]));
   const placementByOldId = new Map<string, Placement>();
   for (const placement of old.placements) {
     const device = oldById.get(placement.projectDeviceId);

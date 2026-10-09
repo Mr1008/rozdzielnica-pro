@@ -93,6 +93,8 @@ const groupArb = fc.record({
   /** A single-circuit group: an RCBO, or (true) the RCD + MCB fallback. */
   fallback: fc.boolean(),
   nSide: nSideArb,
+  /** A comb busbar segment for the group (rcd-group-busbars): only a separate RCD gets one. */
+  busbar: fc.boolean(),
 });
 
 const scenarioArb = fc.record({
@@ -110,6 +112,7 @@ type Scenario = typeof scenarioArb extends fc.Arbitrary<infer T> ? T : never;
 /** The snapshot S-04 would store for the scenario, in its order, plus groups and circuits. */
 function buildInput(scenario: Scenario, geo: CabinetGeometry): LayoutInput {
   const devices: LayoutDevice[] = [];
+  const busbars: { group: string }[] = [];
   const circuits: LayoutInput["circuits"][number][] = [];
   const add = (
     role: string,
@@ -143,6 +146,7 @@ function buildInput(scenario: Scenario, geo: CabinetGeometry): LayoutInput {
     } else {
       add("rcd", "rcd", group.rcd, group.nSide, id, null);
       for (const c of members) add("mcb", "mcb_b", c.shape, c.nSide, id, c.id);
+      if (group.busbar) busbars.push({ group: id });
     }
     return { id, label: `RCD ${String(g + 1)}` };
   });
@@ -165,6 +169,21 @@ function buildInput(scenario: Scenario, geo: CabinetGeometry): LayoutInput {
       position: devices.length,
     });
   }
+  // Busbar segments come last, like the matcher appends them; they carry their group but sit on no rail.
+  for (const { group } of busbars) {
+    devices.push({
+      id: `d${String(devices.length)}`,
+      role: "busbar",
+      kind: "comb_busbar",
+      rcd_group_id: group,
+      circuit_id: null,
+      width_mm: 105,
+      height_mm: 20,
+      poles: "1P",
+      n_terminal_side: null,
+      position: devices.length,
+    });
+  }
   return { devices, groups, circuits, geometry: geo };
 }
 
@@ -182,7 +201,10 @@ describe("proposeLayout properties", () => {
             return;
           }
           placed += 1;
-          expect(result.placements.map((p) => p.projectDeviceId)).toEqual(input.devices.map((d) => d.id));
+          // Busbar rows are never placed; every other device exactly once.
+          expect(result.placements.map((p) => p.projectDeviceId)).toEqual(
+            input.devices.filter((d) => d.role !== "busbar").map((d) => d.id),
+          );
           for (const p of result.placements) expect(Math.round(p.xMm * 100) / 100).toBe(p.xMm);
           expect(validateLayout(input.devices, result.placements, geo, input.groups)).toEqual([]);
         }),
