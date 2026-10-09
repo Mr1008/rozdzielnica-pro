@@ -241,9 +241,17 @@ function RealisticWireLegend({
           <svg viewBox="0 0 24 8" className={legendLine} aria-hidden="true">
             <line x1="1" y1="4" x2="23" y2="4" className="stroke-drawing-frame" strokeWidth="4.6" />
             <line x1="1" y1="4" x2="23" y2="4" className="stroke-wire-pe-stripe" strokeWidth="4" />
-            <line x1="1" y1="4" x2="23" y2="4" className="stroke-wire-pe" strokeWidth="4" strokeDasharray="5 4" />
-            <line x1="1" y1="4" x2="6" y2="4" className="stroke-wire-n" strokeWidth="4" />
-            <line x1="18" y1="4" x2="23" y2="4" className="stroke-wire-n" strokeWidth="4" />
+            <line x1="1" y1="4" x2="23" y2="4" className="stroke-wire-pe" strokeWidth="4" strokeDasharray="3 6" />
+            <line
+              x1="1"
+              y1="4"
+              x2="23"
+              y2="4"
+              className="stroke-wire-n"
+              strokeWidth="4"
+              strokeDasharray="3 6"
+              strokeDashoffset="-4.5"
+            />
           </svg>
           {r.pen}
         </li>

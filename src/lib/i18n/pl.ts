@@ -1211,7 +1211,7 @@ export const pl = {
         l: "L — przewód fazowy (L1 brązowy, L2 czarny, L3 szary)",
         n: "N — przewód neutralny (niebieski)",
         pe: "PE — przewód ochronny (żółto-zielony)",
-        pen: "PEN — przewód ochronno-neutralny (TN-C; w TN-C-S do punktu rozdziału na szynie PE), żółto-zielony z niebieskimi oznaczeniami na końcach",
+        pen: "PEN — przewód ochronno-neutralny (TN-C; w TN-C-S do punktu rozdziału na szynie PE), w paski żółte, zielone i niebieskie na całej długości",
         thickness:
           "Grubość przewodu w skali rysunku — średnica zewnętrzna zależy od przekroju, więc WLZ jest najgrubsza",
         ferrules: "Tulejki na końcach żył, kolor według przekroju (DIN 46228-4):",

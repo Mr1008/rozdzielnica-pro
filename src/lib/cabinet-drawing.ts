@@ -349,14 +349,35 @@ interface PathPiece {
   body: string;
 }
 
+/**
+ * How much of each end segment must stay straight, from the route's first and last point: a ferrule is
+ * a rigid sleeve, so the bend next to a terminal starts only past it (`buildDrawnWires`).
+ */
+export interface StraightEnds {
+  startMm: number;
+  endMm: number;
+}
+
+const NO_STRAIGHT_ENDS: StraightEnds = { startMm: 0, endMm: 0 };
+
 /** Per segment of `points`: its run (straight or sagging) and the bend at its far corner. */
-function wirePathPieces(points: readonly Point[], sagLimits: readonly number[], bendMm: number): PathPiece[] {
-  // Per corner: how far the bend reaches back along each adjacent run (at most half of either run).
+function wirePathPieces(
+  points: readonly Point[],
+  sagLimits: readonly number[],
+  bendMm: number,
+  straight: StraightEnds = NO_STRAIGHT_ENDS,
+): PathPiece[] {
+  // Per corner: how far the bend reaches back along each adjacent run (at most half of either run, and
+  // never into a straight end).
+  const last = points.length - 1;
   const radius = points.map((point, i) => {
-    if (i === 0 || i === points.length - 1) return 0;
+    if (i === 0 || i === last) return 0;
     const before = Math.abs(point.x - points[i - 1].x) + Math.abs(point.y - points[i - 1].y);
     const after = Math.abs(points[i + 1].x - point.x) + Math.abs(points[i + 1].y - point.y);
-    return Math.min(bendMm, before / 2, after / 2);
+    let r = Math.min(bendMm, before / 2, after / 2);
+    if (i === 1) r = Math.min(r, Math.max(0, before - straight.startMm));
+    if (i === last - 1) r = Math.min(r, Math.max(0, after - straight.endMm));
+    return r;
   });
 
   const pieces: PathPiece[] = [];
@@ -390,13 +411,19 @@ function moveTo(point: Point): string {
  * `bendMm` (`WIRE_BEND_MM` unless given; see `bendRadiusMm`), and each long horizontal run sags downward
  * (gravity) by `sagDepthMm` — a quadratic curve whose control point sits twice the depth below the
  * run's middle. `sagLimits[i]`, when given, caps the sag of the run from `points[i]` to `points[i + 1]`
- * (see `sagLimits`). Presentation only: lengths come from the route, never from this curve.
+ * (see `sagLimits`). `straight` keeps the end runs straight for that long from the route's ends (a
+ * ferrule's length). Presentation only: lengths come from the route, never from this curve.
  */
-export function wirePathD(points: readonly Point[], sagLimits: readonly number[] = [], bendMm = WIRE_BEND_MM): string {
+export function wirePathD(
+  points: readonly Point[],
+  sagLimits: readonly number[] = [],
+  bendMm = WIRE_BEND_MM,
+  straight: StraightEnds = NO_STRAIGHT_ENDS,
+): string {
   if (points.length === 0) return "";
   const d = moveTo(points[0]);
   if (points.length === 1) return d;
-  return d + wirePathPieces(points, sagLimits, bendMm).reduce((path, piece) => path + piece.body, "");
+  return d + wirePathPieces(points, sagLimits, bendMm, straight).reduce((path, piece) => path + piece.body, "");
 }
 
 /**
@@ -438,42 +465,43 @@ export const WIRE_STYLES: Record<
 /** The blue dashes over a PEN's yellow stripe. */
 export const PEN_DASH = "3 3";
 
+/** One coloured stripe drawn over a realistic core's body, in conductor diameters along it. */
+export interface WireStripe {
+  stroke: string;
+  /** Drawn, then left open, repeating. */
+  onDiameters: number;
+  offDiameters: number;
+  /** Where along the core the first stripe starts. */
+  startDiameters: number;
+}
+
 /**
  * The realistic drawing's insulation colours (S-11), also per PN-EN 60445 and also token classes only:
- * L1 brown, L2 black and L3 grey, solid; N solid blue; PE a yellow body with green dashes along it
- * (`dash`, in conductor diameters: drawn, then left open); PEN as PE plus blue sleeves at its ends
- * (`sleeve`), the usual marking of a PEN core. `fill` colours a wire's end on a bar terminal.
+ * L1 brown, L2 black and L3 grey, solid; N solid blue; PE a yellow body with green stripes along it;
+ * PEN yellow with green and blue stripes in turn along its whole length (user, 2026-10-09), so it never
+ * reads as PE. `fill` colours a wire's end on a bar terminal.
  */
-export const REALISTIC_WIRE_STYLES: Record<
-  ConductorRole,
-  {
-    body: string;
-    fill: string;
-    dash: { stroke: string; onDiameters: number; offDiameters: number } | null;
-    sleeve: string | null;
-  }
-> = {
-  L: { body: "stroke-wire-l1", fill: "fill-wire-l1", dash: null, sleeve: null },
-  L1: { body: "stroke-wire-l1", fill: "fill-wire-l1", dash: null, sleeve: null },
-  L2: { body: "stroke-wire-l2", fill: "fill-wire-l2", dash: null, sleeve: null },
-  L3: { body: "stroke-wire-l3", fill: "fill-wire-l3", dash: null, sleeve: null },
-  N: { body: "stroke-wire-n", fill: "fill-wire-n", dash: null, sleeve: null },
+export const REALISTIC_WIRE_STYLES: Record<ConductorRole, { body: string; fill: string; stripes: WireStripe[] }> = {
+  L: { body: "stroke-wire-l1", fill: "fill-wire-l1", stripes: [] },
+  L1: { body: "stroke-wire-l1", fill: "fill-wire-l1", stripes: [] },
+  L2: { body: "stroke-wire-l2", fill: "fill-wire-l2", stripes: [] },
+  L3: { body: "stroke-wire-l3", fill: "fill-wire-l3", stripes: [] },
+  N: { body: "stroke-wire-n", fill: "fill-wire-n", stripes: [] },
   PE: {
     body: "stroke-wire-pe-stripe",
     fill: "fill-wire-pe",
-    dash: { stroke: "stroke-wire-pe", onDiameters: 2, offDiameters: 1.5 },
-    sleeve: null,
+    stripes: [{ stroke: "stroke-wire-pe", onDiameters: 2, offDiameters: 1.5, startDiameters: 0 }],
   },
+  // Green, yellow, blue, yellow — one cycle every 6 diameters.
   PEN: {
     body: "stroke-wire-pe-stripe",
     fill: "fill-wire-pe",
-    dash: { stroke: "stroke-wire-pe", onDiameters: 2, offDiameters: 1.5 },
-    sleeve: "stroke-wire-n",
+    stripes: [
+      { stroke: "stroke-wire-pe", onDiameters: 2, offDiameters: 4, startDiameters: 0 },
+      { stroke: "stroke-wire-n", onDiameters: 2, offDiameters: 4, startDiameters: 3 },
+    ],
   },
 };
-
-/** The length of a PEN's blue sleeve, past its ferrule. */
-export const PEN_SLEEVE_MM = 6;
 
 /** Each ferrule colour's stroke class, spelt out so Tailwind generates every one. */
 const FERRULE_STROKE_CLASSES: Record<FerruleColourToken, string> = {
@@ -661,7 +689,17 @@ export function buildDrawnWires(
     .map((conductor, index) => ({ conductor, index }))
     .sort((a, b) => layer(a.conductor.role) - layer(b.conductor.role) || a.index - b.index)
     .map(({ conductor, index }) => {
-      const pieces = wirePathPieces(conductor.path, limits[index], bendRadiusMm(conductor.diameterMm, variant));
+      const ferrule = variant === "realistic" ? (ferruleStyle(conductor.crossSectionMm2)?.lengthMm ?? 0) : 0;
+      const straight = {
+        startMm: conductor.from.type === "entry" ? 0 : ferrule,
+        endMm: conductor.to.type === "entry" ? 0 : ferrule,
+      };
+      const pieces = wirePathPieces(
+        conductor.path,
+        limits[index],
+        bendRadiusMm(conductor.diameterMm, variant),
+        straight,
+      );
       const behind = new Set(conductor.tied.filter((tie) => tie.layer === "overflow").map((tie) => tie.segment));
       const d =
         conductor.path.length === 0 ? "" : pieces.reduce((path, piece) => path + piece.body, moveTo(conductor.path[0]));
