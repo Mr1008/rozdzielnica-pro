@@ -44,20 +44,20 @@ Uwaga: pierwszeństwo reguł rozmieszczenia (Otwarte pytanie #2) zostało rozstr
 
 ## At a glance
 
-| ID   | Change ID                           | Outcome (elektryk / admin może …)                                                          | Prerequisites | PRD refs                             | Status      |
-| ---- | ----------------------------------- | ------------------------------------------------------------------------------------------ | ------------- | ------------------------------------ | ----------- |
-| F-01 | `roles-and-rls-baseline`            | (foundation) role `admin` / `elektryk` rozróżnialne, dane elektryka izolowane przez RLS    | —             | Access Control, NFR-izolacja         | done        |
-| S-01 | `admin-device-catalog`              | Admin prowadzi katalog aparatów z wymiarami, ceną i parametrami elektrycznymi              | F-01          | FR-001                               | done        |
-| S-02 | `admin-cabinet-catalog`             | Admin prowadzi katalog szafek z wymiarami i układem szyn                                   | F-01          | FR-002                               | done        |
-| S-03 | `project-setup-and-supply-params`   | Elektryk zakłada projekt, wybiera szafkę i opisuje przyłącze OSD/WLZ                       | F-01, S-02    | FR-003, FR-004, FR-005, US-01        | done        |
-| S-04 | `circuit-input-and-device-matching` | Elektryk podaje obwody i grupy RCD i dostaje dobrane aparaty (albo błąd o luce w katalogu) | S-01, S-03    | FR-006, FR-007, US-01                | done        |
-| S-05 | `cabinet-layout-proposal`           | Elektryk widzi zaproponowany układ aparatów w swojej szafce                                | S-02, S-04    | FR-008, US-01                        | done        |
-| S-06 | `manual-layout-editing`             | Elektryk poprawia zaproponowany układ przed wyceną                                         | S-05          | FR-009, US-01                        | done        |
-| S-07 | `electrician-pricing-profile`       | Elektryk ustawia w profilu stawkę, średni czas montażu i narzut na projekt                 | F-01          | FR-010                               | done        |
-| S-08 | `quote-cost-estimate`               | Elektryk widzi koszt materiału i robocizny i nadpisuje estymowany czas                     | S-04, S-07    | FR-011, FR-013, US-01                | done        |
-| S-09 | `printable-quote-export`            | Elektryk drukuje/eksportuje wycenę z wizualizacją układu szafki                            | S-06, S-08    | FR-012, US-01                        | done        |
-| S-10 | `ui-layout-theme`                   | Elektryk i admin pracują w spójnym, jasnym interfejsie „Arkusz techniczny" pod desktop     | S-03, S-07    | NFR (UI po polsku), FR-012 pośrednio | done        |
-| S-11 | `realistic-wiring-render`           | Elektryk widzi rysunek okablowania szafki wyglądający jak prawdziwa rozdzielnica           | S-09          | poza PRD (FR-012 pośrednio)          | in-progress |
+| ID   | Change ID                           | Outcome (elektryk / admin może …)                                                          | Prerequisites | PRD refs                             | Status |
+| ---- | ----------------------------------- | ------------------------------------------------------------------------------------------ | ------------- | ------------------------------------ | ------ |
+| F-01 | `roles-and-rls-baseline`            | (foundation) role `admin` / `elektryk` rozróżnialne, dane elektryka izolowane przez RLS    | —             | Access Control, NFR-izolacja         | done   |
+| S-01 | `admin-device-catalog`              | Admin prowadzi katalog aparatów z wymiarami, ceną i parametrami elektrycznymi              | F-01          | FR-001                               | done   |
+| S-02 | `admin-cabinet-catalog`             | Admin prowadzi katalog szafek z wymiarami i układem szyn                                   | F-01          | FR-002                               | done   |
+| S-03 | `project-setup-and-supply-params`   | Elektryk zakłada projekt, wybiera szafkę i opisuje przyłącze OSD/WLZ                       | F-01, S-02    | FR-003, FR-004, FR-005, US-01        | done   |
+| S-04 | `circuit-input-and-device-matching` | Elektryk podaje obwody i grupy RCD i dostaje dobrane aparaty (albo błąd o luce w katalogu) | S-01, S-03    | FR-006, FR-007, US-01                | done   |
+| S-05 | `cabinet-layout-proposal`           | Elektryk widzi zaproponowany układ aparatów w swojej szafce                                | S-02, S-04    | FR-008, US-01                        | done   |
+| S-06 | `manual-layout-editing`             | Elektryk poprawia zaproponowany układ przed wyceną                                         | S-05          | FR-009, US-01                        | done   |
+| S-07 | `electrician-pricing-profile`       | Elektryk ustawia w profilu stawkę, średni czas montażu i narzut na projekt                 | F-01          | FR-010                               | done   |
+| S-08 | `quote-cost-estimate`               | Elektryk widzi koszt materiału i robocizny i nadpisuje estymowany czas                     | S-04, S-07    | FR-011, FR-013, US-01                | done   |
+| S-09 | `printable-quote-export`            | Elektryk drukuje/eksportuje wycenę z wizualizacją układu szafki                            | S-06, S-08    | FR-012, US-01                        | done   |
+| S-10 | `ui-layout-theme`                   | Elektryk i admin pracują w spójnym, jasnym interfejsie „Arkusz techniczny" pod desktop     | S-03, S-07    | NFR (UI po polsku), FR-012 pośrednio | done   |
+| S-11 | `realistic-wiring-render`           | Elektryk widzi rysunek okablowania szafki wyglądający jak prawdziwa rozdzielnica           | S-09          | poza PRD (FR-012 pośrednio)          | done   |
 
 ## Streams
 
@@ -251,7 +251,7 @@ Foundations poniżej zakładają, że to istnieje, i **nie** budują tego od now
   - Poziom realizmu: wariant podstawowy jak na zdjęciu `context/foundation/references/wiring/prosta-rozdzielnica.webp` (przewody łukami, grubość wg przekroju, tulejki), czy „uber pro" jak `context/foundation/references/wiring/rozdzielnica-z-opaskami.webp` (wiązki spięte opaskami, równe pakiety w kanałach przy bokach szafki)? — Owner: user. Block: no.
   - Czy realistyczny rysunek ma zastąpić schemat także na wydruku (S-09), czy wydruk zostaje schematyczny dla czytelności w skali szarości? — Owner: user. Block: no.
 - **Risk:** Wyłącznie warstwa prezentacji nad trasami z S-05 (moduł `cabinet-wiring.ts` decyduje, gdzie biegnie przewód; ten plasterek tylko jak wygląda) — nie może zmienić reguł prowadzenia ani długości w zestawieniu. Ryzyko wydajności: rysunek renderuje się na serwerze w budżecie CPU Workera, więc bogatszy SVG (filtry, gradienty, wiele ścieżek na żyłę) może wymusić warstwę po stronie klienta. Ryzyko czytelności: realizm nie może zgubić tego, co już działa — podświetlenia przewodu po najechaniu, etykietki i rozróżnienia PE/N/PEN w skali szarości.
-- **Status:** in-progress
+- **Status:** done
 
 ## Backlog Handoff
 
@@ -268,7 +268,7 @@ Foundations poniżej zakładają, że to istnieje, i **nie** budują tego od now
 | S-08       | `quote-cost-estimate`               | Koszt materiału i robocizny z możliwością nadpisania czasu | no                    | Czeka na S-04, S-07                                                                       |
 | S-09       | `printable-quote-export`            | Wydruk wyceny z wizualizacją układu szafki                 | no                    | Czeka na S-06, S-08                                                                       |
 | S-10       | `ui-layout-theme`                   | Spójny, jasny interfejs „Arkusz techniczny"                | done                  | Zarchiwizowane → `context/archive/2026-09-25-ui-layout-theme/`                            |
-| S-11       | `realistic-wiring-render`           | Realistyczny wygląd okablowania szafki                     | no                    | Czeka na S-09; zdjęcia referencyjne w `context/foundation/references/wiring/`             |
+| S-11       | `realistic-wiring-render`           | Realistyczny wygląd okablowania szafki                     | done                  | Zarchiwizowane → `context/archive/2026-10-08-realistic-wiring-render/`                    |
 
 ## Open Roadmap Questions
 
@@ -333,3 +333,4 @@ Foundations poniżej zakładają, że to istnieje, i **nie** budują tego od now
 - **S-08: Elektryk widzi wyliczony czas pracy (liczba aparatów × średni czas montażu + stały narzut), koszt robocizny (czas × stawka) oraz koszt materiału z cen katalogowych, i może nadpisać estymowany czas przed sfinalizowaniem wyceny.** — Archived 2026-10-08 → `context/archive/2026-10-07-quote-cost-estimate/`. Lesson: —.
 - **S-06: Elektryk może zmodyfikować zaproponowany układ aparatów w szafce, zanim wygeneruje wycenę.** — Archived 2026-10-08 → `context/archive/2026-10-07-manual-layout-editing/`. Lesson: —.
 - **S-09: Elektryk może wydrukować lub wyeksportować dokument wyceny zawierający rozbicie kosztów (materiał + robocizna) oraz czytelną wizualizację układu szafki.** — Archived 2026-10-09 → `context/archive/2026-10-08-printable-quote-export/`. Lesson: —.
+- **S-11: Elektryk widzi rysunek okablowania szafki, który wygląda jak prawdziwa, starannie zmontowana rozdzielnica: przewody o grubości zależnej od przekroju (WLZ wyraźnie grubsza od obwodów 1,5/2,5 mm²), w kolorach żył, z naturalnymi łukami gięcia i zapasem, prowadzone równymi wiązkami wzdłuż szyn i boków szafki, z widocznymi tulejkami na końcach — zamiast schematycznych linii.** — Archived 2026-10-09 → `context/archive/2026-10-08-realistic-wiring-render/`. Lesson: —.
