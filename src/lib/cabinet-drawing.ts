@@ -428,7 +428,8 @@ export function wireTitle(conductor: Conductor, names: WireNames): string {
 /**
  * Per conductor, per path segment: the deepest a horizontal run may sag so that it keeps above the
  * nearest run of another conductor below it that it runs alongside — half the gap between them, so
- * parallel tracks (`WIRE_TRACK_PITCH_MM` apart) never touch or swap order however long each span is.
+ * parallel tracks (true-scale spacing apart, see `WIRE_CLEARANCE_MM`) never touch or swap order
+ * however long each span is.
  * The lowest run of a bundle, with nothing close beneath, keeps its full `sagDepthMm`. Vertical
  * segments are unlimited (they never sag). Presentation only.
  */
