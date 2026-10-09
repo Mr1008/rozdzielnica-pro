@@ -14,9 +14,16 @@ import {
   type Terminal,
   type TerminalPole,
 } from "@/lib/cabinet-layout";
-import type { CircuitInput } from "@/lib/circuit-params";
+import type { CircuitInput, EntrySide } from "@/lib/circuit-params";
 import type { SupplyParams } from "@/lib/supply-params";
-import { conductorDiameterMm, type WireCrossSectionMm2 } from "@/lib/wire-dimensions";
+import { t } from "@/lib/i18n";
+import {
+  cableDiameterMm,
+  conductorDiameterMm,
+  WIRE_CROSS_SECTIONS_MM2,
+  type CableCores,
+  type WireCrossSectionMm2,
+} from "@/lib/wire-dimensions";
 
 /**
  * The wiring of a placed layout (S-05, plan Phase 5): which conductors run where, their orthogonal
@@ -77,8 +84,18 @@ import { conductorDiameterMm, type WireCrossSectionMm2 } from "@/lib/wire-dimens
  *
  * Routes: from each end a short stub leaves the terminal (vertically, into the free channel above or
  * below the rail), the cable's entry point (into a lane along the cabinet edge) or the bar terminal
- * (into a lane beside the bar); the two stubs are joined orthogonally through the nearest vertical passage
- * that crosses no device body — a gap between blocks, a block end or the gutter beside the rails.
+ * (into a lane beside the bar). A feed's two stubs are joined orthogonally through the nearest vertical
+ * passage that crosses no device body — a gap between blocks or a block end.
+ *
+ * Side packs (plan Phase 4, user decision 2026-10-09): every circuit cable core and every WLZ core runs
+ * through a pack along a side wall — entry stub, along the top or bottom lane to the pack, vertically in
+ * the pack, then horizontally in its destination row's channel to its terminal stub (a side entry's stub
+ * leads straight into its own side's pack). A pack is a tied **round bundle**, as in
+ * `context/foundation/references/wiring/rozdzielnica-z-opaskami.webp`: at any height it is
+ * `packBundleWidthMm` wide, and its cores may overlap in the front view. It lies in the side strip
+ * (`packStrips`) and may reach into the band behind the rail ends; cores beyond that capacity at the
+ * pack's busiest height run in a second layer behind it (`Conductor.packLayer` `overflow`). Which side, and
+ * the order inside a pack, are on `PackSide` and `layPacks`. Feeds stay local and keep out of the strips.
  *
  * Bars: the cabinet's built-in PE/N bars and the catalog bars the match placed on a rail (plan Phase
  * 5b) are the same kind of target — `nearestBar` sees both, so N/PE routing, the TN-C-S split and the
@@ -176,11 +193,48 @@ export interface Conductor {
   /**
    * Indices of the `path` segments (segment `i` runs from point `i` to `i + 1`) that could not keep
    * true-scale spacing from their neighbours: a crowded range closed their tracks up, a stub left them
-   * no room, or they still overlap another conductor's body (`recordOverlaps`). Sorted, empty when
-   * every segment kept its spacing. The overflow signal builds on it.
+   * no room, or they still overlap another conductor's movable run (`recordOverlaps`). Sorted, empty
+   * when every segment kept its spacing. Recorded only: it never makes the conductor `overflow`.
    */
   squeezed: number[];
+  /**
+   * Indices of the `path` segments that overlap a fixed end stub at true scale — their own end stub
+   * lying on another conductor's body, or another conductor's end stub lying on theirs. End stubs pass
+   * through endpoints the geometry fixes (terminals, entry points, bar terminals), so this is recorded
+   * apart from `squeezed` and never makes the conductor `overflow`. Sorted.
+   */
+  stubOverlaps: number[];
+  /** The side pack a circuit or WLZ core runs in; null for a feed and for a core no strip takes. */
+  packSide: PackSide | null;
+  /** The `path` segment that runs vertically in the pack; null without a pack. */
+  packSegment: number | null;
+  /** `bundle` in the pack's round bundle, `overflow` in the layer behind it; null without a pack. */
+  packLayer: PackLayer | null;
+  /**
+   * The `path` segments that run in a tied round bundle — a side pack, or a lane or row channel too
+   * crowded for true-scale spacing (user decision 2026-10-09, "bundles everywhere") — with the bundle's
+   * id (unique within one wiring, shared by both its layers) and the layer. Members of one bundle may
+   * overlap in the front view by design; the drawing ties them. Sorted by segment.
+   */
+  tied: TiedSegment[];
+  /**
+   * A segment was spilled from a tied bundle wider than the room its channel has (it runs in the
+   * overflow layer behind the bundle), or no strip could take this circuit or WLZ core (it runs on the
+   * feeds' routing). `squeezed` and `stubOverlaps` are recorded but never set it. The informational
+   * `conductors_do_not_fit` warning counts these (`wiringWarnings`); it never blocks.
+   */
+  overflow: boolean;
 }
+
+export interface TiedSegment {
+  segment: number;
+  bundle: number;
+  layer: PackLayer;
+}
+
+export type PackSide = "left" | "right";
+export type PackLayer = "bundle" | "overflow";
+export const PACK_SIDES = ["left", "right"] as const satisfies readonly PackSide[];
 
 export function wireClass(role: ConductorRole): WireClass {
   return role === "N" || role === "PE" || role === "PEN" ? role : "L";
@@ -194,13 +248,83 @@ export function wireClass(role: ConductorRole): WireClass {
 const CHANNEL_BASE_MM = 6;
 const CHANNEL_STEP_MM = 2;
 const CHANNEL_LANE: Record<ConductorRole, number> = { L: 0, L1: 0, L2: 1, L3: 2, N: 3, PE: 4, PEN: 4 };
-/** The gutter beside the rails, measured from the outermost rail end. */
-const GUTTER_MM = 10;
 /** A bar's approach lane, measured from the bar's edge. */
 const BAR_LANE_MM = 6;
 /** How far beside a device body a vertical run passes. */
 const CLEARANCE_MM = 3;
 const EPS = 1e-6;
+
+/**
+ * How much of a tied round bundle's cross-section its cores fill: a bundle of cores of diameters dᵢ is
+ * `√(Σdᵢ² / PACK_FILL_FACTOR)` across (`packBundleWidthMm`). Equal round cores tied tightly fill about
+ * 0.6–0.75 of the circle around them (≈0.78 at best for a hand-laid hexagonal pack); a bundle wired by
+ * hand and held by cable ties every few centimetres is looser than that, so 0.6 — the low end — keeps
+ * the drawn pack honest rather than optimistic (user decision 2026-10-09).
+ */
+export const PACK_FILL_FACTOR = 0.6;
+
+/** The thinnest core any conductor has: a strip narrower than this holds nothing (`packStrips`). */
+const MIN_CORE_DIAMETER_MM = conductorDiameterMm(WIRE_CROSS_SECTIONS_MM2[0]);
+
+/**
+ * The front-view width of a tied round bundle of cores with these outer diameters: `√(Σdᵢ² / F)`
+ * (`PACK_FILL_FACTOR`), never narrower than its widest core; 0 for no cores.
+ */
+export function packBundleWidthMm(diameters: readonly number[]): number {
+  let squares = 0;
+  let widest = 0;
+  for (const d of diameters) {
+    squares += d * d;
+    widest = Math.max(widest, d);
+  }
+  return Math.max(Math.sqrt(squares / PACK_FILL_FACTOR), widest);
+}
+
+/**
+ * A side strip for a pack (plan Phase 4), in x. `outer` is the edge by the side wall — or by the inner
+ * edge of a vertical bar standing on that side — and `inner` the edge by the outermost rail end, each
+ * `CLEARANCE_MM` off. The pack may reach past `inner`, behind the rail ends, as far as `deep`
+ * (`BEHIND_DEVICES_MM`): that band is part of the pack's room, not overflow. A strip narrower than the
+ * thinnest core is absent (`present` false); `line` is its centre, where pack runs start before
+ * `layPacks` gives each core its own x, and where a side entry's stub leads.
+ */
+export interface PackStrip {
+  side: PackSide;
+  outer: number;
+  inner: number;
+  deep: number;
+  present: boolean;
+  line: number;
+}
+
+export function packStrips(geometry: CabinetGeometry): Record<PackSide, PackStrip> {
+  const { interior, rails, bars } = geometry;
+  const width = interior.widthMm;
+  const railStart = Math.min(...rails.map((rail) => rail.xMm));
+  const railEnd = Math.max(...rails.map((rail) => rail.xMm + rail.lengthMm));
+  const sideBars = bars.filter((bar) => bar.orientation === "vertical").map(barRect);
+  const leftWall = Math.max(0, ...sideBars.filter((rect) => rect.x + rect.w <= railStart + EPS).map((r) => r.x + r.w));
+  const rightWall = Math.min(width, ...sideBars.filter((rect) => rect.x >= railEnd - EPS).map((r) => r.x));
+  const clampX = (x: number) => Math.min(Math.max(x, 2), width - 2);
+  const left = { outer: leftWall + CLEARANCE_MM, inner: railStart - CLEARANCE_MM };
+  const right = { outer: rightWall - CLEARANCE_MM, inner: railEnd + CLEARANCE_MM };
+  return {
+    left: {
+      side: "left",
+      ...left,
+      deep: Math.min(width, left.inner + BEHIND_DEVICES_MM),
+      present: left.inner - left.outer >= MIN_CORE_DIAMETER_MM - EPS,
+      line: clampX((left.outer + left.inner) / 2),
+    },
+    right: {
+      side: "right",
+      ...right,
+      deep: Math.max(0, right.inner - BEHIND_DEVICES_MM),
+      present: right.outer - right.inner >= MIN_CORE_DIAMETER_MM - EPS,
+      line: clampX((right.outer + right.inner) / 2),
+    },
+  };
+}
 
 type Axis = "h" | "v";
 
@@ -220,6 +344,31 @@ interface RawRoute {
   fromEntry: boolean;
   /** The conductor's outer diameter: the width its track takes (see `WIRE_CLEARANCE_MM`). */
   diameterMm: number;
+  /** The pack the route runs in, and its raw segment there (`Router.packRoute`); null without one. */
+  packSide: PackSide | null;
+  packIndex: number | null;
+  /**
+   * The cable a core from an entry belongs to (its entry and slot), null otherwise; and that cable's
+   * outer diameter over the cores sharing its pack (`sheathRun`).
+   */
+  cable: string | null;
+  sheathMm: number;
+  /** A feed: never tied into overflow — a feed that does not fit is only `squeezed`. */
+  feed: boolean;
+}
+
+/**
+ * The raw segment a packed core runs along the top or bottom lane to its pack, still in its cable's
+ * sheath — the cable splits into its cores where it reaches the pack (plan Phase 4). Null for a core
+ * entering from a side (its stub leads straight into the pack) and outside a pack.
+ */
+function sheathRun(route: Pick<RawRoute, "packIndex" | "firstVertical">): number | null {
+  return route.packIndex !== null && route.firstVertical ? route.packIndex - 1 : null;
+}
+
+/** The cores of one cable running to one pack share their sheathed lane run (`sheathRun`). */
+function sheathKey(route: Pick<RawRoute, "cable" | "packSide">): string {
+  return `${route.cable ?? ""}|${route.packSide ?? ""}`;
 }
 
 interface Located {
@@ -274,8 +423,7 @@ function simplify(points: readonly Point[]): Point[] {
 
 class Router {
   readonly bands: Band[];
-  readonly gutterLeft: number;
-  readonly gutterRight: number;
+  readonly strips: Record<PackSide, PackStrip>;
   readonly topLane: number;
   readonly bottomLane: number;
   readonly railsCentre: Point;
@@ -291,9 +439,7 @@ class Router {
     allLocated: readonly Located[],
   ) {
     const { interior, rails, bars } = geometry;
-    const clampX = (x: number) => Math.min(Math.max(x, 2), interior.widthMm - 2);
-    this.gutterLeft = clampX(Math.min(...rails.map((rail) => rail.xMm)) - GUTTER_MM);
-    this.gutterRight = clampX(Math.max(...rails.map((rail) => rail.xMm + rail.lengthMm)) + GUTTER_MM);
+    this.strips = packStrips(geometry);
 
     const located = allLocated.filter((item) => !isCatalogBarRole(item.device.role));
     const catalogBarRects = allLocated.filter((item) => isCatalogBarRole(item.device.role)).map((item) => item.rect);
@@ -377,9 +523,9 @@ class Router {
       case "bottom":
         return { point: { x: along, y: interior.heightMm }, stub: { x: along, y: this.bottomLane }, axis: "h" };
       case "left":
-        return { point: { x: 0, y: along }, stub: { x: this.gutterLeft, y: along }, axis: "v" };
+        return { point: { x: 0, y: along }, stub: { x: this.strips.left.line, y: along }, axis: "v" };
       case "right":
-        return { point: { x: interior.widthMm, y: along }, stub: { x: this.gutterRight, y: along }, axis: "v" };
+        return { point: { x: interior.widthMm, y: along }, stub: { x: this.strips.right.line, y: along }, axis: "v" };
     }
   }
 
@@ -404,13 +550,16 @@ class Router {
 
   /**
    * Two horizontal lanes joined by one vertical run: the clear `x` with the shortest detour, among the
-   * two ends, the passages beside every device row the run crosses, and the two gutters. Nothing clear
-   * (an unusually tight cabinet) falls back to the cheaper gutter.
+   * two ends and the passages beside every device row the run crosses — plus, with `sides`, the two
+   * strip lines (a circuit or WLZ core no strip takes: the old gutter routing). Nothing clear (an
+   * unusually tight cabinet) falls back to the cheaper strip line with `sides`, else to the cheapest
+   * candidate. A feed never uses the strips.
    */
-  joinHorizontalLanes(a: Point, b: Point): Point[] {
+  joinHorizontalLanes(a: Point, b: Point, sides: boolean): Point[] {
     const low = Math.min(a.y, b.y);
     const high = Math.max(a.y, b.y);
-    const candidates = new Set<number>([a.x, b.x, this.gutterLeft, this.gutterRight]);
+    const { left, right } = this.strips;
+    const candidates = new Set<number>(sides ? [a.x, b.x, left.line, right.line] : [a.x, b.x]);
     for (const band of this.bands) {
       if (band.top >= high - EPS || band.bottom <= low + EPS) continue;
       for (const span of band.spans) {
@@ -423,7 +572,8 @@ class Router {
     const clear = ordered.find(
       (x) => this.verticalClear(x, a.y, b.y) && this.horizontalClear(a.y, a.x, x) && this.horizontalClear(b.y, x, b.x),
     );
-    const x = clear ?? (cost(this.gutterLeft) <= cost(this.gutterRight) ? this.gutterLeft : this.gutterRight);
+    const fallback = sides ? (cost(left.line) <= cost(right.line) ? left.line : right.line) : ordered[0];
+    const x = clear ?? fallback;
     return [a, { x, y: a.y }, { x, y: b.y }, b];
   }
 
@@ -445,13 +595,81 @@ class Router {
    * segment may have zero length — where the passage continues straight on from a stub, say. Keeping
    * the stub as its own segment lets the nudging move the passage off it with a jog.
    */
-  route(from: Stub, to: Stub): Pick<RawRoute, "points" | "firstVertical"> {
+  route(from: Stub, to: Stub, sides: boolean): Pick<RawRoute, "points" | "firstVertical"> {
     let middle: Point[];
-    if (from.axis === "h" && to.axis === "h") middle = this.joinHorizontalLanes(from.stub, to.stub);
+    if (from.axis === "h" && to.axis === "h") middle = this.joinHorizontalLanes(from.stub, to.stub, sides);
     else if (from.axis === "h") middle = [from.stub, { x: to.stub.x, y: from.stub.y }, to.stub];
     else if (to.axis === "h") middle = [from.stub, { x: from.stub.x, y: to.stub.y }, to.stub];
     else middle = this.joinVerticalLanes(from.stub, to.stub);
     return { points: [from.point, ...middle, to.point], firstVertical: from.axis === "h" };
+  }
+
+  /**
+   * The pack side for a circuit or WLZ core from an entry (plan Phase 4), or null when no strip can take
+   * it. A left or right entry uses its own side's pack. A top or bottom entry uses the side whose strip
+   * line is nearer the destination's x (a device or bar terminal); a tie goes to the side nearer the
+   * cable's entry point, and a remaining tie to the left. An absent strip is never chosen.
+   */
+  packSideFor(entrySide: EntrySide, entryX: number, targetX: number): PackSide | null {
+    const { left, right } = this.strips;
+    if (entrySide === "left" || entrySide === "right") return this.strips[entrySide].present ? entrySide : null;
+    if (!left.present || !right.present) return left.present ? "left" : right.present ? "right" : null;
+    const nearer = (x: number): PackSide | null => {
+      const dl = Math.abs(x - left.line);
+      const dr = Math.abs(x - right.line);
+      return Math.abs(dl - dr) <= EPS ? null : dl < dr ? "left" : "right";
+    };
+    return nearer(targetX) ?? nearer(entryX) ?? "left";
+  }
+
+  /**
+   * A core's route through its side pack, alternating like `route`: the entry stub; along the top or
+   * bottom lane to the strip line (a side entry's stub already ends on it); vertically in the pack to
+   * the destination's lane; horizontally to the destination's stub. A destination reached along a
+   * vertical lane (a vertical bar) gets a zero-length vertical joint before its stub, to keep the
+   * alternation. `packIndex` is the raw segment in the pack; `layPacks` moves it to the core's own x.
+   */
+  packRoute(from: Stub, to: Stub, side: PackSide): Pick<RawRoute, "points" | "firstVertical" | "packIndex"> {
+    const x = this.strips[side].line;
+    const points: Point[] = [from.point, from.stub];
+    if (from.axis === "h") points.push({ x, y: from.stub.y });
+    const packIndex = points.length - 1;
+    points.push({ x, y: to.stub.y });
+    if (to.axis === "v") points.push({ x: to.stub.x, y: to.stub.y });
+    points.push({ ...to.stub }, to.point);
+    return { points, firstVertical: from.axis === "h", packIndex };
+  }
+
+  /**
+   * How far into the cabinet a pack core may sit when its run in the pack ends at one of `ends` (y):
+   * an end inside a device row is a corner, and a corner never lies behind a device, so the core keeps
+   * `CLEARANCE_MM` off that row's devices nearest the wall. ±Infinity when no end lies inside a row.
+   */
+  packLimit(side: PackSide, ends: readonly number[]): number {
+    let limit = side === "left" ? Infinity : -Infinity;
+    for (const band of this.bands) {
+      if (!ends.some((y) => y > band.top + EPS && y < band.bottom - EPS)) continue;
+      if (side === "left") limit = Math.min(limit, band.spans[0].start - CLEARANCE_MM);
+      else limit = Math.max(limit, (band.spans.at(-1)?.end ?? -Infinity) + CLEARANCE_MM);
+    }
+    return limit;
+  }
+
+  /**
+   * The far edge of a pack's room over the heights `low…high`: the strip's `deep`, cut short
+   * `CLEARANCE_MM` before any bar standing in the way between the strip and that edge (a horizontal
+   * bar across the pack's height, or a catalog bar on a rail).
+   */
+  packDeep(side: PackSide, low: number, high: number): number {
+    const strip = this.strips[side];
+    let deep = strip.deep;
+    for (const rect of this.barRects) {
+      if (rect.y >= high - EPS || rect.y + rect.h <= low + EPS) continue;
+      if (side === "left" && rect.x > strip.outer + EPS) deep = Math.min(deep, rect.x - CLEARANCE_MM);
+      if (side === "right" && rect.x + rect.w < strip.outer - EPS)
+        deep = Math.max(deep, rect.x + rect.w + CLEARANCE_MM);
+    }
+    return deep;
   }
 
   /**
@@ -519,10 +737,16 @@ class Router {
     // vertical passage may spread up to `BEHIND_DEVICES_MM` behind the devices on either side; only
     // its preferred range keeps clear of them. Horizontal runs keep to their channel between the device
     // rows, so no route turns or ends behind a device.
-    const hardLow = axis === "v" ? Math.max(0, low - BEHIND_DEVICES_MM, Math.min(low, frontLow)) : low;
+    // The side strips belong to the packs (plan Phase 4): a vertical run outside a strip keeps out of it.
+    const { left, right } = this.strips;
+    const stripLow = axis === "v" && left.present && coord >= left.inner - EPS ? left.inner : 0;
+    const stripHigh = axis === "v" && right.present && coord <= right.inner + EPS ? right.inner : Infinity;
+    low = Math.max(low, stripLow);
+    high = Math.min(high, stripHigh);
+    const hardLow = axis === "v" ? Math.max(0, stripLow, low - BEHIND_DEVICES_MM, Math.min(low, frontLow)) : low;
     const hardHigh =
       axis === "v"
-        ? Math.min(this.geometry.interior.widthMm, high + BEHIND_DEVICES_MM, Math.max(high, frontHigh))
+        ? Math.min(this.geometry.interior.widthMm, stripHigh, high + BEHIND_DEVICES_MM, Math.max(high, frontHigh))
         : high;
     return {
       lo: Math.min(low + CLEARANCE_MM, coord),
@@ -606,6 +830,15 @@ interface Segment {
   anchor: number | null;
   /** For an anchored segment, the side it turns to at its far end (-1, 0, 1); else 0. */
   lean: number;
+  /** The other cores of a sheathed lane run (`sheathRun`), which take this segment's track. */
+  followers: number[];
+  /** A circuit or WLZ core (not a feed): spilled from a tied bundle, it runs in the overflow layer. */
+  tieable: boolean;
+  /**
+   * The room the router gives the run — its hard range before other conductors' stubs narrowed it
+   * (`avoidPins`): a tied bundle's capacity (`layTied`).
+   */
+  channel: { lo: number; hi: number };
 }
 
 function coordinate(point: Point, axis: Axis): number {
@@ -1038,6 +1271,8 @@ function layBundle(
   keyOf: (segment: number) => number,
   track: number[],
   squeezed: boolean[],
+  tied: (Tie | null)[],
+  ties: TieLog,
 ): void {
   const { widths, slotOf } = assignSlots(bundle.members, segments, keyOf);
   const offsets = slotOffsets(widths);
@@ -1053,6 +1288,12 @@ function layBundle(
   );
   if (placed !== null) {
     const closedUp = widths.length > 1 && placed.scale < 1 - EPS;
+    // Too narrow for true scale: a run carrying circuit or WLZ cores is tied into a round bundle
+    // (`layTied`); feeds alone close up as before, recorded as `squeezed`.
+    if (closedUp && bundle.members.some((m) => segments[m].tieable)) {
+      layTied(bundle, segments, keyOf, track, squeezed, tied, ties);
+      return;
+    }
     for (const m of bundle.members) {
       track[m] = placed.start + offsets[slotOf.get(m) ?? 0] * placed.scale;
       if (closedUp) squeezed[m] = true;
@@ -1070,7 +1311,15 @@ function layBundle(
   let runHigh = Infinity;
   const flush = () => {
     if (run.length === 0) return;
-    layBundle(bundleOf(run, assignSlots(run, segments, null).widths, segments), segments, keyOf, track, squeezed);
+    layBundle(
+      bundleOf(run, assignSlots(run, segments, null).widths, segments),
+      segments,
+      keyOf,
+      track,
+      squeezed,
+      tied,
+      ties,
+    );
     run = [];
     runHigh = Infinity;
   };
@@ -1083,6 +1332,280 @@ function layBundle(
   flush();
 }
 
+// ---------------------------------------------------------------------------------------------
+// Tied round bundles (plan Phase 4, user decisions 2026-10-09)
+// ---------------------------------------------------------------------------------------------
+
+/** One run in a tied round bundle: its extent along the run, its width and a stable id for ties. */
+interface TieMember {
+  id: number;
+  low: number;
+  high: number;
+  diameter: number;
+}
+
+/** The busiest point along a bundle's runs and its width there (`packBundleWidthMm`). One sweep. */
+function busiestPoint(members: readonly TieMember[]): { at: number; width: number } {
+  const events: { at: number; area: number }[] = [];
+  let widest = 0;
+  for (const m of members) {
+    const area = m.diameter * m.diameter;
+    events.push({ at: m.low, area }, { at: m.high, area: -area });
+    widest = Math.max(widest, m.diameter);
+  }
+  // Runs are closed: one starting where another ends meets it there, so starts come first.
+  events.sort((p, q) => p.at - q.at || q.area - p.area);
+  let squares = 0;
+  let best = { at: members.length > 0 ? members[0].low : 0, squares: 0 };
+  for (const event of events) {
+    squares += event.area;
+    if (squares > best.squares + EPS) best = { at: event.at, squares };
+  }
+  const width = members.length === 0 ? 0 : Math.max(Math.sqrt(best.squares / PACK_FILL_FACTOR), widest);
+  return { at: best.at, width };
+}
+
+/**
+ * The one capacity rule for every tied round bundle — a side pack, a lane, a row channel: the bundle
+ * is `packBundleWidthMm` wide at its busiest point; while that is wider than `room` (the room the router
+ * gives the run), the member continuing longest among those present there (ties: the higher id) is
+ * spilled to the overflow layer behind the bundle. Deterministic.
+ */
+function tieBundle<T extends TieMember>(members: readonly T[], room: number): { kept: T[]; spilled: T[] } {
+  let kept = [...members];
+  const spilled: T[] = [];
+  while (kept.length > 0) {
+    const busiest = busiestPoint(kept);
+    if (busiest.width <= room + EPS) break;
+    let out: T | null = null;
+    for (const m of kept) {
+      if (m.low > busiest.at + EPS || m.high < busiest.at - EPS) continue;
+      const length = m.high - m.low;
+      const best = out === null ? -Infinity : out.high - out.low;
+      if (out === null || length > best + EPS || (Math.abs(length - best) <= EPS && m.id > out.id)) out = m;
+    }
+    if (out === null) break;
+    spilled.push(out);
+    const removed = out;
+    kept = kept.filter((m) => m !== removed);
+  }
+  return { kept, spilled };
+}
+
+/**
+ * Where each member of one layer lies across its bundle, in the given order: centre lines spread
+ * evenly from half the first member's width to the bundle's width less half the last one's (a lone
+ * member in the middle). Centre lines may lie closer than two radii — one bundle's cores overlap in the
+ * front view by design. Returns the layer's width (its busiest-point width, at most `room` unless one
+ * member is wider) and each member's offset from the bundle's edge.
+ */
+function tieLayout(ordered: readonly TieMember[], room: number): { width: number; offsets: number[] } {
+  const widest = ordered.reduce((max, m) => Math.max(max, m.diameter), 0);
+  const width = Math.min(busiestPoint(ordered).width, Math.max(room, widest));
+  const first = ordered[0].diameter / 2;
+  const last = width - ordered[ordered.length - 1].diameter / 2;
+  const offsets = ordered.map((_, n) =>
+    ordered.length === 1 ? width / 2 : first + ((last - first) * n) / (ordered.length - 1),
+  );
+  return { width, offsets };
+}
+
+/** Which tied bundle a route segment runs in — unique within one wiring — and its layer. */
+interface Tie {
+  bundle: number;
+  layer: PackLayer;
+}
+
+/** The ties of one wiring, per route by raw segment index; `next` numbers the bundles. */
+interface TieLog {
+  next: number;
+  raw: Map<number, Tie>[];
+}
+
+interface PackMember extends TieMember {
+  route: number;
+  /** The core leaves the pack towards the wall (onto a bar past the strip) rather than towards the rails. */
+  outward: boolean;
+  /**
+   * When the core leaves the pack along its direction of travel: the height it leaves at, signed by
+   * that direction (down positive), so a smaller key leaves sooner.
+   */
+  exit: number;
+  /** How deep into the cabinet the core may sit (`Router.packLimit`, and never past where it heads). */
+  limit: number;
+}
+
+/**
+ * The cores' order across a pack, from the wall inwards, so no core's branch crosses another: the
+ * cores leaving towards the wall sit outermost, the one leaving first outermost of them; then the
+ * cores leaving towards the rails, the one leaving last outermost — so the one leaving first is
+ * innermost (innermost-exits-first). Ties by routing order. Cores travelling the opposite way along
+ * overlapping heights cannot all avoid each other; their order is still deterministic.
+ */
+function packOrder(members: readonly PackMember[]): PackMember[] {
+  const outward = members.filter((m) => m.outward).sort((p, q) => p.exit - q.exit || p.route - q.route);
+  const inward = members.filter((m) => !m.outward).sort((p, q) => q.exit - p.exit || p.route - q.route);
+  return [...outward, ...inward];
+}
+
+/** A packed route's run, as a pack member, from its current points. */
+function packMember(routes: readonly RawRoute[], index: number, side: PackSide, router: Router): PackMember {
+  const route = routes[index];
+  const at = route.packIndex ?? 0;
+  const p = route.points[at];
+  const q = route.points[at + 1];
+  const next = route.points[at + 2];
+  const inward = side === "left" ? 1 : -1;
+  // Where the core lands (a bar past the strip, or a terminal towards the rails), not just the next point:
+  // a vertical bar's approach lane lies inside the strip.
+  const lands = route.points[route.points.length - 1];
+  const outward = inward * (lands.x - router.strips[side].outer) < -EPS;
+  const rows = router.packLimit(side, [p.y, q.y]);
+  // A core heading for a point inside the pack's room never sits past it, so its branch crosses none.
+  const limit = outward ? rows : side === "left" ? Math.min(rows, next.x) : Math.max(rows, next.x);
+  return {
+    id: index,
+    route: index,
+    low: Math.min(p.y, q.y),
+    high: Math.max(p.y, q.y),
+    diameter: route.diameterMm,
+    outward,
+    exit: q.y * (q.y < p.y ? -1 : 1),
+    limit,
+  };
+}
+
+/** One layer of a laid-out pack: its routes, and the x of each place across it from the wall inwards. */
+interface PackSlots {
+  side: PackSide;
+  routes: number[];
+  slots: number[];
+}
+
+/**
+ * Puts a pack layer's cores into its places in `packOrder`, read from the routes' current points, each
+ * kept off the device rows its run ends in (`packLimit`).
+ */
+function fillPack(layer: PackSlots, routes: readonly RawRoute[], router: Router): void {
+  const ordered = packOrder(layer.routes.map((index) => packMember(routes, index, layer.side, router)));
+  ordered.forEach((m, n) => {
+    const route = routes[m.route];
+    if (route.packIndex === null) return;
+    const along = layer.slots[n];
+    const x = layer.side === "left" ? Math.min(along, m.limit) : Math.max(along, m.limit);
+    route.points[route.packIndex].x = x;
+    route.points[route.packIndex + 1].x = x;
+  });
+}
+
+/**
+ * Lays out the side packs (plan Phase 4, user decision 2026-10-09) before the nudging: each pack is a
+ * tied round bundle (`tieBundle`) whose room is the strip plus the band behind the rail ends
+ * (`packDeep`). Each layer's places are spread across its width from the strip's wall edge
+ * (`tieLayout`), and its cores fill them in `packOrder` (`fillPack`). Records each core's tie in
+ * `ties`, and returns per layer a pin the movable vertical runs keep their spacing off (see
+ * `avoidPins`), as wide as the layer, and the layer's places — the nudging moves the lanes and channels
+ * the runs end on, so `nudgeTracks` fills the places again in the order the final heights give.
+ */
+function layPacks(routes: readonly RawRoute[], router: Router, ties: TieLog): { pins: Pin[]; layers: PackSlots[] } {
+  const pins: Pin[] = [];
+  const layers: PackSlots[] = [];
+  for (const side of PACK_SIDES) {
+    const strip = router.strips[side];
+    const inward = side === "left" ? 1 : -1;
+    const members: PackMember[] = [];
+    routes.forEach((route, index) => {
+      if (route.packSide === side && route.packIndex !== null) members.push(packMember(routes, index, side, router));
+    });
+    if (members.length === 0) continue;
+    const low = Math.min(...members.map((m) => m.low));
+    const high = Math.max(...members.map((m) => m.high));
+    const room = inward * (router.packDeep(side, low, high) - strip.outer);
+    const { kept, spilled } = tieBundle(members, room);
+    // One id for both layers: the overflow layer runs behind its own bundle.
+    const bundle = ties.next++;
+    for (const [layer, list] of [
+      ["bundle", kept],
+      ["overflow", spilled],
+    ] as const) {
+      if (list.length === 0) continue;
+      const ordered = packOrder(list);
+      const { width, offsets } = tieLayout(ordered, room);
+      const slots: PackSlots = {
+        side,
+        routes: list.map((m) => m.route),
+        slots: offsets.map((offset) => strip.outer + inward * offset),
+      };
+      fillPack(slots, routes, router);
+      layers.push(slots);
+      for (const m of list) {
+        const packIndex = routes[m.route].packIndex;
+        if (packIndex !== null) ties.raw[m.route].set(packIndex, { bundle, layer });
+      }
+      pins.push({
+        at: strip.outer + (inward * width) / 2,
+        from: Math.min(...list.map((m) => m.low)),
+        to: Math.max(...list.map((m) => m.high)),
+        end: { x: NaN, y: NaN },
+        cable: false,
+        radius: width / 2,
+      });
+    }
+  }
+  return { pins, layers };
+}
+
+/**
+ * A lane or row-channel bundle that cannot keep true-scale spacing in the room the router gives it,
+ * laid out as a tied round bundle instead (user decision 2026-10-09, "bundles everywhere") — the same
+ * capacity rule as a pack (`tieBundle`), its room the channel the router gives the members' runs
+ * (`Segment.channel`, common to all of them); fixed stubs it overlaps are recorded as
+ * `stubOverlaps`. Each layer is centred on the members' mean desired track, kept inside that range, its members in key order (so they leave the
+ * channel without crossing). A spilled circuit or WLZ core runs in the overflow layer; a spilled feed is
+ * recorded as `squeezed` instead (feeds never count as overflow).
+ */
+function layTied(
+  bundle: Bundle,
+  segments: readonly Segment[],
+  keyOf: (segment: number) => number,
+  track: number[],
+  squeezed: boolean[],
+  tied: (Tie | null)[],
+  ties: TieLog,
+): void {
+  let loHard = -Infinity;
+  let hiHard = Infinity;
+  for (const m of bundle.members) {
+    loHard = Math.max(loHard, segments[m].channel.lo);
+    hiHard = Math.min(hiHard, segments[m].channel.hi);
+  }
+  const room = Math.max(0, hiHard - loHard);
+  const centre = bundle.desiredSum / bundle.members.length;
+  const byId = new Map(
+    bundle.members.map((m) => [
+      m,
+      { id: m, low: segments[m].from, high: segments[m].to, diameter: segments[m].diameter },
+    ]),
+  );
+  const { kept, spilled } = tieBundle([...byId.values()], room);
+  const bundleId = ties.next++;
+  for (const [layer, list] of [
+    ["bundle", kept],
+    ["overflow", spilled],
+  ] as const) {
+    if (list.length === 0) continue;
+    // Keys are far above `sortIndices`' packed range, so a comparator.
+    const ordered = [...list].sort((p, q) => keyOf(p.id) - keyOf(q.id) || p.id - q.id);
+    const { width, offsets } = tieLayout(ordered, room);
+    const start = Math.max(loHard, Math.min(centre - width / 2, hiHard - width));
+    ordered.forEach((m, n) => {
+      track[m.id] = start + offsets[n];
+      if (layer === "overflow" && !segments[m.id].tieable) squeezed[m.id] = true;
+      else tied[m.id] = { bundle: bundleId, layer };
+    });
+  }
+}
+
 /**
  * Moves the interior segments of `axis` (vertical ones in x, horizontal ones in y) so that no two
  * whose extents overlap share a track, and neighbours keep true-scale spacing. One sweep in track
@@ -1093,7 +1616,14 @@ function layBundle(
  * spacing to another conductor's stub is pushed off it (`avoidPins`). Every segment that could not keep
  * its spacing is added to its route's `squeezed` set (raw segment indices).
  */
-function nudgeAxis(routes: readonly RawRoute[], axis: Axis, router: Router, squeezedOf: Set<number>[]): void {
+function nudgeAxis(
+  routes: readonly RawRoute[],
+  axis: Axis,
+  router: Router,
+  squeezedOf: Set<number>[],
+  packPins: readonly Pin[],
+  ties: TieLog,
+): void {
   // By parity, not by geometry: a zero-length segment still has its orientation.
   const isAxis = (route: RawRoute, index: number) => ((index % 2 === 0) === route.firstVertical) === (axis === "v");
   const paths = routes.map((route) => route.points);
@@ -1126,36 +1656,61 @@ function nudgeAxis(routes: readonly RawRoute[], axis: Axis, router: Router, sque
       }
     }
   }
-  const pins = [...byEnd.values()].sort((p, q) => p.at - q.at);
+  // The packs are laid out already (`layPacks`): to every other vertical run, each is one fixed pin.
+  if (axis === "v") {
+    for (const pin of packPins) maxRadius = Math.max(maxRadius, pin.radius);
+  }
+  const pins = [...byEnd.values(), ...(axis === "v" ? packPins : [])].sort((p, q) => p.at - q.at);
 
   const vertical = axis === "v";
   const segments: Segment[] = [];
   const squeezed: boolean[] = [];
+  // A cable's cores share its sheathed lane run to their pack: the first core's segment stands for the
+  // cable, as wide as it, over all the cores' extents; the others follow its track.
+  const sheaths = new Map<string, number[]>();
+  if (!vertical) {
+    routes.forEach((route, pathIndex) => {
+      if (sheathRun(route) === null) return;
+      const key = sheathKey(route);
+      const members = sheaths.get(key);
+      if (members === undefined) sheaths.set(key, [pathIndex]);
+      else members.push(pathIndex);
+    });
+  }
   routes.forEach((route, pathIndex) => {
     const path = route.points;
     const ends = [path[0], path[path.length - 1]] as const;
     // By parity: the movable segments of this axis are every other one from the first or the second.
     const first = route.firstVertical === vertical ? 2 : 1;
     for (let index = first; index <= path.length - 3; index += 2) {
+      // A pack run has its place in the bundle (`layPacks`).
+      if (index === route.packIndex) continue;
       const a = path[index];
       const b = path[index + 1];
       const [p, q] = vertical ? [a.y, b.y] : [a.x, b.x];
-      const from = Math.min(p, q);
-      const to = Math.max(p, q);
+      let from = Math.min(p, q);
+      let to = Math.max(p, q);
+      let diameter = route.diameterMm;
+      let followers: number[] = [];
+      if (!vertical && index === sheathRun(route)) {
+        const members = sheaths.get(sheathKey(route)) ?? [pathIndex];
+        if (members[0] !== pathIndex) continue;
+        followers = members.slice(1);
+        for (const member of followers) {
+          const points = routes[member].points;
+          from = Math.min(from, points[index].x, points[index + 1].x);
+          to = Math.max(to, points[index].x, points[index + 1].x);
+        }
+        diameter = route.sheathMm;
+      }
       // A zero-length segment overlaps nothing, so it never needs a track of its own.
       if (to - from <= EPS) continue;
       const desired = vertical ? a.x : a.y;
       // The horizontal pass still moves the runs a vertical one ends on, which can stretch two
       // end-to-end verticals into overlap: verticals within `VERTICAL_REACH_MM` count as alongside.
       const reach = vertical ? VERTICAL_REACH_MM : 0;
-      const diameter = route.diameterMm;
-      const avoided = avoidPins(
-        router.trackRange(axis, desired, from, to),
-        pins,
-        ends,
-        { desired, from, to, reach, diameter },
-        maxRadius,
-      );
+      const channel = router.trackRange(axis, desired, from, to);
+      const avoided = avoidPins(channel, pins, ends, { desired, from, to, reach, diameter }, maxRadius);
       // The cable's stub is this axis's first segment; a run on its line continues the cable.
       const onStub = route.fromEntry && route.firstVertical === vertical;
       const anchor = onStub && Math.abs(coordinate(path[0], axis) - desired) < EPS ? desired : null;
@@ -1171,6 +1726,9 @@ function nudgeAxis(routes: readonly RawRoute[], axis: Axis, router: Router, sque
         diameter,
         anchor,
         lean,
+        followers,
+        tieable: !route.feed,
+        channel: { lo: channel.loHard, hi: channel.hiHard },
       });
     }
   });
@@ -1213,59 +1771,84 @@ function nudgeAxis(routes: readonly RawRoute[], axis: Axis, router: Router, sque
     }
     stack.push(bundle);
   }
-  for (const bundle of stack) layBundle(bundle, segments, keyOf, track, squeezed);
+  const tied: (Tie | null)[] = segments.map(() => null);
+  for (const bundle of stack) layBundle(bundle, segments, keyOf, track, squeezed, tied, ties);
 
   segments.forEach((segment, i) => {
-    const path = paths[segment.path];
-    for (const point of [path[segment.index], path[segment.index + 1]]) {
-      if (axis === "v") point.x = track[i];
-      else point.y = track[i];
+    for (const owner of [segment.path, ...segment.followers]) {
+      const path = paths[owner];
+      for (const point of [path[segment.index], path[segment.index + 1]]) {
+        if (axis === "v") point.x = track[i];
+        else point.y = track[i];
+      }
+      if (squeezed[i]) squeezedOf[owner].add(segment.index);
+      const tie = tied[i];
+      if (tie !== null) ties.raw[owner].set(segment.index, tie);
     }
-    if (squeezed[i]) squeezedOf[segment.path].add(segment.index);
   });
 }
 
 /**
- * The simplified path's segments that the raw segments `raw` (indices into `points`) lie on: each
- * non-zero raw segment lies along exactly one simplified segment, in order. Sorted, without repeats.
+ * For each raw segment (index into `points`), the simplified path's segment it lies on, or -1 for a
+ * raw segment without length: each non-zero raw segment lies along exactly one simplified segment, in
+ * order. A raw segment the simplification folded into a run turning back on itself (a pack run whose
+ * branch has no length, say) no longer lies wholly inside one: it maps to the first one on its line
+ * that it overlaps, or else touches (a fold swallowed it whole). One forward pass.
  */
-function simplifiedSegments(
-  points: readonly Point[],
-  simplified: readonly Point[],
-  raw: ReadonlySet<number>,
-): number[] {
-  const out = new Set<number>();
+function simplifiedIndex(points: readonly Point[], simplified: readonly Point[]): Int32Array {
+  const out = new Int32Array(Math.max(0, points.length - 1)).fill(-1);
   let j = 0;
-  for (const i of [...raw].sort((p, q) => p - q)) {
+  const span = (u: number, v: number): [number, number] => (u <= v ? [u, v] : [v, u]);
+  for (let i = 0; i + 1 < points.length; i++) {
     const [a, b] = [points[i], points[i + 1]];
     if (Math.abs(a.x - b.x) + Math.abs(a.y - b.y) <= EPS) continue;
-    for (; j + 1 < simplified.length; j++) {
-      const [p, q] = [simplified[j], simplified[j + 1]];
-      const within = (value: number, u: number, v: number) =>
-        value >= Math.min(u, v) - EPS && value <= Math.max(u, v) + EPS;
-      const onLine =
-        (Math.abs(p.x - q.x) < EPS && Math.abs(a.x - p.x) < EPS && Math.abs(b.x - p.x) < EPS) ||
-        (Math.abs(p.y - q.y) < EPS && Math.abs(a.y - p.y) < EPS && Math.abs(b.y - p.y) < EPS);
-      if (onLine && within(a.x, p.x, q.x) && within(b.x, p.x, q.x) && within(a.y, p.y, q.y) && within(b.y, p.y, q.y)) {
-        out.add(j);
-        break;
-      }
+    const vertical = Math.abs(a.x - b.x) < EPS;
+    const [low, high] = vertical ? span(a.y, b.y) : span(a.x, b.x);
+    /** 3: the raw segment lies inside simplified segment `k`; 2: overlaps it; 1: touches its end; 0: neither. */
+    const fit = (k: number) => {
+      const [p, q] = [simplified[k], simplified[k + 1]];
+      const onLine = vertical
+        ? Math.abs(p.x - q.x) < EPS && Math.abs(a.x - p.x) < EPS
+        : Math.abs(p.y - q.y) < EPS && Math.abs(a.y - p.y) < EPS;
+      if (!onLine) return 0;
+      const [from, to] = vertical ? span(p.y, q.y) : span(p.x, q.x);
+      if (low >= from - EPS && high <= to + EPS) return 3;
+      const overlap = Math.min(high, to) - Math.max(low, from);
+      return overlap > EPS ? 2 : overlap > -EPS ? 1 : 0;
+    };
+    let found = -1;
+    for (const wanted of [3, 2, 1]) {
+      for (let k = j; k + 1 < simplified.length && found < 0; k++) if (fit(k) === wanted) found = k;
+      if (found >= 0) break;
     }
+    if (found < 0) continue;
+    out[i] = found;
+    j = found;
   }
-  return [...out];
+  return out;
 }
 
 /**
- * Records, in `squeezed`, every segment whose body overlaps another conductor's alongside it at true
- * scale — two parallel segments of different routes whose extents overlap and whose centre lines lie
- * closer than `rA + rB`. The nudging keeps the segments it moves apart, but not everything can move:
- * a route's end segments pass through their endpoints (entry points, terminals, bar terminals lie where
- * the geometry puts them, often closer than two thick cores), and the second pass lengthens the stubs
- * and runs the first pass laid out. Whatever overlaps in the end is recorded, never hidden. The same
- * exceptions as the router's own: segments ending on one shared endpoint share its stub, and the cores
- * of one cable run along their cable's stub together. One sweep per axis in track order.
+ * Records every segment whose body overlaps another conductor's alongside it at true scale — two
+ * parallel segments of different routes whose extents overlap and whose centre lines lie closer than
+ * `rA + rB`. The nudging keeps the segments it moves apart, but not everything can move: a route's end
+ * segments pass through their endpoints (entry points, terminals, bar terminals lie where the geometry
+ * puts them, often closer than two thick cores), and the second pass lengthens the stubs and runs the
+ * first pass laid out. Whatever overlaps in the end is recorded, never hidden — by reason: when either
+ * segment is a route's end stub, both go to `stubOverlaps` (fixed geometry, not overflow); otherwise
+ * both go to `squeezed`. The same exceptions as the router's own: segments ending on one shared endpoint
+ * share its stub, the cores of one cable run along their cable's stub together — and along their
+ * sheathed lane run to their pack (`sheathRun`) — and the runs of one tied round bundle (a pack, a lane
+ * or a channel; either layer) overlap by design. One sweep per axis in track order.
  */
-function recordOverlaps(routes: readonly RawRoute[], paths: readonly Point[][], squeezed: Set<number>[]): void {
+function recordOverlaps(
+  routes: readonly RawRoute[],
+  paths: readonly Point[][],
+  tiedBy: readonly ReadonlyMap<number, Tie>[],
+  sheath: readonly { segment: number | null; group: number }[],
+  squeezed: Set<number>[],
+  stubOverlaps: Set<number>[],
+): void {
   let count = 0;
   for (const path of paths) count += Math.max(0, path.length - 1);
   // Flat typed columns, one entry per segment: this runs on every render, over every segment.
@@ -1279,6 +1862,11 @@ function recordOverlaps(routes: readonly RawRoute[], paths: readonly Point[][], 
   const endX = new Float64Array(count);
   const endY = new Float64Array(count);
   const onStub = new Uint8Array(count);
+  const isEnd = new Uint8Array(count);
+  /** The tied bundle a run lies in, plus one; 0 outside any. */
+  const tie = new Int32Array(count);
+  /** The cable group (1-based) of a sheathed lane run, 0 otherwise. */
+  const sheathGroup = new Int32Array(count);
   const byAxis: Record<Axis, number[]> = { v: [], h: [] };
   let maxRadius = 0;
   let n = 0;
@@ -1300,6 +1888,9 @@ function recordOverlaps(routes: readonly RawRoute[], paths: readonly Point[][], 
       endX[n] = end === null ? NaN : end.x;
       endY[n] = end === null ? NaN : end.y;
       onStub[n] = i === 0 && routes[r].fromEntry ? 1 : 0;
+      isEnd[n] = end === null ? 0 : 1;
+      tie[n] = (tiedBy[r].get(i)?.bundle ?? -1) + 1;
+      sheathGroup[n] = sheath[r].segment === i ? sheath[r].group : 0;
     }
   });
   // NaN never compares close, so an interior segment never shares an endpoint.
@@ -1315,38 +1906,96 @@ function recordOverlaps(routes: readonly RawRoute[], paths: readonly Point[][], 
         if (route[t] === route[s] || at[t] - at[s] >= radius[s] + radius[t] - EPS) continue;
         if (Math.min(high[s], high[t]) - Math.max(low[s], low[t]) <= EPS) continue;
         if (onStub[s] === onStub[t] && sameEnd(s, t)) continue;
-        squeezed[route[s]].add(index[s]);
-        squeezed[route[t]].add(index[t]);
+        if (tie[s] !== 0 && tie[s] === tie[t]) continue;
+        if (sheathGroup[s] !== 0 && sheathGroup[s] === sheathGroup[t]) continue;
+        const into = isEnd[s] === 1 || isEnd[t] === 1 ? stubOverlaps : squeezed;
+        into[route[s]].add(index[s]);
+        into[route[t]].add(index[t]);
       }
     }
   }
 }
 
+/** One nudged route: see `nudgeTracks`. */
+interface NudgedRoute {
+  path: Point[];
+  squeezed: number[];
+  stubOverlaps: number[];
+  packSegment: number | null;
+  packLayer: PackLayer | null;
+  tied: TiedSegment[];
+}
+
 /**
- * Every conductor on its own track (see `NUDGE_PASSES`). Horizontal runs stay in the free channel
- * they run in, so no route turns or ends behind a device; vertical runs may spread behind the devices
- * when their passage is crowded. Endpoints never move. Returns new paths, simplified (a move can line
- * two segments up, and the zero-length joins of the raw routes drop out), with the indices of their
- * squeezed segments: the ones the nudging closed up, and every one still overlapping a neighbour at
- * true scale (`recordOverlaps`).
+ * Every conductor on its own track (see `NUDGE_PASSES`), after the side packs are laid out
+ * (`layPacks`). Horizontal runs stay in the free channel they run in, so no route turns or ends behind
+ * a device; vertical runs may spread behind the devices when their passage is crowded. Endpoints never
+ * move. Returns new paths, simplified (a move can line two segments up, and the zero-length joins of
+ * the raw routes drop out), with the indices of their squeezed segments (the ones the nudging closed
+ * up, and every one still overlapping a neighbour's movable run at true scale), of their stub overlaps
+ * (`recordOverlaps`), and of their pack run.
  */
-function nudgeTracks(routes: readonly RawRoute[], router: Router): { path: Point[]; squeezed: number[] }[] {
-  const working = routes.map((route) => ({
+function nudgeTracks(routes: readonly RawRoute[], router: Router): NudgedRoute[] {
+  const working: RawRoute[] = routes.map((route) => ({
+    ...route,
     points: route.points.map((point) => ({ ...point })),
-    firstVertical: route.firstVertical,
-    fromEntry: route.fromEntry,
-    diameterMm: route.diameterMm,
   }));
+  const ties: TieLog = { next: 0, raw: working.map(() => new Map<number, Tie>()) };
+  const packs = layPacks(working, router, ties);
   const squeezedOf = working.map(() => new Set<number>());
-  for (const axis of NUDGE_PASSES) nudgeAxis(working, axis, router, squeezedOf);
+  for (const axis of NUDGE_PASSES) nudgeAxis(working, axis, router, squeezedOf, packs.pins, ties);
+  // The lanes and channels moved the heights the pack runs start and end at: the cores take the same
+  // places again, in the order their final runs give (innermost-exits-first).
+  for (const layer of packs.layers) fillPack(layer, working, router);
   const paths = working.map((route) => simplify(route.points));
-  const squeezed = working.map((route, index) =>
-    squeezedOf[index].size === 0
-      ? new Set<number>()
-      : new Set(simplifiedSegments(route.points, paths[index], squeezedOf[index])),
-  );
-  recordOverlaps(working, paths, squeezed);
-  return paths.map((path, index) => ({ path, squeezed: [...squeezed[index]].sort((p, q) => p - q) }));
+  const index = working.map((route, r) => simplifiedIndex(route.points, paths[r]));
+  /** A raw segment's simplified one; null when it has no length. */
+  const simplified = (r: number, raw: number) => {
+    // Typed-array reads past the end are `undefined` at run time, which `>= 0` also rejects.
+    const at = raw < index[r].length ? index[r][raw] : -1;
+    return at >= 0 ? at : null;
+  };
+  const squeezed = squeezedOf.map((raws, r) => {
+    const out = new Set<number>();
+    for (const raw of raws) {
+      const at = simplified(r, raw);
+      if (at !== null) out.add(at);
+    }
+    return out;
+  });
+  const tiedBy = working.map((_, r) => {
+    const out = new Map<number, Tie>();
+    for (const [raw, tie] of ties.raw[r]) {
+      const segment = simplified(r, raw);
+      if (segment !== null) out.set(segment, tie);
+    }
+    return out;
+  });
+  const groups = new Map<string, number>();
+  const sheath = working.map((route, r) => {
+    const raw = sheathRun(route);
+    if (raw === null) return { segment: null, group: 0 };
+    const key = sheathKey(route);
+    const group = groups.get(key) ?? groups.size + 1;
+    groups.set(key, group);
+    return { segment: simplified(r, raw), group };
+  });
+  const stubOverlaps = working.map(() => new Set<number>());
+  recordOverlaps(working, paths, tiedBy, sheath, squeezed, stubOverlaps);
+  const sorted = (set: Set<number>) => [...set].sort((p, q) => p - q);
+  return paths.map((path, r) => {
+    const route = working[r];
+    return {
+      path,
+      squeezed: sorted(squeezed[r]),
+      stubOverlaps: sorted(stubOverlaps[r]),
+      packSegment: route.packIndex === null ? null : simplified(r, route.packIndex),
+      packLayer: route.packIndex === null ? null : (ties.raw[r].get(route.packIndex)?.layer ?? null),
+      tied: [...tiedBy[r]]
+        .map(([segment, tie]) => ({ segment, bundle: tie.bundle, layer: tie.layer }))
+        .sort((p, q) => p.segment - q.segment),
+    };
+  });
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1771,12 +2420,34 @@ export function routeConductors(input: WiringInput): Conductor[] {
   };
 
   const routes: RawRoute[] = [];
+  /** A circuit or WLZ core no strip takes: routed like a feed, and counted as overflow. */
+  const unpacked: boolean[] = [];
   const conductors: Conductor[] = routable.map((item, index) => {
     const from = resolve(item.from, item.role);
     const to = resolve(item.to, item.role);
     const diameterMm = conductorDiameterMm(item.crossSectionMm2);
+    // Every circuit and WLZ core runs through a side pack (plan Phase 4); the feeds stay local.
+    const packSide =
+      item.kind !== "feed" && item.from.type === "entry"
+        ? router.packSideFor(geometry.entries[item.from.cable.entryIndex].side, from.stub.point.x, to.stub.point.x)
+        : null;
+    unpacked.push(item.kind !== "feed" && packSide === null);
     // The path and its lengths are filled in after nudging.
-    routes.push({ ...router.route(from.stub, to.stub), fromEntry: item.from.type === "entry", diameterMm });
+    const raw =
+      packSide === null
+        ? { ...router.route(from.stub, to.stub, item.kind !== "feed"), packIndex: null }
+        : router.packRoute(from.stub, to.stub, packSide);
+    const cable =
+      item.from.type === "entry" ? `${String(item.from.cable.entryIndex)}:${String(item.from.cable.slot)}` : null;
+    routes.push({
+      ...raw,
+      fromEntry: item.from.type === "entry",
+      diameterMm,
+      packSide,
+      cable,
+      sheathMm: diameterMm,
+      feed: item.kind === "feed",
+    });
     return {
       key: `w${String(index)}`,
       kind: item.kind,
@@ -1790,15 +2461,71 @@ export function routeConductors(input: WiringInput): Conductor[] {
       lengthMm: 0,
       diameterMm,
       squeezed: [],
+      stubOverlaps: [],
+      packSide,
+      packSegment: null,
+      packLayer: null,
+      tied: [],
+      overflow: false,
     };
+  });
+
+  // A cable's sheath over the cores it takes to one pack.
+  const coresTo = new Map<string, number>();
+  for (const route of routes)
+    if (sheathRun(route) !== null) coresTo.set(sheathKey(route), (coresTo.get(sheathKey(route)) ?? 0) + 1);
+  routes.forEach((route, index) => {
+    const cores = coresTo.get(sheathKey(route)) ?? 1;
+    if (sheathRun(route) === null || cores < 2) return;
+    route.sheathMm = cableDiameterMm(Math.min(cores, 5) as CableCores, routable[index].crossSectionMm2);
   });
 
   const nudged = nudgeTracks(routes, router);
   return conductors.map((conductor, index) => {
-    const { path, squeezed } = nudged[index];
+    const { path, squeezed, stubOverlaps, packSegment, packLayer, tied } = nudged[index];
     const routedMm = pathLength(path);
-    return { ...conductor, path, routedMm, lengthMm: withSlack(routedMm), squeezed };
+    const overflow = unpacked[index] || tied.some((tie) => tie.layer === "overflow");
+    return {
+      ...conductor,
+      path,
+      routedMm,
+      lengthMm: withSlack(routedMm),
+      squeezed,
+      stubOverlaps,
+      packSegment,
+      packLayer,
+      tied,
+      overflow,
+    };
   });
+}
+
+// ---------------------------------------------------------------------------------------------
+// Overflow warning
+// ---------------------------------------------------------------------------------------------
+
+export interface WiringWarning {
+  code: "conductors_do_not_fit";
+  count: number;
+}
+export type WiringWarningCode = WiringWarning["code"];
+
+/**
+ * Informational warnings over a wiring (plan Phase 4): `conductors_do_not_fit` with the number of
+ * conductors drawn other than at true scale in the side packs and channels (`Conductor.overflow`).
+ * Never blocks a layout, a save or a quote.
+ */
+export function wiringWarnings(conductors: readonly Conductor[]): WiringWarning[] {
+  const count = conductors.filter((conductor) => conductor.overflow).length;
+  return count === 0 ? [] : [{ code: "conductors_do_not_fit", count }];
+}
+
+/** Polish text for one warning. The `Record` keeps it exhaustive over `WiringWarningCode`. */
+export function wiringWarningMessage(warning: WiringWarning): string {
+  const messages: Record<WiringWarningCode, () => string> = {
+    conductors_do_not_fit: () => t.layout.section.wiringOverflow(warning.count),
+  };
+  return messages[warning.code]();
 }
 
 // ---------------------------------------------------------------------------------------------

@@ -13,6 +13,11 @@ import { barRect, type CabinetGeometry } from "./cabinet-geometry";
 import {
   WIRE_CLEARANCE_MM,
   WIRE_SLACK_RATIO,
+  PACK_FILL_FACTOR,
+  packBundleWidthMm,
+  packStrips,
+  wiringWarningMessage,
+  wiringWarnings,
   routeConductors,
   wireClass,
   wireLengthsBySection,
@@ -23,7 +28,10 @@ import {
   type WiringSupply,
 } from "./cabinet-wiring";
 import type { PoleConfig } from "./device-spec";
+import { computeMatchView } from "./device-matching-server";
+import { computeLayoutView, computeWiring } from "./layout-server";
 import { conductorDiameterMm } from "./wire-dimensions";
+import { realisticFixture, renderFixture, worstCaseFixture, type RenderFixture } from "./wiring-bench-fixtures";
 
 // ---------------------------------------------------------------------------------------------
 // Fixtures — the expectations below come from the domain rules, not from the router
@@ -497,14 +505,28 @@ function spacing(a: Conductor, b: Conductor): number {
 }
 
 /**
+ * The segments of a conductor that run in a tied round bundle (a pack, a lane or a channel), by bundle.
+ */
+function tiedBundle(c: Conductor, segment: number): number | null {
+  return c.tied.find((tie) => tie.segment === segment)?.bundle ?? null;
+}
+
+/** The lane run a packed core takes to its pack from a top or bottom entry, still in its cable's sheath. */
+function sheathSegment(c: Conductor): number | null {
+  return c.from.type === "entry" && c.packSegment !== null && c.packSegment >= 2 ? c.packSegment - 1 : null;
+}
+
+/**
  * The user's requirement: every trace visible — no two conductors on one track, and at true scale no
  * two conductor bodies overlapping. Two parallel segments of different conductors that overlap along
- * their length must lie at least `rA + rB` apart (r: half the outer diameter), unless the router listed
- * either segment in its conductor's `squeezed` (a range too narrow for true scale). The other
- * exceptions: end segments touching the same terminal or bar endpoint (conductors sharing it share its
- * stub), and the cores of one cable on their cable's stub line — each core's first segment, from the
- * entry point to where it turns off, so up to the cable's last turn-off. A core that has turned off and
- * runs alongside its own cable's stub is a clash like any other.
+ * their length must lie at least `rA + rB` apart (r: half the outer diameter), unless the router
+ * recorded it: either segment is listed in its conductor's `squeezed` (a range too narrow for true
+ * scale) or `stubOverlaps` (a fixed end stub the geometry puts there). The exceptions by design: end
+ * segments touching the same terminal or bar endpoint (conductors sharing it share its stub); the cores
+ * of one cable on their cable's stub line — each core's first segment, from the entry point to where it
+ * turns off — and on their cable's sheathed lane run to its pack (plan Phase 4); and two segments of one
+ * tied round bundle (`Conductor.tied`, user decision 2026-10-09), whose cores overlap in the front view.
+ * A core that has turned off and runs alongside its own cable's stub is a clash like any other.
  */
 function trackClashes(conductors: readonly Conductor[]): string[] {
   const segments = conductors.flatMap((c, conductor) =>
@@ -514,7 +536,7 @@ function trackClashes(conductors: readonly Conductor[]): string[] {
       const last = i === c.path.length - 2;
       return {
         conductor,
-        squeezed: c.squeezed.includes(i),
+        recorded: c.squeezed.includes(i) || c.stubOverlaps.includes(i),
         vertical,
         at: vertical ? a.x : a.y,
         low: vertical ? Math.min(a.y, b.y) : Math.min(a.x, b.x),
@@ -523,19 +545,24 @@ function trackClashes(conductors: readonly Conductor[]): string[] {
         end: i === 0 ? c.path[0] : last ? b : null,
         /** The segment runs on its cable's stub line: a cable core's first segment. */
         onStub: i === 0 && c.from.type === "entry",
+        bundle: tiedBundle(c, i),
+        /** The cable and pack of a sheathed lane run, else null. */
+        sheath: sheathSegment(c) === i ? `${String(c.path[0].x)}:${String(c.path[0].y)}:${String(c.packSide)}` : null,
       };
     }),
   );
   const clashes: string[] = [];
   for (const [n, s] of segments.entries()) {
     for (const t of segments.slice(n + 1)) {
-      if (s.conductor === t.conductor || s.vertical !== t.vertical || s.squeezed || t.squeezed) continue;
+      if (s.conductor === t.conductor || s.vertical !== t.vertical || s.recorded || t.recorded) continue;
       const bodies = (conductors[s.conductor].diameterMm + conductors[t.conductor].diameterMm) / 2;
       if (Math.abs(s.at - t.at) >= bodies - 1e-6) continue;
       if (Math.min(s.high, t.high) - Math.max(s.low, t.low) <= 1e-6) continue;
       const sameEnd = s.end !== null && t.end !== null && s.end.x === t.end.x && s.end.y === t.end.y;
       // A shared entry point means one cable; only its stub runs may coincide.
       if (sameEnd && s.onStub === t.onStub) continue;
+      if (s.bundle !== null && s.bundle === t.bundle) continue;
+      if (s.sheath !== null && s.sheath === t.sheath) continue;
       clashes.push(`${conductors[s.conductor].key}/${conductors[t.conductor].key} at ${String(s.at)}`);
     }
   }
@@ -622,38 +649,61 @@ describe.each([
     }
   });
 
-  it("spaces neighbouring movable tracks by both radii plus the clearance — a 1.5 mm² core beside a 16 mm² one too", () => {
-    // Movable segments only (a route's first and last pass through their endpoints and never move),
-    // and none the router listed as squeezed.
-    const runs = conductors.flatMap((c) =>
-      c.path.slice(1).flatMap((b, i) => {
-        if (i === 0 || i === c.path.length - 2 || c.squeezed.includes(i)) return [];
-        const a = c.path[i];
-        const vertical = a.x === b.x;
-        return [
-          {
-            c,
-            vertical,
-            at: vertical ? a.x : a.y,
-            low: vertical ? Math.min(a.y, b.y) : Math.min(a.x, b.x),
-            high: vertical ? Math.max(a.y, b.y) : Math.max(a.x, b.x),
-          },
-        ];
-      }),
-    );
-    const tooClose: string[] = [];
-    let mixedNeighbours = 0;
-    for (const [n, s] of runs.entries()) {
-      for (const t of runs.slice(n + 1)) {
-        if (s.c === t.c || s.vertical !== t.vertical) continue;
-        if (Math.min(s.high, t.high) - Math.max(s.low, t.low) <= 1e-6) continue;
-        const gap = Math.abs(s.at - t.at);
-        const needed = spacing(s.c, t.c);
-        if (gap < needed - 1e-6) tooClose.push(`${s.c.key}/${t.c.key}: ${gap.toFixed(2)} < ${needed.toFixed(2)}`);
-        const sections = [s.c.crossSectionMm2, t.c.crossSectionMm2].sort((p, q) => p - q);
-        if (sections[0] === 1.5 && sections[1] === 16 && gap < needed + 1) mixedNeighbours++;
-      }
+  it("spaces neighbouring untied movable tracks by both radii plus the clearance", () => {
+    expect(spacingCheck(conductors).tooClose).toEqual([]);
+  });
+});
+
+/**
+ * Neighbouring movable runs of different conductors, at true scale: those closer than `rA + rB +
+ * WIRE_CLEARANCE_MM`, and how many 1.5 mm² / 16 mm² pairs lie within a millimetre of that spacing.
+ * Movable segments only (a route's first and last pass through their endpoints and never move), and
+ * none the router recorded (squeezed, or overlapping a fixed stub). A run tied into a round bundle (a
+ * pack, a crowded lane or channel) gives up true-scale spacing by design, as does a cable's sheathed
+ * lane run; `trackClashes` and the bundle tests check those instead.
+ */
+function spacingCheck(conductors: readonly Conductor[]): { tooClose: string[]; mixedNeighbours: number } {
+  const runs = conductors.flatMap((c) =>
+    c.path.slice(1).flatMap((b, i) => {
+      if (i === 0 || i === c.path.length - 2 || c.squeezed.includes(i) || c.stubOverlaps.includes(i)) return [];
+      if (tiedBundle(c, i) !== null || sheathSegment(c) === i) return [];
+      const a = c.path[i];
+      const vertical = a.x === b.x;
+      return [
+        {
+          c,
+          vertical,
+          at: vertical ? a.x : a.y,
+          low: vertical ? Math.min(a.y, b.y) : Math.min(a.x, b.x),
+          high: vertical ? Math.max(a.y, b.y) : Math.max(a.x, b.x),
+        },
+      ];
+    }),
+  );
+  const tooClose: string[] = [];
+  let mixedNeighbours = 0;
+  for (const [n, s] of runs.entries()) {
+    for (const t of runs.slice(n + 1)) {
+      if (s.c === t.c || s.vertical !== t.vertical) continue;
+      if (Math.min(s.high, t.high) - Math.max(s.low, t.low) <= 1e-6) continue;
+      const gap = Math.abs(s.at - t.at);
+      const needed = spacing(s.c, t.c);
+      if (gap < needed - 1e-6) tooClose.push(`${s.c.key}/${t.c.key}: ${gap.toFixed(2)} < ${needed.toFixed(2)}`);
+      const sections = [s.c.crossSectionMm2, t.c.crossSectionMm2].sort((p, q) => p - q);
+      if (sections[0] === 1.5 && sections[1] === 16 && gap < needed + 1) mixedNeighbours++;
     }
+  }
+  return { tooClose, mixedNeighbours };
+}
+
+describe("routeConductors — a 1.5 mm² core beside a 16 mm² one", () => {
+  // A lone 1.5 mm² circuit on seed (a) with a 16 mm² WLZ: its runs meet the WLZ-section feeds in the
+  // free channel, untied. (The fuller fixtures put their circuit cores into side packs and tied
+  // channel bundles, where true-scale spacing gives way by design.)
+  const conductors = routeConductors(wiringInput(SEED_A, [MAIN, MCB_4], [circuit(4, null, 1, 1.5)]));
+
+  it("spaces them by both radii plus the clearance", () => {
+    const { tooClose, mixedNeighbours } = spacingCheck(conductors);
     expect(tooClose).toEqual([]);
     // The fixture really puts a thin core next to a WLZ-section one: 3.0 / 2 + 7.8 / 2 + 0.5 mm apart.
     expect(mixedNeighbours).toBeGreaterThan(0);
@@ -674,7 +724,7 @@ describe("routeConductors — track assignment in a crowded passage", () => {
   const conductors = routeConductors(input);
   const phases = conductors.filter((c) => c.kind === "circuit");
 
-  it("spreads the shared top lane: cables running alongside each other get their own tracks", () => {
+  it("spreads the shared top lane: cables running alongside each other get their own tracks, or a tied bundle", () => {
     for (const c of phases) {
       // Still an entry stub straight down from the cable's own point, then the lane, then the rest.
       expect(c.path[0].y).toBe(0);
@@ -685,11 +735,13 @@ describe("routeConductors — track assignment in a crowded passage", () => {
       x1: Math.min(c.path[0].x, c.path[2].x),
       x2: Math.max(c.path[0].x, c.path[2].x),
       squeezed: c.squeezed.includes(1),
+      bundle: tiedBundle(c, 1),
     }));
-    // Every core here is 2.5 mm²: neighbouring lanes sit a full true-scale spacing apart.
+    // Every core here is 2.5 mm²: neighbouring lanes sit a full true-scale spacing apart — unless the
+    // lane is too low for that and they run tied in one round bundle (user decision 2026-10-09).
     lanes.forEach((a, i) => {
       for (const b of lanes.slice(i + 1)) {
-        if (a.squeezed || b.squeezed) continue;
+        if (a.squeezed || b.squeezed || (a.bundle !== null && a.bundle === b.bundle)) continue;
         if (Math.min(a.x2, b.x2) - Math.max(a.x1, b.x1) > 1e-6) {
           expect(Math.abs(a.y - b.y)).toBeGreaterThanOrEqual(trackSpacingOf(2.5, 2.5) - 1e-6);
         }
@@ -842,11 +894,14 @@ function wlzBesideTerminal(): WiringInput {
 }
 
 /**
- * The oracle for the progressive split (the electrician, 2026-10-07): a cable's cores leave its stub
- * line one at a time, like stripping a cable. The sheath runs from the entry point to the last turn-off
- * — the point past which at most one core is left on the line — and a core that has turned off never
- * runs so close to its own cable's stub that their bodies overlap (one core diameter, the cores of a
- * cable sharing a cross-section), unless the router listed that run as squeezed.
+ * The oracle for where a cable splits into its cores. A cable whose cores all run in one side pack
+ * keeps its sheath until it reaches the pack and splits there (plan Phase 4): the sheath follows the
+ * cores' shared route to the first point where one of them enters the pack. Any other cable splits
+ * progressively (the electrician, 2026-10-07): its cores leave its stub line one at a time, like
+ * stripping a cable, and the sheath runs from the entry point to the last turn-off — the point past which
+ * at most one core is left on the line. Either way, a core that has turned off never runs so close to its
+ * own cable's stub that their bodies overlap (one core diameter, the cores of a cable sharing a
+ * cross-section), unless the router recorded that run (squeezed, or overlapping a fixed stub).
  */
 describe.each([
   ["seed (a), one RCD group", wiringInput(SEED_A, [MAIN, RCD, MCB_1, MCB_2], CIRCUITS.slice(0, 2))],
@@ -876,13 +931,36 @@ describe.each([
   const depth = (c: Conductor) => Math.abs(c.path[1].x - c.path[0].x) + Math.abs(c.path[1].y - c.path[0].y);
   const multiCore = [...cables].filter(([, cores]) => cores.length > 1);
 
-  it("ends each cable's sheath at its last turn-off, past which at most one core stays on the line", () => {
+  /** The cable's cores all run in one side pack. */
+  const packed = (cores: readonly Conductor[]) =>
+    cores.every((c) => c.packSide !== null && c.packSide === cores[0].packSide && c.packSegment !== null);
+  /** The route from the entry to where the first core enters the pack. */
+  const toPack = (cores: readonly Conductor[]) =>
+    cores
+      .map((c) => c.path.slice(0, (c.packSegment ?? 0) + 1))
+      .map((points) => ({
+        points,
+        length: points
+          .slice(1)
+          .reduce((sum, p, i) => sum + Math.abs(p.x - points[i].x) + Math.abs(p.y - points[i].y), 0),
+      }))
+      .filter((route) => route.length > 0)
+      .sort((a, b) => a.length - b.length)[0].points;
+
+  it("ends a packed cable's sheath where it reaches its pack, any other one at its last turn-off", () => {
     expect(multiCore.length).toBeGreaterThan(0);
     for (const [cable, cores] of multiCore) {
+      const numbers = (sheaths.get(sheathKey(cable)) ?? "").match(/-?[\d.]+/g)?.map(Number) ?? [];
+      if (packed(cores)) {
+        const expected = toPack(cores).flatMap((p) => [p.x, p.y]);
+        expect(numbers).toHaveLength(expected.length);
+        expected.forEach((value, i) => {
+          expect(numbers[i]).toBeCloseTo(value, 1);
+        });
+        continue;
+      }
       const byDepth = [...cores].sort((a, b) => depth(b) - depth(a));
       const last = byDepth[1].path[1];
-      const d = sheaths.get(sheathKey(cable));
-      const numbers = (d ?? "").match(/-?[\d.]+/g)?.map(Number) ?? [];
       expect(numbers).toHaveLength(4);
       expect(numbers[0]).toBeCloseTo(cores[0].path[0].x, 1);
       expect(numbers[1]).toBeCloseTo(cores[0].path[0].y, 1);
@@ -895,14 +973,24 @@ describe.each([
     expect(trackClashes(conductors)).toEqual([]);
   });
 
-  it("splits each cable in the free margin by its entry, before the first device or bar", () => {
-    // The cores turn off onto their lanes, which lie between the entry's cabinet edge and the nearest
-    // device or bar facing it; a sheath reaching past that would mean several cores ran on together.
+  it("splits each cable in its pack, or else in the free margin by its entry, before the first device or bar", () => {
+    // A packed cable splits where it reaches its pack: inside the pack's room (strip plus the band
+    // behind the rail ends). Any other cable's cores turn off onto their lanes, which lie between the
+    // entry's cabinet edge and the nearest device or bar facing it; a sheath reaching past that would
+    // mean several cores ran on together.
     const rects = [
       ...input.placements.map((p) => rectOfDevice(input, p.projectDeviceId)),
       ...input.geometry.bars.map(barRect),
     ];
+    const strips = packStrips(input.geometry);
     for (const [, cores] of multiCore) {
+      if (packed(cores)) {
+        const end = toPack(cores).at(-1);
+        const strip = strips[cores[0].packSide ?? "left"];
+        expect(end?.x).toBeGreaterThanOrEqual(Math.min(strip.outer, strip.deep) - 1e-6);
+        expect(end?.x).toBeLessThanOrEqual(Math.max(strip.outer, strip.deep) + 1e-6);
+        continue;
+      }
       const from = cores[0].from;
       if (from.type !== "entry") throw new Error("not an entry");
       const end = [...cores].sort((a, b) => depth(b) - depth(a))[1].path[1];
@@ -928,7 +1016,8 @@ describe.each([
       for (const core of cores) {
         for (let i = 2; i < core.path.length; i++) {
           const [a, b] = [core.path[i - 1], core.path[i]];
-          if ((a.x === b.x) !== vertical || core.squeezed.includes(i - 1)) continue;
+          if ((a.x === b.x) !== vertical || core.squeezed.includes(i - 1) || core.stubOverlaps.includes(i - 1))
+            continue;
           const at = vertical ? a.x : a.y;
           const [low, high] = vertical
             ? [Math.min(a.y, b.y), Math.max(a.y, b.y)]
@@ -1170,6 +1259,357 @@ describe.each([
     for (const c of feeds) {
       if (c.from.type === "terminal" && c.from.deviceId === MAIN.id) expect(c.from.side).not.toBe(wlzPhase.to.side);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------------------------
+// Plan Phase 4 — side packs, tied round bundles and the overflow warning
+// ---------------------------------------------------------------------------------------------
+
+/** A render fixture's wiring, through the same path the project page takes. */
+function fixtureWiring(fixture: RenderFixture): Conductor[] {
+  const matchView = computeMatchView(fixture.context);
+  const view = computeLayoutView(matchView, fixture.context, fixture.placements);
+  return computeWiring(view, matchView, fixture.context);
+}
+
+/** A packed core's run in its pack, and where and which way it leaves it. */
+function packRun(c: Conductor) {
+  if (c.packSegment === null) throw new Error(`${c.key} has no pack run`);
+  const [a, b] = [c.path[c.packSegment], c.path[c.packSegment + 1]];
+  const next = c.path.at(c.packSegment + 2) ?? b;
+  return {
+    x: a.x,
+    vertical: a.x === b.x,
+    low: Math.min(a.y, b.y),
+    high: Math.max(a.y, b.y),
+    /** The height the core leaves the pack at, and the x it heads for there. */
+    exitY: b.y,
+    nextX: next.x,
+    /** It travels down the pack (from the top lane, or a side entry above its exit). */
+    down: b.y > a.y,
+  };
+}
+
+/** The widest a set of runs gets at any height: the tied round bundle there (`packBundleWidthMm`). */
+function peakBundleWidth(conductors: readonly Conductor[]): number {
+  const runs = conductors.map((c) => ({ ...packRun(c), d: c.diameterMm }));
+  let peak = 0;
+  for (const y of runs.flatMap((r) => [r.low, r.high])) {
+    const here = runs.filter((r) => r.low <= y + 1e-6 && r.high >= y - 1e-6).map((r) => r.d);
+    peak = Math.max(peak, packBundleWidthMm(here));
+  }
+  return peak;
+}
+
+const PACKED_FIXTURES = [
+  ["seed (b), top entry", wiringInput(SEED_B)],
+  ["seed (b), bottom entry", wiringInput(SEED_B, DEVICES, entering("bottom"))],
+  ["seed (c), bottom entry", wiringInput(SEED_C)],
+  [
+    "seed (c), bottom and left entries",
+    wiringInput(
+      SEED_C,
+      DEVICES,
+      CIRCUITS.map((c, i) => ({ ...c, entry_side: i % 2 ? "bottom" : "left" })),
+    ),
+  ],
+] as const;
+
+describe("packBundleWidthMm — a tied round bundle", () => {
+  it("is √(Σd² / PACK_FILL_FACTOR) across, with a fill factor of 0.6", () => {
+    expect(PACK_FILL_FACTOR).toBe(0.6);
+    expect(packBundleWidthMm([3.6, 3.6, 3.6])).toBeCloseTo(Math.sqrt((3 * 3.6 * 3.6) / 0.6), 9);
+    expect(packBundleWidthMm([3.0, 7.8])).toBeCloseTo(Math.sqrt((9 + 60.84) / 0.6), 9);
+  });
+
+  it("is never narrower than its widest core, and nothing for no cores", () => {
+    expect(packBundleWidthMm([7.8])).toBeGreaterThanOrEqual(7.8);
+    expect(packBundleWidthMm([])).toBe(0);
+  });
+});
+
+describe("packStrips — the side strips", () => {
+  it("runs from a vertical bar's inner edge to the rail ends on seed (b), each 3 mm off, with a 30 mm band behind", () => {
+    // PE bar at x 10–25, rails 40–360, N bar at x 375–390.
+    expect(packStrips(SEED_B)).toEqual({
+      left: { side: "left", outer: 28, inner: 37, deep: 67, present: true, line: 32.5 },
+      right: { side: "right", outer: 372, inner: 363, deep: 333, present: true, line: 367.5 },
+    });
+  });
+
+  it("runs from the side wall where no vertical bar stands (seed (c))", () => {
+    const { left, right } = packStrips(SEED_C);
+    expect([left.outer, left.inner, left.deep, left.present]).toEqual([3, 27, 57, true]);
+    expect([right.outer, right.inner, right.deep, right.present]).toEqual([597, 573, 543, true]);
+  });
+
+  it("is absent when narrower than the thinnest core", () => {
+    const { left, right } = packStrips(NO_STRIPS);
+    expect(left.present).toBe(false);
+    expect(right.present).toBe(false);
+  });
+});
+
+/** Seed (a) with one rail across the whole interior: no room for a strip on either side. */
+const NO_STRIPS: CabinetGeometry = { ...SEED_A, rails: [{ xMm: 2, yMm: 80, lengthMm: 246 }] };
+
+describe.each(PACKED_FIXTURES)("routeConductors — side packs on %s", (_name, input) => {
+  const conductors = routeConductors(input);
+  const strips = packStrips(input.geometry);
+  const cores = conductors.filter((c) => c.kind !== "feed");
+
+  it("runs every circuit and WLZ core vertically inside its pack's room", () => {
+    expect(cores.length).toBeGreaterThan(0);
+    for (const c of cores) {
+      expect(c.packSide).not.toBeNull();
+      if (c.packSide === null) continue;
+      const run = packRun(c);
+      const strip = strips[c.packSide];
+      expect(run.vertical).toBe(true);
+      expect(run.x).toBeGreaterThanOrEqual(Math.min(strip.outer, strip.deep) - 1e-6);
+      expect(run.x).toBeLessThanOrEqual(Math.max(strip.outer, strip.deep) + 1e-6);
+      expect(c.tied.some((tie) => tie.segment === c.packSegment)).toBe(true);
+    }
+  });
+
+  it("follows the side rule: a side entry's own side, else the strip nearer the destination", () => {
+    for (const c of cores) {
+      if (c.from.type !== "entry") continue;
+      const side = input.geometry.entries[c.from.entryIndex].side;
+      if (side === "left" || side === "right") {
+        expect(c.packSide).toBe(side);
+        continue;
+      }
+      const target = c.path[c.path.length - 1].x;
+      const dl = Math.abs(target - strips.left.line);
+      const dr = Math.abs(target - strips.right.line);
+      if (Math.abs(dl - dr) > 1e-6) expect(c.packSide).toBe(dl < dr ? "left" : "right");
+    }
+  });
+
+  it("orders each pack innermost-exits-first: no core's branch crosses a core still in the pack", () => {
+    // A core leaves its pack along a horizontal branch from its own x to the next point of its route;
+    // it crosses every core of the pack lying between those two x that still runs past that height.
+    // Two cores travelling opposite ways along overlapping heights cannot both avoid that (each would
+    // have to sit inside the other), so the oracle compares cores travelling the same way.
+    const crossings: string[] = [];
+    for (const side of ["left", "right"] as const) {
+      const pack = cores.filter((c) => c.packSide === side && c.packLayer === "bundle");
+      for (const a of pack) {
+        const run = packRun(a);
+        for (const b of pack) {
+          if (b === a || packRun(b).down !== run.down) continue;
+          const other = packRun(b);
+          const between = other.x > Math.min(run.x, run.nextX) + 1e-6 && other.x < Math.max(run.x, run.nextX) - 1e-6;
+          if (between && other.low < run.exitY - 1e-6 && other.high > run.exitY + 1e-6) {
+            crossings.push(`${a.key} crosses ${b.key}`);
+          }
+        }
+      }
+    }
+    expect(crossings).toEqual([]);
+  });
+
+  it("keeps every feed out of the packs and, between two devices, out of the strips", () => {
+    const feeds = conductors.filter((c) => c.kind === "feed");
+    expect(feeds.length).toBeGreaterThan(0);
+    for (const c of feeds) {
+      expect(c.packSide).toBeNull();
+      expect(c.packSegment).toBeNull();
+      if (c.from.type !== "terminal" || c.to.type !== "terminal") continue;
+      for (let i = 1; i < c.path.length; i++) {
+        const [a, b] = [c.path[i - 1], c.path[i]];
+        if (a.x !== b.x) continue;
+        for (const strip of [strips.left, strips.right]) {
+          if (!strip.present) continue;
+          const inside =
+            a.x > Math.min(strip.outer, strip.inner) + 1e-6 && a.x < Math.max(strip.outer, strip.inner) - 1e-6;
+          expect(inside).toBe(false);
+        }
+      }
+    }
+  });
+
+  it("raises no overflow warning", () => {
+    expect(wiringWarnings(conductors)).toEqual([]);
+  });
+});
+
+describe("routeConductors — the pack side rule's ties (seed (a), one MCB centred under the entry)", () => {
+  // Seed (a) is symmetric: strip lines at x 5 and 245. An MCB centred at x 125 is as near one strip as
+  // the other; so is a cable entering at x 125.
+  const mcb = device(1, "mcb", "1P", 17.5, { circuit: circuitId(4) });
+  const placements: Placement[] = [{ projectDeviceId: mcb.id, railIndex: 0, xMm: 125 - 10 - 8.75 }];
+  const input = (entry: CabinetGeometry["entries"][number]): WiringInput => ({
+    geometry: { ...SEED_A, entries: [entry] },
+    devices: [mcb],
+    placements,
+    circuits: [circuit(4, null, 1, 2.5)],
+    supply: TN_S,
+  });
+
+  it("goes to the side nearer the cable's entry point when the destination ties", () => {
+    // One cable on a 100–200 mm entry enters at x 150: nearer the right strip.
+    const [core] = routeConductors(input({ side: "top", offsetMm: 100, lengthMm: 100 }));
+    expect(core.path[0].x).toBe(150);
+    expect(core.packSide).toBe("right");
+  });
+
+  it("goes left when the entry point ties too", () => {
+    const [core] = routeConductors(input({ side: "top", offsetMm: 50, lengthMm: 150 }));
+    expect(core.path[0].x).toBe(125);
+    expect(core.packSide).toBe("left");
+  });
+
+  it("goes to the strip nearer the destination otherwise", () => {
+    const near = (xMm: number) =>
+      routeConductors({
+        ...input({ side: "top", offsetMm: 50, lengthMm: 150 }),
+        placements: [{ ...placements[0], xMm }],
+      })[0].packSide;
+    expect(near(20)).toBe("left");
+    expect(near(200)).toBe("right");
+  });
+});
+
+describe("routeConductors — the band behind the rail ends is pack room (realistic project, seed (b))", () => {
+  const conductors = fixtureWiring(realisticFixture());
+  const { left } = packStrips(SEED_B);
+  const pack = conductors.filter((c) => c.packSide === "left");
+
+  it("holds a left pack wider than its 9 mm strip without spilling a core", () => {
+    expect(left.inner - left.outer).toBe(9);
+    const peak = peakBundleWidth(pack.filter((c) => c.packLayer === "bundle"));
+    expect(peak).toBeGreaterThan(left.inner - left.outer);
+    expect(peak).toBeLessThanOrEqual(left.deep - left.outer);
+    expect(pack.filter((c) => c.packLayer === "overflow")).toEqual([]);
+    expect(pack.some((c) => packRun(c).x > left.inner)).toBe(true);
+  });
+});
+
+describe("routeConductors — overflow", () => {
+  it("spills the cores a pack cannot hold into the overflow layer, and warns", () => {
+    // Twelve 16 mm² circuits entering from the left of seed (c): 36 cores of 7.8 mm in a pack with
+    // 44 mm of room (strip, band, cut short before the PE bar).
+    const circuits = Array.from({ length: 12 }, (_, i) => ({
+      ...circuit(i + 1, null, 1, 16),
+      entry_side: "left" as const,
+    }));
+    const devices = [
+      device(0, "main_switch", "2P", 35),
+      ...circuits.map((c, i) => device(i + 1, "mcb", "1P", 17.5, { circuit: c.id })),
+    ];
+    const conductors = routeConductors(wiringInput(SEED_C, devices, circuits));
+    const spilled = conductors.filter((c) => c.packLayer === "overflow");
+    expect(spilled.length).toBeGreaterThan(0);
+    for (const c of spilled) {
+      expect(c.overflow).toBe(true);
+      expect(c.kind).not.toBe("feed");
+      expect(c.tied.find((tie) => tie.segment === c.packSegment)?.layer).toBe("overflow");
+    }
+    // The bundle left in the pack fits its room.
+    const { left } = packStrips(SEED_C);
+    const kept = conductors.filter((c) => c.packSide === "left" && c.packLayer === "bundle");
+    expect(peakBundleWidth(kept)).toBeLessThanOrEqual(44 + 1e-6);
+    expect(left.present).toBe(true);
+    const count = conductors.filter((c) => c.overflow).length;
+    expect(wiringWarnings(conductors)).toEqual([{ code: "conductors_do_not_fit", count }]);
+  });
+
+  it("flags a circuit or WLZ core no strip can take, routed like a feed", () => {
+    const conductors = routeConductors(wiringInput(NO_STRIPS, TEN_DEVICES, TEN_CIRCUITS));
+    const cores = conductors.filter((c) => c.kind !== "feed");
+    expect(cores.length).toBeGreaterThan(0);
+    for (const c of cores) {
+      expect(c.packSide).toBeNull();
+      expect(c.overflow).toBe(true);
+    }
+    expect(wiringWarnings(conductors)).toEqual([{ code: "conductors_do_not_fit", count: cores.length }]);
+  });
+
+  it("never counts squeezed runs or fixed stub overlaps as overflow", () => {
+    const conductors = routeConductors(wiringInput(SEED_A, TEN_DEVICES, TEN_CIRCUITS));
+    expect(conductors.some((c) => c.squeezed.length > 0 || c.stubOverlaps.length > 0)).toBe(true);
+    for (const c of conductors) {
+      const spilled = c.tied.some((tie) => tie.layer === "overflow");
+      expect(c.overflow).toBe(spilled || (c.kind !== "feed" && c.packSide === null));
+    }
+  });
+
+  it("lists stub overlaps only where a fixed end stub is involved", () => {
+    for (const [, input] of PACKED_FIXTURES) {
+      const conductors = routeConductors(input);
+      for (const c of conductors) {
+        expect([...c.stubOverlaps].sort((p, q) => p - q)).toEqual(c.stubOverlaps);
+        for (const i of c.stubOverlaps) {
+          const own = i === 0 || i === c.path.length - 2;
+          // Not an end stub itself: then another conductor's end stub overlaps it.
+          const [a, b] = [c.path[i], c.path[i + 1]];
+          const vertical = a.x === b.x;
+          const at = vertical ? a.x : a.y;
+          const [low, high] = vertical
+            ? [Math.min(a.y, b.y), Math.max(a.y, b.y)]
+            : [Math.min(a.x, b.x), Math.max(a.x, b.x)];
+          const byStub = conductors.some((o) =>
+            o === c
+              ? false
+              : [0, o.path.length - 2].some((j) => {
+                  const [p, q] = [o.path[j], o.path[j + 1]];
+                  if ((p.x === q.x) !== vertical) return false;
+                  const oAt = vertical ? p.x : p.y;
+                  const [oLow, oHigh] = vertical
+                    ? [Math.min(p.y, q.y), Math.max(p.y, q.y)]
+                    : [Math.min(p.x, q.x), Math.max(p.x, q.x)];
+                  return (
+                    Math.abs(oAt - at) < (o.diameterMm + c.diameterMm) / 2 &&
+                    Math.min(high, oHigh) - Math.max(low, oLow) > 1e-6
+                  );
+                }),
+          );
+          expect(own || byStub).toBe(true);
+        }
+      }
+    }
+  });
+});
+
+describe("wiringWarnings — the bench fixtures", () => {
+  it("raises none on the realistic project (12 circuits, 4 groups, seed (b))", () => {
+    expect(wiringWarnings(fixtureWiring(realisticFixture()))).toEqual([]);
+  });
+
+  it("raises none on the 12-circuit, 4-group project on seed (c)", () => {
+    expect(wiringWarnings(fixtureWiring(renderFixture(4, 3, SEED_C)))).toEqual([]);
+  });
+
+  it("raises none on the worst case either: every bundle fits its room (measured 2026-10-09)", () => {
+    // 60 circuits in 20 groups on seed (c). Measured: left pack 38.4 of 44 mm, right pack 41.1 of
+    // 44 mm, the bottom lane 64.1 of 98 mm and the busiest row channel 40.4 of 63 mm — tied round
+    // bundles hold all of it, so the honest answer is no warning (user decision 2026-10-09: report it,
+    // never force it).
+    const conductors = fixtureWiring(worstCaseFixture());
+    expect(conductors.length).toBeGreaterThan(200);
+    expect(conductors.filter((c) => c.overflow)).toEqual([]);
+    expect(wiringWarnings(conductors)).toEqual([]);
+    const strips = packStrips(SEED_C);
+    for (const side of ["left", "right"] as const) {
+      const pack = conductors.filter((c) => c.packSide === side && c.packLayer === "bundle");
+      expect(pack.length).toBeGreaterThan(0);
+      // The room of each seed (c) pack ends 3 mm before the horizontal PE bar: 44 mm.
+      expect(peakBundleWidth(pack)).toBeLessThanOrEqual(44 + 1e-6);
+      expect(Math.abs(strips[side].deep - strips[side].outer)).toBe(54);
+    }
+  });
+});
+
+describe("wiringWarningMessage", () => {
+  it("says in Polish, with the right plural, how many conductors are drawn behind the rail ends", () => {
+    const message = (count: number) => wiringWarningMessage({ code: "conductors_do_not_fit", count });
+    expect(message(1)).toMatch(/^1 przewód nie zmieścił się w prawdziwej skali .* jest narysowany w drugiej warstwie/);
+    expect(message(3)).toMatch(/^3 przewody nie zmieściły się .* są narysowane w drugiej warstwie/);
+    expect(message(5)).toMatch(/^5 przewodów nie zmieściło się .* jest narysowanych w drugiej warstwie/);
+    expect(message(5)).toContain("nie są blokowane");
   });
 });
 

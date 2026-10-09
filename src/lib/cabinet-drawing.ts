@@ -492,32 +492,70 @@ export interface DrawnCable {
 /**
  * The cables at the entries (plan Phase 5c): every conductor that starts at an entry belongs to one
  * cable — the WLZ, or its circuit's cable — whose cores share the entry point and run along one stub
- * line from it. The cores leave that line one at a time, each onto its own track (a progressive split,
- * like stripping a cable — the electrician, 2026-10-07), and the sheath runs from the entry point to
- * the last of those turn-offs: the point past which at most one core stays on the line, so no bare
- * cores are ever drawn on top of each other. The one core left may carry straight on past it. A cable
- * of a single core keeps a short sheath, stopping one bend before the core turns off. Cables in
- * routing order. Presentation only.
+ * line from it.
+ *
+ * A cable whose cores all run in one side pack (plan Phase 4) keeps its sheath until it reaches the
+ * pack, and splits into its cores there: the sheath follows the cores' shared route from the entry
+ * point to the first point where one of them enters the pack (the start of its `packSegment`).
+ *
+ * Any other cable — cores going to different packs, or no pack at all — splits progressively, like
+ * stripping a cable (the electrician, 2026-10-07): its cores leave the stub line one at a time, each
+ * onto its own track, and the sheath runs from the entry point to the last of those turn-offs: the point
+ * past which at most one core stays on the line, so no bare cores are ever drawn on top of each other.
+ * The one core left may carry straight on past it. A cable of a single core keeps a short sheath,
+ * stopping one bend before the core turns off. Cables in routing order. Presentation only.
  */
 export function buildDrawnCables(conductors: readonly Conductor[]): DrawnCable[] {
-  const cables = new Map<string, { kind: "circuit" | "wlz"; from: Point; firsts: { to: Point; length: number }[] }>();
+  const cables = new Map<string, { kind: "circuit" | "wlz"; cores: Conductor[] }>();
   for (const conductor of conductors) {
     if (conductor.from.type !== "entry" || conductor.kind === "feed" || conductor.path.length < 2) continue;
     const key = conductor.kind === "wlz" ? "wlz" : `c:${conductor.circuitId ?? conductor.key}`;
-    const [from, to] = conductor.path;
-    const first = { to, length: Math.abs(to.x - from.x) + Math.abs(to.y - from.y) };
     const cable = cables.get(key);
-    if (cable === undefined) cables.set(key, { kind: conductor.kind, from, firsts: [first] });
-    else cable.firsts.push(first);
+    if (cable === undefined) cables.set(key, { kind: conductor.kind, cores: [conductor] });
+    else cable.cores.push(conductor);
   }
   return [...cables].flatMap(([key, cable]) => {
-    const firsts = [...cable.firsts].sort((a, b) => b.length - a.length);
-    // The second-deepest turn-off; a single core stops one bend before its own.
-    const end =
-      firsts.length > 1
-        ? firsts[1].to
-        : towards(cable.from, firsts[0].to, Math.max(firsts[0].length - WIRE_BEND_MM, firsts[0].length / 2));
-    if (end.x === cable.from.x && end.y === cable.from.y) return [];
-    return [{ key, kind: cable.kind, d: `M${fmt(cable.from.x)} ${fmt(cable.from.y)} L${fmt(end.x)} ${fmt(end.y)}` }];
+    const points = packedSheath(cable.cores) ?? strippedSheath(cable.cores);
+    if (points === null) return [];
+    const d = points.map((point, i) => `${i === 0 ? "M" : "L"}${fmt(point.x)} ${fmt(point.y)}`).join(" ");
+    return [{ key, kind: cable.kind, d }];
   });
+}
+
+/** The route from the entry to where the cable reaches its pack, or null when it has no single pack. */
+function packedSheath(cores: readonly Conductor[]): Point[] | null {
+  const side = cores[0].packSide;
+  if (side === null || cores.some((core) => core.packSide !== side || core.packSegment === null)) return null;
+  let best: Point[] | null = null;
+  let bestLength = Infinity;
+  for (const core of cores) {
+    const prefix = core.path.slice(0, (core.packSegment ?? 0) + 1);
+    let length = 0;
+    for (let i = 1; i < prefix.length; i++) {
+      length += Math.abs(prefix[i].x - prefix[i - 1].x) + Math.abs(prefix[i].y - prefix[i - 1].y);
+    }
+    if (length > 0 && length < bestLength) {
+      best = prefix;
+      bestLength = length;
+    }
+  }
+  return best;
+}
+
+/** The progressive split's sheath: entry point to the last turn-off; null when it has no length. */
+function strippedSheath(cores: readonly Conductor[]): Point[] | null {
+  const from = cores[0].path[0];
+  const firsts = cores
+    .map((core) => {
+      const to = core.path[1];
+      return { to, length: Math.abs(to.x - from.x) + Math.abs(to.y - from.y) };
+    })
+    .sort((a, b) => b.length - a.length);
+  // The second-deepest turn-off; a single core stops one bend before its own.
+  const end =
+    firsts.length > 1
+      ? firsts[1].to
+      : towards(from, firsts[0].to, Math.max(firsts[0].length - WIRE_BEND_MM, firsts[0].length / 2));
+  if (end.x === from.x && end.y === from.y) return null;
+  return [from, end];
 }

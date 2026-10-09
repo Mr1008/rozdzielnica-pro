@@ -30,6 +30,45 @@ Decyzje użytkownika z planowania (2026-10-08):
 - widok realistyczny wszędzie na ekranie, plus przełącznik „Widok: realistyczny / schematyczny” na
   stronie projektu.
 
+## Decision 2026-10-09 — Phase 4: pack = round tied bundle
+
+Phase 4 stopped on a structural mismatch. Measured on today's routes with the plan's side rule:
+flat, single-layer packs overflow on every realistic project. Seed (b) left strip is 9 mm (the vertical
+PE/N bars take the rest) and needs 105 mm for 25 overlapping cores. The 12-circuit project on seed (c)
+needs 73 mm in a 24 mm strip. The warning would fire on every normal project.
+
+User decision (2026-10-09): a pack is a tied **round bundle**, as in
+`references/wiring/rozdzielnica-z-opaskami.webp`, not a flat ribbon.
+
+- Its width is `sqrt(Σ dᵢ² / PACK_FILL_FACTOR)`, with a named constant ≈ 0.6.
+- It may use the side strip plus the band behind the rail ends (`BEHIND_DEVICES_MM`).
+- Only cores beyond that capacity are overflow.
+- Cores inside one bundle may overlap in the front view, and Phase 6 draws them that way.
+- Estimates: seed (b) left ≈ 23 mm of 39 mm, seed (c) right ≈ 20 mm of 24 mm; both fit. The worst case
+  (72 cores ≈ 39 mm) overflows, as the warning should.
+- Fixed end-stub overlaps (Phase 3's `recordOverlaps`) do not count as overflow.
+- Second stop (2026-10-09): packs fit (seed b left 25.6/39 mm; worst case 38.4 and 41.1/44 mm), but
+  lanes and row channels stayed squeezed (seed b top lane ≈ 114 mm of cables in ≈ 53 mm). User decision:
+  **bundles everywhere**. Lanes and row channels are round tied bundles too, sized by area like packs.
+  Overflow means a bundle exceeds its channel's capacity, or no usable strip exists. Squeezed
+  device-to-device feeds and fixed end-stub overlaps are recorded but never set `overflow`. If the worst
+  case then shows no overflow, report it rather than forcing the test.
+- Result (2026-10-09): with bundles everywhere nothing overflows on any seed fixture, the 60-circuit worst
+  case included (packs 38.4/44 and 41.1/44 mm, bottom lane 64.1/98 mm). Progress 4.2 ("worst case
+  produces `conductors_do_not_fit`") is therefore adapted: the worst-case test asserts the measured truth
+  (no warning, peaks below capacity), and the warning is tested on a synthetic cramped cabinet (twelve
+  16 mm² left-entry circuits on seed (c)) and on a cabinet with no strips.
+
+## Decision 2026-10-09 — Phase 5: a third option, other hosting
+
+Phase 5 has a third option besides "stay on the Worker server" and "move wiring to a client island":
+move the app to different hosting where the worst-case render fits the CPU budget. Any provider will
+do as long as it is free (user decision, 2026-10-09).
+
+A move invalidates the Cloudflare-specific parts of the stack (Workers runtime, `wrangler.jsonc`,
+`deploy.yml`, the KV `SESSION` binding, `context/foundation/infrastructure.md`). Weigh it against the
+island before choosing, and record the choice with the measurements.
+
 ## Measurements
 
 CPU per invocation from `wrangler tail --format json` (`cpuTime`, ms) on the bench Worker

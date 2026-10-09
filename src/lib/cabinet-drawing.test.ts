@@ -396,6 +396,12 @@ describe("buildDrawnWires", () => {
     lengthMm: 11.5,
     diameterMm: 3.6,
     squeezed: [],
+    stubOverlaps: [],
+    packSide: null,
+    packSegment: null,
+    packLayer: null,
+    tied: [],
+    overflow: false,
   });
 
   it("paints protective conductors first, then the rest in routing order", () => {
@@ -429,6 +435,12 @@ describe("sag of parallel runs", () => {
     lengthMm: 390,
     diameterMm: 3.6,
     squeezed: [],
+    stubOverlaps: [],
+    packSide: null,
+    packSegment: null,
+    packLayer: null,
+    tied: [],
+    overflow: false,
   });
   /** The depth a drawn path's long horizontal run sags to: half its quadratic control offset. */
   const sagOf = (d: string, y: number) => {
@@ -491,6 +503,12 @@ describe("wireTitle", () => {
     lengthMm: 423,
     diameterMm: 3.6,
     squeezed: [],
+    stubOverlaps: [],
+    packSide: null,
+    packSegment: null,
+    packLayer: null,
+    tied: [],
+    overflow: false,
     ...overrides,
   });
 
@@ -609,6 +627,12 @@ describe("bar terminals and cables in the drawn wires", () => {
     lengthMm: 130,
     diameterMm: 3.6,
     squeezed: [],
+    stubOverlaps: [],
+    packSide: null,
+    packSegment: null,
+    packLayer: null,
+    tied: [],
+    overflow: false,
   };
 
   it("marks the end that lands on a bar terminal, and no other", () => {
