@@ -113,6 +113,18 @@ These are correctness requirements, not preferences.
   catalog, snapshotted with `project_devices.terminal_groups`
   (`supabase/migrations/20261006140000_project_device_bars.sql`) and placed on a DIN rail; the
   drawing and wiring read the snapshot, never the live catalog.
+- **Wiring (S-11) is display-only, routed and drawn in the browser.** The wiring router exceeded the
+  Worker CPU budget on Cloudflare, so the page hands a `placed` layout's router input to a client
+  island (@src/lib/wiring-island.ts, @src/components/projects/WiringDrawing.tsx; the editor uses the
+  same hook). Moving it back to the server must be measured on Cloudflare with `scripts/wiring-bench`
+  (`README.md` there), never decided by local timings; the bench Worker's name must never be
+  `rozdzielnica-pro`. Conductor diameters and ferrule colours come only from @src/lib/wire-dimensions.ts
+  (transcribed, user-verified data — never inline a size). One router (`routeConductors`) feeds both
+  drawing variants, `realistic` and `schematic`: a variant changes how a route is drawn, never the route
+  or its length. Overflow (`conductors_do_not_fit`) is an informational warning and never blocks a
+  layout, a save or a quote. In @src/lib/cabinet-drawing.ts a cable's sheath ends `SHEATH_STUB_MM` past
+  its entry, and realistic circuit/WLZ runs are taut — only feeds sag. The project page's "Widok" switch
+  is `?wiring=schematic` (@src/lib/wiring-view.ts); the printout stays schematic regardless.
 - **Pricing bounds are guarded twice, and the two guards must change together.** The named CHECKs
   in `supabase/migrations/20260924120000_pricing_profiles.sql` and the `MIN_`/`MAX_` constants in
   @src/lib/pricing-profile.ts (plus `MAX_PRICE_GROSZE` for the rate) encode the same ranges. The

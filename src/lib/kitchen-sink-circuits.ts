@@ -7,6 +7,7 @@ import {
   type DrawnDevice,
   type DrawnTie,
   type DrawnWire,
+  type WiringVariant,
 } from "@/lib/cabinet-drawing";
 import type { CabinetGeometry } from "@/lib/cabinet-geometry";
 import type { Placement } from "@/lib/cabinet-layout";
@@ -472,6 +473,8 @@ export interface LayoutFixture {
   ties: DrawnTie[];
   /** The router's input the project page's island is given; null unless the layout is `placed`. */
   wiring: WiringData | null;
+  /** The look the section draws the wires in (the page's "Widok" switch). */
+  wiringVariant: WiringVariant;
   geometry: CabinetGeometry;
   /** What the editor island is mounted with; null unless the layout is `placed`. */
   editor: LayoutEditorData | null;
@@ -483,6 +486,8 @@ interface LayoutFixtureOptions {
   editedManually?: boolean;
   /** The editor starts from an unsaved draft: the main switch moved by the real move operation. */
   moved?: boolean;
+  /** The look of the wires; default realistic. */
+  wiringVariant?: WiringVariant;
 }
 
 /** One 100 mm rail: far too short for the filled circuits' devices. */
@@ -503,6 +508,21 @@ const TN_C_OVERRIDES: Partial<MatchContext> = {
     circuit(2, null, k.circuits.living, { entry_side: "bottom" }),
     circuit(4, null, k.circuits.lighting, { rated_current_a: 10, cross_section_mm2: 1.5 }),
   ],
+};
+
+/**
+ * Twelve ungrouped 16 mm² circuits entering from the left of seed (c): more cores than the left side
+ * channel holds at true scale, so the router spills some and raises `conductors_do_not_fit` (the
+ * cramped cabinet of the router's own overflow test). The 60-circuit worst case fits its channels.
+ */
+const OVERFLOW_OVERRIDES: Partial<MatchContext> = {
+  groups: [],
+  circuits: Array.from({ length: 12 }, (_, index) =>
+    circuit(index + 1, null, t.circuits.defaultCircuitName(index + 1), {
+      cross_section_mm2: 16,
+      entry_side: "left",
+    }),
+  ),
 };
 
 function matchedSelections(ctx: MatchContext): Selection[] {
@@ -549,6 +569,7 @@ function layoutFixture(
     cables: buildDrawnCables(conductors),
     ties: buildCableTies(conductors),
     wiring: buildLayoutDrawing(view, matchView, ctx).wiring,
+    wiringVariant: options.wiringVariant ?? "realistic",
     geometry,
     editor:
       view?.state === "placed"
@@ -612,6 +633,10 @@ export function kitchenSinkLayoutStates(): LayoutFixture[] {
   return [
     layoutFixture("placed-b", l.placedMedium, SEED_B, "proposal"),
     layoutFixture("placed-c", l.placedLarge, SEED_C, "proposal"),
+    layoutFixture("placed-b-schematic", l.placedMediumSchematic, SEED_B, "proposal", {}, undefined, {
+      wiringVariant: "schematic",
+    }),
+    layoutFixture("placed-overflow", l.placedOverflow, SEED_C, "proposal", OVERFLOW_OVERRIDES),
     layoutFixture("placed-tn-c", l.placedTnC, SEED_B, "proposal", TN_C_OVERRIDES),
     layoutFixture("placed-no-bars", l.placedNoBars, SEED_A, "proposal"),
     layoutFixture("placed-manual", l.editorManual, SEED_B, "proposal", {}, undefined, { editedManually: true }),

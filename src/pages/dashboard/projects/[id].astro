@@ -34,6 +34,7 @@ import {
 import { projectErrorMessage } from "@/lib/project-errors";
 import { computeQuoteView, type QuoteView } from "@/lib/quote";
 import { createClient } from "@/lib/supabase";
+import { WIRING_VIEW_PARAM, wiringViewFromParam, wiringViewHrefs } from "@/lib/wiring-view";
 import { supplyFormDefaults, supplyFromRow } from "@/lib/supply-params";
 import { supplyWarningMessage, supplyWarnings } from "@/lib/supply-warnings";
 import { CircleAlertIcon, CircleCheckIcon, TriangleAlertIcon } from "lucide-react";
@@ -65,6 +66,10 @@ const saved =
                   : null;
 // A circuit save or re-match replaced a manual layout that no longer applied to the new device set.
 const layoutReset = error === null && Astro.url.searchParams.get("layout_reset") === "1";
+// The "Układ w szafce" drawing's look (S-11): `?wiring=schematic`, otherwise realistic. Saves redirect
+// without it; the printout stays schematic regardless.
+const wiringVariant = wiringViewFromParam(Astro.url.searchParams.get(WIRING_VIEW_PARAM));
+const wiringViewLinks = wiringViewHrefs(Astro.url.pathname, "layout");
 
 const supabase = createClient(Astro.request.headers, Astro.cookies);
 
@@ -524,6 +529,8 @@ const headingClass = "scroll-mt-6 text-lg leading-none font-semibold";
                   view={layoutView}
                   devices={placedDevices}
                   wiring={placedWiring}
+                  wiringVariant={wiringVariant}
+                  viewHrefs={wiringViewLinks}
                   geometry={matchContext.geometry}
                   projectId={project.id}
                   matchAnchor={circuitsSectionId}

@@ -1187,6 +1187,16 @@ export const pl = {
       },
       /** Where the wires go while the browser routes them (`WiringDrawing`). */
       wiresLoading: "Wczytywanie przewodów…",
+      /** The "Widok: realistyczny / schematyczny" switch over the drawing (`WiringViewSwitch`). */
+      view: {
+        label: "Widok",
+        navLabel: "Widok rysunku przewodów",
+        /** Keyed by `WiringVariant`. */
+        options: {
+          realistic: "realistyczny",
+          schematic: "schematyczny",
+        },
+      },
       lengthsTitle: "Długości przewodów",
       lengthsColumns: {
         crossSection: "Przekrój",
@@ -1456,8 +1466,13 @@ export const pl = {
       },
       /** Captions for the layout section states; each is computed by the real `computeLayoutView`. */
       layoutStates: {
-        placedMedium: "Rozmieszczony z przewodami — szafka średnia (trzy rzędy, PE i N pionowo)",
-        placedLarge: "Rozmieszczony z przewodami — szafka duża (pięć szyn, PE i N poziomo)",
+        placedMedium:
+          "Rozmieszczony z przewodami, widok realistyczny (przełącznik w pozycji „realistyczny”) — szafka średnia (trzy rzędy, PE i N pionowo)",
+        placedLarge: "Rozmieszczony z przewodami, widok realistyczny — szafka duża (pięć szyn, PE i N poziomo)",
+        placedMediumSchematic:
+          "Rozmieszczony z przewodami, widok schematyczny (przełącznik w pozycji „schematyczny”) — szafka średnia",
+        placedOverflow:
+          "Rozmieszczony z przewodami — przewody nie mieszczą się w kanałach bocznych (dwanaście obwodów 16 mm² od lewej, szafka duża): ostrzeżenie pod rysunkiem",
         placedTnC: "Rozmieszczony z przewodami — układ TN-C (PEN zamiast N i PE, obwody bez RCD)",
         placedNoBars:
           "Rozmieszczony z przewodami — szafka bez wbudowanych szyn PE/N (szyny PE i N dobrane z katalogu i umieszczone na szynie DIN)",

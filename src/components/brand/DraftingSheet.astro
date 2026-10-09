@@ -6,7 +6,8 @@ import { cn } from "@/lib/utils";
 /**
  * The landing page's product picture: the demo cabinet with a real layout proposal and its wires on a
  * drafting sheet. The devices come from the real matcher, `proposeLayout` and the wiring router
- * (`landingLayoutFixture`), so the hero shows what the product produces; also on `/dev/kitchen-sink`.
+ * (`landingLayoutFixture`), so the hero shows what the product produces, in the realistic view (S-11);
+ * also on `/dev/kitchen-sink`.
  */
 interface Props {
   caption: string;
@@ -32,6 +33,7 @@ const { widthMm, heightMm } = geometry.interior;
       wires={wires}
       cables={cables}
       ties={ties}
+      wiring="realistic"
       className="absolute inset-0 h-full w-full"
     />
   </div>

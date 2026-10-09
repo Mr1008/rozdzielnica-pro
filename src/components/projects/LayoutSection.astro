@@ -3,10 +3,11 @@ import { CabinetDrawing } from "@/components/cabinets/CabinetDrawing";
 import LayoutEditor from "@/components/projects/LayoutEditor";
 import { LayoutLegend } from "@/components/projects/LayoutLegend";
 import WiringDrawing from "@/components/projects/WiringDrawing";
+import { WiringViewSwitch } from "@/components/projects/WiringViewSwitch";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import type { CabinetGeometry } from "@/lib/cabinet-geometry";
-import type { DrawnDevice } from "@/lib/cabinet-drawing";
+import type { DrawnDevice, WiringVariant } from "@/lib/cabinet-drawing";
 import { layoutFailureMessage } from "@/lib/cabinet-layout";
 import { WIRE_SLACK_RATIO } from "@/lib/cabinet-wiring";
 import type { LayoutEditorData } from "@/lib/layout-editor-data";
@@ -25,6 +26,10 @@ import { CircleAlertIcon, InfoIcon, TriangleAlertIcon } from "lucide-react";
  * routed in the browser (S-11 Phase 5): the server renders the devices, and the `WiringDrawing` island
  * (or the editor) routes and draws the wires from `wiring`.
  *
+ * The wires are drawn in `wiringVariant` (S-11 Phase 7); with `viewHrefs` a placed layout with wires gets
+ * the "Widok: realistyczny / schematyczny" switch, two links the page reads back as `?wiring=`. The
+ * overflow warning (`wiringWarningMessage`) comes with the routed wires, in either variant.
+ *
  * With `editor` data a placed layout is the interactive editor island (FR-009, S-06); its fallback slot
  * is the static drawing, so the layout shows before the island hydrates.
  */
@@ -34,6 +39,10 @@ interface Props {
   devices: readonly DrawnDevice[];
   /** The router's input for a placed layout, from `buildLayoutDrawing`; null draws no wires. */
   wiring?: WiringData | null;
+  /** The look of the wires, from the page's `?wiring=` (`wiringViewFromParam`). Default realistic. */
+  wiringVariant?: WiringVariant;
+  /** The view switch's links (`wiringViewHrefs`); omitted, no switch is shown. */
+  viewHrefs?: Record<WiringVariant, string> | null;
   geometry: CabinetGeometry | null;
   projectId: string;
   /** The in-page anchor of the match result's section, the link for a match that is not current. */
@@ -57,6 +66,8 @@ const {
   view,
   devices,
   wiring = null,
+  wiringVariant = "realistic",
+  viewHrefs = null,
   geometry,
   projectId,
   matchAnchor,
@@ -125,7 +136,10 @@ const slackPercent = Math.round(WIRE_SLACK_RATIO * 100);
 
   {view?.state === "placed" && geometry && (
     <div class="flex flex-col gap-3">
-      <h3 class="text-sm font-semibold">{s.drawingTitle}</h3>
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <h3 class="text-sm font-semibold">{s.drawingTitle}</h3>
+        {wiring && viewHrefs && <WiringViewSwitch active={wiringVariant} hrefs={viewHrefs} />}
+      </div>
       {editor ? (
         <div id={editorId} tabindex="-1" class="scroll-mt-6">
           <LayoutEditor
@@ -136,6 +150,7 @@ const slackPercent = Math.round(WIRE_SLACK_RATIO * 100);
             editedManually={view.editedManually}
             names={editor.names}
             wiring={wiring}
+            wiringVariant={wiringVariant}
             slackPercent={slackPercent}
             saveAction={placementsAction}
             reproposeAction={layoutAction}
@@ -146,14 +161,14 @@ const slackPercent = Math.round(WIRE_SLACK_RATIO * 100);
           >
             <div slot="fallback" class="flex flex-col gap-3">
               <div class="mx-auto w-full max-w-3xl">
-                <CabinetDrawing geometry={geometry} devices={devices} />
+                <CabinetDrawing geometry={geometry} devices={devices} wiring={wiringVariant} />
               </div>
               {wiring && (
                 <p role="status" class="text-xs text-muted-foreground">
                   {s.wiresLoading}
                 </p>
               )}
-              <LayoutLegend geometry={geometry} devices={devices} wires={[]} cables={[]} />
+              <LayoutLegend geometry={geometry} devices={devices} wires={[]} cables={[]} wiring={wiringVariant} />
             </div>
           </LayoutEditor>
         </div>
@@ -162,6 +177,7 @@ const slackPercent = Math.round(WIRE_SLACK_RATIO * 100);
           geometry={geometry}
           devices={[...devices]}
           wiring={wiring}
+          variant={wiringVariant}
           slackPercent={slackPercent}
           drawingWrapperClassName="mx-auto w-full max-w-3xl"
           client:idle
