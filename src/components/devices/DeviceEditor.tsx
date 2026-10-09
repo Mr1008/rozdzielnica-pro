@@ -36,8 +36,10 @@ import {
   PARAMETERS_BY_KIND,
   POLES_BY_KIND,
   RCD_TYPES,
+  busbarPins,
   deviceIssueMessage,
   deviceKindLabel,
+  isCombBusbarKind,
   parseDeviceSpec,
   polesCarryN,
   type DeviceField,
@@ -183,8 +185,13 @@ export default function DeviceEditor({ initial, action, error }: DeviceEditorPro
   const f = t.devices.fields;
   const e = t.devices.editor;
   const widthMm = numberFromField(values.width_mm);
-  const widthHint =
-    draft.widthUnit === "modules" && !stepInvalid && Number.isFinite(widthMm) && widthMm > 0
+  const widthKnown = !stepInvalid && Number.isFinite(widthMm) && widthMm > 0;
+  const busbar = isCombBusbarKind(kind);
+  const widthHint = busbar
+    ? widthKnown
+      ? e.busbarWidthHint(busbarPins(widthMm))
+      : e.busbarWidthHintEmpty
+    : draft.widthUnit === "modules" && widthKnown
       ? e.widthEquals(widthMm)
       : undefined;
   const terminalMessages = messagesFor("terminal_groups");
@@ -374,11 +381,12 @@ export default function DeviceEditor({ initial, action, error }: DeviceEditorPro
             <SelectField
               id="device-poles"
               name={DEVICE_FORM_FIELDS.poles}
-              label={f.poles}
+              label={busbar ? f.busbarPhases : f.poles}
               value={draft.poles}
               options={poleOptions}
-              labels={t.devices.poles}
-              placeholder={e.polesPlaceholder}
+              labels={busbar ? { ...t.devices.poles, ...t.devices.busbarPhases } : t.devices.poles}
+              placeholder={busbar ? e.phasesPlaceholder : e.polesPlaceholder}
+              hint={busbar ? e.busbarPhasesHint : undefined}
               onChange={(poles) => {
                 update({ poles });
                 touch("poles");

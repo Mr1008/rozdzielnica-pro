@@ -129,7 +129,7 @@ Niezalogowany użytkownik trafiający na chronioną trasę jest przekierowywany 
 ## Non-Goals
 
 - **Bez pełnego algorytmu optymalizacyjnego układu** — MVP używa prostej heurystyki (grupowanie RCD, bliskość wyprowadzeń przewodów, bliskość szyn PE/N — patrz `## Business Logic`), nie solvera ani optymalizacji kombinatorycznej.
-- **Bez typów aparatów spoza listy wspieranej w MVP** — MVP obsługuje wyłącznie: rozłączniki izolacyjne ("FR" — bez wkładek bezpiecznikowych; doprecyzowane 2026-09-23 przy planowaniu S-01), wyłączniki różnicowoprądowe (RCD), wyłączniki różnicowoprądowe z członem nadprądowym (RCBO), wyłączniki nadprądowe o charakterystyce B, szyny PE i szyny N. Pozostałe typy — w tym bloki rozdzielcze (rozważane przy regułach bliskości, ale nieujęte w MVP) oraz wyłączniki nadprądowe o charakterystykach innych niż B — dochodzą dopiero po MVP, o ile pójdzie łatwo i zostanie czas.
+- **Bez typów aparatów spoza listy wspieranej w MVP** — MVP obsługuje wyłącznie: rozłączniki izolacyjne ("FR" — bez wkładek bezpiecznikowych; doprecyzowane 2026-09-23 przy planowaniu S-01), wyłączniki różnicowoprądowe (RCD), wyłączniki różnicowoprądowe z członem nadprądowym (RCBO), wyłączniki nadprądowe o charakterystyce B, szyny PE i szyny N, a od 2026-10-09 także listwy zasilające (grzebieniowe) 1F/3F do zasilania grup RCD. Pozostałe typy — w tym bloki rozdzielcze (rozważane przy regułach bliskości, ale nieujęte w MVP) oraz wyłączniki nadprądowe o charakterystykach innych niż B — dochodzą dopiero po MVP, o ile pójdzie łatwo i zostanie czas.
 - **Bez masowego/automatycznego importu katalogu producentów** — admin dodaje aparaty i szafki ręcznie w MVP; integracja z realnymi bazami producentów to nie jest cel MVP.
 - **Bez integracji płatności / faktur** — wycena to dokument informacyjny do wydruku/eksportu, nie faktura powiązana z systemem płatności.
 - **Bez wsparcia dla ekranów dotykowych / urządzeń mobilnych** — MVP zakłada pracę na komputerze (mysz + klawiatura); brak dedykowanego UI dotykowego.
@@ -148,6 +148,7 @@ Uwaga (nie non-goal, doprecyzowanie zakresu): instalacje jednofazowe (1F) i tró
 
 **Rozstrzygnięte przy walidacji:**
 
+- _(2026-10-09)_ Zakres typów aparatów w MVP rozszerzony o listwy zasilające (grzebieniowe) 1F/3F do zasilania grup RCD (roadmapa S-12, GitHub #17) — zawężenie z 2026-09-16 pozostaje w mocy dla pozostałych typów; patrz `## Non-Goals`.
 - _(2026-10-06)_ Pierwszeństwo reguł rozmieszczenia, gdy wskazują różne miejsca dla tej samej grupy: (1) grupowanie > (2) bliskość wyprowadzeń przewodów > (3) bliskość szyn PE/N. Zapisane w nagłówku `src/lib/cabinet-layout.ts`; patrz `## Business Logic`.
 - _(2026-09-15)_ Źródło czasu montażu aparatu — uśredniony, statystyczny parametr profilu elektryka (obok stawki godzinowej), nie pole w katalogu aparatów i nie stała globalna systemu; patrz FR-010 i `## Business Logic`.
 - _(2026-09-16)_ Brak pasującego aparatu w katalogu — system zgłasza błąd z prośbą o kontakt z administratorem, zamiast schodzić na aparat niezgodny; patrz guardrail w `## Success Criteria`, `## Business Logic` i kryteria akceptacji US-01.

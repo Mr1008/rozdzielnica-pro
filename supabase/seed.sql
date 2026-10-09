@@ -164,6 +164,12 @@ values
   ('switch_disconnector', 'Rozłącznik izolacyjny 2P 63 A', 'Przykładowy producent', 'PRZ-FR-2P-63', 7990, 35, 85, 70, '2P', 63, null, null, null, null, 'right'),
   ('switch_disconnector', 'Rozłącznik izolacyjny 4P 40 A', 'Przykładowy producent', 'PRZ-FR-4P-40', 12990, 70, 85, 70, '4P', 40, null, null, null, null, 'right'),
   ('switch_disconnector', 'Rozłącznik izolacyjny 4P 63 A', 'Przykładowy producent', 'PRZ-FR-4P-63', 14990, 70, 85, 70, '4P', 63, null, null, null, null, 'left'),
+  -- Comb busbars (listwy zasilające, roadmap S-12): poles '1P' = 1F, '3P' = 3F; the width is the length
+  -- in pins (17.5 mm each), so 210 mm = 12 pins and 945 mm = 54 pins.
+  ('comb_busbar', 'Listwa zasilająca 1F 12 pinów 63 A', 'Przykładowy producent', 'PRZ-LZ-1F-12-63', 1290, 210, 20, 12, '1P', 63, null, null, null, null, null),
+  ('comb_busbar', 'Listwa zasilająca 1F 54 piny 63 A', 'Przykładowy producent', 'PRZ-LZ-1F-54-63', 4290, 945, 20, 12, '1P', 63, null, null, null, null, null),
+  ('comb_busbar', 'Listwa zasilająca 3F 12 pinów 63 A', 'Przykładowy producent', 'PRZ-LZ-3F-12-63', 1990, 210, 20, 12, '3P', 63, null, null, null, null, null),
+  ('comb_busbar', 'Listwa zasilająca 3F 54 piny 63 A', 'Przykładowy producent', 'PRZ-LZ-3F-54-63', 6990, 945, 20, 12, '3P', 63, null, null, null, null, null),
   ('pe_bar', 'Szyna PE 12-torowa', 'Przykładowy producent', 'PRZ-PE-12', 2490, 70, 15, 20, null, null, null, null, null,
     '[{"count":10,"minMm2":1.5,"maxMm2":16},{"count":2,"minMm2":6,"maxMm2":25}]'::jsonb, null),
   ('n_bar', 'Szyna N 12-torowa', 'Przykładowy producent', 'PRZ-N-12', 2490, 70, 15, 20, null, null, null, null, null,

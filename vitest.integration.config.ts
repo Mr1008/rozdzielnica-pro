@@ -19,6 +19,8 @@ export default defineConfig({
   test: {
     include: ["tests/integration/**/*.test.ts"],
     environment: "node",
+    // Reuse transformed modules across runs (cache in `node_modules/.vitest-cache`, gone with `npm ci`).
+    fsModuleCache: true,
     // Every file here shares one database and creates real users in it, so they must not overlap.
     fileParallelism: false,
     // Sign-up and sign-in go through GoTrue's bcrypt work factor, and the first call also wakes a

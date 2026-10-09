@@ -32,7 +32,7 @@ These are correctness requirements, not preferences.
   deliberate heuristic, not an optimiser. Precedence when they conflict is decided (2026-10-06): 1 > 2 > 3,
   recorded in the header of @src/lib/cabinet-layout.ts — change it there, explicitly, never by tuning a score.
 - **MVP device types are closed:** switch-disconnectors ("FR", no fuse links), RCD, RCBO, type-B
-  MCBs, PE bars, N bars. Nothing else.
+  MCBs, 1F/3F comb busbars ("listwy zasilające", added 2026-10-09 to feed an RCD group's MCBs; `comb_busbar`, 1P = 1F, 3P = 3F, length in pins = width / 17.5 mm), PE bars, N bars. Nothing else.
 - **One project = one cabinet.** Single-phase and three-phase installations are both in scope.
 - **Quote:** (device count × average mount time per device) + fixed per-project overhead = hours;
   hours × hourly rate = labour cost; catalog prices = material cost. Mount time, rate and overhead

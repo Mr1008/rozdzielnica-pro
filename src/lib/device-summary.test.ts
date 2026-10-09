@@ -73,6 +73,15 @@ describe("deviceParameterSummary", () => {
     ).toBe("63 A 4P, N z prawej");
   });
 
+  it("summarises a comb busbar as phases, rating and pins", () => {
+    expect(deviceParameterSummary(spec({ kind: "comb_busbar", poles: "3P", rated_current_a: 63, width_mm: 210 }))).toBe(
+      "3F, 63 A, 12 pinów",
+    );
+    expect(
+      deviceParameterSummary(spec({ kind: "comb_busbar", poles: "1P", rated_current_a: 63, width_mm: 52.5 })),
+    ).toBe("1F, 63 A, 3 piny");
+  });
+
   it.each(["pe_bar", "n_bar"])("summarises a %s as its terminal groups", (kind) => {
     expect(
       deviceParameterSummary(

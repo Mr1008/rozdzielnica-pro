@@ -1,11 +1,13 @@
 import { z } from "zod";
 import { terminalGroupSchema } from "@/lib/cabinet-geometry";
 import type { Enums } from "@/lib/database.types";
+import { DIN_MODULE_MM } from "@/lib/din-module";
 import { t } from "@/lib/i18n";
 import { MAX_PRICE_GROSZE } from "@/lib/price-input";
 
 /**
- * A catalog device: the closed MVP set of kinds and every per-kind rule, mirroring the database
+ * A catalog device: the closed MVP set of kinds (since 2026-10-09 including the 1F/3F comb busbar)
+ * and every per-kind rule, mirroring the database
  * CHECK so the editor island and the server reject exactly the same things. The input and output
  * use the `devices` row shape (snake_case, numbers, `price_grosze` in integer grosze), so a stored
  * row can be re-parsed as is; a form parser turns the admin's typed strings into this shape first
@@ -19,7 +21,7 @@ import { MAX_PRICE_GROSZE } from "@/lib/price-input";
  */
 
 /** Fixed display order: pickers and the catalog list show kinds in this order. */
-export const DEVICE_KINDS = ["switch_disconnector", "rcd", "rcbo", "mcb_b", "pe_bar", "n_bar"] as const;
+export const DEVICE_KINDS = ["switch_disconnector", "rcd", "rcbo", "mcb_b", "comb_busbar", "pe_bar", "n_bar"] as const;
 export type DeviceKind = (typeof DEVICE_KINDS)[number];
 
 export const POLE_CONFIGS = ["1P", "1P+N", "2P", "3P", "3P+N", "4P"] as const;
@@ -38,6 +40,16 @@ export type NTerminalSide = (typeof N_TERMINAL_SIDES)[number];
  * in `supabase/migrations/20261006120000_device_n_terminal_side.sql`.
  */
 export const POLES_WITH_N = ["1P+N", "2P", "3P+N", "4P"] as const satisfies readonly PoleConfig[];
+
+/** A comb busbar: a catalog piece cut into per-group segments, never placed on a DIN rail. */
+export function isCombBusbarKind(kind: unknown): kind is "comb_busbar" {
+  return kind === "comb_busbar";
+}
+
+/** A busbar's length in pins: one pin per DIN module of its width. */
+export function busbarPins(widthMm: number): number {
+  return Math.floor(widthMm / DIN_MODULE_MM + 1e-9);
+}
 
 export function polesCarryN(poles: unknown): boolean {
   return (POLES_WITH_N as readonly unknown[]).includes(poles);
@@ -60,6 +72,8 @@ export const POLES_BY_KIND = {
   rcd: ["2P", "4P"],
   rcbo: ["1P+N", "2P", "3P+N", "4P"],
   mcb_b: ["1P", "1P+N", "2P", "3P", "3P+N", "4P"],
+  /** 1P is a 1F busbar, 3P a 3F one. */
+  comb_busbar: ["1P", "3P"],
   pe_bar: [],
   n_bar: [],
 } as const satisfies Record<DeviceKind, readonly PoleConfig[]>;
@@ -84,6 +98,7 @@ export const PARAMETERS_BY_KIND = {
   rcd: ["poles", "rated_current_a", "residual_current_ma", "rcd_type", "n_terminal_side"],
   rcbo: ["poles", "rated_current_a", "residual_current_ma", "rcd_type", "breaking_capacity_ka", "n_terminal_side"],
   mcb_b: ["poles", "rated_current_a", "breaking_capacity_ka", "n_terminal_side"],
+  comb_busbar: ["poles", "rated_current_a"],
   pe_bar: ["terminal_groups"],
   n_bar: ["terminal_groups"],
 } as const satisfies Record<DeviceKind, readonly DeviceParameter[]>;
@@ -243,6 +258,17 @@ export const deviceSpecSchema = z
       breaking_capacity_ka: breakingCapacitySchema,
       terminal_groups: z.null(),
       n_terminal_side: nTerminalSideOrNull,
+    }),
+    z.object({
+      kind: z.literal("comb_busbar"),
+      ...common,
+      poles: z.enum(POLES_BY_KIND.comb_busbar),
+      rated_current_a: currentSchema,
+      residual_current_ma: z.null(),
+      rcd_type: z.null(),
+      breaking_capacity_ka: z.null(),
+      terminal_groups: z.null(),
+      n_terminal_side: z.null(),
     }),
     z.object({ kind: z.literal("pe_bar"), ...common, ...noProtection, terminal_groups: terminalGroupsSchema }),
     z.object({ kind: z.literal("n_bar"), ...common, ...noProtection, terminal_groups: terminalGroupsSchema }),
@@ -412,6 +438,7 @@ const KIND_LABEL_KEYS: Record<DeviceKind, keyof typeof t.devices.kinds> = {
   rcd: "rcd",
   rcbo: "rcbo",
   mcb_b: "mcbB",
+  comb_busbar: "combBusbar",
   pe_bar: "peBar",
   n_bar: "nBar",
 };

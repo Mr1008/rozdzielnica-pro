@@ -56,7 +56,23 @@ const RCD: DeviceRow = {
   n_terminal_side: "right",
 };
 
+const BUSBAR: DeviceRow = {
+  ...MCB,
+  kind: "comb_busbar",
+  width_mm: 210,
+  poles: "3P",
+  rated_current_a: 63,
+  breaking_capacity_ka: null,
+};
+
 describe("draftFromRow", () => {
+  it("opens a comb busbar in modules (its pin count) and parses it back", () => {
+    const { id: _id, ...spec } = BUSBAR;
+    expect(draftFromRow(BUSBAR)).toMatchObject({ kind: "comb_busbar", width: "12", widthUnit: "modules", poles: "3P" });
+    expect(judge(draftFromRow(BUSBAR))).toEqual({ ok: true, spec });
+    expect(withKind(draftFromRow(MCB), "comb_busbar")).toMatchObject({ poles: "", terminalGroups: [] });
+  });
+
   it("pre-fills a stored row so it parses back to the same spec", () => {
     for (const row of [MCB, N_BAR, RCD]) {
       const { id: _id, ...spec } = row;

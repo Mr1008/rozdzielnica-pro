@@ -1,4 +1,4 @@
-import type { DeviceSpec, NTerminalSide } from "@/lib/device-spec";
+import { busbarPins, type DeviceSpec, type NTerminalSide } from "@/lib/device-spec";
 import { modulesFromMm } from "@/lib/din-module";
 import { t } from "@/lib/i18n";
 
@@ -44,6 +44,8 @@ export function deviceParameterSummary(spec: DeviceSpec): string {
         ],
         spec.n_terminal_side,
       );
+    case "comb_busbar":
+      return join([s.busbar(t.devices.busbarPhases[spec.poles], spec.rated_current_a, busbarPins(spec.width_mm))]);
     case "pe_bar":
     case "n_bar":
       return join(spec.terminal_groups.map((group) => s.terminalGroup(group.count, group.minMm2, group.maxMm2)));
