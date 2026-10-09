@@ -77,6 +77,10 @@
   --wire-sheath: oklch(80% 0.005 250); /* light grey jacket */
   --wire-sheen: oklch(100% 0 0 / 35%); /* insulation highlight */
 
+  /* Comb busbar in the realistic drawing: bare copper teeth over a dark insulating body. */
+  --busbar-copper: oklch(68% 0.12 55); /* copper */
+  --busbar-insulation: oklch(38% 0.03 255); /* dark grey-blue plastic */
+
   /* Ferrule sleeve colours per DIN 46228-4 (screen approximations). */
   --ferrule-black: oklch(25% 0 0);
   --ferrule-blue: oklch(55% 0.16 245);
@@ -184,6 +188,8 @@
   --color-wire-tie: var(--wire-tie);
   --color-wire-sheath: var(--wire-sheath);
   --color-wire-sheen: var(--wire-sheen);
+  --color-busbar-copper: var(--busbar-copper);
+  --color-busbar-insulation: var(--busbar-insulation);
   --color-ferrule-black: var(--ferrule-black);
   --color-ferrule-blue: var(--ferrule-blue);
   --color-ferrule-grey: var(--ferrule-grey);

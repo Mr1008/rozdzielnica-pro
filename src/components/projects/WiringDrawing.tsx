@@ -91,6 +91,7 @@ export default function WiringDrawing({
           wires={drawn?.wires ?? []}
           cables={drawn?.cables ?? []}
           ties={drawn?.ties ?? []}
+          busbars={drawn?.busbars ?? []}
           wiring={variant}
           className={drawingClassName}
         />
@@ -112,6 +113,7 @@ export default function WiringDrawing({
         wires={drawn?.wires ?? []}
         cables={drawn?.cables ?? []}
         ties={drawn?.ties ?? []}
+        busbars={drawn?.busbars ?? []}
         wiring={variant}
       />
       {slackPercent !== undefined && drawn !== null && drawn.lengths.length > 0 && (

@@ -17,6 +17,7 @@ import {
 import {
   WIRE_CLEARANCE_MM,
   WIRE_SLACK_RATIO,
+  type Busbar,
   type Conductor,
   type ConductorKind,
   type ConductorRole,
@@ -682,6 +683,77 @@ export function buildDrawnWires(
         terminalEnds: terminalEnds(conductor),
       };
     });
+}
+
+// ---------------------------------------------------------------------------------------------
+// Comb busbars
+// ---------------------------------------------------------------------------------------------
+
+/** How far a busbar strip reaches past its first and last tooth. */
+export const BUSBAR_OVERHANG_MM = 2;
+/** A tooth's width in the realistic drawing; the schematic one draws it as a tick line. */
+export const BUSBAR_TOOTH_MM = 3;
+/** How far a tooth reaches into the device, past the terminal's edge. */
+export const BUSBAR_TOOTH_DEPTH_MM = 3;
+
+/** One tooth ready to draw: a vertical run from the strip's edge, at `x`, into the device's terminal. */
+export interface DrawnBusbarTooth {
+  x: number;
+  /** The strip's edge facing the devices. */
+  y1: number;
+  /** Where the tooth ends, inside the terminal. */
+  y2: number;
+  pole: Busbar["teeth"][number]["pole"];
+}
+
+/** A comb busbar ready to draw (`rcd-group-busbars`, Phase 4). Both variants share the geometry. */
+export interface DrawnBusbar {
+  key: string;
+  groupId: string;
+  variant: WiringVariant;
+  phases: 1 | 3;
+  pins: number;
+  /** The strip, reaching `BUSBAR_OVERHANG_MM` past its first and last tooth. */
+  body: Rect;
+  teeth: DrawnBusbarTooth[];
+  /** The hover tooltip: "Listwa zasilająca 3F — grupa „Kuchnia”, 8 pinów". */
+  title: string;
+}
+
+/**
+ * The routed busbars as drawable strips with teeth. The variant changes only how they are painted
+ * (a copper tooth rectangle, or a tick line), never the geometry the router fixed. `groupLabels` names
+ * the groups in the tooltip; a missing label leaves the group out of it.
+ */
+export function buildDrawnBusbars(
+  busbars: readonly Busbar[],
+  variant: WiringVariant,
+  groupLabels: ReadonlyMap<string, string> = new Map(),
+): DrawnBusbar[] {
+  return busbars.map((busbar) => {
+    const towardsDevices = busbar.edge === "top" ? 1 : -1;
+    const edgeY = busbar.edge === "top" ? busbar.rect.y + busbar.rect.h : busbar.rect.y;
+    return {
+      key: busbar.key,
+      groupId: busbar.groupId,
+      variant,
+      phases: busbar.phases,
+      pins: busbar.pins,
+      body: {
+        x: busbar.rect.x - BUSBAR_OVERHANG_MM,
+        y: busbar.rect.y,
+        w: busbar.rect.w + 2 * BUSBAR_OVERHANG_MM,
+        h: busbar.rect.h,
+      },
+      teeth: busbar.teeth.map((tooth) => ({
+        x: tooth.x,
+        y1: edgeY,
+        y2: tooth.y + towardsDevices * BUSBAR_TOOTH_DEPTH_MM,
+        pole: tooth.pole,
+      })),
+      title: t.layout.section.busbarTitle(busbar.phases, groupLabels.get(busbar.groupId) ?? "", busbar.pins),
+    };
+  });
 }
 
 // ---------------------------------------------------------------------------------------------

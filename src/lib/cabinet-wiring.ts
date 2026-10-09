@@ -8,13 +8,16 @@ import {
   deviceTerminals,
   type DeviceEdge,
   type DeviceTerminals,
+  isBusbarRole,
   type LayoutDevice,
   type Placement,
   type Point,
   type Terminal,
   type TerminalPole,
 } from "@/lib/cabinet-layout";
+import { demandPins } from "@/lib/busbar-cutting";
 import type { CircuitInput, EntrySide } from "@/lib/circuit-params";
+import { DIN_MODULE_MM } from "@/lib/din-module";
 import type { SupplyParams } from "@/lib/supply-params";
 import { t } from "@/lib/i18n";
 import { conductorDiameterMm, WIRE_CROSS_SECTIONS_MM2, type WireCrossSectionMm2 } from "@/lib/wire-dimensions";
@@ -30,7 +33,9 @@ import { conductorDiameterMm, WIRE_CROSS_SECTIONS_MM2, type WireCrossSectionMm2 
  * - **WLZ** — from `entries[0]` to the main switch's supply terminals, its PE (PEN in TN-C and
  *   TN-C-S) to the PE bar;
  * - **feeds** — the main switch's outgoing side to each RCD, RCBO and ungrouped MCB supply side, and
- *   each RCD's outgoing side to its MCBs.
+ *   each RCD's outgoing side to its MCBs — as wire jumpers, except in a group with a comb busbar (below);
+ * - **busbars** — one per RCD group that has a comb busbar segment (`rcd-group-busbars`), in place of
+ *   that group's phase jumpers (`routeWiring`).
  *
  * ## Bidirectional devices
  *
@@ -47,8 +52,18 @@ import { conductorDiameterMm, WIRE_CROSS_SECTIONS_MM2, type WireCrossSectionMm2 
  *   and takes its supply on the other; level → supply on top.
  * - **The main switch** takes the WLZ on the edge facing the WLZ's entry point and gives out on the
  *   other; level → WLZ at the bottom, out on top.
- * Feeds from the main switch run between whatever edges these rules chose. (Comb busbars would later
- * replace the jumpers — roadmap `## Parked`.)
+ * Feeds from the main switch run between whatever edges these rules chose.
+ *
+ * Comb busbars (plan `rcd-group-busbars`, Phase 4): a group whose match carries a `busbar` row has no
+ * phase jumpers from its RCD to its MCBs; a `Busbar` is emitted instead, a strip along the edge the RCD
+ * gives out on (the MCBs' supply edge), spanning the first to the last phase terminal of the RCD and the
+ * MCBs on that edge, with a tooth at every one. N feeds to MCBs that carry N stay wire jumpers. Pins are
+ * numbered from the RCD's end, one per `DIN_MODULE_MM`, from the RCD's first phase terminal toward the
+ * MCBs; a 1F busbar is one phase (L) on every pin, a 3F one takes L1/L2/L3 from the RCD's phase terminals
+ * in order and repeats them every 3 pins. A single-phase MCB terminal (`L`) takes the phase of its pin,
+ * and its circuit's L core follows (L1 / L2 / L3 role and title); a multi-phase MCB keeps its own poles.
+ * The strip is drawn on top and is no obstacle to the routing. The group's RCD may stand at either end of
+ * its block — the pins are numbered from whichever end it is.
  *
  * Cables at the entry (plan Phase 5c): each cable — the WLZ, each circuit's cable — enters at its own
  * point along its entry's span, evenly spaced and ordered by where the cable goes, so cables do not
@@ -131,7 +146,11 @@ export function withSlack(routedMm: number): number {
 export type WiringDevice = Pick<
   LayoutDevice,
   "id" | "role" | "rcd_group_id" | "circuit_id" | "width_mm" | "height_mm" | "poles" | "n_terminal_side"
-> & { terminal_groups?: unknown };
+> & {
+  terminal_groups?: unknown;
+  /** The bought piece a `busbar` row is cut from; carried through to the drawing, unused by the router. */
+  busbar_piece?: number | null;
+};
 export type WiringCircuit = Pick<
   CircuitInput,
   "id" | "rcd_group_id" | "phase_count" | "cross_section_mm2" | "entry_side"
@@ -146,6 +165,44 @@ export interface WiringInput {
   /** Ordered by position. */
   circuits: readonly WiringCircuit[];
   supply: WiringSupply;
+}
+
+/** The height of a busbar strip across its edge, in millimetres. */
+export const BUSBAR_HEIGHT_MM = 4;
+
+/** One busbar tooth: it reaches a phase terminal at `(x, y)` and carries `pole`'s phase. */
+export interface BusbarTooth {
+  x: number;
+  y: number;
+  pole: TerminalPole;
+  /** 0-based from the RCD's end of the busbar. */
+  pin: number;
+  deviceId: string;
+}
+
+/**
+ * A group's comb busbar as the router lays it (plan `rcd-group-busbars`, Phase 4): a strip of `rect`
+ * along the group's out/supply `edge`, from the first to the last tooth. Display-only, like the wires.
+ */
+export interface Busbar {
+  /** Unique within one wiring, stable for the same input. */
+  key: string;
+  groupId: string;
+  edge: DeviceEdge;
+  rect: Rect;
+  /** 1 for a 1F busbar (every tooth `L`), 3 for a 3F one. */
+  phases: 1 | 3;
+  /** The segment's pins: the group's width in modules. */
+  pins: number;
+  /** The bought piece the segment is cut from. */
+  piece: number | null;
+  /** In order along the strip. */
+  teeth: BusbarTooth[];
+}
+
+export interface Wiring {
+  conductors: Conductor[];
+  busbars: Busbar[];
 }
 
 export type ConductorKind = "circuit" | "wlz" | "feed";
@@ -2111,8 +2168,81 @@ function assignBarTerminals(pending: readonly Pending[], targets: readonly BarTa
   }
 }
 
+/** What `planBusbar` decides for one group. */
+interface BusbarPlan {
+  busbar: Busbar;
+  /** The phase each single-phase (`L`) MCB terminal takes from its pin, by device id. */
+  phaseOf: Map<string, TerminalPole>;
+}
+
+/**
+ * The busbar of one group, or null when it has nothing to feed (no RCD phase terminal on the edge or no
+ * MCB). See the module comment, "Comb busbars".
+ */
+function planBusbar(
+  groupId: string,
+  device: Pick<WiringDevice, "poles" | "busbar_piece">,
+  rcd: Located,
+  members: readonly Located[],
+  rcdOut: DeviceEdge,
+  mcbEdge: (item: Located) => DeviceEdge,
+): BusbarPlan | null {
+  const rcdPhases = rcd.terminals[rcdOut].filter(isPhase);
+  if (rcdPhases.length === 0 || members.length === 0) return null;
+
+  const rcdCentreX = rcd.rect.x + rcd.rect.w / 2;
+  const membersCentreX = members.reduce((sum, mcb) => sum + mcb.rect.x + mcb.rect.w / 2, 0) / members.length;
+  const direction = membersCentreX >= rcdCentreX ? 1 : -1;
+  const ordered = [...rcdPhases].sort((a, b) => direction * a.x - direction * b.x);
+  const three = device.poles === "3P" && ordered.length === 3;
+  const poles = three ? ordered.map((terminal) => terminal.pole) : [ordered[0].pole];
+  const x0 = ordered[0].x;
+  const pinOf = (x: number) => Math.round((direction * (x - x0)) / DIN_MODULE_MM);
+  const poleAt = (pin: number): TerminalPole => poles[((pin % poles.length) + poles.length) % poles.length];
+
+  const raw: BusbarTooth[] = [];
+  for (const terminal of three ? ordered : ordered.slice(0, 1)) {
+    raw.push({ x: terminal.x, y: terminal.y, pole: terminal.pole, pin: pinOf(terminal.x), deviceId: rcd.device.id });
+  }
+  const phaseOf = new Map<string, TerminalPole>();
+  for (const mcb of members) {
+    for (const terminal of mcb.terminals[mcbEdge(mcb)].filter(isPhase)) {
+      const pin = pinOf(terminal.x);
+      const pole = terminal.pole === "L" ? poleAt(pin) : terminal.pole;
+      if (terminal.pole === "L") phaseOf.set(mcb.device.id, pole);
+      raw.push({ x: terminal.x, y: terminal.y, pole, pin, deviceId: mcb.device.id });
+    }
+  }
+  raw.sort((a, b) => a.x - b.x || a.y - b.y);
+  const firstPin = Math.min(...raw.map((tooth) => tooth.pin));
+  const teeth = raw.map((tooth) => ({ ...tooth, pin: tooth.pin - firstPin }));
+
+  const left = Math.min(...teeth.map((tooth) => tooth.x));
+  const right = Math.max(...teeth.map((tooth) => tooth.x));
+  const ys = teeth.map((tooth) => tooth.y);
+  const rectY = rcdOut === "top" ? Math.min(...ys) - BUSBAR_HEIGHT_MM : Math.max(...ys);
+  return {
+    busbar: {
+      key: `busbar-${groupId}`,
+      groupId,
+      edge: rcdOut,
+      rect: { x: left, y: rectY, w: right - left, h: BUSBAR_HEIGHT_MM },
+      phases: three ? 3 : 1,
+      pins: demandPins([rcd, ...members].reduce((sum, item) => sum + item.device.width_mm, 0)),
+      piece: device.busbar_piece ?? null,
+      teeth,
+    },
+    phaseOf,
+  };
+}
+
 /** Every conductor of a placed layout, in a stable order: circuits, WLZ, feeds. */
 export function routeConductors(input: WiringInput): Conductor[] {
+  return routeWiring(input).conductors;
+}
+
+/** The conductors (see `routeConductors`) and the comb busbars of a placed layout. */
+export function routeWiring(input: WiringInput): Wiring {
   const { geometry, supply } = input;
   const tnC = supply.earthing_system === "TN-C";
   const tnCS = supply.earthing_system === "TN-C-S";
@@ -2196,6 +2326,24 @@ export function routeConductors(input: WiringInput): Conductor[] {
   const supplySide = (item: Located): DeviceEdge => supplyEdges.get(item.device.id) ?? "top";
   const outSide = (item: Located): DeviceEdge => oppositeEdge(supplySide(item));
 
+  // Comb busbars: a group with a `busbar` row gets a strip in place of its RCD → MCB phase jumpers.
+  const busbars: Busbar[] = [];
+  const busbarGroups = new Set<string>();
+  /** The phase a group MCB's single-phase terminal takes from its busbar pin. */
+  const pinPhase = new Map<string, TerminalPole>();
+  for (const rcd of all.filter((item) => item.device.role === "rcd")) {
+    const groupId = rcd.device.rcd_group_id;
+    if (groupId === null) continue;
+    const segment = input.devices.find((device) => isBusbarRole(device.role) && device.rcd_group_id === groupId);
+    if (segment === undefined) continue;
+    const members = all.filter((item) => item.device.role === "mcb" && item.device.rcd_group_id === groupId);
+    const plan = planBusbar(groupId, segment, rcd, members, outSide(rcd), supplySide);
+    if (plan === null) continue;
+    busbars.push(plan.busbar);
+    busbarGroups.add(groupId);
+    for (const [deviceId, pole] of plan.phaseOf) pinPhase.set(deviceId, pole);
+  }
+
   const pending: Pending[] = [];
   const add = (
     kind: ConductorKind,
@@ -2224,7 +2372,9 @@ export function routeConductors(input: WiringInput): Conductor[] {
     const out = outSide(protection);
 
     for (const terminal of protection.terminals[out].filter(isPhase)) {
-      add("circuit", phaseRole(terminal.pole), circuit.id, section, entry, terminalEnd(protection, out, terminal));
+      // On a busbar, a single-phase MCB's L core takes the phase of its pin.
+      const pole = terminal.pole === "L" ? (pinPhase.get(protection.device.id) ?? terminal.pole) : terminal.pole;
+      add("circuit", phaseRole(pole), circuit.id, section, entry, terminalEnd(protection, out, terminal));
     }
 
     if (!tnC) {
@@ -2310,6 +2460,8 @@ export function routeConductors(input: WiringInput): Conductor[] {
       const into = supplySide(mcb);
       for (const terminal of mcb.terminals[into]) {
         if (terminal.pole === "N" && tnC) continue;
+        // A busbar group's phases ride the busbar; only its N jumpers remain.
+        if (terminal.pole !== "N" && busbarGroups.has(mcb.device.rcd_group_id ?? "")) continue;
         const source = sourceTerminal(rcd.terminals[rcdOut], terminal.pole);
         if (source === undefined) continue;
         const role = terminal.pole === "N" ? "N" : phaseRole(terminal.pole);
@@ -2402,7 +2554,7 @@ export function routeConductors(input: WiringInput): Conductor[] {
   });
 
   const nudged = nudgeTracks(routes, router);
-  return conductors.map((conductor, index) => {
+  const routed = conductors.map((conductor, index) => {
     const { path, squeezed, stubOverlaps, packSegment, packLayer, tied } = nudged[index];
     const routedMm = pathLength(path);
     const overflow = unpacked[index] || tied.some((tie) => tie.layer === "overflow");
@@ -2419,6 +2571,7 @@ export function routeConductors(input: WiringInput): Conductor[] {
       overflow,
     };
   });
+  return { conductors: routed, busbars };
 }
 
 // ---------------------------------------------------------------------------------------------

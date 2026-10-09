@@ -1,11 +1,17 @@
 import { createElement } from "react";
 import { renderToString } from "react-dom/server.edge";
 import { CabinetDrawing } from "@/components/cabinets/CabinetDrawing";
-import { buildCableTies, buildDrawnCables, buildDrawnDevices, buildDrawnWires } from "@/lib/cabinet-drawing";
-import { wireLengthsBySection } from "@/lib/cabinet-wiring";
+import {
+  buildCableTies,
+  buildDrawnBusbars,
+  buildDrawnCables,
+  buildDrawnDevices,
+  buildDrawnWires,
+} from "@/lib/cabinet-drawing";
+import { routeWiring, wireLengthsBySection } from "@/lib/cabinet-wiring";
 import { computeMatchView } from "@/lib/device-matching-server";
-import { computeLayoutView, computeWiring } from "@/lib/layout-server";
-import { realisticFixture, worstCaseFixture, type RenderFixture } from "@/lib/wiring-bench-fixtures";
+import { computeLayoutView } from "@/lib/layout-server";
+import { busbarFixture, realisticFixture, worstCaseFixture, type RenderFixture } from "@/lib/wiring-bench-fixtures";
 
 /**
  * THROWAWAY benchmark Worker (`rozdzielnica-pro-wiring-bench`) for change `realistic-wiring-render`.
@@ -21,6 +27,7 @@ import { realisticFixture, worstCaseFixture, type RenderFixture } from "@/lib/wi
 const FIXTURES: Record<string, () => RenderFixture> = {
   worst: worstCaseFixture,
   realistic: realisticFixture,
+  busbar: busbarFixture,
 };
 
 function renderPath({ context, placements }: RenderFixture): string {
@@ -30,7 +37,14 @@ function renderPath({ context, placements }: RenderFixture): string {
     throw new Error(`fixture layout is not placed: ${String(layout?.state)}`);
   }
   const devices = buildDrawnDevices(match.snapshot, layout.placements, context.geometry, context.groups);
-  const conductors = computeWiring(layout, match, context);
+  if (context.supply === null) throw new Error("fixture has no supply");
+  const { conductors, busbars: routed } = routeWiring({
+    geometry: context.geometry,
+    devices: match.snapshot,
+    placements: layout.placements,
+    circuits: context.circuits,
+    supply: context.supply,
+  });
   const wires = buildDrawnWires(conductors, {
     circuits: new Map(context.circuits.map((circuit) => [circuit.id, circuit.name])),
     devices,
@@ -38,10 +52,11 @@ function renderPath({ context, placements }: RenderFixture): string {
   const cables = buildDrawnCables(conductors);
   const ties = buildCableTies(conductors);
   const lengths = wireLengthsBySection(conductors);
+  const busbars = buildDrawnBusbars(routed, "realistic");
   const svg = renderToString(
-    createElement(CabinetDrawing, { geometry: context.geometry, devices, wires, cables, ties }),
+    createElement(CabinetDrawing, { geometry: context.geometry, devices, wires, cables, ties, busbars }),
   );
-  return `conductors=${String(conductors.length)} wires=${String(wires.length)} cables=${String(cables.length)} lengthRows=${String(lengths.length)} svgBytes=${String(svg.length)}`;
+  return `conductors=${String(conductors.length)} wires=${String(wires.length)} cables=${String(cables.length)} busbars=${String(busbars.length)} lengthRows=${String(lengths.length)} svgBytes=${String(svg.length)}`;
 }
 
 export default {
@@ -50,7 +65,7 @@ export default {
     // Own properties only: a `?fixture=toString` must not reach `Object.prototype`.
     const fixture = Object.hasOwn(FIXTURES, name) ? FIXTURES[name] : undefined;
     if (fixture === undefined) {
-      return new Response("use ?fixture=worst or ?fixture=realistic\n", { status: 400 });
+      return new Response("use ?fixture=worst, ?fixture=realistic or ?fixture=busbar\n", { status: 400 });
     }
     return new Response(`${name}: ${renderPath(fixture())}\n`);
   },

@@ -1,7 +1,9 @@
 import {
   buildCableTies,
+  buildDrawnBusbars,
   buildDrawnCables,
   buildDrawnWires,
+  type DrawnBusbar,
   type DrawnCable,
   type DrawnDevice,
   type DrawnTie,
@@ -11,7 +13,7 @@ import {
 import type { CabinetGeometry } from "@/lib/cabinet-geometry";
 import type { Placement } from "@/lib/cabinet-layout";
 import {
-  routeConductors,
+  routeWiring,
   wireLengthsBySection,
   wiringWarnings,
   type WireLengthRow,
@@ -48,6 +50,8 @@ export interface WiringData {
 export interface WiringDrawing {
   wires: DrawnWire[];
   cables: DrawnCable[];
+  /** The comb busbars of the groups that have one, drawn between the devices and the wires. */
+  busbars: DrawnBusbar[];
   /** The realistic variant's cable ties; the schematic one draws none. */
   ties: DrawnTie[];
   lengths: WireLengthRow[];
@@ -74,6 +78,7 @@ export function toWiringData(input: {
       poles: device.poles,
       n_terminal_side: device.n_terminal_side,
       terminal_groups: device.terminal_groups ?? null,
+      busbar_piece: device.busbar_piece ?? null,
     })),
     placements: input.placements.map(({ projectDeviceId, railIndex, xMm }) => ({ projectDeviceId, railIndex, xMm })),
     circuits: input.circuits.map((circuit) => ({
@@ -92,7 +97,7 @@ export function toWiringData(input: {
 }
 
 /**
- * The wires, cables, ties, lengths and overflow warnings of a placed layout: the same router and drawing
+ * The wires, cables, busbars, ties, lengths and overflow warnings of a placed layout: the same router and drawing
  * calls the server made before the island. `devices` are the drawn devices, whose labels title the
  * feeds; `variant` shapes the wires' bends and sag, and must match the drawing's `wiring` prop.
  */
@@ -101,7 +106,12 @@ export function buildWiringDrawing(
   devices: readonly DrawnDevice[],
   variant: WiringVariant = "realistic",
 ): WiringDrawing {
-  const conductors = routeConductors(data);
+  const { conductors, busbars } = routeWiring(data);
+  const groupLabels = new Map(
+    devices.flatMap((device) =>
+      device.groupKey === null || device.groupLabel === null ? [] : [[device.groupKey, device.groupLabel] as const],
+    ),
+  );
   return {
     wires: buildDrawnWires(
       conductors,
@@ -112,6 +122,7 @@ export function buildWiringDrawing(
       variant,
     ),
     cables: buildDrawnCables(conductors),
+    busbars: buildDrawnBusbars(busbars, variant, groupLabels),
     ties: variant === "realistic" ? buildCableTies(conductors) : [],
     lengths: wireLengthsBySection(conductors),
     warnings: wiringWarnings(conductors),

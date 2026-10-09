@@ -10,7 +10,7 @@ import {
 import { wireLengthsBySection, wiringWarnings } from "@/lib/cabinet-wiring";
 import { computeMatchView } from "@/lib/device-matching-server";
 import { buildLayoutDrawing, computeLayoutView, computeWiring } from "@/lib/layout-server";
-import { realisticFixture, worstCaseFixture, type RenderFixture } from "@/lib/wiring-bench-fixtures";
+import { busbarFixture, realisticFixture, worstCaseFixture, type RenderFixture } from "@/lib/wiring-bench-fixtures";
 import { buildWiringDrawing } from "@/lib/wiring-island";
 
 /** The page's server path up to the drawing, for one bench fixture. */
@@ -109,5 +109,46 @@ describe("the wiring island outside a placed layout", () => {
     expect(layoutView?.state).toBe("missing");
     const drawing = buildLayoutDrawing(layoutView, matchView, built.context);
     expect(drawing).toEqual({ devices: [], wiring: null });
+  });
+});
+
+describe("the wiring island with comb busbars", () => {
+  const built = busbarFixture();
+  const { layoutView, drawing } = render(built);
+  const wiring = drawing.wiring;
+  if (wiring === null) throw new Error("expected wiring data");
+
+  it("carries the busbar rows — role, group and piece — through the whitelist", () => {
+    expect(layoutView?.state).toBe("placed");
+    const rows = wiring.devices.filter((device) => device.role === "busbar");
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) {
+      expect(row.rcd_group_id).not.toBeNull();
+      expect(row.busbar_piece).not.toBeNull();
+    }
+    expect(JSON.parse(JSON.stringify(wiring))).toEqual(wiring);
+  });
+
+  it("draws one busbar per busbar group, named by its group, and no phase jumpers there", () => {
+    const island = buildWiringDrawing(wiring, drawing.devices);
+    const groups = new Set(wiring.devices.filter((device) => device.role === "busbar").map((d) => d.rcd_group_id));
+    expect(island.busbars.map((busbar) => busbar.groupId).sort()).toEqual([...groups].sort());
+    for (const busbar of island.busbars) {
+      expect(busbar.title).toMatch(/^Listwa zasilająca 1F — grupa „RCD \d”, \d+ pin/);
+      expect(busbar.teeth.length).toBeGreaterThan(1);
+    }
+    const plain = buildWiringDrawing(
+      { ...wiring, devices: wiring.devices.filter((device) => device.role !== "busbar") },
+      drawing.devices,
+    );
+    expect(plain.busbars).toEqual([]);
+    const feeds = (d: typeof island) => d.wires.filter((wire) => wire.kind === "feed").length;
+    expect(feeds(island)).toBeLessThan(feeds(plain));
+  });
+
+  it("draws the busbars in both variants over the same strips", () => {
+    const realistic = buildWiringDrawing(wiring, drawing.devices, "realistic").busbars;
+    const schematic = buildWiringDrawing(wiring, drawing.devices, "schematic").busbars;
+    expect(schematic.map((busbar) => ({ ...busbar, variant: "realistic" as const }))).toEqual(realistic);
   });
 });
