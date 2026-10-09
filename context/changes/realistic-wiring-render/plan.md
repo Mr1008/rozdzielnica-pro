@@ -873,24 +873,24 @@ next phase.
 
 #### Automated
 
-- [x] 2.1 Completeness and monotonicity tests pass: `npm run test:unit -- wire-dimensions`
-- [x] 2.2 Lint and type checks pass: `npm run lint && npx astro check`
+- [x] 2.1 Completeness and monotonicity tests pass: `npm run test:unit -- wire-dimensions` — e6dc2b0
+- [x] 2.2 Lint and type checks pass: `npm run lint && npx astro check` — e6dc2b0
 
 #### Manual
 
-- [x] 2.3 User verified every diameter and ferrule entry against the cited sources (recorded in the file header with the date, like `AMPACITY_A`)
+- [x] 2.3 User verified every diameter and ferrule entry against the cited sources (recorded in the file header with the date, like `AMPACITY_A`) — e6dc2b0
 
 ### Phase 3: Router — true-scale spacing
 
 #### Automated
 
-- [ ] 3.1 Router tests pass, including new spacing tests (unsqueezed neighbours never overlap at true scale; a mixed 1.5/16 mm² pair is spaced by both radii): `npm run test:unit -- cabinet-wiring`
-- [ ] 3.2 Slack invariant still holds (lengthMm = 1.3 × route length) and routing is deterministic: `npm run test:unit -- cabinet-wiring`
-- [ ] 3.3 Full unit suite, lint, types: `npm run test:unit && npm run lint && npx astro check`
+- [x] 3.1 Router tests pass, including new spacing tests (unsqueezed neighbours never overlap at true scale; a mixed 1.5/16 mm² pair is spaced by both radii): `npm run test:unit -- cabinet-wiring`
+- [x] 3.2 Slack invariant still holds (lengthMm = 1.3 × route length) and routing is deterministic: `npm run test:unit -- cabinet-wiring`
+- [x] 3.3 Full unit suite, lint, types: `npm run test:unit && npm run lint && npx astro check`
 
 #### Manual
 
-- [ ] 3.4 `/dev/kitchen-sink` layout states still draw every conductor end-to-end with no wire crossing through a device, with visibly wider spacing next to the WLZ
+- [x] 3.4 `/dev/kitchen-sink` layout states still draw every conductor end-to-end with no wire crossing through a device, with visibly wider spacing next to the WLZ
 
 ### Phase 4: Router — side packs and overflow
 
