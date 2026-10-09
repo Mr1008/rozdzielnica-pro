@@ -31,10 +31,15 @@ const PROFILE: PricingProfile = {
 /** A cabinet of 249,99 zł. */
 const CABINET = { name: "Szafka testowa", priceGrosze: 24_999 };
 
-type Row = Pick<SnapshotRow, "role" | "price_grosze">;
+type Row = Pick<SnapshotRow, "role" | "price_grosze" | "device_id" | "busbar_piece">;
 
 /** 11 MCBs at 10,00 zł each: 11 000 gr. */
-const ELEVEN_DEVICES: Row[] = Array.from({ length: 11 }, () => ({ role: "mcb", price_grosze: 1_000 }));
+const ELEVEN_DEVICES: Row[] = Array.from({ length: 11 }, () => ({
+  role: "mcb",
+  price_grosze: 1_000,
+  device_id: "mcb-b16",
+  busbar_piece: null,
+}));
 
 function input(overrides: Partial<QuoteInput> = {}, state: MatchViewState = "current", rows = ELEVEN_DEVICES) {
   return {
@@ -113,9 +118,9 @@ describe("computeQuoteView", () => {
 
   it("sums mixed device prices on top of the cabinet", () => {
     const rows: Row[] = [
-      { role: "main_switch", price_grosze: 4_999 },
-      { role: "rcd", price_grosze: 12_000 },
-      { role: "mcb", price_grosze: 1_250 },
+      { role: "main_switch", price_grosze: 4_999, device_id: "main_switch", busbar_piece: null },
+      { role: "rcd", price_grosze: 12_000, device_id: "rcd", busbar_piece: null },
+      { role: "mcb", price_grosze: 1_250, device_id: "mcb", busbar_piece: null },
     ];
     const view = computeQuoteView(input({}, "current", rows));
     expect(view).toMatchObject({ deviceCount: 3, devicesGrosze: 18_249, materialGrosze: 43_248 });
@@ -123,9 +128,9 @@ describe("computeQuoteView", () => {
 
   it("counts and prices catalog PE/N bars like any device", () => {
     const rows: Row[] = [
-      { role: "mcb", price_grosze: 1_000 },
-      { role: "pe_bar", price_grosze: 3_500 },
-      { role: "n_bar", price_grosze: 3_500 },
+      { role: "mcb", price_grosze: 1_000, device_id: "mcb", busbar_piece: null },
+      { role: "pe_bar", price_grosze: 3_500, device_id: "pe_bar", busbar_piece: null },
+      { role: "n_bar", price_grosze: 3_500, device_id: "n_bar", busbar_piece: null },
     ];
     // 3 × 15 + 90 = 135 min; 135 × 12 050 / 60 = 27 112,5 gr → 27 113 gr.
     expect(computeQuoteView(input({}, "current", rows))).toMatchObject({
@@ -136,6 +141,31 @@ describe("computeQuoteView", () => {
       labourGrosze: 27_113,
       totalGrosze: 60_112,
     });
+  });
+
+  it("prices a busbar piece once however many segments it feeds, and counts every segment in labour", () => {
+    // Two segments cut from piece 0 (one 50,00 zł busbar) and one from a second piece of the same
+    // model: 2 pieces = 10 000 gr. Hand-worked: 1 000 + 5 000 + 5 000 = 11 000 gr; 4 rows × 15 + 90 = 150 min.
+    const rows: Row[] = [
+      { role: "mcb", price_grosze: 1_000, device_id: "mcb-b16", busbar_piece: null },
+      { role: "busbar", price_grosze: 5_000, device_id: "busbar-1f", busbar_piece: 0 },
+      { role: "busbar", price_grosze: 5_000, device_id: "busbar-1f", busbar_piece: 0 },
+      { role: "busbar", price_grosze: 5_000, device_id: "busbar-1f", busbar_piece: 1 },
+    ];
+    expect(computeQuoteView(input({}, "current", rows))).toMatchObject({
+      deviceCount: 4,
+      devicesGrosze: 11_000,
+      materialGrosze: 35_999,
+      estimateMinutes: 150,
+    });
+  });
+
+  it("prices two different busbar models sharing a piece number separately", () => {
+    const rows: Row[] = [
+      { role: "busbar", price_grosze: 5_000, device_id: "busbar-1f", busbar_piece: 0 },
+      { role: "busbar", price_grosze: 9_000, device_id: "busbar-3f", busbar_piece: 0 },
+    ];
+    expect(computeQuoteView(input({}, "current", rows))).toMatchObject({ deviceCount: 2, devicesGrosze: 14_000 });
   });
 
   it("blocks on a missing profile first, even when the match is not current", () => {

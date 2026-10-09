@@ -576,7 +576,7 @@ export const pl = {
     columns: { item: "Pozycja", detail: "Szczegóły", amount: "Kwota" },
     groups: { material: "Materiał", labour: "Robocizna" },
     cabinet: "Szafka",
-    devices: "Aparaty (w tym szyny z katalogu)",
+    devices: "Aparaty (w tym szyny z katalogu i odcinki listew)",
     deviceCount: (n: number) => `${String(n)} ${plural(n, { one: "aparat", few: "aparaty", many: "aparatów" })}`,
     materialTotal: "Materiał razem",
     estimatedTime: "Czas estymowany",
@@ -651,6 +651,8 @@ export const pl = {
       item: "Pozycja",
       /** The muted line under an item's name: kind, manufacturer, model. */
       itemDetails: (parts: readonly string[]) => parts.join(" · "),
+      /** A comb busbar's length, in the muted line under its name. */
+      busbarPins: (pins: number) => `${String(pins)} ${plural(pins, { one: "pin", few: "piny", many: "pinów" })}`,
       quantity: "Ilość",
       unitPrice: "Cena jedn.",
       lineTotal: "Wartość",
@@ -924,6 +926,11 @@ export const pl = {
     servesSupply: "Całą instalację",
     servesGroup: (label: string) => `Grupa „${label}”`,
     servesCircuit: (name: string) => `Obwód „${name}”`,
+    /** A comb busbar segment in the match result: "Grupa „Kuchnia” — sztuka 1, odcinek 8 TE". */
+    busbarSegment: (group: string, piece: number, modules: number) =>
+      `Grupa „${group}” — sztuka ${String(piece)}, odcinek ${String(modules)} TE`,
+    /** In the price cell of a segment cut from a piece an earlier row already priced. */
+    busbarSharedPrice: "w cenie sztuki",
     summaryUnavailable: "Parametry niedostępne",
     count: (n: number) => `${String(n)} ${plural(n, { one: "aparat", few: "aparaty", many: "aparatów" })}`,
   },
@@ -1065,12 +1072,17 @@ export const pl = {
       mcb: "Wyłącznik nadprądowy B (MCB)",
       peBar: "Szyna PE (z katalogu)",
       nBar: "Szyna N (z katalogu)",
+      busbar: "Listwa zasilająca (grzebieniowa)",
     },
     /** Keyed by `SelectionNote` (camelCased). */
     notes: {
       rcboFallback:
         "W katalogu nie ma pasującego wyłącznika RCBO — zamiast niego dobrano wyłącznik różnicowoprądowy i wyłącznik nadprądowy.",
       noRcd: "Ten obwód nie ma ochrony różnicowoprądowej.",
+      busbarMissing:
+        "Brak listwy zasilającej w katalogu dla tej grupy — aparaty grupy łączą przewody. Skontaktuj się z administratorem, jeśli chcesz użyć listwy.",
+      busbarGroupTooWide:
+        "Grupa jest szersza niż każda szyna DIN szafki, więc nie dostaje listwy zasilającej — aparaty łączą przewody.",
     },
     /** A pole set as the gap text shows it: "1P / 1P+N / 2P". */
     polesSeparator: " / ",

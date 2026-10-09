@@ -1,6 +1,6 @@
 import { hasCompanyDetails, type BusinessProfile } from "@/lib/business-profile";
 import type { SnapshotRow } from "@/lib/device-matching-server";
-import type { DeviceKind } from "@/lib/device-spec";
+import { busbarPins, type DeviceKind } from "@/lib/device-spec";
 import { t } from "@/lib/i18n";
 import type { LayoutView } from "@/lib/layout-server";
 import { splitMinutes, type QuoteView, type ReadyQuote } from "@/lib/quote";
@@ -21,7 +21,10 @@ export interface MaterialLine {
   name: string;
   manufacturer: string;
   model: string;
+  /** Whole pieces: a busbar's segments cut from one bought piece count once. */
   quantity: number;
+  /** A busbar's length in pins; null for every other device. */
+  pins: number | null;
   unitGrosze: number;
   totalGrosze: number;
 }
@@ -61,10 +64,12 @@ function presentText(value: string | null | undefined): string | null {
 /**
  * The snapshot grouped by `(device_id, price_grosze)` in order of the first `position`. The price is
  * part of the key because the snapshot copies the catalog price at save time: one device can sit in
- * the snapshot at two prices, and each is its own line.
+ * the snapshot at two prices, and each is its own line. A busbar line counts distinct pieces, not
+ * segments, like `devicesCostGrosze` in `src/lib/quote.ts`.
  */
 function materialLines(snapshot: readonly SnapshotRow[]): MaterialLine[] {
   const lines = new Map<string, MaterialLine>();
+  const pieces = new Map<string, Set<number | null>>();
   for (const row of [...snapshot].sort((a, b) => a.position - b.position)) {
     const key = `${row.device_id}|${String(row.price_grosze)}`;
     const line = lines.get(key);
@@ -76,10 +81,16 @@ function materialLines(snapshot: readonly SnapshotRow[]): MaterialLine[] {
         manufacturer: row.manufacturer,
         model: row.model,
         quantity: 1,
+        pins: row.role === "busbar" ? busbarPins(row.width_mm) : null,
         unitGrosze: row.price_grosze,
         totalGrosze: row.price_grosze,
       });
-    } else {
+      pieces.set(key, new Set([row.busbar_piece]));
+    } else if (row.role !== "busbar") {
+      line.quantity += 1;
+      line.totalGrosze = line.quantity * line.unitGrosze;
+    } else if (!pieces.get(key)?.has(row.busbar_piece)) {
+      pieces.get(key)?.add(row.busbar_piece);
       line.quantity += 1;
       line.totalGrosze = line.quantity * line.unitGrosze;
     }

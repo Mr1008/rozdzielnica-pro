@@ -139,14 +139,15 @@ const CATALOG = [
 function selections(payload: CircuitsPayload): Selection[] {
   const g = payload.groups[0];
   return [
-    { role: "main_switch", deviceId: FR_ID, groupId: null, circuitId: null, notes: [] },
-    { role: "rcd", deviceId: RCD_ID, groupId: g.id, circuitId: null, notes: [] },
+    { role: "main_switch", deviceId: FR_ID, groupId: null, circuitId: null, notes: [], busbarPiece: null },
+    { role: "rcd", deviceId: RCD_ID, groupId: g.id, circuitId: null, notes: [], busbarPiece: null },
     ...payload.circuits.map((c): Selection => ({
       role: "mcb",
       deviceId: MCB_ID,
       groupId: g.id,
       circuitId: c.id,
       notes: [],
+      busbarPiece: null,
     })),
   ];
 }

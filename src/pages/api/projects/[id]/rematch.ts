@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { isUuid } from "@/lib/catalog";
 import { matchDevices } from "@/lib/device-matching";
-import { cabinetBarKinds, circuitsRpcErrorCode, saveCircuitsArgs } from "@/lib/device-matching-server";
+import { cabinetBarKinds, circuitsRpcErrorCode, maxRailMm, saveCircuitsArgs } from "@/lib/device-matching-server";
 import { chooseSelectionLayout, loadLayoutContext } from "@/lib/layout-server";
 import { projectFormErrorPath, projectPath, projectsErrorPath } from "@/lib/project";
 import { PROJECT_ERROR } from "@/lib/project-errors";
@@ -38,7 +38,10 @@ export const POST: APIRoute = async (context) => {
   if (!loaded.ok) return loaded.code === "not_found" ? notFound() : back(PROJECT_ERROR.unknown);
 
   const { supply, groups, circuits, catalog, geometry, snapshot } = loaded.context;
-  const result = matchDevices({ supply, groups, circuits, cabinetBarKinds: cabinetBarKinds(geometry) }, catalog);
+  const result = matchDevices(
+    { supply, groups, circuits, cabinetBarKinds: cabinetBarKinds(geometry), maxRailMm: maxRailMm(geometry) },
+    catalog,
+  );
   // A new match carries a still-valid manual layout over, or gets a new proposal, stored in the same
   // RPC (none when it does not fit).
   const choice = chooseSelectionLayout(

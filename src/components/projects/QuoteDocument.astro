@@ -64,7 +64,12 @@ const materialRows = [
   },
   ...lines.map((line) => ({
     name: line.name,
-    details: [deviceKindLabel(line.kind), line.manufacturer, line.model],
+    details: [
+      deviceKindLabel(line.kind),
+      line.manufacturer,
+      line.model,
+      ...(line.pins === null ? [] : [p.material.busbarPins(line.pins)]),
+    ],
     quantity: line.quantity,
     unitGrosze: line.unitGrosze,
     totalGrosze: line.totalGrosze,

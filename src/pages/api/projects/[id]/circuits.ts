@@ -2,7 +2,13 @@ import type { APIRoute } from "astro";
 import { isUuid } from "@/lib/catalog";
 import { CIRCUIT_FORM_FIELDS, parseCircuitsPayload } from "@/lib/circuit-params";
 import { matchDevices } from "@/lib/device-matching";
-import { cabinetBarKinds, circuitsRpcErrorCode, loadMatchBase, saveCircuitsArgs } from "@/lib/device-matching-server";
+import {
+  cabinetBarKinds,
+  circuitsRpcErrorCode,
+  loadMatchBase,
+  maxRailMm,
+  saveCircuitsArgs,
+} from "@/lib/device-matching-server";
 import { chooseSelectionLayout, loadPreviousLayout } from "@/lib/layout-server";
 import { projectFormErrorPath, projectPath, projectsErrorPath } from "@/lib/project";
 import { PROJECT_ERROR } from "@/lib/project-errors";
@@ -65,6 +71,7 @@ export const POST: APIRoute = async (context) => {
       groups: parsed.value.groups,
       circuits: parsed.value.circuits,
       cabinetBarKinds: cabinetBarKinds(geometry),
+      maxRailMm: maxRailMm(geometry),
     },
     catalog,
   );

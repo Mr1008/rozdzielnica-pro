@@ -804,32 +804,32 @@ jumpers and shows the informational note.
 
 #### Automated
 
-- [x] 1.1 Migrations apply on a clean local stack: `npx supabase db reset`
-- [x] 1.2 Types regenerate and `_DeviceKindInSync` holds: `npm run db:types && npx astro check`
-- [x] 1.3 Unit tests pass: `npm run test:unit`
-- [x] 1.4 RLS/catalog integration tests pass, including a busbar row and the seven-kind seed: `npm run test:integration`
-- [x] 1.5 Lint and build pass: `npm run lint && npm run build`
+- [x] 1.1 Migrations apply on a clean local stack: `npx supabase db reset` — e9c656a
+- [x] 1.2 Types regenerate and `_DeviceKindInSync` holds: `npm run db:types && npx astro check` — e9c656a
+- [x] 1.3 Unit tests pass: `npm run test:unit` — e9c656a
+- [x] 1.4 RLS/catalog integration tests pass, including a busbar row and the seven-kind seed: `npm run test:integration` — e9c656a
+- [x] 1.5 Lint and build pass: `npm run lint && npm run build` — e9c656a
 
 #### Manual
 
-- [x] 1.6 In `/admin/devices` the admin creates, edits, archives and restores a 3F busbar; the form shows phases, current and width in TE only, and the list shows the busbar summary
-- [x] 1.7 A busbar with 2P poles or a residual current is refused with a Polish message on the field
-- [x] 1.8 Roadmap S-12 appears on the GitHub board and #17 is no longer `odłożone`
+- [x] 1.6 In `/admin/devices` the admin creates, edits, archives and restores a 3F busbar; the form shows phases, current and width in TE only, and the list shows the busbar summary — e9c656a
+- [x] 1.7 A busbar with 2P poles or a residual current is refused with a Polish message on the field — e9c656a
+- [x] 1.8 Roadmap S-12 appears on the GitHub board and #17 is no longer `odłożone` — e9c656a
 
 ### Phase 2: Busbar selection, cutting and quote
 
 #### Automated
 
-- [ ] 2.1 Migration applies: `npx supabase db reset && npm run db:types`
-- [ ] 2.2 Unit and property tests pass: `npm run test:unit`
-- [ ] 2.3 Integration tests pass: `npm run test:integration`
-- [ ] 2.4 Type check, lint and build pass: `npx astro check && npm run lint && npm run build`
+- [x] 2.1 Migration applies: `npx supabase db reset && npm run db:types`
+- [x] 2.2 Unit and property tests pass: `npm run test:unit`
+- [x] 2.3 Integration tests pass: `npm run test:integration`
+- [x] 2.4 Type check, lint and build pass: `npx astro check && npm run lint && npm run build`
 
 #### Manual
 
-- [ ] 2.5 A project with two 1F RCD groups shows busbar segments cut from one piece; the quote shows one piece in material and both segments counted in the labour formula
-- [ ] 2.6 A project saved before this phase reads "Nieaktualny" and becomes current after "Dobierz ponownie"
-- [ ] 2.7 With all busbars archived, the groups show the informational "brak listwy" note and matching is not blocked
+- [x] 2.5 A project with two 1F RCD groups shows busbar segments cut from one piece; the quote shows one piece in material and both segments counted in the labour formula
+- [x] 2.6 A project saved before this phase reads "Nieaktualny" and becomes current after "Dobierz ponownie"
+- [x] 2.7 With all busbars archived, the groups show the informational "brak listwy" note and matching is not blocked
 
 ### Phase 3: Layout with unplaced segments and RCD orientation
 

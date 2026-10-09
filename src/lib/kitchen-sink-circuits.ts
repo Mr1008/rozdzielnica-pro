@@ -357,6 +357,7 @@ function snapshotFrom(selections: readonly Selection[]): SnapshotRow[] {
       rcd_group_id: selection.groupId,
       circuit_id: selection.circuitId,
       notes: [...selection.notes],
+      busbar_piece: selection.busbarPiece,
       kind: device.kind,
       name: device.name,
       manufacturer: device.manufacturer,

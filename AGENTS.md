@@ -133,7 +133,9 @@ These are correctness requirements, not preferences.
   electrician to `/dashboard/profile`, never fall back to invented defaults.
 - **Quote numbers come only from `computeQuoteView`** (@src/lib/quote.ts), and only in state
   `ready` — S-09 prints that view, never re-derives a sum. Every snapshot row counts as a device
-  (catalog bars too); the cabinet's snapshot price is its own material line; labour cost rounds
+  in labour (catalog bars and comb busbar segments too), but a busbar piece is priced once —
+  `devicesCostGrosze` sums one price per distinct `(device_id, busbar_piece)`, and the printout's
+  busbar line counts pieces, not segments; the cabinet's snapshot price is its own material line; labour cost rounds
   half-up in integers (`(minutes × rate + 30) div 60`). **The labour override bounds are guarded
   twice, and the two guards must change together:** the `projects_labour_override_*` CHECKs in
   `supabase/migrations/20261008090000_project_labour_override.sql` and the `*_LABOUR_OVERRIDE_*`
