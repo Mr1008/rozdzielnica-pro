@@ -1,9 +1,12 @@
 import {
+  buildCableTies,
   buildDrawnCables,
   buildDrawnWires,
   type DrawnCable,
   type DrawnDevice,
+  type DrawnTie,
   type DrawnWire,
+  type WiringVariant,
 } from "@/lib/cabinet-drawing";
 import type { CabinetGeometry } from "@/lib/cabinet-geometry";
 import type { Placement } from "@/lib/cabinet-layout";
@@ -45,6 +48,8 @@ export interface WiringData {
 export interface WiringDrawing {
   wires: DrawnWire[];
   cables: DrawnCable[];
+  /** The realistic variant's cable ties; the schematic one draws none. */
+  ties: DrawnTie[];
   lengths: WireLengthRow[];
   warnings: WiringWarning[];
 }
@@ -87,18 +92,27 @@ export function toWiringData(input: {
 }
 
 /**
- * The wires, cables, lengths and overflow warnings of a placed layout: the same router and drawing
+ * The wires, cables, ties, lengths and overflow warnings of a placed layout: the same router and drawing
  * calls the server made before the island. `devices` are the drawn devices, whose labels title the
- * feeds.
+ * feeds; `variant` shapes the wires' bends and sag, and must match the drawing's `wiring` prop.
  */
-export function buildWiringDrawing(data: WiringData, devices: readonly DrawnDevice[]): WiringDrawing {
+export function buildWiringDrawing(
+  data: WiringData,
+  devices: readonly DrawnDevice[],
+  variant: WiringVariant = "realistic",
+): WiringDrawing {
   const conductors = routeConductors(data);
   return {
-    wires: buildDrawnWires(conductors, {
-      circuits: new Map(data.circuits.map((circuit) => [circuit.id, circuit.name])),
-      devices,
-    }),
+    wires: buildDrawnWires(
+      conductors,
+      {
+        circuits: new Map(data.circuits.map((circuit) => [circuit.id, circuit.name])),
+        devices,
+      },
+      variant,
+    ),
     cables: buildDrawnCables(conductors),
+    ties: variant === "realistic" ? buildCableTies(conductors) : [],
     lengths: wireLengthsBySection(conductors),
     warnings: wiringWarnings(conductors),
   };

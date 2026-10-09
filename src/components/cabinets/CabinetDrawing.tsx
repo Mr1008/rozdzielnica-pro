@@ -5,14 +5,19 @@ import {
   clipRect,
   elementRect,
   entryRect,
+  ferruleStyle,
   groupOutlines,
   PEN_DASH,
+  PEN_SLEEVE_MM,
+  REALISTIC_WIRE_STYLES,
   WIRE_STYLES,
   type DrawnCable,
   type DrawnDevice,
   type DrawnRole,
+  type DrawnTie,
   type DrawnWire,
   type ElementRef,
+  type WiringVariant,
 } from "@/lib/cabinet-drawing";
 import { BAR_LABEL_EXTENT, barLabelFontMm, barLabelSizeMm, barTerminalPoints, type Point } from "@/lib/cabinet-layout";
 import { barRect, barsBehindAnother, railRect, type CabinetGeometry, type Rect } from "@/lib/cabinet-geometry";
@@ -51,6 +56,13 @@ interface CabinetDrawingProps {
   wires?: readonly DrawnWire[];
   /** The cables' sheathed runs from their entry points, from `buildDrawnCables`. Omitted: none. */
   cables?: readonly DrawnCable[];
+  /** The cable ties over tied runs, from `buildCableTies`; drawn in the realistic variant only. */
+  ties?: readonly DrawnTie[];
+  /**
+   * The look of the wires (S-11): true-scale bodies with ferrules, ties and sheaths, or thin schematic
+   * lines. The wires must come from `buildDrawnWires` with the same variant (its bends and sag).
+   */
+  wiring?: WiringVariant;
   /** Make devices and group labels interactive (the layout editor). Wires then ignore the pointer. */
   interactive?: DrawingInteraction;
   /** Draw no wires or cables — the editor hides them while the layout has unsaved changes. */
@@ -180,6 +192,107 @@ function WireShape({ wire, screwRadius }: { wire: DrawnWire; screwRadius: Readon
         );
       })}
       {/* A wide invisible stroke, so a thin wire — even one running behind a device — is easy to hover. */}
+      <path
+        d={wire.d}
+        className="fill-none stroke-transparent"
+        strokeWidth={WIRE_HOVER_WIDTH_PX}
+        pointerEvents="stroke"
+        vectorEffect="non-scaling-stroke"
+      />
+    </g>
+  );
+}
+
+/** The realistic insulation's dark outline: this much wider than the body, in millimetres. */
+const OUTLINE_EXTRA_MM = 0.3;
+/** The insulation highlight's width, as a share of the body's. */
+const SHEEN_SHARE = 0.25;
+/** A ferrule's collar is this much wider than the core it is crimped on, and its outline wider again. */
+const FERRULE_EXTRA_MM = 0.4;
+const FERRULE_OUTLINE_EXTRA_MM = 0.7;
+/** A cable tie's outline, in millimetres. */
+const TIE_OUTLINE_MM = 0.2;
+
+/** A realistic insulated core along `d`: outline, coloured body (PE's green dashes), highlight. */
+function RealisticWireBody({ wire, d }: { wire: DrawnWire; d: string }) {
+  const style = REALISTIC_WIRE_STYLES[wire.role];
+  const width = wire.diameterMm;
+  const round = { strokeLinecap: "round", strokeLinejoin: "round" } as const;
+  return (
+    <>
+      <path d={d} className="stroke-drawing-frame fill-none" strokeWidth={width + OUTLINE_EXTRA_MM} {...round} />
+      <path d={d} className={cn("fill-none", style.body)} strokeWidth={width} {...round} />
+      {style.dash && (
+        <path
+          d={d}
+          className={cn("fill-none", style.dash.stroke)}
+          strokeWidth={width}
+          strokeDasharray={`${String(style.dash.onDiameters * width)} ${String(style.dash.offDiameters * width)}`}
+          strokeLinejoin="round"
+        />
+      )}
+      <path d={d} className="stroke-wire-sheen fill-none" strokeWidth={width * SHEEN_SHARE} {...round} />
+    </>
+  );
+}
+
+function segmentD(from: Point, direction: Point, startMm: number, endMm: number): string {
+  const at = (mm: number) => `${String(from.x + direction.x * mm)} ${String(from.y + direction.y * mm)}`;
+  return `M${at(startMm)} L${at(endMm)}`;
+}
+
+function RealisticWireShape({ wire, screwRadius }: { wire: DrawnWire; screwRadius: ReadonlyMap<string, number> }) {
+  const style = REALISTIC_WIRE_STYLES[wire.role];
+  const ferrule = ferruleStyle(wire.crossSectionMm2);
+  return (
+    <g className="wire transition-opacity">
+      {wire.title !== "" && <title>{wire.title}</title>}
+      {wire.frontD !== "" && <RealisticWireBody wire={wire} d={wire.frontD} />}
+      {wire.barEnds.map((point) => {
+        const radius = screwRadius.get(pointKey(point));
+        return radius === undefined ? null : (
+          <circle
+            key={`end-${pointKey(point)}`}
+            cx={point.x}
+            cy={point.y}
+            r={radius * WIRE_END_SHARE}
+            className={cn("stroke-drawing-frame", style.fill)}
+            {...HAIRLINE}
+          />
+        );
+      })}
+      {/* A ferrule on every terminal end, coloured by cross-section; a PEN gets its blue sleeve past it. */}
+      {wire.terminalEnds.map((end) => {
+        const ferruleMm = ferrule === null ? 0 : Math.min(ferrule.lengthMm, end.runMm);
+        const sleeveStart = Math.min(ferruleMm, Math.max(0, end.runMm - PEN_SLEEVE_MM));
+        const sleeveEnd = Math.min(sleeveStart + PEN_SLEEVE_MM, end.runMm);
+        return (
+          <g key={`ferrule-${pointKey(end.point)}`}>
+            {style.sleeve !== null && sleeveEnd > sleeveStart && (
+              <path
+                d={segmentD(end.point, end.direction, sleeveStart, sleeveEnd)}
+                className={cn("fill-none", style.sleeve)}
+                strokeWidth={wire.diameterMm}
+              />
+            )}
+            {ferrule !== null && ferruleMm > 0 && (
+              <>
+                <path
+                  d={segmentD(end.point, end.direction, 0, ferruleMm)}
+                  className="stroke-drawing-frame fill-none"
+                  strokeWidth={wire.diameterMm + FERRULE_OUTLINE_EXTRA_MM}
+                />
+                <path
+                  d={segmentD(end.point, end.direction, 0, ferruleMm)}
+                  className={cn("fill-none", ferrule.stroke)}
+                  strokeWidth={wire.diameterMm + FERRULE_EXTRA_MM}
+                />
+              </>
+            )}
+          </g>
+        );
+      })}
+      {/* The same invisible hover target as the schematic wire, over the whole route. */}
       <path
         d={wire.d}
         className="fill-none stroke-transparent"
@@ -372,10 +485,14 @@ export function CabinetDrawing({
   devices = [],
   wires = [],
   cables = [],
+  ties = [],
+  wiring = "realistic",
   interactive,
   hideWires = false,
   className,
 }: CabinetDrawingProps) {
+  const realistic = wiring === "realistic";
+  const behindWires = realistic && !hideWires ? wires.filter((wire) => wire.behindD !== "") : [];
   const { interior, rails, entries, bars } = geometry;
   const behind = barsBehindAnother(bars);
   // Nearer bars paint over farther ones; the dashed outlines of the farther ones go on top of both.
@@ -480,6 +597,15 @@ export function CabinetDrawing({
           <BarScrews key={`bar-screws-${String(index)}`} bar={bar} interior={interior} />
         ))}
 
+        {behindWires.length > 0 && (
+          // The overflow layer: what did not fit a tied bundle runs behind the rail ends, under the devices.
+          <g aria-hidden="true" pointerEvents="none">
+            {behindWires.map((wire) => (
+              <RealisticWireBody key={`behind-${wire.key}`} wire={wire} d={wire.behindD} />
+            ))}
+          </g>
+        )}
+
         {devices.map((device) => (
           <DeviceShape
             key={`device-${device.id}`}
@@ -520,8 +646,30 @@ export function CabinetDrawing({
               interactive && "[&_*]:pointer-events-none",
             )}
           >
-            {wires.map((wire) => (
-              <WireShape key={`wire-${wire.key}`} wire={wire} screwRadius={screwRadius} />
+            {wires.map((wire) =>
+              realistic ? (
+                <RealisticWireShape key={`wire-${wire.key}`} wire={wire} screwRadius={screwRadius} />
+              ) : (
+                <WireShape key={`wire-${wire.key}`} wire={wire} screwRadius={screwRadius} />
+              ),
+            )}
+          </g>
+        )}
+
+        {realistic && !hideWires && ties.length > 0 && (
+          // Cable ties sit over the wires they hold together.
+          <g aria-hidden="true" pointerEvents="none">
+            {ties.map((tie) => (
+              <rect
+                key={`tie-${tie.key}`}
+                x={tie.rect.x}
+                y={tie.rect.y}
+                width={tie.rect.w}
+                height={tie.rect.h}
+                rx={Math.min(tie.rect.w, tie.rect.h) / 3}
+                className="fill-wire-tie stroke-drawing-frame"
+                strokeWidth={TIE_OUTLINE_MM}
+              />
             ))}
           </g>
         )}
@@ -529,24 +677,41 @@ export function CabinetDrawing({
         {!hideWires && cables.length > 0 && (
           // Each cable's sheath from its entry point, over its cores, which emerge where it ends.
           <g aria-hidden="true" pointerEvents="none">
-            {cables.map((cable) => (
-              <g key={`cable-${cable.key}`}>
-                <path
-                  d={cable.d}
-                  className="stroke-drawing-frame fill-none"
-                  strokeWidth={CABLE_OUTLINE_PX}
-                  strokeLinecap="butt"
-                  vectorEffect="non-scaling-stroke"
-                />
-                <path
-                  d={cable.d}
-                  className="stroke-drawing-paper fill-none"
-                  strokeWidth={CABLE_CORE_PX}
-                  strokeLinecap="butt"
-                  vectorEffect="non-scaling-stroke"
-                />
-              </g>
-            ))}
+            {cables.map((cable) =>
+              realistic ? (
+                <g key={`cable-${cable.key}`}>
+                  <path
+                    d={cable.d}
+                    className="stroke-drawing-frame fill-none"
+                    strokeWidth={cable.diameterMm + OUTLINE_EXTRA_MM}
+                    strokeLinecap="butt"
+                  />
+                  <path
+                    d={cable.d}
+                    className="stroke-wire-sheath fill-none"
+                    strokeWidth={cable.diameterMm}
+                    strokeLinecap="butt"
+                  />
+                </g>
+              ) : (
+                <g key={`cable-${cable.key}`}>
+                  <path
+                    d={cable.d}
+                    className="stroke-drawing-frame fill-none"
+                    strokeWidth={CABLE_OUTLINE_PX}
+                    strokeLinecap="butt"
+                    vectorEffect="non-scaling-stroke"
+                  />
+                  <path
+                    d={cable.d}
+                    className="stroke-drawing-paper fill-none"
+                    strokeWidth={CABLE_CORE_PX}
+                    strokeLinecap="butt"
+                    vectorEffect="non-scaling-stroke"
+                  />
+                </g>
+              ),
+            )}
           </g>
         )}
 

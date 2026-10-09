@@ -1,9 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
+  BEND_RADIUS_DIAMETERS,
   MAX_SAG_MM,
   MIN_SAG_SPAN_MM,
   PEN_DASH,
+  REALISTIC_WIRE_STYLES,
+  TIE_BAND_MM,
+  TIE_PITCH_MM,
+  WIRE_BEND_MM,
   WIRE_STYLES,
+  bendRadiusMm,
+  buildCableTies,
   buildDrawnCables,
   buildDrawnDevices,
   buildDrawnWires,
@@ -11,6 +18,7 @@ import {
   clipRect,
   deviceLabelLines,
   elementRect,
+  ferruleStyle,
   entryRect,
   groupOutlines,
   issueElements,
@@ -24,6 +32,7 @@ import {
 } from "./cabinet-drawing";
 import { RAIL_HEIGHT_MM, parseCabinetGeometry, type CabinetGeometry } from "./cabinet-geometry";
 import { WIRE_CLEARANCE_MM, type Conductor } from "./cabinet-wiring";
+import { WIRE_CROSS_SECTIONS_MM2, cableDiameterMm } from "./wire-dimensions";
 
 const INTERIOR = { widthMm: 400, heightMm: 300, depthMm: 100 };
 
@@ -377,6 +386,111 @@ describe("wirePathD", () => {
   it("is empty for no points", () => {
     expect(wirePathD([])).toBe("");
   });
+
+  it("bends a realistic conductor around 3 diameters, at least the schematic radius", () => {
+    expect(BEND_RADIUS_DIAMETERS).toBe(3);
+    expect(bendRadiusMm(3.6, "realistic")).toBeCloseTo(10.8, 9);
+    expect(bendRadiusMm(1, "realistic")).toBe(WIRE_BEND_MM);
+    expect(bendRadiusMm(10.9, "schematic")).toBe(WIRE_BEND_MM);
+    const route = [
+      { x: 0, y: 0 },
+      { x: 0, y: 30 },
+      { x: 100, y: 30 },
+      { x: 100, y: 60 },
+    ];
+    // A 2.5 mm² core (3.6 mm): 10.8 mm bends, and no sag (the run is held).
+    expect(wirePathD(route, [0, 0, 0], bendRadiusMm(3.6, "realistic"))).toBe(
+      "M0 0 L0 19.2 Q0 30 10.8 30 L89.2 30 Q100 30 100 40.8 L100 60",
+    );
+    // A 16 mm² core (7.8 mm) would bend 23.4 mm, capped at half of each 30 mm vertical run.
+    expect(wirePathD(route, [0, 0, 0], bendRadiusMm(7.8, "realistic"))).toBe(
+      "M0 0 L0 15 Q0 30 15 30 L85 30 Q100 30 100 45 L100 60",
+    );
+  });
+});
+
+describe("buildCableTies", () => {
+  /**
+   * A core whose inner vertical run lies at x from y 10 down to ottom (segment 2), between a short
+   * lane run at the top and a far-apart row run at the bottom, as a pack core runs.
+   */
+  const core = (key: string, x: number, bottom: number, diameterMm = 3.6): Conductor => ({
+    key,
+    kind: "circuit",
+    role: "L",
+    circuitId: null,
+    crossSectionMm2: 2.5,
+    from: { type: "entry", entryIndex: 0, slot: 0 },
+    to: { type: "terminal", deviceId: "d", side: "top", pole: "L" },
+    path: [
+      { x: 200, y: 0 },
+      { x: 200, y: 10 },
+      { x, y: 10 },
+      { x, y: bottom },
+      { x: 300, y: bottom },
+      { x: 300, y: bottom + 10 },
+    ],
+    routedMm: 0,
+    lengthMm: 0,
+    diameterMm,
+    squeezed: [],
+    stubOverlaps: [],
+    packSide: null,
+    packSegment: null,
+    packLayer: null,
+    tied: [],
+    overflow: false,
+  });
+  const step = 3.6 + WIRE_CLEARANCE_MM;
+
+  it("ties a group of three neighbouring runs every TIE_PITCH_MM, centred on its extent, as wide as the group", () => {
+    const ties = buildCableTies([core("a", 190, 130), core("b", 190 + step, 140), core("c", 190 + 2 * step, 150)]);
+    // The vertical runs span y 10…150 (140 mm): two ties, 60 mm apart, centred at 50 and 110. The
+    // bottom row runs lie 10 mm apart — not neighbours — and the top lane run is too short for a tie.
+    expect(TIE_PITCH_MM).toBe(60);
+    expect(ties.map((tie) => tie.rect.y + tie.rect.h / 2)).toEqual([50, 110]);
+    for (const tie of ties) {
+      expect(tie.rect.h).toBe(TIE_BAND_MM);
+      expect(tie.rect.x).toBeCloseTo(190 - 1.8, 9);
+      expect(tie.rect.w).toBeCloseTo(2 * step + 3.6, 9);
+    }
+  });
+
+  it("ties cores that overlap in a round bundle, too", () => {
+    expect(buildCableTies([core("a", 190, 130), core("b", 191, 140), core("c", 192, 150)])).toHaveLength(2);
+  });
+
+  it("needs at least three conductors", () => {
+    expect(buildCableTies([core("a", 190, 130), core("b", 190 + step, 140)])).toEqual([]);
+  });
+
+  it("leaves runs apart that are farther than twice the clearance from each other", () => {
+    const apart = 3.6 + 2 * WIRE_CLEARANCE_MM + 0.1;
+    expect(buildCableTies([core("a", 190, 130), core("b", 190 + apart, 140), core("c", 190 + 2 * apart, 150)])).toEqual(
+      [],
+    );
+  });
+
+  it("never ties a run in the overflow layer, and holds the tied horizontal runs taut", () => {
+    const spilled = (c: Conductor): Conductor => ({ ...c, tied: [{ segment: 2, bundle: 0, layer: "overflow" }] });
+    expect(
+      buildCableTies([spilled(core("a", 190, 130)), spilled(core("b", 191, 140)), spilled(core("c", 192, 150))]),
+    ).toEqual([]);
+    // Three 200 mm row runs on neighbouring tracks: tied, so the realistic drawing keeps them taut (no
+    // sag control point at the run's middle, x 100); the schematic one still sags the lowest.
+    const rows = [0, 1, 2].map((i) => ({
+      ...core(String(i), 0, 0),
+      path: [
+        { x: 0, y: 0 },
+        { x: 0, y: 20 + i * step },
+        { x: 200, y: 20 + i * step },
+        { x: 200, y: 300 },
+      ],
+    }));
+    expect(buildCableTies(rows)).toHaveLength(3);
+    for (const wire of buildDrawnWires(rows, undefined, "realistic")) expect(wire.d).not.toMatch(/Q100 /);
+    expect(buildDrawnWires(rows, undefined, "schematic").some((wire) => wire.d.includes("Q100 "))).toBe(true);
+  });
 });
 
 describe("buildDrawnWires", () => {
@@ -412,7 +526,80 @@ describe("buildDrawnWires", () => {
       conductor("d", "PEN"),
     ]);
     expect(wires.map((wire) => wire.key)).toEqual(["b", "d", "a", "c"]);
-    expect(wires[0]).toEqual({ key: "b", role: "PE", kind: "circuit", d: "M0 0 L0 10", title: "", barEnds: [] });
+    expect(wires[0]).toEqual({
+      key: "b",
+      role: "PE",
+      kind: "circuit",
+      crossSectionMm2: 2.5,
+      diameterMm: 3.6,
+      overflow: false,
+      d: "M0 0 L0 10",
+      frontD: "M0 0 L0 10",
+      behindD: "",
+      title: "",
+      barEnds: [],
+      terminalEnds: [],
+    });
+  });
+
+  it("draws the same route in both variants, with the variant's bends", () => {
+    const bent: Conductor = {
+      ...conductor("a", "L"),
+      path: [
+        { x: 0, y: 0 },
+        { x: 0, y: 30 },
+        { x: 20, y: 30 },
+      ],
+    };
+    // Schematic: today's 4 mm bend. Realistic: 3 × 3.6 mm, capped at half the 20 mm run.
+    expect(buildDrawnWires([bent], undefined, "schematic")[0].d).toBe("M0 0 L0 26 Q0 30 4 30 L20 30");
+    expect(buildDrawnWires([bent], undefined, "realistic")[0].d).toBe("M0 0 L0 20 Q0 30 10 30 L20 30");
+  });
+
+  it("splits the overflow layer's segments into behindD and the rest into frontD", () => {
+    const spilled: Conductor = {
+      ...conductor("a", "L"),
+      path: [
+        { x: 0, y: 0 },
+        { x: 0, y: 20 },
+        { x: 20, y: 20 },
+        { x: 20, y: 40 },
+      ],
+      tied: [{ segment: 1, bundle: 0, layer: "overflow" }],
+      overflow: true,
+    };
+    const [wire] = buildDrawnWires([spilled], undefined, "realistic");
+    expect(wire.overflow).toBe(true);
+    // Bends of 3 × 3.6 = 10.8 mm, capped at 10 (half of each 20 mm run).
+    expect(wire.d).toBe("M0 0 L0 10 Q0 20 10 20 L10 20 Q20 20 20 30 L20 40");
+    expect(wire.frontD).toBe("M0 0 L0 10 Q0 20 10 20 M20 30 L20 40");
+    expect(wire.behindD).toBe("M10 20 L10 20 Q20 20 20 30");
+  });
+
+  it("lists a ferrule end at every device or bar terminal, none at an entry", () => {
+    const route = [
+      { x: 0, y: 0 },
+      { x: 0, y: 20 },
+      { x: 30, y: 20 },
+      { x: 30, y: 26 },
+    ];
+    const toDevice: Conductor = {
+      ...conductor("a", "L"),
+      path: route,
+      to: { type: "terminal", deviceId: "mcb", side: "top", pole: "L" },
+    };
+    const [wire] = buildDrawnWires([toDevice]);
+    expect(wire.terminalEnds).toEqual([{ point: { x: 30, y: 26 }, direction: { x: 0, y: -1 }, runMm: 6 }]);
+    const barToDevice: Conductor = {
+      ...toDevice,
+      kind: "feed",
+      from: { type: "bar", kind: "N", barIndex: 0, groupIndex: 0, terminalIndex: 0 },
+    };
+    expect(buildDrawnWires([barToDevice])[0].terminalEnds).toEqual([
+      { point: { x: 0, y: 0 }, direction: { x: 0, y: 1 }, runMm: 20 },
+      { point: { x: 30, y: 26 }, direction: { x: 0, y: -1 }, runMm: 6 },
+    ]);
+    expect(buildDrawnWires([conductor("e", "L")])[0].terminalEnds).toEqual([]);
   });
 });
 
@@ -454,11 +641,24 @@ describe("sag of parallel runs", () => {
   it("keeps a run above its neighbour one track below — they never touch or swap", () => {
     const upper = run("a", 10);
     const lower = run("b", 10 + spacing);
-    const [a, b] = buildDrawnWires([upper, lower]);
+    const [a, b] = buildDrawnWires([upper, lower], undefined, "schematic");
     expect(sagOf(a.d, 10)).toBeLessThan(spacing);
     expect(sagOf(a.d, 10)).toBeGreaterThan(0);
     // Nothing beneath the lowest run of the bundle: it hangs as deep as its span allows.
     expect(sagOf(b.d, 10 + spacing)).toBe(MAX_SAG_MM);
+  });
+
+  it("lets a realistic run sag only within the gap between the two insulation bodies", () => {
+    const limits = sagLimits([run("a", 10), run("b", 10 + spacing)], "realistic");
+    expect(limits[0][1]).toBeCloseTo(WIRE_CLEARANCE_MM / 2, 9);
+    // Bodies that overlap (a tied bundle) do not sag at all.
+    expect(sagLimits([run("a", 10), run("b", 12)], "realistic")[0][1]).toBe(0);
+  });
+
+  it("keeps a realistic run taut where the router tied it into a bundle", () => {
+    const tied = { ...run("a", 10), tied: [{ segment: 1, bundle: 0, layer: "bundle" as const }] };
+    expect(buildDrawnWires([tied], undefined, "realistic")[0].d).not.toMatch(/Q50 /);
+    expect(buildDrawnWires([tied], undefined, "schematic")[0].d).toMatch(/Q50 /);
   });
 
   it("leaves a run with no neighbour below unlimited", () => {
@@ -565,6 +765,31 @@ describe("wireTitle", () => {
 // Plan Phase 5c — PEN, bar terminals, cables at the entry
 // ---------------------------------------------------------------------------------------------
 
+describe("REALISTIC_WIRE_STYLES", () => {
+  it("colours phases and N solid, PE yellow with green dashes, and PEN as PE with blue sleeves", () => {
+    expect(REALISTIC_WIRE_STYLES.L1).toMatchObject({ body: "stroke-wire-l1", dash: null, sleeve: null });
+    expect(REALISTIC_WIRE_STYLES.L2).toMatchObject({ body: "stroke-wire-l2", dash: null, sleeve: null });
+    expect(REALISTIC_WIRE_STYLES.L3).toMatchObject({ body: "stroke-wire-l3", dash: null, sleeve: null });
+    expect(REALISTIC_WIRE_STYLES.N).toMatchObject({ body: "stroke-wire-n", dash: null, sleeve: null });
+    expect(REALISTIC_WIRE_STYLES.PE).toMatchObject({
+      body: "stroke-wire-pe-stripe",
+      dash: { stroke: "stroke-wire-pe" },
+      sleeve: null,
+    });
+    expect(REALISTIC_WIRE_STYLES.PEN).toMatchObject({
+      body: "stroke-wire-pe-stripe",
+      dash: { stroke: "stroke-wire-pe" },
+      sleeve: "stroke-wire-n",
+    });
+  });
+
+  it("has a ferrule for every cross-section and none for an untabulated one", () => {
+    expect(ferruleStyle(1.5)).toEqual({ stroke: "stroke-ferrule-black", lengthMm: 8 });
+    expect(ferruleStyle(16)).toEqual({ stroke: "stroke-ferrule-blue", lengthMm: 12 });
+    expect(ferruleStyle(3)).toBeNull();
+  });
+});
+
 describe("WIRE_STYLES — PEN is never drawn as PE", () => {
   it("draws PEN green-yellow with blue dashes over the stripe, and PE without them", () => {
     expect(WIRE_STYLES.PE).toMatchObject({ stroke: "stroke-wire-pe", stripe: true, penDash: false });
@@ -580,6 +805,13 @@ describe("WIRE_STYLES — PEN is never drawn as PE", () => {
       expect(style.stroke).toMatch(/^stroke-wire-/);
       expect(style.fill).toMatch(/^fill-wire-/);
     }
+    for (const style of Object.values(REALISTIC_WIRE_STYLES)) {
+      expect(style.body).toMatch(/^stroke-wire-/);
+      expect(style.fill).toMatch(/^fill-wire-/);
+      if (style.dash !== null) expect(style.dash.stroke).toMatch(/^stroke-wire-/);
+      if (style.sleeve !== null) expect(style.sleeve).toMatch(/^stroke-wire-/);
+    }
+    for (const mm2 of WIRE_CROSS_SECTIONS_MM2) expect(ferruleStyle(mm2)?.stroke).toMatch(/^stroke-ferrule-/);
   });
 });
 
@@ -688,6 +920,8 @@ describe("bar terminals and cables in the drawn wires", () => {
     // bend (4 mm) before it turns off.
     expect(cables[0].d).toBe("M50 0 L50 14");
     expect(cables[1].d).toBe("M80 0 L80 26");
+    // The sheath at true scale: c1 is a two-core 2.5 mm² cable; c2's single core counts as two.
+    expect(cables.map((cable) => cable.diameterMm)).toEqual([cableDiameterMm(2, 2.5), cableDiameterMm(2, 2.5)]);
   });
 
   it("ends the sheath at the last turn-off, whichever order the cores turn off in, and lets the last core run on", () => {

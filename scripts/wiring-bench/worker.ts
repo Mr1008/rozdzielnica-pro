@@ -1,7 +1,7 @@
 import { createElement } from "react";
 import { renderToString } from "react-dom/server.edge";
 import { CabinetDrawing } from "@/components/cabinets/CabinetDrawing";
-import { buildDrawnCables, buildDrawnDevices, buildDrawnWires } from "@/lib/cabinet-drawing";
+import { buildCableTies, buildDrawnCables, buildDrawnDevices, buildDrawnWires } from "@/lib/cabinet-drawing";
 import { wireLengthsBySection } from "@/lib/cabinet-wiring";
 import { computeMatchView } from "@/lib/device-matching-server";
 import { computeLayoutView, computeWiring } from "@/lib/layout-server";
@@ -36,8 +36,11 @@ function renderPath({ context, placements }: RenderFixture): string {
     devices,
   });
   const cables = buildDrawnCables(conductors);
+  const ties = buildCableTies(conductors);
   const lengths = wireLengthsBySection(conductors);
-  const svg = renderToString(createElement(CabinetDrawing, { geometry: context.geometry, devices, wires, cables }));
+  const svg = renderToString(
+    createElement(CabinetDrawing, { geometry: context.geometry, devices, wires, cables, ties }),
+  );
   return `conductors=${String(conductors.length)} wires=${String(wires.length)} cables=${String(cables.length)} lengthRows=${String(lengths.length)} svgBytes=${String(svg.length)}`;
 }
 

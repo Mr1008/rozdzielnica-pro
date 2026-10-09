@@ -1171,6 +1171,20 @@ export const pl = {
           "Zacisk szyny PE/N — kółko; zacisk zajęty przez przewód jest wypełniony jego kolorem (jeden przewód na zacisk)",
         cable: "Kabel w izolacji zewnętrznej — od wprowadzenia do miejsca, w którym rozchodzą się żyły",
       },
+      /** The realistic drawing's wire legend (S-11): true-scale bodies, ferrules, ties and packs. */
+      realisticWireLegend: {
+        l: "L — przewód fazowy (L1 brązowy, L2 czarny, L3 szary)",
+        n: "N — przewód neutralny (niebieski)",
+        pe: "PE — przewód ochronny (żółto-zielony)",
+        pen: "PEN — przewód ochronno-neutralny (TN-C; w TN-C-S do punktu rozdziału na szynie PE), żółto-zielony z niebieskimi oznaczeniami na końcach",
+        thickness:
+          "Grubość przewodu w skali rysunku — średnica zewnętrzna zależy od przekroju, więc WLZ jest najgrubsza",
+        ferrules: "Tulejki na końcach żył, kolor według przekroju (DIN 46228-4):",
+        tie: "Opaska kablowa spinająca wiązkę żył",
+        pack: "Żyły kabli obwodów i WLZ biegną wiązkami w kanałach przy bokach szafki i odchodzą poziomo do swoich zacisków",
+        overflow:
+          "Żyły, które nie zmieściły się w wiązce, biegną w drugiej warstwie — za końcami szyn DIN, pod aparatami",
+      },
       /** Where the wires go while the browser routes them (`WiringDrawing`). */
       wiresLoading: "Wczytywanie przewodów…",
       lengthsTitle: "Długości przewodów",

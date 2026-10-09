@@ -15,7 +15,7 @@ interface Props {
 
 const { caption, class: className } = Astro.props;
 
-const { geometry, devices, wires, cables } = landingLayoutFixture();
+const { geometry, devices, wires, cables, ties } = landingLayoutFixture();
 const { widthMm, heightMm } = geometry.interior;
 ---
 
@@ -31,6 +31,7 @@ const { widthMm, heightMm } = geometry.interior;
       devices={devices}
       wires={wires}
       cables={cables}
+      ties={ties}
       className="absolute inset-0 h-full w-full"
     />
   </div>

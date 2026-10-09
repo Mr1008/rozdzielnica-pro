@@ -99,3 +99,9 @@ and max, and the realistic fixture is over on max.
 **Decision (Phase 5, 2026-10-09): client island.** The user chose it over other free hosting and over
 staying on the server. The server keeps the match and layout views and validation. The browser routes
 and draws the wires.
+
+Realistic drawing (Phase 6, 2026-10-09): measured on the chosen runtime, the browser, not re-run on the
+bench Worker — the Worker no longer routes or draws wires. `buildWiringDrawing(…, "realistic")` timed
+30× per fixture in the `astro dev` page (unminified Vite modules, so production is faster): worst case
+median 19.9 ms, max 31.3 ms; realistic fixture median 2.6 ms, max 22.6 ms. A one-off cost after
+hydration with no CPU limit, so the Worker rule (median ≤ 8 ms, max ≤ 10 ms) does not apply to it.

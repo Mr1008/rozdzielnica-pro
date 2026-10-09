@@ -1,9 +1,11 @@
 import {
+  buildCableTies,
   buildDrawnCables,
   buildDrawnDevices,
   buildDrawnWires,
   type DrawnCable,
   type DrawnDevice,
+  type DrawnTie,
   type DrawnWire,
 } from "@/lib/cabinet-drawing";
 import type { CabinetGeometry } from "@/lib/cabinet-geometry";
@@ -467,6 +469,7 @@ export interface LayoutFixture {
   /** Routed on the server: the landing hero draws them without an island (memoised per isolate). */
   wires: DrawnWire[];
   cables: DrawnCable[];
+  ties: DrawnTie[];
   /** The router's input the project page's island is given; null unless the layout is `placed`. */
   wiring: WiringData | null;
   geometry: CabinetGeometry;
@@ -544,6 +547,7 @@ function layoutFixture(
       devices,
     }),
     cables: buildDrawnCables(conductors),
+    ties: buildCableTies(conductors),
     wiring: buildLayoutDrawing(view, matchView, ctx).wiring,
     geometry,
     editor:
