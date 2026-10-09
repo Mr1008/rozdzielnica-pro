@@ -746,9 +746,9 @@ One new table, additive and backward-compatible with the deployed code. No data 
 
 #### Automated
 
-- [x] 5.1 `npm run lint` passes
-- [x] 5.2 `npm run build` passes
+- [x] 5.1 `npm run lint` passes — ea464d3
+- [x] 5.2 `npm run build` passes — ea464d3
 
 #### Manual
 
-- [x] 5.3 The landing page shows the updated quote step copy
+- [x] 5.3 The landing page shows the updated quote step copy — ea464d3
