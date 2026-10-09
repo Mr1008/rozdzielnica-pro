@@ -730,25 +730,25 @@ One new table, additive and backward-compatible with the deployed code. No data 
 
 #### Automated
 
-- [x] 4.1 `npm run lint`, `npx astro check`, `npm run test:unit` and `npm run build` pass
-- [x] 4.2 The existing `layout-server.test.ts` still passes after the extraction
+- [x] 4.1 `npm run lint`, `npx astro check`, `npm run test:unit` and `npm run build` pass — 37092c8
+- [x] 4.2 The existing `layout-server.test.ts` still passes after the extraction — 37092c8
 
 #### Manual
 
-- [x] 4.3 Kitchen sink: two A4 sheets, the drawing fits page 2 with the legends, greyscale keeps L/N/PE/PEN distinguishable
-- [x] 4.4 Real project: print preview shows exactly 2 pages, no chrome, colours visible, drawing unsplit; Save as PDF matches
-- [x] 4.5 Itemised material lines add up to the project page's material subtotal
-- [x] 4.6 Blocked states (no layout, stale match, no pricing profile) show their reasons and working links
-- [x] 4.7 Outdated override warns on screen only; the printed time equals the override
-- [x] 4.8 The project page renders unchanged after the extraction
+- [x] 4.3 Kitchen sink: two A4 sheets, the drawing fits page 2 with the legends, greyscale keeps L/N/PE/PEN distinguishable — 37092c8
+- [x] 4.4 Real project: print preview shows exactly 2 pages, no chrome, colours visible, drawing unsplit; Save as PDF matches — 37092c8
+- [x] 4.5 Itemised material lines add up to the project page's material subtotal — 37092c8
+- [x] 4.6 Blocked states (no layout, stale match, no pricing profile) show their reasons and working links — 37092c8
+- [x] 4.7 Outdated override warns on screen only; the printed time equals the override — 37092c8
+- [x] 4.8 The project page renders unchanged after the extraction — 37092c8
 
 ### Phase 5: Landing page, docs and contracts
 
 #### Automated
 
-- [ ] 5.1 `npm run lint` passes
-- [ ] 5.2 `npm run build` passes
+- [x] 5.1 `npm run lint` passes
+- [x] 5.2 `npm run build` passes
 
 #### Manual
 
-- [ ] 5.3 The landing page shows the updated quote step copy
+- [x] 5.3 The landing page shows the updated quote step copy

@@ -133,7 +133,7 @@ export const pl = {
       quote: {
         title: "Wycena",
         description:
-          "Liczba aparatów × średni czas montażu + narzut na projekt, razy Twoja stawka — obok koszt materiału z cen katalogowych.",
+          "Liczba aparatów × średni czas montażu + narzut na projekt, razy Twoja stawka — obok koszt materiału z cen katalogowych. Wycenę z rysunkiem szafki drukujesz albo zapisujesz jako PDF.",
       },
     },
     guaranteeTitle: "Nigdy aparat o za niskich parametrach",
