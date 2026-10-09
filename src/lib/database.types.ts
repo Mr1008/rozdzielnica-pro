@@ -638,6 +638,7 @@ export type Database = {
         | "mcb_b"
         | "pe_bar"
         | "n_bar"
+        | "comb_busbar"
       earthing_system: "TN-C" | "TN-S" | "TN-C-S" | "TT"
       entry_side: "top" | "bottom" | "left" | "right"
       n_terminal_side: "left" | "right"
@@ -788,6 +789,7 @@ export const Constants = {
         "mcb_b",
         "pe_bar",
         "n_bar",
+        "comb_busbar",
       ],
       earthing_system: ["TN-C", "TN-S", "TN-C-S", "TT"],
       entry_side: ["top", "bottom", "left", "right"],

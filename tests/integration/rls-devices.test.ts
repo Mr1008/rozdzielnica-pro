@@ -57,6 +57,7 @@ const VALID_PARAMETERS: Record<DeviceKind, Partial<DeviceInsert>> = {
     n_terminal_side: "right",
   },
   mcb_b: { ...NO_PARAMETERS, poles: "1P", rated_current_a: 16, breaking_capacity_ka: 6 },
+  comb_busbar: { ...NO_PARAMETERS, poles: "3P", rated_current_a: 63 },
   pe_bar: { ...NO_PARAMETERS, terminal_groups: [{ count: 8, minMm2: 1.5, maxMm2: 16 }] },
   n_bar: { ...NO_PARAMETERS, terminal_groups: [{ count: 8, minMm2: 1.5, maxMm2: 16 }] },
 };
@@ -334,6 +335,18 @@ describe("row level security on public.devices", () => {
       });
     });
 
+    it("accepts a 1F or 3F comb busbar and refuses any other pole set with 23514", async () => {
+      for (const poles of ["2P", "4P", "1P+N", "3P+N"] as const) {
+        expect(
+          await adminInsertErrorCode(
+            testDevice("comb_busbar", { poles, n_terminal_side: polesCarryN(poles) ? "left" : null }),
+          ),
+          poles,
+        ).toBe("23514");
+      }
+      expect(await adminInsertErrorCode(testDevice("comb_busbar", { poles: "1P" }))).toBeUndefined();
+    });
+
     it("requires an N terminal side exactly when the poles carry N", async () => {
       // An N-carrying device without a side is refused (`rcd`/`rcbo` above cover it for those kinds).
       expect(await adminInsertErrorCode(testDevice("mcb_b", { poles: "2P" }))).toBe("23514");
@@ -384,7 +397,7 @@ describe("row level security on public.devices", () => {
       }
     });
 
-    it("contains all six kinds", async () => {
+    it("contains all seven kinds", async () => {
       const kinds = new Set((await seededDevices()).map((row) => row.kind));
 
       expect([...kinds].sort()).toEqual([...DEVICE_KINDS].sort());

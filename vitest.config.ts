@@ -19,5 +19,7 @@ export default defineConfig({
   test: {
     include: ["src/**/*.test.ts"],
     environment: "node",
+    // Reuse transformed modules across runs (cache in `node_modules/.vitest-cache`, gone with `npm ci`).
+    fsModuleCache: true,
   },
 });

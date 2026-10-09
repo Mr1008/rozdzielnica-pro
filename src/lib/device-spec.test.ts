@@ -10,6 +10,8 @@ import {
   POLES_BY_KIND,
   POLES_WITH_N,
   polesCarryN,
+  busbarPins,
+  isCombBusbarKind,
   deviceIssueMessage,
   deviceKindLabel,
   deviceSpecSchema,
@@ -62,6 +64,7 @@ const VALID: Record<DeviceKind, Record<string, unknown>> = {
     n_terminal_side: "left",
   },
   mcb_b: { ...COMMON, ...NO_PARAMETERS, kind: "mcb_b", poles: "1P", rated_current_a: 16, breaking_capacity_ka: 6 },
+  comb_busbar: { ...COMMON, ...NO_PARAMETERS, kind: "comb_busbar", poles: "3P", rated_current_a: 63, width_mm: 210 },
   pe_bar: {
     ...COMMON,
     ...NO_PARAMETERS,
@@ -86,7 +89,7 @@ function issuesOf(input: unknown): DeviceIssue[] {
 
 describe("the parameter matrix", () => {
   it("lists kinds in display order", () => {
-    expect(DEVICE_KINDS).toEqual(["switch_disconnector", "rcd", "rcbo", "mcb_b", "pe_bar", "n_bar"]);
+    expect(DEVICE_KINDS).toEqual(["switch_disconnector", "rcd", "rcbo", "mcb_b", "comb_busbar", "pe_bar", "n_bar"]);
   });
 
   it("matches the plan's pole sets", () => {
@@ -95,6 +98,7 @@ describe("the parameter matrix", () => {
       rcd: ["2P", "4P"],
       rcbo: ["1P+N", "2P", "3P+N", "4P"],
       mcb_b: ["1P", "1P+N", "2P", "3P", "3P+N", "4P"],
+      comb_busbar: ["1P", "3P"],
       pe_bar: [],
       n_bar: [],
     });
@@ -238,6 +242,34 @@ describe("parseDeviceSpec — N terminal side, by poles", () => {
   });
 });
 
+describe("parseDeviceSpec — comb busbar", () => {
+  it("accepts 1F and 3F, and refuses every other pole set", () => {
+    for (const poles of ["1P", "3P"]) {
+      expect(parseDeviceSpec({ ...VALID.comb_busbar, poles }).ok, poles).toBe(true);
+    }
+    for (const poles of ["2P", "4P", "1P+N", "3P+N"]) {
+      expect(issuesOf({ ...VALID.comb_busbar, poles, n_terminal_side: null }), poles).toEqual([
+        { field: "poles", code: "pole_not_allowed" },
+      ]);
+    }
+  });
+
+  it("requires a rated current and refuses protection parameters", () => {
+    expect(issuesOf({ ...VALID.comb_busbar, rated_current_a: null })).toEqual([
+      { field: "rated_current_a", code: "required" },
+    ]);
+    expect(issuesOf({ ...VALID.comb_busbar, residual_current_ma: 30 })).toEqual([
+      { field: "residual_current_ma", code: "foreign_parameter" },
+    ]);
+  });
+
+  it("counts one pin per DIN module of width", () => {
+    expect([210, 945, 17.5, 20].map(busbarPins)).toEqual([12, 54, 1, 1]);
+    expect(isCombBusbarKind("comb_busbar")).toBe(true);
+    expect(isCombBusbarKind("mcb_b")).toBe(false);
+  });
+});
+
 describe("parseDeviceSpec — per-kind rules", () => {
   it("rejects a pole configuration outside the kind's set", () => {
     expect(issuesOf({ ...VALID.rcd, poles: "1P" })).toEqual([{ field: "poles", code: "pole_not_allowed" }]);
@@ -366,6 +398,7 @@ describe("deviceKindLabel", () => {
       "Wyłącznik różnicowoprądowy (RCD)",
       "Wyłącznik różnicowonadprądowy (RCBO)",
       "Wyłącznik nadprądowy B (MCB)",
+      "Listwa zasilająca (grzebieniowa)",
       "Szyna PE",
       "Szyna N",
     ]);

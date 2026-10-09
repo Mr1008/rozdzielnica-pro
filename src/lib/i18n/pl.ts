@@ -321,6 +321,7 @@ export const pl = {
       rcd: "Wyłącznik różnicowoprądowy (RCD)",
       rcbo: "Wyłącznik różnicowonadprądowy (RCBO)",
       mcbB: "Wyłącznik nadprądowy B (MCB)",
+      combBusbar: "Listwa zasilająca (grzebieniowa)",
       peBar: "Szyna PE",
       nBar: "Szyna N",
     },
@@ -345,6 +346,7 @@ export const pl = {
       minMm2: "Przekrój min. (mm²)",
       maxMm2: "Przekrój maks. (mm²)",
       nTerminalSide: "Strona zacisku N",
+      busbarPhases: "Liczba faz",
     },
     /** Keyed by `NTerminalSide`: where the N pole sits, viewed from the front. */
     nTerminalSides: {
@@ -359,6 +361,11 @@ export const pl = {
       "3P": "3P",
       "3P+N": "3P+N",
       "4P": "4P",
+    },
+    /** A comb busbar's phases, keyed by its `PoleConfig` ("1P" is a 1F busbar, "3P" a 3F one). */
+    busbarPhases: {
+      "1P": "1F",
+      "3P": "3F",
     },
     /** Keyed by `RcdType`. */
     rcdTypes: {
@@ -406,6 +413,9 @@ export const pl = {
       breakingCapacity: (breakingCapacityKa: number) => `${formatNumber(breakingCapacityKa)} kA`,
       terminalGroup: (count: number, minMm2: number, maxMm2: number) =>
         `${String(count)} × ${formatNumber(minMm2)}–${formatNumber(maxMm2)} mm²`,
+      /** A comb busbar: "3F, 63 A, 12 pinów". `phases` is the label from `devices.busbarPhases`. */
+      busbar: (phases: string, ratedCurrentA: number, pins: number) =>
+        `${phases}, ${String(ratedCurrentA)} A, ${String(pins)} ${plural(pins, { one: "pin", few: "piny", many: "pinów" })}`,
       /** Keyed by `NTerminalSide`. */
       nTerminalSide: {
         left: "N z lewej",
@@ -432,6 +442,13 @@ export const pl = {
       terminalGroupsSection: "Grupy zacisków",
       kindPlaceholder: "Wybierz rodzaj aparatu",
       polesPlaceholder: "Wybierz liczbę biegunów",
+      phasesPlaceholder: "Wybierz liczbę faz",
+      busbarPhasesHint: "1F — listwa jednofazowa, 3F — trójfazowa. Listwa nie ma bieguna N.",
+      /** Under a busbar's width: its length in pins, one pin per DIN module. */
+      busbarWidthHint: (pins: number) =>
+        `Szerokość to długość listwy w pinach (1 pin = 1 TE = 17,5 mm): ${String(pins)} ${plural(pins, { one: "pin", few: "piny", many: "pinów" })}.`,
+      busbarWidthHintEmpty:
+        "Szerokość to długość listwy w pinach (1 pin = 1 TE = 17,5 mm), np. 12 TE to listwa 12-pinowa.",
       rcdTypePlaceholder: "Wybierz typ",
       nTerminalSideHint: "Po której stronie aparatu, patrząc od przodu, jest biegun N.",
       addTerminalGroup: "Dodaj grupę zacisków",

@@ -44,20 +44,21 @@ Uwaga: pierwszeństwo reguł rozmieszczenia (Otwarte pytanie #2) zostało rozstr
 
 ## At a glance
 
-| ID   | Change ID                           | Outcome (elektryk / admin może …)                                                          | Prerequisites | PRD refs                             | Status |
-| ---- | ----------------------------------- | ------------------------------------------------------------------------------------------ | ------------- | ------------------------------------ | ------ |
-| F-01 | `roles-and-rls-baseline`            | (foundation) role `admin` / `elektryk` rozróżnialne, dane elektryka izolowane przez RLS    | —             | Access Control, NFR-izolacja         | done   |
-| S-01 | `admin-device-catalog`              | Admin prowadzi katalog aparatów z wymiarami, ceną i parametrami elektrycznymi              | F-01          | FR-001                               | done   |
-| S-02 | `admin-cabinet-catalog`             | Admin prowadzi katalog szafek z wymiarami i układem szyn                                   | F-01          | FR-002                               | done   |
-| S-03 | `project-setup-and-supply-params`   | Elektryk zakłada projekt, wybiera szafkę i opisuje przyłącze OSD/WLZ                       | F-01, S-02    | FR-003, FR-004, FR-005, US-01        | done   |
-| S-04 | `circuit-input-and-device-matching` | Elektryk podaje obwody i grupy RCD i dostaje dobrane aparaty (albo błąd o luce w katalogu) | S-01, S-03    | FR-006, FR-007, US-01                | done   |
-| S-05 | `cabinet-layout-proposal`           | Elektryk widzi zaproponowany układ aparatów w swojej szafce                                | S-02, S-04    | FR-008, US-01                        | done   |
-| S-06 | `manual-layout-editing`             | Elektryk poprawia zaproponowany układ przed wyceną                                         | S-05          | FR-009, US-01                        | done   |
-| S-07 | `electrician-pricing-profile`       | Elektryk ustawia w profilu stawkę, średni czas montażu i narzut na projekt                 | F-01          | FR-010                               | done   |
-| S-08 | `quote-cost-estimate`               | Elektryk widzi koszt materiału i robocizny i nadpisuje estymowany czas                     | S-04, S-07    | FR-011, FR-013, US-01                | done   |
-| S-09 | `printable-quote-export`            | Elektryk drukuje/eksportuje wycenę z wizualizacją układu szafki                            | S-06, S-08    | FR-012, US-01                        | done   |
-| S-10 | `ui-layout-theme`                   | Elektryk i admin pracują w spójnym, jasnym interfejsie „Arkusz techniczny" pod desktop     | S-03, S-07    | NFR (UI po polsku), FR-012 pośrednio | done   |
-| S-11 | `realistic-wiring-render`           | Elektryk widzi rysunek okablowania szafki wyglądający jak prawdziwa rozdzielnica           | S-09          | poza PRD (FR-012 pośrednio)          | done   |
+| ID   | Change ID                           | Outcome (elektryk / admin może …)                                                          | Prerequisites | PRD refs                             | Status      |
+| ---- | ----------------------------------- | ------------------------------------------------------------------------------------------ | ------------- | ------------------------------------ | ----------- |
+| F-01 | `roles-and-rls-baseline`            | (foundation) role `admin` / `elektryk` rozróżnialne, dane elektryka izolowane przez RLS    | —             | Access Control, NFR-izolacja         | done        |
+| S-01 | `admin-device-catalog`              | Admin prowadzi katalog aparatów z wymiarami, ceną i parametrami elektrycznymi              | F-01          | FR-001                               | done        |
+| S-02 | `admin-cabinet-catalog`             | Admin prowadzi katalog szafek z wymiarami i układem szyn                                   | F-01          | FR-002                               | done        |
+| S-03 | `project-setup-and-supply-params`   | Elektryk zakłada projekt, wybiera szafkę i opisuje przyłącze OSD/WLZ                       | F-01, S-02    | FR-003, FR-004, FR-005, US-01        | done        |
+| S-04 | `circuit-input-and-device-matching` | Elektryk podaje obwody i grupy RCD i dostaje dobrane aparaty (albo błąd o luce w katalogu) | S-01, S-03    | FR-006, FR-007, US-01                | done        |
+| S-05 | `cabinet-layout-proposal`           | Elektryk widzi zaproponowany układ aparatów w swojej szafce                                | S-02, S-04    | FR-008, US-01                        | done        |
+| S-06 | `manual-layout-editing`             | Elektryk poprawia zaproponowany układ przed wyceną                                         | S-05          | FR-009, US-01                        | done        |
+| S-07 | `electrician-pricing-profile`       | Elektryk ustawia w profilu stawkę, średni czas montażu i narzut na projekt                 | F-01          | FR-010                               | done        |
+| S-08 | `quote-cost-estimate`               | Elektryk widzi koszt materiału i robocizny i nadpisuje estymowany czas                     | S-04, S-07    | FR-011, FR-013, US-01                | done        |
+| S-09 | `printable-quote-export`            | Elektryk drukuje/eksportuje wycenę z wizualizacją układu szafki                            | S-06, S-08    | FR-012, US-01                        | done        |
+| S-10 | `ui-layout-theme`                   | Elektryk i admin pracują w spójnym, jasnym interfejsie „Arkusz techniczny" pod desktop     | S-03, S-07    | NFR (UI po polsku), FR-012 pośrednio | done        |
+| S-11 | `realistic-wiring-render`           | Elektryk widzi rysunek okablowania szafki wyglądający jak prawdziwa rozdzielnica           | S-09          | poza PRD (FR-012 pośrednio)          | done        |
+| S-12 | `rcd-group-busbars`                 | Elektryk widzi listwy zasilające grup RCD zamiast mostków przewodowych                     | S-11          | poza PRD (typy aparatów)             | in-progress |
 
 ## Streams
 
@@ -253,6 +254,19 @@ Foundations poniżej zakładają, że to istnieje, i **nie** budują tego od now
 - **Risk:** Wyłącznie warstwa prezentacji nad trasami z S-05 (moduł `cabinet-wiring.ts` decyduje, gdzie biegnie przewód; ten plasterek tylko jak wygląda) — nie może zmienić reguł prowadzenia ani długości w zestawieniu. Ryzyko wydajności: rysunek renderuje się na serwerze w budżecie CPU Workera, więc bogatszy SVG (filtry, gradienty, wiele ścieżek na żyłę) może wymusić warstwę po stronie klienta. Ryzyko czytelności: realizm nie może zgubić tego, co już działa — podświetlenia przewodu po najechaniu, etykietki i rozróżnienia PE/N/PEN w skali szarości.
 - **Status:** done
 
+### S-12: Elektryk widzi listwy zasilające grup RCD
+
+- **Outcome:** Admin prowadzi w katalogu listwy zasilające (grzebieniowe) 1F i 3F, a elektryk widzi w szafce, że MCB każdej grupy RCD są zasilone z wyjścia jej RCD listwą zamiast mostków przewodowych: listwa jest dobrana jako najtańsza spełniająca parametry grupy (odcinki wycinane z jednej kupionej sztuki, gdy się mieszczą), narysowana w obu widokach i na wydruku, wliczona w materiał, a zastąpione mostki fazowe znikają z rysunku i z zestawienia długości przewodów.
+- **Change ID:** `rcd-group-busbars`
+- **Issue:** #17
+- **PRD refs:** poza zakresem PRD — rozszerzenie zamkniętej listy typów aparatów (`## Non-Goals`, zmiana z 2026-10-09); FR-008, FR-012, FR-013 pośrednio
+- **Prerequisites:** S-11
+- **Parallel with:** —
+- **Blockers:** —
+- **Unknowns:** —
+- **Risk:** Nowy rodzaj aparatu (`device_kind`) rozszerza zamkniętą listę typów z PRD, więc zmieniają się razem PRD, `AGENTS.md` i roadmapa. Główna pułapka: wiersze listew niosą `rcd_group_id`, więc każde sprawdzenie członkostwa w grupie (układ, walidacja, edytor, liczniki) musi je wykluczać; odcinki nie mają miejsca na szynie DIN. Brak pasującej listwy nie jest luką w katalogu — grupa zachowuje mostki i dostaje informację, a dobór nigdy nie schodzi na listwę o prądzie niższym niż RCD grupy.
+- **Status:** in-progress
+
 ## Backlog Handoff
 
 | Roadmap ID | Change ID                           | Suggested issue title                                      | Ready for `/10x-plan` | Notes                                                                                     |
@@ -269,6 +283,7 @@ Foundations poniżej zakładają, że to istnieje, i **nie** budują tego od now
 | S-09       | `printable-quote-export`            | Wydruk wyceny z wizualizacją układu szafki                 | no                    | Czeka na S-06, S-08                                                                       |
 | S-10       | `ui-layout-theme`                   | Spójny, jasny interfejs „Arkusz techniczny"                | done                  | Zarchiwizowane → `context/archive/2026-09-25-ui-layout-theme/`                            |
 | S-11       | `realistic-wiring-render`           | Realistyczny wygląd okablowania szafki                     | done                  | Zarchiwizowane → `context/archive/2026-10-08-realistic-wiring-render/`                    |
+| S-12       | `rcd-group-busbars`                 | Listwy zasilające (grzebieniowe) 1F/3F dla grup RCD        | in progress           | Trwa wdrożenie — `context/changes/rcd-group-busbars/plan.md`                              |
 
 ## Open Roadmap Questions
 
@@ -304,14 +319,6 @@ Foundations poniżej zakładają, że to istnieje, i **nie** budują tego od now
   dane pod 3D istnieją. Renderer byłby wyspą Reacta po stronie klienta (np. three.js), bez wpływu na
   wydruk, który zostaje w 2D. Śledzone w GitHub
   [#14](https://github.com/Mr1008/rozdzielnica-pro/issues/14).
-- **Listwy zasilające 1F i 3F do podłączania faz grup RCD** (szyny grzebieniowe łączące wyjście RCD
-  z wejściami MCB grupy) — Why parked: pomysł użytkownika z 2026-10-06, zgłoszony przy S-05 (Faza 5,
-  rysunek przewodów). Dziś zasilanie MCB grupy z RCD jest rysowane jako mostki przewodowe, a
-  listwy nie są typem aparatu w katalogu (zamknięta lista typów MVP, PRD `## Non-Goals`). Uwaga
-  wykonawcza: to nowy rodzaj aparatu (`device_kind`) — migracja + CHECK
-  `devices_parameters_match_kind` + `parseDeviceSpec` razem, dobór w `device-matching.ts` (liczba
-  biegunów i modułów grupy) i zamiana mostków w `cabinet-wiring.ts`; wymaga zmiany PRD. Śledzone w
-  GitHub [#17](https://github.com/Mr1008/rozdzielnica-pro/issues/17).
 - **Tłumaczenie interfejsu na inny język** — Why parked: PRD `## Non-Functional Requirements`; warstwa tłumaczeń już istnieje i nie blokuje drugiego języka, ale sam przekład nie jest celem MVP. Śledzone w GitHub [#31](https://github.com/Mr1008/rozdzielnica-pro/issues/31).
 
 ## Milestone History

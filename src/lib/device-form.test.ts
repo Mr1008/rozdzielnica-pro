@@ -84,6 +84,17 @@ const CASES: Record<DeviceKind, { fields: Fields; spec: DeviceSpec }> = {
       breaking_capacity_ka: 4.5,
     },
   },
+  comb_busbar: {
+    fields: { poles: "3P", rated_current_a: "63", width_mm: "210" },
+    spec: {
+      ...COMMON_SPEC,
+      ...NO_PARAMETERS,
+      kind: "comb_busbar",
+      width_mm: 210,
+      poles: "3P",
+      rated_current_a: 63,
+    },
+  },
   pe_bar: {
     fields: { terminal_groups: JSON.stringify([{ count: 7, minMm2: 1.5, maxMm2: 16 }]) },
     spec: {
@@ -146,6 +157,15 @@ describe("parseDeviceForm", () => {
     const data = form("rcd");
     data.delete(DEVICE_FORM_FIELDS.rcd_type);
     expect(parseDeviceForm(data, "create")).toEqual(INVALID);
+  });
+
+  it("rejects a 2P or 4P comb busbar, and ignores a stray N side on it", () => {
+    expect(parseDeviceForm(form("comb_busbar", { poles: "2P", n_terminal_side: "left" }), "create")).toEqual(INVALID);
+    expect(parseDeviceForm(form("comb_busbar", { poles: "4P", n_terminal_side: "left" }), "create")).toEqual(INVALID);
+    expect(parseDeviceForm(form("comb_busbar", { n_terminal_side: "left" }), "create")).toEqual({
+      ok: true,
+      value: CASES.comb_busbar.spec,
+    });
   });
 
   it("rejects a pole configuration the kind is not made in, and an unknown kind", () => {

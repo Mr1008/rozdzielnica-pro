@@ -119,6 +119,7 @@ export function catalogDevice(
     rcd: { rated_current_a: 40, residual_current_ma: 30, rcd_type: "A" },
     rcbo: { rated_current_a: 16, residual_current_ma: 30, rcd_type: "A", breaking_capacity_ka: 6 },
     mcb_b: { rated_current_a: 16, breaking_capacity_ka: 6 },
+    comb_busbar: { rated_current_a: 63 },
     pe_bar: {},
     n_bar: {},
   };
