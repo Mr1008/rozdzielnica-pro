@@ -3,7 +3,7 @@ change_id: printable-quote-export
 title: Wydruk wyceny z wizualizacją układu szafki
 status: implementing
 created: 2026-10-08
-updated: 2026-10-08
+updated: 2026-10-09
 ---
 
 ## Notes

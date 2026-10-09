@@ -3,9 +3,11 @@
 **RozdzielnicaPro** — a switchboard (rozdzielnica) planning and labour-quoting tool for a solo
 electrician. Scaffolded from `10x-astro-starter`. Product code so far is auth, i18n, the role/RLS
 baseline, the admin cabinet and device catalogs, the electrician pricing profile and projects (cabinet
-snapshot, OSD/WLZ supply and its warnings, circuits with RCD groups and device matching, the cabinet layout proposal with its wiring drawing and manual layout editing, the material and labour quote with its time override) — `src/pages/auth/*`, `src/pages/admin/` (including
+snapshot, OSD/WLZ supply and its warnings, circuits with RCD groups and device matching, the cabinet layout proposal with its wiring drawing and manual layout editing, the material and labour quote with its time override, the printable quote with the electrician's company details) — `src/pages/auth/*`, `src/pages/admin/` (including
 `src/pages/admin/devices/`), `src/pages/api/admin/`, `src/pages/dashboard.astro`,
-`src/pages/dashboard/profile.astro`, `src/pages/dashboard/projects/`, `src/pages/api/profile/`,
+`src/pages/dashboard/profile.astro`, `src/pages/dashboard/projects/` (including the print page
+`src/pages/dashboard/projects/[id]/print.astro`), `src/pages/api/profile/` (including
+`src/pages/api/profile/business.ts`),
 `src/pages/api/projects/`, `src/components/cabinets/`, `src/components/devices/`,
 `src/components/circuits/`, `src/components/forms/`, `src/components/projects/`, the landing page and
 auth shell, the design system (`src/styles/global.css`, `src/components/ui/`, `src/components/brand/`,
@@ -127,6 +129,17 @@ These are correctness requirements, not preferences.
   (`labour_override_base_minutes`, written by the endpoint from a server-side recompute — a
   convention, not enforced by the database: the owner's own token can write it); "outdated" is a
   comparison on render, never a stored flag, so a profile change counts too.
+- **The printout reads only `computePrintView`** (@src/lib/quote-print.ts). It prints only a `ready`
+  quote over a `current` match and a `placed` layout; any other state blocks with a link to the fix,
+  never a partial document. Its material lines only itemise `devicesGrosze` and must sum to it exactly
+  — a mismatch throws, it is never shown as a state.
+- **`business_profiles` is owner-only, with no admin policy** — the admin can read `profiles`, so
+  company details cannot live there. **Its bounds are guarded twice, and the two guards must change
+  together:** the `business_profiles_*_valid` CHECKs in
+  `supabase/migrations/20261008130000_business_profiles.sql` and the `MAX_*` constants in
+  @src/lib/business-profile.ts. The NIP checksum is checked in TypeScript only, by design (stricter
+  than the CHECK — the safe direction). No row means "no company details": the letterhead falls back
+  to the full name or email, and printing is never blocked.
 - **A project must snapshot its cabinet's `geometry`, not reference it live** (S-03). Admin edits to
   a cabinet must never shift an existing project's layout or quote; archiving only hides the cabinet
   from the picker. The snapshot (`cabinet_geometry`, `cabinet_name`, `cabinet_manufacturer`,
