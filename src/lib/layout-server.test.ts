@@ -435,3 +435,81 @@ describe("previousLayoutFromReads (circuit save carry-over input, review F1)", (
     });
   });
 });
+
+// ---------------------------------------------------------------------------------------------
+// Comb busbar segments (rcd-group-busbars, Phase 3)
+// ---------------------------------------------------------------------------------------------
+
+describe("busbar segments in the layout", () => {
+  const BUSBAR_ID = "d3000000-0000-4000-8000-000000000001";
+  const catalog = [...CATALOG, catalogDevice(BUSBAR_ID, "comb_busbar", "1P", 105)];
+  const payload: CircuitsPayload = { groups: SMALL.groups, circuits: SMALL.circuits };
+  const withBusbar: MatchResult = {
+    status: "matched",
+    selections: [
+      ...selections(payload),
+      {
+        role: "busbar",
+        deviceId: BUSBAR_ID,
+        groupId: payload.groups[0].id,
+        circuitId: null,
+        notes: [],
+        busbarPiece: 0,
+      },
+    ],
+  };
+
+  it("carries a null placement for the busbar selection and places the rest as without it", () => {
+    const layout = proposeSelectionLayout(withBusbar, catalog, payload, SEED_B);
+    const plain = proposeSelectionLayout(
+      { status: "matched", selections: selections(payload) },
+      catalog,
+      payload,
+      SEED_B,
+    );
+    expect(layout).toHaveLength(selections(payload).length + 1);
+    expect(layout?.at(-1)).toBeNull();
+    // The catalog RCD has its N on the right, so the busbar group stands [MCB, MCB, RCD]; the plain
+    // group is RCD first. Only the group's order differs.
+    const x = (placements: typeof layout, index: number) => placements?.[index]?.xMm ?? NaN;
+    expect(x(plain, 1)).toBeLessThan(x(plain, 2));
+    expect(x(layout, 1)).toBeGreaterThan(x(layout, 3));
+    expect(layout?.[0]).toEqual(plain?.[0]);
+  });
+
+  it("is placed with a stored snapshot that has an unplaced busbar row", () => {
+    const busbarRow = {
+      ...SMALL.snapshot[2],
+      id: "b2000000-0000-4000-8000-0000000000b1",
+      role: "busbar",
+      kind: "comb_busbar",
+      circuit_id: null,
+      position: SMALL.snapshot.length,
+    } as SnapshotRow;
+    const snapshot = [...SMALL.snapshot, busbarRow];
+    const placements = proposal(SMALL.snapshot, SMALL);
+    expect(placements.map((p) => p.projectDeviceId)).not.toContain(busbarRow.id);
+    const view = computeLayoutView(matchView("current", snapshot), SMALL_CONTEXT, placements);
+    expect(view).toEqual({ state: "placed", placements, editedManually: false });
+  });
+
+  it("carries a manual layout over a re-match that adds a busbar segment", () => {
+    const fixedManual: Placement[] = [
+      { projectDeviceId: SMALL.snapshot[0].id, railIndex: 0, xMm: 0 },
+      { projectDeviceId: SMALL.snapshot[1].id, railIndex: 1, xMm: 0 },
+      { projectDeviceId: SMALL.snapshot[2].id, railIndex: 1, xMm: 35 },
+      { projectDeviceId: SMALL.snapshot[3].id, railIndex: 1, xMm: 52.5 },
+    ];
+    const choice = chooseSelectionLayout(
+      { snapshot: SMALL.snapshot, placements: fixedManual, editedManually: true },
+      withBusbar,
+      catalog,
+      payload,
+      SEED_B,
+    );
+    expect(choice.editedManually).toBe(true);
+    expect(choice.reset).toBe(false);
+    expect(choice.layout?.at(-1)).toBeNull();
+    expect(choice.layout?.slice(0, 4)).toEqual(fixedManual.map((p) => ({ railIndex: p.railIndex, xMm: p.xMm })));
+  });
+});

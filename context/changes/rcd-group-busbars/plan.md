@@ -820,29 +820,29 @@ jumpers and shows the informational note.
 
 #### Automated
 
-- [x] 2.1 Migration applies: `npx supabase db reset && npm run db:types`
-- [x] 2.2 Unit and property tests pass: `npm run test:unit`
-- [x] 2.3 Integration tests pass: `npm run test:integration`
-- [x] 2.4 Type check, lint and build pass: `npx astro check && npm run lint && npm run build`
+- [x] 2.1 Migration applies: `npx supabase db reset && npm run db:types` — a6e3b52
+- [x] 2.2 Unit and property tests pass: `npm run test:unit` — a6e3b52
+- [x] 2.3 Integration tests pass: `npm run test:integration` — a6e3b52
+- [x] 2.4 Type check, lint and build pass: `npx astro check && npm run lint && npm run build` — a6e3b52
 
 #### Manual
 
-- [x] 2.5 A project with two 1F RCD groups shows busbar segments cut from one piece; the quote shows one piece in material and both segments counted in the labour formula
-- [x] 2.6 A project saved before this phase reads "Nieaktualny" and becomes current after "Dobierz ponownie"
-- [x] 2.7 With all busbars archived, the groups show the informational "brak listwy" note and matching is not blocked
+- [x] 2.5 A project with two 1F RCD groups shows busbar segments cut from one piece; the quote shows one piece in material and both segments counted in the labour formula — a6e3b52
+- [x] 2.6 A project saved before this phase reads "Nieaktualny" and becomes current after "Dobierz ponownie" — a6e3b52
+- [x] 2.7 With all busbars archived, the groups show the informational "brak listwy" note and matching is not blocked — a6e3b52
 
 ### Phase 3: Layout with unplaced segments and RCD orientation
 
 #### Automated
 
-- [ ] 3.1 Unit and property tests pass: `npm run test:unit`
-- [ ] 3.2 Integration tests pass: `npm run test:integration`
-- [ ] 3.3 Type check, lint and build pass: `npx astro check && npm run lint && npm run build`
+- [x] 3.1 Unit and property tests pass: `npm run test:unit`
+- [x] 3.2 Integration tests pass: `npm run test:integration`
+- [x] 3.3 Type check, lint and build pass: `npx astro check && npm run lint && npm run build`
 
 #### Manual
 
-- [ ] 3.4 "Zaproponuj układ" for a project with busbar groups places each RCD with its N terminal at the outer end of its group
-- [ ] 3.5 Manual edit (move a group, move the RCD to the other end) saves without `layout_invalid`, and a re-match carries the manual layout over
+- [x] 3.4 "Zaproponuj układ" for a project with busbar groups places each RCD with its N terminal at the outer end of its group
+- [x] 3.5 Manual edit (move a group, move the RCD to the other end) saves without `layout_invalid`, and a re-match carries the manual layout over
 
 ### Phase 4: Busbar in the wiring and the drawing
 

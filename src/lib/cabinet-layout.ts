@@ -24,6 +24,14 @@ import { t } from "@/lib/i18n";
  *   one block.
  * - **Rule 1 (hard).** A block occupies one rail, contiguous. It continues onto the next rail in its
  *   rail order only when it is wider than every rail.
+ * - **Rule 1, busbar orientation** (user decision 2026-10-09, an explicit rule, not a score). In a group
+ *   that has a comb busbar (`rcd-group-busbars`), the RCD stands at the end of its block that puts its N
+ *   terminal on the outside: last when its `n_terminal_side` is `right`, first otherwise; the MCBs keep
+ *   snapshot order. A group without a busbar is unchanged. `validateLayout` does not require it — a
+ *   manual layout with the RCD at the other end stays valid.
+ * - **Busbar rows.** A `busbar` snapshot row is a segment of a comb busbar, not a device on a rail: it is
+ *   never placed, never part of a block and never part of a group's membership or contiguity. A
+ *   placement that names one is reported as `unknown_device`.
  * - **Rule 2 (orders blocks).** A block's side is the entry side most of its circuits use (tie: the
  *   earliest circuit's side; sides without an entry are skipped; none usable → `top`). Rails are
  *   ranked per side; `left` blocks fill from the rail start, `right` blocks from the rail end.
@@ -47,6 +55,11 @@ import { t } from "@/lib/i18n";
 
 /** The gap between adjacent blocks on a rail: one DIN module (user decision 2026-10-06). */
 export const GROUP_GAP_MM = DIN_MODULE_MM;
+
+/** A comb busbar segment (`rcd-group-busbars`): a snapshot row that carries `rcd_group_id` but sits on no rail. */
+export function isBusbarRole(role: string): boolean {
+  return role === "busbar";
+}
 
 /** The snapshot roles of PE/N bars taken from the catalog (plan Phase 5b), in block order. */
 export const CATALOG_BAR_ROLES = ["pe_bar", "n_bar"] as const;
@@ -471,14 +484,26 @@ function majoritySide(
   return best?.side ?? "top";
 }
 
-/** RCD / RCBO first, then the rest; otherwise snapshot order. */
-function blockOrder(devices: readonly LayoutDevice[]): LayoutDevice[] {
+/**
+ * RCD / RCBO first, then the rest; otherwise snapshot order. In a group with a busbar, an RCD whose N
+ * terminal is on the right goes last instead (see the header, "busbar orientation").
+ */
+function blockOrder(devices: readonly LayoutDevice[], hasBusbar: boolean): LayoutDevice[] {
   const lead = devices.filter((device) => device.role === "rcd" || device.role === "rcbo");
-  return [...lead, ...devices.filter((device) => !lead.includes(device))];
+  const rest = devices.filter((device) => !lead.includes(device));
+  if (
+    hasBusbar &&
+    lead.length > 0 &&
+    lead.every((device) => device.role === "rcd" && device.n_terminal_side === "right")
+  ) {
+    return [...rest, ...lead];
+  }
+  return [...lead, ...rest];
 }
 
 function buildBlocks(input: LayoutInput): Block[] {
-  const devices = [...input.devices].sort((a, b) => a.position - b.position);
+  const sorted = [...input.devices].sort((a, b) => a.position - b.position);
+  const devices = sorted.filter((device) => !isBusbarRole(device.role));
   const usable = new Set(input.geometry.entries.map((entry) => entry.side));
   const blocks: Block[] = [];
   const make = (kind: BlockKind, label: string, members: LayoutDevice[], side?: EntrySide) => {
@@ -504,7 +529,8 @@ function buildBlocks(input: LayoutInput): Block[] {
   for (const groupId of groupIds) {
     const label = input.groups.find((group) => group.id === groupId)?.label ?? groupId;
     const members = devices.filter((device) => device.role !== "main_switch" && device.rcd_group_id === groupId);
-    make("group", t.circuitSection.servesGroup(label), blockOrder(members));
+    const hasBusbar = sorted.some((device) => isBusbarRole(device.role) && device.rcd_group_id === groupId);
+    make("group", t.circuitSection.servesGroup(label), blockOrder(members, hasBusbar));
   }
 
   make(
@@ -802,9 +828,11 @@ function modulesDown(mm: number): number {
  * ungrouped block — each on the first rail of its ranking that fits it. The placements come back in
  * snapshot (`position`) order.
  */
-export function proposeLayout(input: LayoutInput): LayoutResult {
+export function proposeLayout(rawInput: LayoutInput): LayoutResult {
+  // Busbar rows are never placed; `buildBlocks` reads them only to orient a group's RCD.
+  const input: LayoutInput = { ...rawInput, devices: rawInput.devices.filter((device) => !isBusbarRole(device.role)) };
   const placer = new Placer(input.geometry);
-  for (const block of buildBlocks(input)) {
+  for (const block of buildBlocks(rawInput)) {
     const place = () => (block.widthMm > placer.maxRailMm + EPS ? placer.placeSplit(block) : placer.placeWhole(block));
     let placed = place();
     if (!placed && block.kind === "bars" && block.widthMm <= placer.maxRailMm + EPS) {
@@ -908,11 +936,13 @@ interface Located {
  * RCBO alone in its group. A device that fails coverage or its rail is left out of the later checks.
  */
 export function validateLayout(
-  devices: readonly LayoutDevice[],
+  allDevices: readonly LayoutDevice[],
   placements: readonly Placement[],
   geometry: CabinetGeometry,
   groups: readonly Pick<LayoutGroup, "id">[],
 ): LayoutIssue[] {
+  // Busbar rows are no placement subject: not covered, not in a group's membership or contiguity.
+  const devices = allDevices.filter((device) => !isBusbarRole(device.role));
   const issues: LayoutIssue[] = [];
   const byId = new Map(devices.map((device) => [device.id, device]));
   const seen = new Map<string, Placement>();

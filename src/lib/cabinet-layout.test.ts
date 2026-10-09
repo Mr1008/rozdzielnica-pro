@@ -785,3 +785,88 @@ describe("barTerminalPoints", () => {
     expect(barTerminalPoints({ ...bar, terminalGroups: [] })).toEqual([]);
   });
 });
+
+// ---------------------------------------------------------------------------------------------
+// Comb busbars (rcd-group-busbars, Phase 3)
+// ---------------------------------------------------------------------------------------------
+
+/** A comb busbar segment: a snapshot row carrying its group, sitting on no rail. */
+const busbar = (group: string, id = `bus-${group}`): Draft => ({
+  id,
+  role: "busbar",
+  kind: "comb_busbar",
+  rcd_group_id: group,
+  circuit_id: null,
+  width_mm: 70,
+  height_mm: 20,
+  poles: "1P",
+  n_terminal_side: null,
+});
+
+describe("comb busbar rows", () => {
+  function busbarInput(nSide: NTerminalSide, withBusbar = true): LayoutInput {
+    const g = simpleGroup("G1", ["top", "top"], { nSide });
+    return {
+      devices: devices(mainSwitch(), ...g.drafts, ...(withBusbar ? [busbar("G1")] : [])),
+      groups: groups("G1"),
+      circuits: circuits(g.circuits),
+      geometry: SEED_B,
+    };
+  }
+
+  function order(input: LayoutInput): string[] {
+    const result = proposeValid(input);
+    return placed(result)
+      .filter((p) => p.projectDeviceId.includes("G1"))
+      .sort((a, b) => a.xMm - b.xMm)
+      .map((p) => p.projectDeviceId);
+  }
+
+  it("puts an RCD with its N on the right last, after its MCBs", () => {
+    expect(order(busbarInput("right"))).toEqual(["mcb-G1-c0", "mcb-G1-c1", "G1-rcd"]);
+  });
+
+  it("keeps an RCD with its N on the left first", () => {
+    expect(order(busbarInput("left"))).toEqual(["G1-rcd", "mcb-G1-c0", "mcb-G1-c1"]);
+  });
+
+  it("leaves a group without a busbar RCD-first whatever its N side", () => {
+    expect(order(busbarInput("right", false))[0]).toBe("G1-rcd");
+  });
+
+  it("never places a busbar row, and the layout still validates", () => {
+    const input = busbarInput("right");
+    const result = proposeValid(input);
+    expect(placed(result).map((p) => p.projectDeviceId)).not.toContain("bus-G1");
+    expect(validateLayout(input.devices, placed(result), input.geometry, input.groups)).toEqual([]);
+  });
+
+  it("never reports device_not_placed or group_not_contiguous for a busbar row", () => {
+    const input = busbarInput("left");
+    const issues = validateLayout(input.devices, placed(proposeLayout(input)), input.geometry, input.groups);
+    expect(issues.filter((i) => i.code === "device_not_placed" || i.code === "group_not_contiguous")).toEqual([]);
+  });
+
+  it("reports a placement naming a busbar row as unknown_device", () => {
+    const input = busbarInput("left");
+    const extra: Placement = { projectDeviceId: "bus-G1", railIndex: 0, xMm: 0 };
+    const issues = validateLayout(
+      input.devices,
+      [...placed(proposeLayout(input)), extra],
+      input.geometry,
+      input.groups,
+    );
+    expect(issues).toContainEqual({ code: "unknown_device", deviceId: "bus-G1" });
+  });
+
+  it("does not count a busbar row toward the failure's required modules", () => {
+    const input = busbarInput("left");
+    const without = busbarInput("left", false);
+    const tiny = { ...input.geometry, rails: [{ ...input.geometry.rails[0], lengthMm: 10 }] };
+    const a = proposeLayout({ ...input, geometry: tiny });
+    const b = proposeLayout({ ...without, geometry: tiny });
+    expect(a.ok).toBe(false);
+    expect(b.ok).toBe(false);
+    if (!a.ok && !b.ok) expect(a.reason.requiredModules).toBe(b.reason.requiredModules);
+  });
+});

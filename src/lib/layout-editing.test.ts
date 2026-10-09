@@ -505,3 +505,53 @@ describe("layoutIssueMessage", () => {
     expect(layoutIssueMessage(issue, names)).toBe(message);
   });
 });
+
+// ---------------------------------------------------------------------------------------------
+// Comb busbar rows (rcd-group-busbars, Phase 3)
+// ---------------------------------------------------------------------------------------------
+
+describe("busbar rows in the editing model", () => {
+  const busbar: LayoutDevice = {
+    ...device("bus-G1", "mcb", "1P", 105, 6, "G1"),
+    role: "busbar",
+    kind: "comb_busbar",
+    height_mm: 20,
+  };
+  const WITH_BUSBAR = [...DEVICES, busbar];
+  const context: EditContext = { devices: WITH_BUSBAR, geometry: SEED_B, groups: GROUPS };
+
+  it("never lists a busbar row as a block member or a draggable device", () => {
+    const units = editUnits(WITH_BUSBAR, GROUPS, SEED_B);
+    expect(units).toEqual(editUnits(DEVICES, GROUPS, SEED_B));
+    expect(JSON.stringify(units)).not.toContain("bus-G1");
+  });
+
+  it("moves a group device without a placement for the busbar row being required", () => {
+    expect(moveUnit(context, START, G1_BLOCK, { railIndex: 1, xMm: 100 }).ok).toBe(true);
+    expect(moveDevice(context, START, "mcb-a", { railIndex: 0, xMm: 105 }).ok).toBeDefined();
+  });
+
+  it("refuses to move a busbar row", () => {
+    expect(moveDevice(context, START, "bus-G1", { railIndex: 0, xMm: 0 })).toEqual({
+      ok: false,
+      issues: [{ code: "unknown_device", deviceId: "bus-G1" }],
+    });
+  });
+
+  it("carries a manual layout over a device set that gained a busbar row", () => {
+    const next = WITH_BUSBAR.map((d, i) => ({ ...d, id: String(i), position: i }));
+    const carried = carryOverPlacements({ devices: DEVICES, placements: START.placements }, next, SEED_B, GROUPS);
+    expect(carried).toHaveLength(DEVICES.length);
+    expect(carried?.map((p) => p.projectDeviceId)).not.toContain("6");
+  });
+
+  it("carries a layout from a snapshot that already had a busbar row", () => {
+    const carried = carryOverPlacements(
+      { devices: WITH_BUSBAR, placements: START.placements },
+      DEVICES.map((d, i) => ({ ...d, id: String(i), position: i })),
+      SEED_B,
+      GROUPS,
+    );
+    expect(carried).toHaveLength(DEVICES.length);
+  });
+});

@@ -1,5 +1,11 @@
 import { deviceLabelLines, type DrawableDevice } from "@/lib/cabinet-drawing";
-import type { LayoutDevice, LayoutGroup, LayoutIssueNames, Placement } from "@/lib/cabinet-layout";
+import {
+  isBusbarRole,
+  type LayoutDevice,
+  type LayoutGroup,
+  type LayoutIssueNames,
+  type Placement,
+} from "@/lib/cabinet-layout";
 import type { CircuitInput } from "@/lib/circuit-params";
 import { t } from "@/lib/i18n";
 
@@ -25,21 +31,24 @@ export interface LayoutEditorData {
 
 /** Only the fields the editor reads, so a `project_devices` row's price and snapshot columns stay off the wire. */
 export function toEditorDevices(snapshot: readonly (LayoutDevice & DrawableDevice)[]): EditorDevice[] {
-  return snapshot.map((device) => ({
-    id: device.id,
-    position: device.position,
-    role: device.role,
-    rcd_group_id: device.rcd_group_id,
-    circuit_id: device.circuit_id,
-    kind: device.kind,
-    width_mm: device.width_mm,
-    height_mm: device.height_mm,
-    poles: device.poles,
-    n_terminal_side: device.n_terminal_side,
-    rated_current_a: device.rated_current_a,
-    residual_current_ma: device.residual_current_ma,
-    terminal_groups: device.terminal_groups,
-  }));
+  // Busbar segments have no placement: the editor neither lists nor drags them.
+  return snapshot
+    .filter((device) => !isBusbarRole(device.role))
+    .map((device) => ({
+      id: device.id,
+      position: device.position,
+      role: device.role,
+      rcd_group_id: device.rcd_group_id,
+      circuit_id: device.circuit_id,
+      kind: device.kind,
+      width_mm: device.width_mm,
+      height_mm: device.height_mm,
+      poles: device.poles,
+      n_terminal_side: device.n_terminal_side,
+      rated_current_a: device.rated_current_a,
+      residual_current_ma: device.residual_current_ma,
+      terminal_groups: device.terminal_groups,
+    }));
 }
 
 const BAR_ROLE_NAMES: Readonly<Record<string, string>> = {
@@ -62,6 +71,7 @@ export function layoutIssueNames(
   const circuitNames = new Map(circuits.map((circuit) => [circuit.id, circuit.name]));
   const deviceNames: Record<string, string> = {};
   for (const device of devices) {
+    if (isBusbarRole(device.role)) continue;
     const lines = deviceLabelLines(
       device.role === "main_switch" ||
         device.role === "rcd" ||
