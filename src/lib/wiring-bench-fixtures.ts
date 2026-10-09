@@ -152,7 +152,7 @@ export interface RenderFixture {
 }
 
 /** Matches `groupCount` × `perGroup` circuits on `geometry` and stores the proposed layout. */
-function renderFixture(groupCount: number, perGroup: number, geometry: CabinetGeometry): RenderFixture {
+export function renderFixture(groupCount: number, perGroup: number, geometry: CabinetGeometry): RenderFixture {
   const generated = project(groupCount, perGroup);
   // perGroup × 16 A × 1.15 stays under 63 A for the sizes used here: the groups need a 63 A RCD.
   const catalog = [

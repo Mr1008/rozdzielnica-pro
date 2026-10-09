@@ -884,25 +884,25 @@ next phase.
 
 #### Automated
 
-- [x] 3.1 Router tests pass, including new spacing tests (unsqueezed neighbours never overlap at true scale; a mixed 1.5/16 mm² pair is spaced by both radii): `npm run test:unit -- cabinet-wiring`
-- [x] 3.2 Slack invariant still holds (lengthMm = 1.3 × route length) and routing is deterministic: `npm run test:unit -- cabinet-wiring`
-- [x] 3.3 Full unit suite, lint, types: `npm run test:unit && npm run lint && npx astro check`
+- [x] 3.1 Router tests pass, including new spacing tests (unsqueezed neighbours never overlap at true scale; a mixed 1.5/16 mm² pair is spaced by both radii): `npm run test:unit -- cabinet-wiring` — 735c05f
+- [x] 3.2 Slack invariant still holds (lengthMm = 1.3 × route length) and routing is deterministic: `npm run test:unit -- cabinet-wiring` — 735c05f
+- [x] 3.3 Full unit suite, lint, types: `npm run test:unit && npm run lint && npx astro check` — 735c05f
 
 #### Manual
 
-- [x] 3.4 `/dev/kitchen-sink` layout states still draw every conductor end-to-end with no wire crossing through a device, with visibly wider spacing next to the WLZ
+- [x] 3.4 `/dev/kitchen-sink` layout states still draw every conductor end-to-end with no wire crossing through a device, with visibly wider spacing next to the WLZ — 735c05f
 
 ### Phase 4: Router — side packs and overflow
 
 #### Automated
 
-- [ ] 4.1 Pack, side-rule, no-crossing and overflow tests pass: `npm run test:unit -- cabinet-wiring`
-- [ ] 4.2 Worst-case fixture produces `conductors_do_not_fit`; realistic fixture on seed (c) produces none: `npm run test:unit -- cabinet-wiring`
-- [ ] 4.3 Full unit suite, lint, types: `npm run test:unit && npm run lint && npx astro check`
+- [x] 4.1 Pack, side-rule, no-crossing and overflow tests pass: `npm run test:unit -- cabinet-wiring`
+- [x] 4.2 Worst-case fixture produces `conductors_do_not_fit`; realistic fixture on seed (c) produces none: `npm run test:unit -- cabinet-wiring`
+- [x] 4.3 Full unit suite, lint, types: `npm run test:unit && npm run lint && npx astro check`
 
 #### Manual
 
-- [ ] 4.4 On `/dev/kitchen-sink` (schematic strokes still), wires visibly run in side packs and branch to their rows; the lengths table changed plausibly (longer circuit cores, unchanged feeds)
+- [x] 4.4 On `/dev/kitchen-sink` (schematic strokes still), wires visibly run in side packs and branch to their rows; the lengths table changed plausibly (longer circuit cores, unchanged feeds)
 
 ### Phase 5: Cloudflare re-measure and runtime decision
 

@@ -1198,6 +1198,17 @@ export const pl = {
       lengthsNote: (slackPercent: number) =>
         `Długości zawierają ${formatNumber(slackPercent)} % zapasu montażowego. Trasy są przybliżone (po kanałach nad i pod szynami DIN i wzdłuż boków szafki), więc to szacunek do zamówienia przewodów, a nie wynik pomiaru. Połączenia między aparatami liczone są przekrojem WLZ.`,
       noBarsNote: "Szafka nie ma szyn PE ani N — przewodów do szyn nie narysowano i nie policzono.",
+      /** `count` conductors did not fit at true scale in the side channels (`wiringWarnings`). */
+      wiringOverflow: (count: number) =>
+        `${String(count)} ${plural(count, {
+          one: "przewód nie zmieścił się",
+          few: "przewody nie zmieściły się",
+          many: "przewodów nie zmieściło się",
+        })} w prawdziwej skali w kanałach bocznych szafki i ${plural(count, {
+          one: "jest narysowany",
+          few: "są narysowane",
+          many: "jest narysowanych",
+        })} w drugiej warstwie, za końcami szyn DIN. To uproszczenie rysunku, a nie błąd — układ i wycena nie są blokowane.`,
       catalogBarsNote:
         "Szafka nie ma wbudowanych szyn PE/N — szyny dobrane z katalogu aparatów stoją na szynie DIN i są w zestawieniu materiału.",
     },
