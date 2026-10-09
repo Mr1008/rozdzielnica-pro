@@ -467,6 +467,12 @@ component used by `LayoutSection` and the document. This is a pure move.
 **Contract**: Props are `{ earthing?: EarthingSystem | null }`, or whatever the current markup already
 reads. The output is identical in `LayoutSection`.
 
+> **Addendum (impl review 2026-10-09):** not needed and not created. The legends were already one
+> shared island, `src/components/projects/LayoutLegend.tsx`, used by `LayoutSection.astro`;
+> `QuoteDocument.astro` renders the same component. The print page also gained two presentational
+> extractions not listed here, `PrintBlocked.astro` and `PrintNotices.astro`, and `projectPrintPath`
+> in `src/lib/project.ts`.
+
 #### 3. Document component
 
 **File**: `src/components/projects/QuoteDocument.astro`

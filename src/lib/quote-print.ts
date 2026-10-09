@@ -95,7 +95,9 @@ function letterhead(input: Pick<PrintInput, "business" | "fullName" | "userEmail
     nip: business?.nip ?? null,
     address: business?.address ?? null,
     phone: business?.phone ?? null,
-    email: business?.email ?? userEmail,
+    // The login email stands in only when no company details are stored at all; an electrician who
+    // saved company details without an email chose not to print one.
+    email: business === null ? userEmail : business.email,
   };
 }
 

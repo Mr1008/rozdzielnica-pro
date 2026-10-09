@@ -76,7 +76,9 @@ function readText(form: FormData, name: string): string | null {
 function readOptional(form: FormData, name: string, accepts: (trimmed: string) => boolean): string | null | undefined {
   const raw = readText(form, name);
   if (raw === null) return null;
-  const trimmed = raw.trim();
+  // A textarea submits each newline as CRLF, which `maxlength` counts as one character: normalise
+  // first, so a value the browser accepted is measured the same way here.
+  const trimmed = raw.replace(/\r\n?/g, "\n").trim();
   if (trimmed === "") return null;
   return accepts(trimmed) ? trimmed : undefined;
 }

@@ -205,7 +205,7 @@ describe("letterhead", () => {
 
   it("falls back from company name to full name to email to null", () => {
     const noName = { ...BUSINESS, company_name: null, email: null };
-    expect(head({ business: noName })).toMatchObject({ title: "Jan Kowalski", email: "jan@example.com" });
+    expect(head({ business: noName })).toMatchObject({ title: "Jan Kowalski", email: null });
     expect(head({ business: noName, fullName: null }).title).toBe("jan@example.com");
     expect(head({ business: null, fullName: null, userEmail: null })).toEqual({
       title: null,
@@ -214,6 +214,11 @@ describe("letterhead", () => {
       phone: null,
       email: null,
     });
+  });
+
+  it("prints the login email only when no company details are stored", () => {
+    expect(head({ business: null }).email).toBe("jan@example.com");
+    expect(head({ business: { ...BUSINESS, email: null } }).email).toBeNull();
   });
 
   it("treats empty and whitespace-only names as absent", () => {

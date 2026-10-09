@@ -11,7 +11,7 @@ import { t } from "@/lib/i18n";
 import { buildLayoutDrawing, computeLayoutView, loadLayoutContext } from "@/lib/layout-server";
 import { PROJECTS_PATH, projectPath } from "@/lib/project";
 import { computeQuoteView } from "@/lib/quote";
-import { computePrintView } from "@/lib/quote-print";
+import { computePrintView, type PrintView } from "@/lib/quote-print";
 import { createClient } from "@/lib/supabase";
 import { CircleAlertIcon } from "lucide-react";
 
@@ -92,30 +92,48 @@ const layoutView =
     ? computeLayoutView(matchView, layoutLoad.context, layoutLoad.placements, layoutLoad.editedManually)
     : null;
 
-const loadError =
-  projectLoadError ?? (project && (own === null || own.failed || !context) ? t.quotePrint.loadFailed : null);
-if (loadError) Astro.response.status = 500;
+/**
+ * `computePrintView` throws when the itemised lines do not sum to the quote (a bug, never a state); the
+ * page then reports a load failure in Polish instead of the runtime's default error page.
+ */
+function printView(compute: () => PrintView): PrintView | "failed" {
+  try {
+    return compute();
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error("print view failed", error instanceof Error ? error.message : "unknown");
+    return "failed";
+  }
+}
 
-const view =
+const computed =
   project && own && !own.failed && matchView
-    ? computePrintView({
-        quote: computeQuoteView({
-          matchView,
-          cabinet: { name: project.cabinet_name, priceGrosze: project.cabinet_price_grosze },
-          profile: own.pricing,
-          override:
-            project.labour_minutes_override !== null && project.labour_override_base_minutes !== null
-              ? { minutes: project.labour_minutes_override, baseMinutes: project.labour_override_base_minutes }
-              : null,
+    ? printView(() =>
+        computePrintView({
+          quote: computeQuoteView({
+            matchView,
+            cabinet: { name: project.cabinet_name, priceGrosze: project.cabinet_price_grosze },
+            profile: own.pricing,
+            override:
+              project.labour_minutes_override !== null && project.labour_override_base_minutes !== null
+                ? { minutes: project.labour_minutes_override, baseMinutes: project.labour_override_base_minutes }
+                : null,
+          }),
+          matchCurrent: matchView.state === "current",
+          layout: layoutView,
+          snapshot: matchView.snapshot,
+          business: own.business,
+          fullName: own.fullName,
+          userEmail: Astro.locals.user?.email ?? null,
         }),
-        matchCurrent: matchView.state === "current",
-        layout: layoutView,
-        snapshot: matchView.snapshot,
-        business: own.business,
-        fullName: own.fullName,
-        userEmail: Astro.locals.user?.email ?? null,
-      })
+      )
     : null;
+const view = computed === "failed" ? null : computed;
+
+const loadError =
+  projectLoadError ??
+  (project && (own === null || own.failed || !context || computed === "failed") ? t.quotePrint.loadFailed : null);
+if (loadError) Astro.response.status = 500;
 const drawing = context && matchView ? buildLayoutDrawing(layoutView, matchView, context) : null;
 
 const title = project ? t.quotePrint.pageTitle(project.name) : t.quotePrint.title;
