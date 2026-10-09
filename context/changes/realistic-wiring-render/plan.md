@@ -932,12 +932,12 @@ next phase.
 
 #### Automated
 
-- [x] 7.1 CI-equivalent passes: `npm run lint && npx astro check && npm run test:unit && npm run build`
-- [x] 7.2 Roadmap mirror planned without errors: `node scripts/roadmap-to-github.mjs`
+- [x] 7.1 CI-equivalent passes: `npm run lint && npx astro check && npm run test:unit && npm run build` — 5c8fec6
+- [x] 7.2 Roadmap mirror planned without errors: `node scripts/roadmap-to-github.mjs` — 5c8fec6
 
 #### Manual
 
-- [x] 7.3 Project page: the switch toggles realistic ↔ schematic, the active state is visible, and the overflow warning shows on a crowded project and not on a small one
-- [ ] 7.4 Landing hero shows the realistic drawing and stays legible at its small size
-- [x] 7.5 Kitchen sink shows every new state with Polish captions
-- [ ] 7.6 User confirmed bench Worker deletion, and production `rozdzielnica-pro` is untouched
+- [x] 7.3 Project page: the switch toggles realistic ↔ schematic, the active state is visible, and the overflow warning shows on a crowded project and not on a small one — 5c8fec6
+- [x] 7.4 Landing hero shows the realistic drawing and stays legible at its small size
+- [x] 7.5 Kitchen sink shows every new state with Polish captions — 5c8fec6
+- [x] 7.6 User confirmed bench Worker deletion, and production `rozdzielnica-pro` is untouched
