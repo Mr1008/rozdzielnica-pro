@@ -140,11 +140,10 @@ const layoutView =
     ? computeLayoutView(matchView, matchLoad.context, matchLoad.placements, matchLoad.editedManually)
     : null;
 // Wires are display-only and drawn only over a `placed` layout; the aside thumbnail stays without them.
+// They are routed in the browser from `wiring` (S-11 Phase 5): the server never runs the router here.
 const drawing = matchContext && matchView ? buildLayoutDrawing(layoutView, matchView, matchContext) : null;
 const placedDevices = drawing?.devices ?? [];
-const placedWires = drawing?.wires ?? [];
-const placedCables = drawing?.cables ?? [];
-const wireLengths = drawing?.lengths ?? [];
+const placedWiring = drawing?.wiring ?? null;
 // What the layout editor island is mounted with: the snapshot the placed layout covers, never a live query.
 const layoutEditor: LayoutEditorData | null =
   layoutView?.state === "placed" && matchContext && matchView
@@ -524,9 +523,7 @@ const headingClass = "scroll-mt-6 text-lg leading-none font-semibold";
                 <LayoutSection
                   view={layoutView}
                   devices={placedDevices}
-                  wires={placedWires}
-                  cables={placedCables}
-                  lengths={wireLengths}
+                  wiring={placedWiring}
                   geometry={matchContext.geometry}
                   projectId={project.id}
                   matchAnchor={circuitsSectionId}

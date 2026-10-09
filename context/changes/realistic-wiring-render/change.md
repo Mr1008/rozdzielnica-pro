@@ -81,6 +81,8 @@ CPU per invocation from `wrangler tail --format json` (`cpuTime`, ms) on the ben
 | ---------- | ------------------- | -------- | --------- | ---------- | ------- | --- | --- |
 | 2026-10-08 | v1 (baseline, S-06) | 4.131.1  | worst     | 30.5 ms    | 95 ms   | 14  | 67  |
 | 2026-10-08 | v1 (baseline, S-06) | 4.131.1  | realistic | 10 ms      | 25 ms   | 4   | 20  |
+| 2026-10-09 | v2 (packs, p4)      | 4.131.1  | worst     | 19 ms      | 30 ms   | 12  | 28  |
+| 2026-10-09 | v2 (packs, p4)      | 4.131.1  | realistic | 5 ms       | 37 ms   | 3   | 16  |
 
 Finding: today's router already exceeds the plan's server rule (median ≤ 8 ms, max ≤ 10 ms) on the
 worst case by ~4× and sits at the median limit on the realistic fixture. The local Node figure
@@ -88,3 +90,12 @@ worst case by ~4× and sits at the median limit on the realistic fixture. The lo
 ("built-in flexibility") and terminates only consistent overruns (Error 1102, `exceededCpu`), which is
 why every request still succeeded. Phase 5's decision should expect the client island unless the
 account moves to Workers Paid (30 s default CPU limit).
+
+Router v2 (2026-10-09): same procedure; all 70 invocations `outcome: ok`. Production `rozdzielnica-pro`
+stayed on version `23813bdb` throughout. v2 measured lower than v1, but treat that as Cloudflare noise,
+not a speed-up: the local Node figures were flat. The worst case is still over the rule on both median
+and max, and the realistic fixture is over on max.
+
+**Decision (Phase 5, 2026-10-09): client island.** The user chose it over other free hosting and over
+staying on the server. The server keeps the match and layout views and validation. The browser routes
+and draws the wires.

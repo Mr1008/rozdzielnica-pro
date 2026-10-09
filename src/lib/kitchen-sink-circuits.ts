@@ -9,7 +9,6 @@ import {
 import type { CabinetGeometry } from "@/lib/cabinet-geometry";
 import type { Placement } from "@/lib/cabinet-layout";
 import { SEED_A, SEED_B, SEED_C, geometry as parseFixtureGeometry } from "@/lib/cabinet-layout.fixtures";
-import { wireLengthsBySection, type WireLengthRow } from "@/lib/cabinet-wiring";
 import { payloadToDraft, type CircuitDraftState } from "@/lib/circuit-draft";
 import {
   DEFAULT_RCD_MARGIN_PERCENT,
@@ -36,6 +35,7 @@ import type { PricingProfile } from "@/lib/pricing-profile";
 import { computeQuoteView, estimateLabourMinutes, type QuoteView } from "@/lib/quote";
 import { computePrintView, type PrintBlockReason, type PrintView } from "@/lib/quote-print";
 import type { SupplyParams } from "@/lib/supply-params";
+import type { WiringData } from "@/lib/wiring-island";
 
 /**
  * Static fixtures for the kitchen sink's circuit section (dev only, never written anywhere): a small
@@ -464,9 +464,11 @@ export interface LayoutFixture {
   caption: string;
   view: LayoutView | null;
   devices: DrawnDevice[];
+  /** Routed on the server: the landing hero draws them without an island (memoised per isolate). */
   wires: DrawnWire[];
   cables: DrawnCable[];
-  lengths: WireLengthRow[];
+  /** The router's input the project page's island is given; null unless the layout is `placed`. */
+  wiring: WiringData | null;
   geometry: CabinetGeometry;
   /** What the editor island is mounted with; null unless the layout is `placed`. */
   editor: LayoutEditorData | null;
@@ -542,7 +544,7 @@ function layoutFixture(
       devices,
     }),
     cables: buildDrawnCables(conductors),
-    lengths: wireLengthsBySection(conductors),
+    wiring: buildLayoutDrawing(view, matchView, ctx).wiring,
     geometry,
     editor:
       view?.state === "placed"

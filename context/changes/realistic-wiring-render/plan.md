@@ -896,24 +896,24 @@ next phase.
 
 #### Automated
 
-- [x] 4.1 Pack, side-rule, no-crossing and overflow tests pass: `npm run test:unit -- cabinet-wiring`
-- [x] 4.2 Worst-case fixture produces `conductors_do_not_fit`; realistic fixture on seed (c) produces none: `npm run test:unit -- cabinet-wiring`
-- [x] 4.3 Full unit suite, lint, types: `npm run test:unit && npm run lint && npx astro check`
+- [x] 4.1 Pack, side-rule, no-crossing and overflow tests pass: `npm run test:unit -- cabinet-wiring` — 6e0d51d
+- [x] 4.2 Worst-case fixture produces `conductors_do_not_fit`; realistic fixture on seed (c) produces none: `npm run test:unit -- cabinet-wiring` — 6e0d51d
+- [x] 4.3 Full unit suite, lint, types: `npm run test:unit && npm run lint && npx astro check` — 6e0d51d
 
 #### Manual
 
-- [x] 4.4 On `/dev/kitchen-sink` (schematic strokes still), wires visibly run in side packs and branch to their rows; the lengths table changed plausibly (longer circuit cores, unchanged feeds)
+- [x] 4.4 On `/dev/kitchen-sink` (schematic strokes still), wires visibly run in side packs and branch to their rows; the lengths table changed plausibly (longer circuit cores, unchanged feeds) — 6e0d51d
 
 ### Phase 5: Cloudflare re-measure and runtime decision
 
 #### Automated
 
-- [ ] 5.1 Unit suite, lint, types, build: `npm run test:unit && npm run lint && npx astro check && npm run build`
+- [x] 5.1 Unit suite, lint, types, build: `npm run test:unit && npm run lint && npx astro check && npm run build`
 
 #### Manual
 
-- [ ] 5.2 Router v2 CPU median/max for both fixtures, read from Cloudflare, recorded with the decision in `change.md`
-- [ ] 5.3 If the island was built: on the project page, wires appear after hydration, hover and lengths work, and devices render without JS
+- [x] 5.2 Router v2 CPU median/max for both fixtures, read from Cloudflare, recorded with the decision in `change.md`
+- [x] 5.3 If the island was built: on the project page, wires appear after hydration, hover and lengths work, and devices render without JS
 
 ### Phase 6: Drawing — realistic and schematic variants
 

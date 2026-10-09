@@ -1,12 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import {
-  buildDrawnCables,
-  buildDrawnDevices,
-  buildDrawnWires,
-  type DrawnCable,
-  type DrawnDevice,
-  type DrawnWire,
-} from "@/lib/cabinet-drawing";
+import { buildDrawnDevices, type DrawnDevice } from "@/lib/cabinet-drawing";
 import type { CabinetGeometry } from "@/lib/cabinet-geometry";
 import {
   proposeLayout,
@@ -16,7 +9,7 @@ import {
   type LayoutIssue,
   type Placement,
 } from "@/lib/cabinet-layout";
-import { routeConductors, wireLengthsBySection, type Conductor, type WireLengthRow } from "@/lib/cabinet-wiring";
+import { routeConductors, type Conductor } from "@/lib/cabinet-wiring";
 import type { CircuitsPayload } from "@/lib/circuit-params";
 import type { Database, Tables } from "@/lib/database.types";
 import type { DeviceSpecWithId, MatchResult } from "@/lib/device-matching";
@@ -29,6 +22,7 @@ import {
 } from "@/lib/device-matching-server";
 import { carryOverPlacements } from "@/lib/layout-editing";
 import { PROJECT_ERROR, projectErrorFromPostgrest } from "@/lib/project-errors";
+import { toWiringData, type WiringData } from "@/lib/wiring-island";
 
 /**
  * The server side of the cabinet layout (S-05) — the layout counterpart of
@@ -122,38 +116,44 @@ export function computeWiring(
   });
 }
 
-/** Everything the cabinet drawing and its legends are built from; the project page and the printout share it. */
+/**
+ * Everything the cabinet drawing and its legends are built from. The project page and the printout
+ * share it. The devices are drawn on the server, but the wires are not: `wiring` is the router's input
+ * for an island that routes and draws them in the browser (`src/lib/wiring-island.ts`; S-11 Phase 5,
+ * where the worst case measured over the Worker CPU budget on Cloudflare).
+ */
 export interface LayoutDrawing {
   devices: DrawnDevice[];
-  wires: DrawnWire[];
-  cables: DrawnCable[];
-  lengths: WireLengthRow[];
+  /** Null unless the layout is `placed`. */
+  wiring: WiringData | null;
 }
 
 /**
- * The drawing of a layout: devices only for a `placed` layout over a parsed cabinet geometry, and the
- * wires, cables and lengths of whatever `computeWiring` routes (nothing unless `placed`). The project
- * page and the print page both call this, so they draw the identical sheet.
+ * The drawing of a layout. Devices are drawn only for a `placed` layout over a parsed cabinet geometry.
+ * The router's input is given under the same condition as `computeWiring` (nothing unless `placed`).
+ * The project page and the print page both call this, so they draw the identical sheet.
  */
 export function buildLayoutDrawing(
   layoutView: LayoutView | null,
   matchView: MatchView,
   context: Pick<MatchContext, "geometry" | "circuits" | "supply" | "groups">,
 ): LayoutDrawing {
+  const placed = layoutView?.state === "placed" ? layoutView : null;
   const devices =
-    layoutView?.state === "placed" && context.geometry
-      ? buildDrawnDevices(matchView.snapshot, layoutView.placements, context.geometry, context.groups)
+    placed && context.geometry
+      ? buildDrawnDevices(matchView.snapshot, placed.placements, context.geometry, context.groups)
       : [];
-  const conductors = computeWiring(layoutView, matchView, context);
-  return {
-    devices,
-    wires: buildDrawnWires(conductors, {
-      circuits: new Map(context.circuits.map((circuit) => [circuit.id, circuit.name])),
-      devices,
-    }),
-    cables: buildDrawnCables(conductors),
-    lengths: wireLengthsBySection(conductors),
-  };
+  const wiring =
+    placed && context.geometry && context.supply
+      ? toWiringData({
+          geometry: context.geometry,
+          devices: matchView.snapshot,
+          placements: placed.placements,
+          circuits: context.circuits,
+          supply: context.supply,
+        })
+      : null;
+  return { devices, wiring };
 }
 
 /**
