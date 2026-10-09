@@ -72,6 +72,18 @@
   --wire-l2: oklch(20% 0 0); /* black */
   --wire-l3: oklch(62% 0 0); /* grey */
 
+  /* Wire dressing in the realistic cabinet drawing: cable tie, cable jacket, insulation highlight. */
+  --wire-tie: oklch(90% 0.02 95); /* natural nylon */
+  --wire-sheath: oklch(80% 0.005 250); /* light grey jacket */
+  --wire-sheen: oklch(100% 0 0 / 35%); /* insulation highlight */
+
+  /* Ferrule sleeve colours per DIN 46228-4 (screen approximations). */
+  --ferrule-black: oklch(25% 0 0);
+  --ferrule-blue: oklch(55% 0.16 245);
+  --ferrule-grey: oklch(65% 0 0);
+  --ferrule-yellow: oklch(86% 0.17 95);
+  --ferrule-red: oklch(55% 0.2 27);
+
   /*
    * Cabinet drawing — this project's values. Rail, entry and PE body differ in lightness as well as
    * hue (relative luminance 0.68 / 0.40 / 0.15), so they stay distinguishable in a greyscale print.
@@ -169,6 +181,14 @@
   --color-wire-l1: var(--wire-l1);
   --color-wire-l2: var(--wire-l2);
   --color-wire-l3: var(--wire-l3);
+  --color-wire-tie: var(--wire-tie);
+  --color-wire-sheath: var(--wire-sheath);
+  --color-wire-sheen: var(--wire-sheen);
+  --color-ferrule-black: var(--ferrule-black);
+  --color-ferrule-blue: var(--ferrule-blue);
+  --color-ferrule-grey: var(--ferrule-grey);
+  --color-ferrule-yellow: var(--ferrule-yellow);
+  --color-ferrule-red: var(--ferrule-red);
 
   --color-drawing-paper: var(--drawing-paper);
   --color-drawing-rail: var(--drawing-rail);

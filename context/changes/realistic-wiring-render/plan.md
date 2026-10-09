@@ -860,25 +860,25 @@ next phase.
 
 #### Automated
 
-- [x] 1.1 Unit tests pass with the extracted fixtures: `npm run test:unit`
-- [x] 1.2 Lint and type checks pass: `npm run lint && npx astro check`
-- [x] 1.3 Bench Worker builds/deploys under its own name: `npx wrangler deploy -c scripts/wiring-bench/wrangler.jsonc --dry-run`
+- [x] 1.1 Unit tests pass with the extracted fixtures: `npm run test:unit` — ab0825e
+- [x] 1.2 Lint and type checks pass: `npm run lint && npx astro check` — ab0825e
+- [x] 1.3 Bench Worker builds/deploys under its own name: `npx wrangler deploy -c scripts/wiring-bench/wrangler.jsonc --dry-run` — ab0825e
 
 #### Manual
 
-- [x] 1.4 User confirmed the bench deploy, and `rozdzielnica-pro` (production) is untouched: same version id in `npx wrangler deployments list` before and after
-- [x] 1.5 Baseline CPU median/max for worst and realistic fixtures, read from Cloudflare, recorded in `change.md`
+- [x] 1.4 User confirmed the bench deploy, and `rozdzielnica-pro` (production) is untouched: same version id in `npx wrangler deployments list` before and after — ab0825e
+- [x] 1.5 Baseline CPU median/max for worst and realistic fixtures, read from Cloudflare, recorded in `change.md` — ab0825e
 
 ### Phase 2: Wire dimensions data
 
 #### Automated
 
-- [ ] 2.1 Completeness and monotonicity tests pass: `npm run test:unit -- wire-dimensions`
-- [ ] 2.2 Lint and type checks pass: `npm run lint && npx astro check`
+- [x] 2.1 Completeness and monotonicity tests pass: `npm run test:unit -- wire-dimensions`
+- [x] 2.2 Lint and type checks pass: `npm run lint && npx astro check`
 
 #### Manual
 
-- [ ] 2.3 User verified every diameter and ferrule entry against the cited sources (recorded in the file header with the date, like `AMPACITY_A`)
+- [x] 2.3 User verified every diameter and ferrule entry against the cited sources (recorded in the file header with the date, like `AMPACITY_A`)
 
 ### Phase 3: Router — true-scale spacing
 
