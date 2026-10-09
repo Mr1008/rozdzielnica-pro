@@ -424,6 +424,20 @@ describe("wirePathD", () => {
       "M0 0 L0 15 Q0 30 15 30 L85 30 Q100 30 100 45 L100 60",
     );
   });
+
+  it("never bends inside a straight end, so a ferrule keeps its full length", () => {
+    const route = [
+      { x: 0, y: 0 },
+      { x: 0, y: 12 },
+      { x: 100, y: 12 },
+      { x: 100, y: 30 },
+    ];
+    // A 10 mm² core would bend 19.2 mm; its 12 mm ferrules leave no bend at the first corner (a 12 mm
+    // run) and 6 mm at the last (an 18 mm run).
+    expect(wirePathD(route, [0, 0, 0], bendRadiusMm(6.4, "realistic"), { startMm: 12, endMm: 12 })).toBe(
+      "M0 0 L0 12 Q0 12 0 12 L94 12 Q100 12 100 18 L100 30",
+    );
+  });
 });
 
 describe("buildCableTies", () => {
@@ -827,21 +841,25 @@ describe("wireTitle", () => {
 // ---------------------------------------------------------------------------------------------
 
 describe("REALISTIC_WIRE_STYLES", () => {
-  it("colours phases and N solid, PE yellow with green dashes, and PEN as PE with blue sleeves", () => {
-    expect(REALISTIC_WIRE_STYLES.L1).toMatchObject({ body: "stroke-wire-l1", dash: null, sleeve: null });
-    expect(REALISTIC_WIRE_STYLES.L2).toMatchObject({ body: "stroke-wire-l2", dash: null, sleeve: null });
-    expect(REALISTIC_WIRE_STYLES.L3).toMatchObject({ body: "stroke-wire-l3", dash: null, sleeve: null });
-    expect(REALISTIC_WIRE_STYLES.N).toMatchObject({ body: "stroke-wire-n", dash: null, sleeve: null });
-    expect(REALISTIC_WIRE_STYLES.PE).toMatchObject({
-      body: "stroke-wire-pe-stripe",
-      dash: { stroke: "stroke-wire-pe" },
-      sleeve: null,
-    });
-    expect(REALISTIC_WIRE_STYLES.PEN).toMatchObject({
-      body: "stroke-wire-pe-stripe",
-      dash: { stroke: "stroke-wire-pe" },
-      sleeve: "stroke-wire-n",
-    });
+  it("colours phases and N solid, PE yellow with green stripes, and PEN with green and blue stripes", () => {
+    for (const role of ["L1", "L2", "L3", "N"] as const) expect(REALISTIC_WIRE_STYLES[role].stripes).toEqual([]);
+    expect(REALISTIC_WIRE_STYLES.L1.body).toBe("stroke-wire-l1");
+    expect(REALISTIC_WIRE_STYLES.N.body).toBe("stroke-wire-n");
+    expect(REALISTIC_WIRE_STYLES.PE.body).toBe("stroke-wire-pe-stripe");
+    expect(REALISTIC_WIRE_STYLES.PE.stripes.map((stripe) => stripe.stroke)).toEqual(["stroke-wire-pe"]);
+    expect(REALISTIC_WIRE_STYLES.PEN.body).toBe("stroke-wire-pe-stripe");
+    expect(REALISTIC_WIRE_STYLES.PEN.stripes.map((stripe) => stripe.stroke)).toEqual([
+      "stroke-wire-pe",
+      "stroke-wire-n",
+    ]);
+  });
+
+  it("never lets the PEN's green and blue stripes overlap, and leaves yellow between them", () => {
+    const [green, blue] = REALISTIC_WIRE_STYLES.PEN.stripes;
+    const period = green.onDiameters + green.offDiameters;
+    expect(blue.onDiameters + blue.offDiameters).toBe(period);
+    expect(blue.startDiameters).toBeGreaterThan(green.startDiameters + green.onDiameters);
+    expect(blue.startDiameters + blue.onDiameters).toBeLessThan(green.startDiameters + period);
   });
 
   it("has a ferrule for every cross-section and none for an untabulated one", () => {
@@ -869,8 +887,7 @@ describe("WIRE_STYLES — PEN is never drawn as PE", () => {
     for (const style of Object.values(REALISTIC_WIRE_STYLES)) {
       expect(style.body).toMatch(/^stroke-wire-/);
       expect(style.fill).toMatch(/^fill-wire-/);
-      if (style.dash !== null) expect(style.dash.stroke).toMatch(/^stroke-wire-/);
-      if (style.sleeve !== null) expect(style.sleeve).toMatch(/^stroke-wire-/);
+      for (const stripe of style.stripes) expect(stripe.stroke).toMatch(/^stroke-wire-/);
     }
     for (const mm2 of WIRE_CROSS_SECTIONS_MM2) expect(ferruleStyle(mm2)?.stroke).toMatch(/^stroke-ferrule-/);
   });

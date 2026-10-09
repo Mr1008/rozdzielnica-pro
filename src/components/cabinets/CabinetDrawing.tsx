@@ -9,7 +9,6 @@ import {
   groupOutlines,
   BUSBAR_TOOTH_MM,
   PEN_DASH,
-  PEN_SLEEVE_MM,
   REALISTIC_WIRE_STYLES,
   WIRE_STYLES,
   type DrawnBusbar,
@@ -217,7 +216,7 @@ const FERRULE_OUTLINE_EXTRA_MM = 0.7;
 /** A cable tie's outline, in millimetres. */
 const TIE_OUTLINE_MM = 0.2;
 
-/** A realistic insulated core along `d`: outline, coloured body (PE's green dashes), highlight. */
+/** A realistic insulated core along `d`: outline, coloured body (PE/PEN stripes), highlight. */
 function RealisticWireBody({ wire, d }: { wire: DrawnWire; d: string }) {
   const style = REALISTIC_WIRE_STYLES[wire.role];
   const width = wire.diameterMm;
@@ -226,15 +225,17 @@ function RealisticWireBody({ wire, d }: { wire: DrawnWire; d: string }) {
     <>
       <path d={d} className="stroke-drawing-frame fill-none" strokeWidth={width + OUTLINE_EXTRA_MM} {...round} />
       <path d={d} className={cn("fill-none", style.body)} strokeWidth={width} {...round} />
-      {style.dash && (
+      {style.stripes.map((stripe) => (
         <path
+          key={stripe.stroke}
           d={d}
-          className={cn("fill-none", style.dash.stroke)}
+          className={cn("fill-none", stripe.stroke)}
           strokeWidth={width}
-          strokeDasharray={`${String(style.dash.onDiameters * width)} ${String(style.dash.offDiameters * width)}`}
+          strokeDasharray={`${String(stripe.onDiameters * width)} ${String(stripe.offDiameters * width)}`}
+          strokeDashoffset={-stripe.startDiameters * width}
           strokeLinejoin="round"
         />
-      )}
+      ))}
       <path d={d} className="stroke-wire-sheen fill-none" strokeWidth={width * SHEEN_SHARE} {...round} />
     </>
   );
@@ -252,6 +253,31 @@ function RealisticWireShape({ wire, screwRadius }: { wire: DrawnWire; screwRadiu
     <g className="wire transition-opacity">
       {wire.title !== "" && <title>{wire.title}</title>}
       {wire.frontD !== "" && <RealisticWireBody wire={wire} d={wire.frontD} />}
+      {/*
+        A ferrule on every terminal end, coloured by cross-section, always at its full length: the bend
+        starts past it (`buildDrawnWires`), and where the end run is shorter still, the rest of it sits
+        inside the terminal's clamp.
+      */}
+      {ferrule !== null &&
+        wire.terminalEnds.map((end) => {
+          const from = Math.min(0, end.runMm - ferrule.lengthMm);
+          const d = segmentD(end.point, end.direction, from, from + ferrule.lengthMm);
+          return (
+            <g key={`ferrule-${pointKey(end.point)}`}>
+              <path
+                d={d}
+                className="stroke-drawing-frame fill-none"
+                strokeWidth={wire.diameterMm + FERRULE_OUTLINE_EXTRA_MM}
+              />
+              <path
+                d={d}
+                className={cn("fill-none", ferrule.stroke)}
+                strokeWidth={wire.diameterMm + FERRULE_EXTRA_MM}
+              />
+            </g>
+          );
+        })}
+      {/* The wire's end on a bar terminal, over its ferrule: the ferrule goes into the clamp. */}
       {wire.barEnds.map((point) => {
         const radius = screwRadius.get(pointKey(point));
         return radius === undefined ? null : (
@@ -263,37 +289,6 @@ function RealisticWireShape({ wire, screwRadius }: { wire: DrawnWire; screwRadiu
             className={cn("stroke-drawing-frame", style.fill)}
             {...HAIRLINE}
           />
-        );
-      })}
-      {/* A ferrule on every terminal end, coloured by cross-section; a PEN gets its blue sleeve past it. */}
-      {wire.terminalEnds.map((end) => {
-        const ferruleMm = ferrule === null ? 0 : Math.min(ferrule.lengthMm, end.runMm);
-        const sleeveStart = Math.min(ferruleMm, Math.max(0, end.runMm - PEN_SLEEVE_MM));
-        const sleeveEnd = Math.min(sleeveStart + PEN_SLEEVE_MM, end.runMm);
-        return (
-          <g key={`ferrule-${pointKey(end.point)}`}>
-            {style.sleeve !== null && sleeveEnd > sleeveStart && (
-              <path
-                d={segmentD(end.point, end.direction, sleeveStart, sleeveEnd)}
-                className={cn("fill-none", style.sleeve)}
-                strokeWidth={wire.diameterMm}
-              />
-            )}
-            {ferrule !== null && ferruleMm > 0 && (
-              <>
-                <path
-                  d={segmentD(end.point, end.direction, 0, ferruleMm)}
-                  className="stroke-drawing-frame fill-none"
-                  strokeWidth={wire.diameterMm + FERRULE_OUTLINE_EXTRA_MM}
-                />
-                <path
-                  d={segmentD(end.point, end.direction, 0, ferruleMm)}
-                  className={cn("fill-none", ferrule.stroke)}
-                  strokeWidth={wire.diameterMm + FERRULE_EXTRA_MM}
-                />
-              </>
-            )}
-          </g>
         );
       })}
       {/* The same invisible hover target as the schematic wire, over the whole route. */}
