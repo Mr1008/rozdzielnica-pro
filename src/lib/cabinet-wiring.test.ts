@@ -11,8 +11,8 @@ import {
 import { SEED_A, SEED_B, SEED_C } from "./cabinet-layout.fixtures";
 import { barRect, type CabinetGeometry } from "./cabinet-geometry";
 import {
+  WIRE_CLEARANCE_MM,
   WIRE_SLACK_RATIO,
-  WIRE_TRACK_PITCH_MM,
   routeConductors,
   wireClass,
   wireLengthsBySection,
@@ -23,6 +23,7 @@ import {
   type WiringSupply,
 } from "./cabinet-wiring";
 import type { PoleConfig } from "./device-spec";
+import { conductorDiameterMm } from "./wire-dimensions";
 
 // ---------------------------------------------------------------------------------------------
 // Fixtures — the expectations below come from the domain rules, not from the router
@@ -485,9 +486,21 @@ function endpointPoint(endpoint: Endpoint, input: WiringInput): Point | null {
   return null;
 }
 
+/** True-scale spacing of two cross-sections: half of each outer diameter plus the clearance. */
+function trackSpacingOf(a: 1.5 | 2.5 | 4 | 16, b: 1.5 | 2.5 | 4 | 16): number {
+  return conductorDiameterMm(a) / 2 + conductorDiameterMm(b) / 2 + WIRE_CLEARANCE_MM;
+}
+
+/** Centre-to-centre spacing the router gives two neighbouring tracks of these conductors. */
+function spacing(a: Conductor, b: Conductor): number {
+  return a.diameterMm / 2 + b.diameterMm / 2 + WIRE_CLEARANCE_MM;
+}
+
 /**
- * The user's requirement: every trace visible — no two conductors on one track. Two parallel segments
- * of different conductors that overlap along their length must lie more than half a pitch apart. The
+ * The user's requirement: every trace visible — no two conductors on one track, and at true scale no
+ * two conductor bodies overlapping. Two parallel segments of different conductors that overlap along
+ * their length must lie at least `rA + rB` apart (r: half the outer diameter), unless the router listed
+ * either segment in its conductor's `squeezed` (a range too narrow for true scale). The other
  * exceptions: end segments touching the same terminal or bar endpoint (conductors sharing it share its
  * stub), and the cores of one cable on their cable's stub line — each core's first segment, from the
  * entry point to where it turns off, so up to the cable's last turn-off. A core that has turned off and
@@ -501,6 +514,7 @@ function trackClashes(conductors: readonly Conductor[]): string[] {
       const last = i === c.path.length - 2;
       return {
         conductor,
+        squeezed: c.squeezed.includes(i),
         vertical,
         at: vertical ? a.x : a.y,
         low: vertical ? Math.min(a.y, b.y) : Math.min(a.x, b.x),
@@ -515,8 +529,9 @@ function trackClashes(conductors: readonly Conductor[]): string[] {
   const clashes: string[] = [];
   for (const [n, s] of segments.entries()) {
     for (const t of segments.slice(n + 1)) {
-      if (s.conductor === t.conductor || s.vertical !== t.vertical) continue;
-      if (Math.abs(s.at - t.at) >= WIRE_TRACK_PITCH_MM * 0.5) continue;
+      if (s.conductor === t.conductor || s.vertical !== t.vertical || s.squeezed || t.squeezed) continue;
+      const bodies = (conductors[s.conductor].diameterMm + conductors[t.conductor].diameterMm) / 2;
+      if (Math.abs(s.at - t.at) >= bodies - 1e-6) continue;
       if (Math.min(s.high, t.high) - Math.max(s.low, t.low) <= 1e-6) continue;
       const sameEnd = s.end !== null && t.end !== null && s.end.x === t.end.x && s.end.y === t.end.y;
       // A shared entry point means one cable; only its stub runs may coincide.
@@ -601,8 +616,48 @@ describe.each([
     expect(trackClashes(conductors)).toEqual([]);
   });
 
-  it("keeps the 3 mm pitch wide enough for the drawn strokes", () => {
-    expect(WIRE_TRACK_PITCH_MM).toBeGreaterThanOrEqual(2.5);
+  it("gives every conductor its true outer diameter", () => {
+    for (const c of conductors) {
+      expect(c.diameterMm).toBe(conductorDiameterMm(c.crossSectionMm2 as Parameters<typeof conductorDiameterMm>[0]));
+    }
+  });
+
+  it("spaces neighbouring movable tracks by both radii plus the clearance — a 1.5 mm² core beside a 16 mm² one too", () => {
+    // Movable segments only (a route's first and last pass through their endpoints and never move),
+    // and none the router listed as squeezed.
+    const runs = conductors.flatMap((c) =>
+      c.path.slice(1).flatMap((b, i) => {
+        if (i === 0 || i === c.path.length - 2 || c.squeezed.includes(i)) return [];
+        const a = c.path[i];
+        const vertical = a.x === b.x;
+        return [
+          {
+            c,
+            vertical,
+            at: vertical ? a.x : a.y,
+            low: vertical ? Math.min(a.y, b.y) : Math.min(a.x, b.x),
+            high: vertical ? Math.max(a.y, b.y) : Math.max(a.x, b.x),
+          },
+        ];
+      }),
+    );
+    const tooClose: string[] = [];
+    let mixedNeighbours = 0;
+    for (const [n, s] of runs.entries()) {
+      for (const t of runs.slice(n + 1)) {
+        if (s.c === t.c || s.vertical !== t.vertical) continue;
+        if (Math.min(s.high, t.high) - Math.max(s.low, t.low) <= 1e-6) continue;
+        const gap = Math.abs(s.at - t.at);
+        const needed = spacing(s.c, t.c);
+        if (gap < needed - 1e-6) tooClose.push(`${s.c.key}/${t.c.key}: ${gap.toFixed(2)} < ${needed.toFixed(2)}`);
+        const sections = [s.c.crossSectionMm2, t.c.crossSectionMm2].sort((p, q) => p - q);
+        if (sections[0] === 1.5 && sections[1] === 16 && gap < needed + 1) mixedNeighbours++;
+      }
+    }
+    expect(tooClose).toEqual([]);
+    // The fixture really puts a thin core next to a WLZ-section one: 3.0 / 2 + 7.8 / 2 + 0.5 mm apart.
+    expect(mixedNeighbours).toBeGreaterThan(0);
+    expect(trackSpacingOf(1.5, 16)).toBeCloseTo(1.5 + 3.9 + WIRE_CLEARANCE_MM, 9);
   });
 });
 
@@ -629,11 +684,14 @@ describe("routeConductors — track assignment in a crowded passage", () => {
       y: c.path[1].y,
       x1: Math.min(c.path[0].x, c.path[2].x),
       x2: Math.max(c.path[0].x, c.path[2].x),
+      squeezed: c.squeezed.includes(1),
     }));
+    // Every core here is 2.5 mm²: neighbouring lanes sit a full true-scale spacing apart.
     lanes.forEach((a, i) => {
       for (const b of lanes.slice(i + 1)) {
+        if (a.squeezed || b.squeezed) continue;
         if (Math.min(a.x2, b.x2) - Math.max(a.x1, b.x1) > 1e-6) {
-          expect(Math.abs(a.y - b.y)).toBeGreaterThanOrEqual(WIRE_TRACK_PITCH_MM - 1e-6);
+          expect(Math.abs(a.y - b.y)).toBeGreaterThanOrEqual(trackSpacingOf(2.5, 2.5) - 1e-6);
         }
       }
     });
@@ -687,7 +745,7 @@ const TEN_DEVICES = [
   device(0, "main_switch", "2P", 35),
   ...TEN_CIRCUITS.map((c, i) => device(i + 1, "mcb", "1P", 17.5, { circuit: c.id })),
 ];
-/** Seed (a) with a 20 mm entry: eleven cables cannot keep a track pitch there. */
+/** Seed (a) with a 20 mm entry: eleven cables cannot keep true-scale spacing there. */
 const NARROW_ENTRY: CabinetGeometry = { ...SEED_A, entries: [{ side: "top", offsetMm: 115, lengthMm: 20 }] };
 
 describe.each([
@@ -787,7 +845,8 @@ function wlzBesideTerminal(): WiringInput {
  * The oracle for the progressive split (the electrician, 2026-10-07): a cable's cores leave its stub
  * line one at a time, like stripping a cable. The sheath runs from the entry point to the last turn-off
  * — the point past which at most one core is left on the line — and a core that has turned off never
- * runs within half a pitch of its own cable's stub.
+ * runs so close to its own cable's stub that their bodies overlap (one core diameter, the cores of a
+ * cable sharing a cross-section), unless the router listed that run as squeezed.
  */
 describe.each([
   ["seed (a), one RCD group", wiringInput(SEED_A, [MAIN, RCD, MCB_1, MCB_2], CIRCUITS.slice(0, 2))],
@@ -855,7 +914,7 @@ describe.each([
     }
   });
 
-  it("never runs a core that has turned off within half a pitch of its own cable's stub", () => {
+  it("never runs a core that has turned off into its own cable's stub at true scale", () => {
     const clashes: string[] = [];
     for (const [cable, cores] of multiCore) {
       const entry = cores[0].path[0];
@@ -869,12 +928,12 @@ describe.each([
       for (const core of cores) {
         for (let i = 2; i < core.path.length; i++) {
           const [a, b] = [core.path[i - 1], core.path[i]];
-          if ((a.x === b.x) !== vertical) continue;
+          if ((a.x === b.x) !== vertical || core.squeezed.includes(i - 1)) continue;
           const at = vertical ? a.x : a.y;
           const [low, high] = vertical
             ? [Math.min(a.y, b.y), Math.max(a.y, b.y)]
             : [Math.min(a.x, b.x), Math.max(a.x, b.x)];
-          if (Math.abs(at - stubAt) >= WIRE_TRACK_PITCH_MM * 0.5) continue;
+          if (Math.abs(at - stubAt) >= core.diameterMm - 1e-6) continue;
           if (Math.min(high, stubHigh) - Math.max(low, stubLow) <= 1e-6) continue;
           clashes.push(`${cable}: ${core.key} at ${String(at)}`);
         }
@@ -884,9 +943,36 @@ describe.each([
   });
 });
 
+describe("routeConductors — squeezed segments", () => {
+  it("lists none where every track keeps true-scale spacing", () => {
+    const roomy = routeConductors(
+      wiringInput(SEED_C, [device(0, "main_switch", "2P", 35), MCB_4], [circuit(4, null, 1, 1.5)], {
+        earthing_system: "TN-S",
+        wlz_cross_section_mm2: 4,
+      }),
+    );
+    expect(roomy.length).toBeGreaterThan(0);
+    for (const c of roomy) expect(c.squeezed).toEqual([]);
+  });
+
+  it("lists the segments of a channel too narrow for its conductors, as sorted valid segment indices", () => {
+    const crowded = routeConductors(wiringInput(SEED_A, TEN_DEVICES, TEN_CIRCUITS));
+    expect(crowded.some((c) => c.squeezed.length > 0)).toBe(true);
+    for (const c of crowded) {
+      expect([...c.squeezed].sort((p, q) => p - q)).toEqual(c.squeezed);
+      expect(new Set(c.squeezed).size).toBe(c.squeezed.length);
+      for (const i of c.squeezed) {
+        expect(Number.isInteger(i)).toBe(true);
+        expect(i).toBeGreaterThanOrEqual(0);
+        expect(i).toBeLessThan(c.path.length - 1);
+      }
+    }
+  });
+});
+
 describe("routeConductors — a crowded entry closes the cables up, never onto one point", () => {
   const conductors = routeConductors(wiringInput(NARROW_ENTRY, TEN_DEVICES, TEN_CIRCUITS));
-  it("spaces eleven cables closer than the track pitch, still apart", () => {
+  it("spaces eleven cables closer than the true-scale spacing of their cores, still apart", () => {
     const xs = [...new Set(conductors.filter((c) => c.from.type === "entry").map((c) => c.path[0].x))].sort(
       (a, b) => a - b,
     );
@@ -894,7 +980,7 @@ describe("routeConductors — a crowded entry closes the cables up, never onto o
     const gaps = xs.slice(1).map((x, i) => x - xs[i]);
     for (const gap of gaps) {
       expect(gap).toBeGreaterThan(0);
-      expect(gap).toBeLessThan(WIRE_TRACK_PITCH_MM);
+      expect(gap).toBeLessThan(trackSpacingOf(2.5, 2.5));
     }
   });
 });
