@@ -4,6 +4,7 @@ import type { DeviceSpecWithId, MatchResult, Selection } from "./device-matching
 import {
   circuitsRpcErrorCode,
   computeMatchView,
+  maxRailMm,
   saveCircuitsArgs,
   snapshotSelections,
   type MatchContext,
@@ -79,10 +80,10 @@ const PAYLOAD: CircuitsPayload = { groups: [GROUP], circuits: [circuit(CIRCUIT_A
 
 /** What the matcher picks for `PAYLOAD` over `CATALOG`. */
 const EXPECTED: Selection[] = [
-  { role: "main_switch", deviceId: FR_ID, groupId: null, circuitId: null, notes: [] },
-  { role: "rcd", deviceId: RCD_ID, groupId: GROUP_ID, circuitId: null, notes: [] },
-  { role: "mcb", deviceId: MCB_ID, groupId: GROUP_ID, circuitId: CIRCUIT_A, notes: [] },
-  { role: "mcb", deviceId: MCB_ID, groupId: GROUP_ID, circuitId: CIRCUIT_B, notes: [] },
+  { role: "main_switch", deviceId: FR_ID, groupId: null, circuitId: null, notes: [], busbarPiece: null },
+  { role: "rcd", deviceId: RCD_ID, groupId: GROUP_ID, circuitId: null, notes: [], busbarPiece: null },
+  { role: "mcb", deviceId: MCB_ID, groupId: GROUP_ID, circuitId: CIRCUIT_A, notes: [], busbarPiece: null },
+  { role: "mcb", deviceId: MCB_ID, groupId: GROUP_ID, circuitId: CIRCUIT_B, notes: [], busbarPiece: null },
 ];
 
 function snapshotRow(selection: Selection, position: number, overrides: Partial<SnapshotRow> = {}): SnapshotRow {
@@ -95,6 +96,7 @@ function snapshotRow(selection: Selection, position: number, overrides: Partial<
     rcd_group_id: selection.groupId,
     circuit_id: selection.circuitId,
     notes: [...selection.notes],
+    busbar_piece: selection.busbarPiece,
     kind: "mcb_b",
     name: "x",
     manufacturer: "Alfa",
@@ -143,6 +145,96 @@ describe("snapshotSelections", () => {
     const badRole = snapshotRow(EXPECTED[0], 0, { role: "fuse" });
     const badNote = snapshotRow(EXPECTED[1], 1, { notes: ["no_rcd", "mystery"] });
     expect(snapshotSelections([badRole, badNote, STORED[2]])).toEqual([EXPECTED[2]]);
+  });
+});
+
+describe("busbar segments (plan rcd-group-busbars, Phase 2)", () => {
+  const BUSBAR_ID = "a1000000-0000-4000-8000-000000000009";
+  const busbar = device(BUSBAR_ID, {
+    kind: "comb_busbar",
+    poles: "1P",
+    rated_current_a: 63,
+    width_mm: 12 * 17.5,
+    height_mm: 20,
+    depth_mm: 20,
+  });
+  const geometry = {
+    version: 1 as const,
+    interior: { widthMm: 300, heightMm: 300, depthMm: 100 },
+    rails: [{ xMm: 10, yMm: 100, lengthMm: 280 }],
+    entries: [{ side: "top" as const, offsetMm: 0, lengthMm: 100 }],
+    bars: [
+      {
+        kind: "PE" as const,
+        orientation: "horizontal" as const,
+        xMm: 10,
+        yMm: 10,
+        lengthMm: 100,
+        heightMm: 10,
+        zMm: 0,
+        terminalGroups: [{ count: 4, minMm2: 1.5, maxMm2: 16 }],
+      },
+      {
+        kind: "N" as const,
+        orientation: "horizontal" as const,
+        xMm: 10,
+        yMm: 30,
+        lengthMm: 100,
+        heightMm: 10,
+        zMm: 0,
+        terminalGroups: [{ count: 4, minMm2: 1.5, maxMm2: 16 }],
+      },
+    ],
+  };
+  const SEGMENT: Selection = {
+    role: "busbar",
+    deviceId: BUSBAR_ID,
+    groupId: GROUP_ID,
+    circuitId: null,
+    notes: [],
+    busbarPiece: 0,
+  };
+
+  it("reads busbar_piece from a stored row and keeps the new notes", () => {
+    const row = snapshotRow(SEGMENT, 4, { busbar_piece: 0 });
+    expect(snapshotSelections([row])).toEqual([SEGMENT]);
+    const note = snapshotRow({ ...EXPECTED[1], notes: ["busbar_missing"] }, 1);
+    expect(snapshotSelections([note])[0]?.notes).toEqual(["busbar_missing"]);
+  });
+
+  it("is the longest rail of the cabinet snapshot, or null without one", () => {
+    expect(maxRailMm(null)).toBeNull();
+    expect(maxRailMm({ ...geometry, rails: [...geometry.rails, { xMm: 10, yMm: 200, lengthMm: 90 }] })).toBe(280);
+  });
+
+  it("matches a busbar once the cabinet has geometry, and is current only with the segment stored", () => {
+    const catalog = [...CATALOG, busbar];
+    const fresh = computeMatchView(context({ geometry, catalog, snapshot: [] }));
+    expect(fresh.state).toBe("cleared");
+    if (fresh.fresh.status !== "matched") throw new Error("expected matched");
+    expect(fresh.fresh.selections.at(-1)).toEqual(SEGMENT);
+
+    const stored = fresh.fresh.selections.map((selection, i) =>
+      snapshotRow(selection, i, { busbar_piece: selection.busbarPiece }),
+    );
+    expect(computeMatchView(context({ geometry, catalog, snapshot: stored })).state).toBe("current");
+    // A saved project from before the busbar is stale, never current.
+    expect(computeMatchView(context({ geometry, catalog, snapshot: stored.slice(0, -1) })).state).toBe("stale");
+  });
+
+  it("sends busbar_piece for a segment, never a rail, and nothing for any other role", () => {
+    const result: MatchResult = { status: "matched", selections: [...EXPECTED, SEGMENT] };
+    const layout = [{ railIndex: 0, xMm: 0 }, null, null, null, null];
+    const items = saveCircuitsArgs(PROJECT_ID, PAYLOAD, result, layout).p_device_ids as Record<string, unknown>[];
+    expect(items.slice(0, 4).every((item) => !("busbar_piece" in item))).toBe(true);
+    expect(items[4]).toEqual({
+      device_id: BUSBAR_ID,
+      role: "busbar",
+      rcd_group_id: GROUP_ID,
+      circuit_id: null,
+      notes: [],
+      busbar_piece: 0,
+    });
   });
 });
 
@@ -195,10 +287,13 @@ describe("computeMatchView", () => {
       entries: [{ side: "top", offsetMm: 0, lengthMm: 100 }],
       bars: [],
     };
+    // The cabinet has geometry here, so a group of two MCBs without a catalog busbar notes it.
     const withBars: Selection[] = [
-      ...EXPECTED,
-      { role: "pe_bar", deviceId: BAR_ID, groupId: null, circuitId: null, notes: [] },
-      { role: "n_bar", deviceId: N_BAR_ID, groupId: null, circuitId: null, notes: [] },
+      ...EXPECTED.map((selection) =>
+        selection.role === "rcd" ? { ...selection, notes: ["busbar_missing" as const] } : selection,
+      ),
+      { role: "pe_bar", deviceId: BAR_ID, groupId: null, circuitId: null, notes: [], busbarPiece: null },
+      { role: "n_bar", deviceId: N_BAR_ID, groupId: null, circuitId: null, notes: [], busbarPiece: null },
     ];
 
     it("matches the bars from the catalog and compares them like any role", () => {

@@ -1,3 +1,4 @@
+import { planBusbarCuts, type BusbarDemand, type BusbarReason } from "@/lib/busbar-cutting";
 import { BAR_KINDS_IN_ORDER, barConductorSections, terminalsFitAll, type BarKind } from "@/lib/bar-conductors";
 import { isUuid } from "@/lib/catalog";
 import type { CircuitInput, RcdGroupInput, RcdMarginPercent, ResidualCurrentMa } from "@/lib/circuit-params";
@@ -34,6 +35,11 @@ import type { SupplyParams } from "@/lib/supply-params";
  *   terminal (`barConductorSections` in `src/lib/bar-conductors.ts`, the count the bar warnings use).
  *   TN-C lands no conductor on an N bar, so it needs only the PE bar.
  *
+ * - comb busbar (plan `rcd-group-busbars`): appended after the catalog bars, one selection per segment
+ *   cut by `planBusbarCuts` (`src/lib/busbar-cutting.ts`) for groups with a separate RCD. A busbar the
+ *   catalog lacks is a note on the group's RCD, never a gap — the group keeps its wire jumpers. Never a
+ *   busbar rated below the group RCD.
+ *
  * An empty group (0 circuits) is skipped: it protects nothing, so it needs no RCD and yields no
  * selection. Kinds are filtered strictly — an FR is a plain switch-disconnector and is never used
  * as overcurrent or residual-current protection.
@@ -51,9 +57,14 @@ export interface MatchInput {
    * parse): no bar is required — nothing is invented for a cabinet the matcher cannot see.
    */
   cabinetBarKinds?: readonly BarKind[] | null;
+  /**
+   * The longest DIN rail of the cabinet snapshot, in millimetres. Absent or null means no geometry:
+   * no busbar is selected and no busbar note is raised.
+   */
+  maxRailMm?: number | null;
 }
 
-export type SelectionRole = "main_switch" | "rcd" | "rcbo" | "mcb" | "pe_bar" | "n_bar";
+export type SelectionRole = "main_switch" | "rcd" | "rcbo" | "mcb" | "pe_bar" | "n_bar" | "busbar";
 
 /** Every selection role — the list a stored role is checked against. */
 export const SELECTION_ROLES = [
@@ -63,11 +74,12 @@ export const SELECTION_ROLES = [
   "mcb",
   "pe_bar",
   "n_bar",
+  "busbar",
 ] as const satisfies readonly SelectionRole[];
 
 /** The selection role — equal to the catalog kind — of each bar kind. */
 export const BAR_ROLE = { PE: "pe_bar", N: "n_bar" } as const satisfies Record<BarKind, SelectionRole & DeviceKind>;
-export type SelectionNote = "rcbo_fallback" | "no_rcd";
+export type SelectionNote = "rcbo_fallback" | "no_rcd" | "busbar_missing" | "busbar_group_too_wide";
 
 export interface Selection {
   role: SelectionRole;
@@ -75,6 +87,8 @@ export interface Selection {
   groupId: string | null;
   circuitId: string | null;
   notes: SelectionNote[];
+  /** The bought piece a `busbar` segment is cut from (0-based); null for every other role. */
+  busbarPiece: number | null;
 }
 
 export type BlockReason =
@@ -341,7 +355,14 @@ export function matchDevices(input: MatchInput, catalog: readonly DeviceSpecWith
       minRatedCurrentA: supply.premeter_protection_a,
     });
   } else {
-    selections.push({ role: "main_switch", deviceId: mainSwitch.id, groupId: null, circuitId: null, notes: [] });
+    selections.push({
+      role: "main_switch",
+      deviceId: mainSwitch.id,
+      groupId: null,
+      circuitId: null,
+      notes: [],
+      busbarPiece: null,
+    });
   }
 
   const pushMcb = (circuit: CircuitInput, groupId: string | null, notes: SelectionNote[], fallback: boolean) => {
@@ -358,7 +379,7 @@ export function matchDevices(input: MatchInput, catalog: readonly DeviceSpecWith
         fallback,
       });
     } else {
-      selections.push({ role: "mcb", deviceId: device.id, groupId, circuitId: circuit.id, notes });
+      selections.push({ role: "mcb", deviceId: device.id, groupId, circuitId: circuit.id, notes, busbarPiece: null });
     }
   };
 
@@ -370,7 +391,14 @@ export function matchDevices(input: MatchInput, catalog: readonly DeviceSpecWith
     if (single !== undefined) {
       const rcbo = matchRcbo(catalog, group, single);
       if (rcbo.device !== null) {
-        selections.push({ role: "rcbo", deviceId: rcbo.device.id, groupId: group.id, circuitId: single.id, notes: [] });
+        selections.push({
+          role: "rcbo",
+          deviceId: rcbo.device.id,
+          groupId: group.id,
+          circuitId: single.id,
+          notes: [],
+          busbarPiece: null,
+        });
         continue;
       }
       // No compliant RCBO: try the RCD + MCB pair, which gives the same protection in two devices.
@@ -385,6 +413,7 @@ export function matchDevices(input: MatchInput, catalog: readonly DeviceSpecWith
           groupId: group.id,
           circuitId: null,
           notes: ["rcbo_fallback"],
+          busbarPiece: null,
         });
         selections.push({
           role: "mcb",
@@ -392,6 +421,7 @@ export function matchDevices(input: MatchInput, catalog: readonly DeviceSpecWith
           groupId: group.id,
           circuitId: single.id,
           notes: ["rcbo_fallback"],
+          busbarPiece: null,
         });
         continue;
       }
@@ -453,7 +483,14 @@ export function matchDevices(input: MatchInput, catalog: readonly DeviceSpecWith
         fallback: false,
       });
     } else {
-      selections.push({ role: "rcd", deviceId: rcd.device.id, groupId: group.id, circuitId: null, notes: [] });
+      selections.push({
+        role: "rcd",
+        deviceId: rcd.device.id,
+        groupId: group.id,
+        circuitId: null,
+        notes: [],
+        busbarPiece: null,
+      });
     }
     for (const circuit of members) pushMcb(circuit, group.id, [], false);
   }
@@ -478,12 +515,61 @@ export function matchDevices(input: MatchInput, catalog: readonly DeviceSpecWith
         ),
       );
       if (bar === null) gaps.push({ role, kind: role, barKind, sections });
-      else selections.push({ role, deviceId: bar.id, groupId: null, circuitId: null, notes: [] });
+      else selections.push({ role, deviceId: bar.id, groupId: null, circuitId: null, notes: [], busbarPiece: null });
     }
   }
 
   if (gaps.length > 0) return { status: "gaps", gaps };
+  selections.push(...busbarSelections(input, catalog, selections));
   return { status: "matched", selections };
+}
+
+/**
+ * The comb busbar selections for a gap-free match: one demand per group with a separate RCD (never an
+ * RCBO), cut by `planBusbarCuts`. The reasons of a group that gets no busbar are appended to its RCD
+ * selection's notes (in place — the caller passes the selections it is about to return).
+ */
+function busbarSelections(
+  input: MatchInput,
+  catalog: readonly DeviceSpecWithId[],
+  selections: Selection[],
+): Selection[] {
+  const maxRailMm = input.maxRailMm ?? null;
+  if (maxRailMm === null) return [];
+  const widthOf = (deviceId: string) => catalog.find((device) => device.id === deviceId)?.width_mm ?? 0;
+
+  const demands: BusbarDemand[] = [];
+  for (const group of input.groups) {
+    const rcd = selections.find((s) => s.role === "rcd" && s.groupId === group.id);
+    if (rcd === undefined) continue;
+    const rcdSpec = catalog.find((device) => device.id === rcd.deviceId);
+    if (rcdSpec?.kind !== "rcd") continue;
+    const mcbs = selections.filter((s) => s.role === "mcb" && s.groupId === group.id);
+    demands.push({
+      groupId: group.id,
+      mcbCount: mcbs.length,
+      phases: rcdSpec.poles === "4P" ? 3 : 1,
+      minRatedA: rcdSpec.rated_current_a,
+      groupWidthMm: widthOf(rcd.deviceId) + mcbs.reduce((sum, mcb) => sum + widthOf(mcb.deviceId), 0),
+    });
+  }
+
+  const plan = planBusbarCuts(demands, catalog, maxRailMm, cheapest);
+  const noteFor: Record<BusbarReason, SelectionNote> = {
+    busbar_missing: "busbar_missing",
+    group_too_wide: "busbar_group_too_wide",
+  };
+  for (const { groupId, reason } of plan.reasons) {
+    selections.find((s) => s.role === "rcd" && s.groupId === groupId)?.notes.push(noteFor[reason]);
+  }
+  return plan.segments.map((segment) => ({
+    role: "busbar",
+    deviceId: segment.deviceId,
+    groupId: segment.groupId,
+    circuitId: null,
+    notes: [],
+    busbarPiece: segment.piece,
+  }));
 }
 
 /** The bar kinds a match takes from the catalog — none unless it is `matched`. */
@@ -503,6 +589,7 @@ export function sameSelection(a: readonly Selection[], b: readonly Selection[]):
       left.deviceId === right.deviceId &&
       left.groupId === right.groupId &&
       left.circuitId === right.circuitId &&
+      left.busbarPiece === right.busbarPiece &&
       left.notes.length === right.notes.length &&
       left.notes.every((note, j) => note === right.notes[j])
     );
@@ -584,6 +671,7 @@ const ROLE_LABEL_KEYS: Record<SelectionRole, keyof typeof t.matching.roles> = {
   mcb: "mcb",
   pe_bar: "peBar",
   n_bar: "nBar",
+  busbar: "busbar",
 };
 
 export function selectionRoleLabel(role: SelectionRole): string {
@@ -593,6 +681,8 @@ export function selectionRoleLabel(role: SelectionRole): string {
 const NOTE_LABEL_KEYS: Record<SelectionNote, keyof typeof t.matching.notes> = {
   rcbo_fallback: "rcboFallback",
   no_rcd: "noRcd",
+  busbar_missing: "busbarMissing",
+  busbar_group_too_wide: "busbarGroupTooWide",
 };
 
 export function selectionNoteMessage(note: SelectionNote): string {

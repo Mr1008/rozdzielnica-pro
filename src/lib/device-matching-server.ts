@@ -171,7 +171,12 @@ export async function loadMatchContext(
   };
 }
 
-const SELECTION_NOTES: readonly string[] = ["rcbo_fallback", "no_rcd"] satisfies SelectionNote[];
+const SELECTION_NOTES: readonly string[] = [
+  "rcbo_fallback",
+  "no_rcd",
+  "busbar_missing",
+  "busbar_group_too_wide",
+] satisfies SelectionNote[];
 
 function isRole(value: string): value is SelectionRole {
   return (SELECTION_ROLES as readonly string[]).includes(value);
@@ -196,6 +201,7 @@ export function snapshotSelections(rows: readonly SnapshotRow[]): Selection[] {
       groupId: row.rcd_group_id,
       circuitId: row.circuit_id,
       notes: row.notes.filter(isNote),
+      busbarPiece: row.busbar_piece,
     });
   }
   return selections;
@@ -225,6 +231,14 @@ export function cabinetBarKinds(geometry: CabinetGeometry | null): BarKind[] | n
   return geometry === null ? null : builtInBarKinds(geometry);
 }
 
+/**
+ * The longest DIN rail of a project's cabinet snapshot, for `MatchInput.maxRailMm`: the widest group
+ * a busbar may serve. A snapshot that does not parse gives `null` — no busbar is selected.
+ */
+export function maxRailMm(geometry: CabinetGeometry | null): number | null {
+  return geometry === null ? null : Math.max(...geometry.rails.map((rail) => rail.lengthMm));
+}
+
 export function computeMatchView(context: MatchContext): MatchView {
   const fresh = matchDevices(
     {
@@ -232,6 +246,7 @@ export function computeMatchView(context: MatchContext): MatchView {
       groups: context.groups,
       circuits: context.circuits,
       cabinetBarKinds: cabinetBarKinds(context.geometry),
+      maxRailMm: maxRailMm(context.geometry),
     },
     context.catalog,
   );
@@ -279,6 +294,8 @@ export function saveCircuitsArgs(
             rcd_group_id: selection.groupId,
             circuit_id: selection.circuitId,
             notes: selection.notes,
+            // Only a busbar segment carries a piece; it is never placed on a rail.
+            ...(selection.busbarPiece === null ? {} : { busbar_piece: selection.busbarPiece }),
             ...(placement === null
               ? {}
               : {

@@ -336,6 +336,7 @@ describe("matchDevices — main switch (FR)", () => {
       mcb: "mcb_b",
       pe_bar: "pe_bar",
       n_bar: "n_bar",
+      busbar: "comb_busbar",
     } as const;
 
     it("with only FRs in the catalog, every protection role is a gap and the main switch is not", () => {
@@ -511,17 +512,24 @@ describe("matchDevices — single-circuit group (RCBO)", () => {
     ];
     const selections = matched(matchDevices(single, catalog));
     expect(selections).toEqual([
-      { role: "main_switch", deviceId: "fr-40-2p", groupId: null, circuitId: null, notes: [] },
-      { role: "rcbo", deviceId: "rcbo-16", groupId: "g1", circuitId: "c1", notes: [] },
+      { role: "main_switch", deviceId: "fr-40-2p", groupId: null, circuitId: null, notes: [], busbarPiece: null },
+      { role: "rcbo", deviceId: "rcbo-16", groupId: "g1", circuitId: "c1", notes: [], busbarPiece: null },
     ]);
   });
 
   it("falls back to a compliant RCD + MCB pair, both flagged rcbo_fallback", () => {
     const selections = matched(matchDevices(single, [...BASE, rcbo("rcbo-20", 20, 30, "A", "1P+N")]));
     expect(selections).toEqual([
-      { role: "main_switch", deviceId: "fr-40-2p", groupId: null, circuitId: null, notes: [] },
-      { role: "rcd", deviceId: "rcd-40-30-a-2p", groupId: "g1", circuitId: null, notes: ["rcbo_fallback"] },
-      { role: "mcb", deviceId: "b16-1p", groupId: "g1", circuitId: "c1", notes: ["rcbo_fallback"] },
+      { role: "main_switch", deviceId: "fr-40-2p", groupId: null, circuitId: null, notes: [], busbarPiece: null },
+      {
+        role: "rcd",
+        deviceId: "rcd-40-30-a-2p",
+        groupId: "g1",
+        circuitId: null,
+        notes: ["rcbo_fallback"],
+        busbarPiece: null,
+      },
+      { role: "mcb", deviceId: "b16-1p", groupId: "g1", circuitId: "c1", notes: ["rcbo_fallback"], busbarPiece: null },
     ]);
   });
 
@@ -836,6 +844,7 @@ describe("boundaries — three-phase single-circuit group", () => {
         groupId: null,
         circuitId: null,
         notes: [],
+        busbarPiece: null,
       });
       expect(selections).toContainEqual({
         role: "rcd",
@@ -843,6 +852,7 @@ describe("boundaries — three-phase single-circuit group", () => {
         groupId: "g1",
         circuitId: null,
         notes: ["rcbo_fallback"],
+        busbarPiece: null,
       });
       expect(selections).toContainEqual({
         role: "mcb",
@@ -850,6 +860,7 @@ describe("boundaries — three-phase single-circuit group", () => {
         groupId: "g1",
         circuitId: "c1",
         notes: ["rcbo_fallback"],
+        busbarPiece: null,
       });
     },
   );
@@ -930,8 +941,8 @@ describe("matchDevices — catalog PE/N bars (cabinet without built-in bars)", (
     expect(deviceFor(selections, "n_bar", {})).toBe("n-fits");
     // Bars come last, PE then N, serving the whole installation.
     expect(selections.slice(-2)).toEqual([
-      { role: "pe_bar", deviceId: "pe-fits", groupId: null, circuitId: null, notes: [] },
-      { role: "n_bar", deviceId: "n-fits", groupId: null, circuitId: null, notes: [] },
+      { role: "pe_bar", deviceId: "pe-fits", groupId: null, circuitId: null, notes: [], busbarPiece: null },
+      { role: "n_bar", deviceId: "n-fits", groupId: null, circuitId: null, notes: [], busbarPiece: null },
     ]);
   });
 
@@ -1019,8 +1030,8 @@ describe("activeCatalog", () => {
 
 describe("sameSelection", () => {
   const a: Selection[] = [
-    { role: "main_switch", deviceId: "fr", groupId: null, circuitId: null, notes: [] },
-    { role: "mcb", deviceId: "b16", groupId: null, circuitId: "c1", notes: ["no_rcd"] },
+    { role: "main_switch", deviceId: "fr", groupId: null, circuitId: null, notes: [], busbarPiece: null },
+    { role: "mcb", deviceId: "b16", groupId: null, circuitId: "c1", notes: ["no_rcd"], busbarPiece: null },
   ];
 
   it("is true for equal lists", () => {
@@ -1125,7 +1136,172 @@ describe("messages", () => {
   });
 
   it("labels every role and note", () => {
-    for (const role of ["main_switch", "rcd", "rcbo", "mcb"] as const) expect(selectionRoleLabel(role)).not.toBe("");
-    for (const note of ["rcbo_fallback", "no_rcd"] as const) expect(selectionNoteMessage(note)).not.toBe("");
+    for (const role of ["main_switch", "rcd", "rcbo", "mcb", "pe_bar", "n_bar", "busbar"] as const) {
+      expect(selectionRoleLabel(role)).not.toBe("");
+    }
+    for (const note of ["rcbo_fallback", "no_rcd", "busbar_missing", "busbar_group_too_wide"] as const) {
+      expect(selectionNoteMessage(note)).not.toBe("");
+    }
+  });
+});
+
+describe("comb busbars", () => {
+  const RAIL_MM = 54 * 17.5;
+  const busbar = (id: string, poles: "1P" | "3P", rated: number, pins: number, price: number) =>
+    device(id, {
+      kind: "comb_busbar",
+      poles,
+      rated_current_a: rated,
+      width_mm: pins * 17.5,
+      height_mm: 20,
+      depth_mm: 20,
+      price_grosze: price,
+    });
+
+  // Two circuits of 16 A in a group: RCD >= 36,8 A, so rcd-40-30-a-2p. Group = RCD + 2 MCBs = 3 TE.
+  const twoGroups = (): MatchInput => ({
+    supply: TN_S_1F,
+    groups: [group("g1"), group("g2")],
+    circuits: [
+      circuit("c1", 16, { rcd_group_id: "g1" }),
+      circuit("c2", 16, { rcd_group_id: "g1" }),
+      circuit("c3", 16, { rcd_group_id: "g2" }),
+      circuit("c4", 16, { rcd_group_id: "g2" }),
+    ],
+    maxRailMm: RAIL_MM,
+  });
+  const bbRows = (selections: Selection[]) => selections.filter((s) => s.role === "busbar");
+
+  it("cuts two 1F groups from one bought piece, appended after every other selection", () => {
+    const catalog = [...BASE, busbar("bb-1f-54", "1P", 63, 54, 9000), busbar("bb-1f-12", "1P", 63, 12, 3000)];
+    const selections = matched(matchDevices(twoGroups(), catalog));
+    // Each group needs 3 pins; the cheapest compliant piece is the 12-pin one, and it serves both.
+    expect(bbRows(selections)).toEqual([
+      { role: "busbar", deviceId: "bb-1f-12", groupId: "g1", circuitId: null, notes: [], busbarPiece: 0 },
+      { role: "busbar", deviceId: "bb-1f-12", groupId: "g2", circuitId: null, notes: [], busbarPiece: 0 },
+    ]);
+    expect(selections.slice(-2).every((s) => s.role === "busbar")).toBe(true);
+    // Everything before the busbars is exactly what a busbar-less catalog yields.
+    const without = matched(matchDevices(twoGroups(), BASE));
+    expect(selections.slice(0, -2)).toEqual(
+      without.map((s) => ({ ...s, notes: s.notes.filter((n) => n === "no_rcd") })),
+    );
+  });
+
+  it("changes nothing when the match has no geometry or the catalog has no busbar and no group has 2 MCBs", () => {
+    const catalog = [...BASE, busbar("bb-1f-12", "1P", 63, 12, 3000)];
+    const noGeometry = { ...twoGroups(), maxRailMm: null };
+    expect(matchDevices(noGeometry, catalog)).toEqual(matchDevices(noGeometry, BASE));
+    const { maxRailMm: _ignored, ...absent } = twoGroups();
+    expect(matchDevices(absent, catalog)).toEqual(matchDevices(absent, BASE));
+  });
+
+  it("notes busbar_missing on the group's RCD, and never makes it a gap", () => {
+    const result = matchDevices(twoGroups(), BASE);
+    const selections = matched(result);
+    expect(bbRows(selections)).toEqual([]);
+    const rcds = selections.filter((s) => s.role === "rcd");
+    expect(rcds.map((s) => s.notes)).toEqual([["busbar_missing"], ["busbar_missing"]]);
+    expect(selections.filter((s) => s.role === "mcb").every((s) => s.notes.length === 0)).toBe(true);
+  });
+
+  it("never picks an under-rated busbar, even when it is cheaper", () => {
+    const catalog = [...BASE, busbar("bb-weak", "1P", 32, 12, 100), busbar("bb-ok", "1P", 40, 12, 5000)];
+    const selections = matched(matchDevices(twoGroups(), catalog));
+    expect(bbRows(selections).map((s) => s.deviceId)).toEqual(["bb-ok", "bb-ok"]);
+    const onlyWeak = matched(matchDevices(twoGroups(), [...BASE, busbar("bb-weak", "1P", 32, 12, 100)]));
+    expect(bbRows(onlyWeak)).toEqual([]);
+    expect(onlyWeak.filter((s) => s.role === "rcd").every((s) => s.notes.includes("busbar_missing"))).toBe(true);
+  });
+
+  it("notes a group wider than every rail and gives it no busbar", () => {
+    const catalog = [...BASE, busbar("bb-1f-12", "1P", 63, 12, 3000)];
+    const selections = matched(matchDevices({ ...twoGroups(), maxRailMm: 2 * 17.5 }, catalog));
+    expect(bbRows(selections)).toEqual([]);
+    expect(selections.filter((s) => s.role === "rcd").map((s) => s.notes)).toEqual([
+      ["busbar_group_too_wide"],
+      ["busbar_group_too_wide"],
+    ]);
+  });
+
+  it("serves a single-MCB group (RCD + MCB fallback) only from an offcut, silently otherwise", () => {
+    const input: MatchInput = {
+      supply: TN_S_1F,
+      groups: [group("g1"), group("g2")],
+      circuits: [
+        circuit("c1", 16, { rcd_group_id: "g1" }),
+        circuit("c2", 16, { rcd_group_id: "g1" }),
+        circuit("c3", 16, { rcd_group_id: "g2" }),
+      ],
+      maxRailMm: RAIL_MM,
+    };
+    // No RCBO in the catalog: g2 falls back to RCD + MCB, with note rcbo_fallback.
+    const fromOffcut = matched(matchDevices(input, [...BASE, busbar("bb-1f-12", "1P", 63, 12, 3000)]));
+    expect(bbRows(fromOffcut).map((s) => [s.groupId, s.busbarPiece])).toEqual([
+      ["g1", 0],
+      ["g2", 0],
+    ]);
+    // A piece too short to leave an offcut for g2: g2 gets nothing and no note about it.
+    const noOffcut = matched(matchDevices(input, [...BASE, busbar("bb-1f-3", "1P", 63, 3, 1000)]));
+    expect(bbRows(noOffcut).map((s) => s.groupId)).toEqual(["g1"]);
+    const g2Rcd = noOffcut.find((s) => s.role === "rcd" && s.groupId === "g2");
+    expect(g2Rcd?.notes).toEqual(["rcbo_fallback"]);
+  });
+
+  it("never gives an RCBO group a busbar", () => {
+    const input: MatchInput = {
+      supply: TN_S_1F,
+      groups: [group("g1")],
+      circuits: [circuit("c1", 16, { rcd_group_id: "g1" })],
+      maxRailMm: RAIL_MM,
+    };
+    const catalog = [...BASE, rcbo("rcbo-16", 16, 30, "A", "1P+N"), busbar("bb-1f-12", "1P", 63, 12, 3000)];
+    const selections = matched(matchDevices(input, catalog));
+    expect(selections.map((s) => s.role)).toEqual(["main_switch", "rcbo"]);
+  });
+
+  it("never gives a 3F group a 1F busbar", () => {
+    const catalog = [
+      fr("fr-40-4p", 40, "4P"),
+      mcb("b16-3p", 16, "3P"),
+      rcd("rcd-40-30-a-4p", 40, 30, "A", "4P"),
+      busbar("bb-1f-54", "1P", 63, 54, 1000),
+    ];
+    const input: MatchInput = {
+      supply: TN_C_S_3F,
+      groups: [group("g1")],
+      circuits: [
+        circuit("c1", 16, { rcd_group_id: "g1", phase_count: 3 }),
+        circuit("c2", 16, { rcd_group_id: "g1", phase_count: 3 }),
+      ],
+      maxRailMm: RAIL_MM,
+    };
+    const without = matched(matchDevices(input, catalog));
+    expect(bbRows(without)).toEqual([]);
+    expect(without.find((s) => s.role === "rcd")?.notes).toEqual(["busbar_missing"]);
+    const withThreeF = matched(matchDevices(input, [...catalog, busbar("bb-3f-12", "3P", 63, 12, 4000)]));
+    expect(bbRows(withThreeF).map((s) => s.deviceId)).toEqual(["bb-3f-12"]);
+  });
+
+  it("compares busbar pieces and the new notes in sameSelection", () => {
+    const base: Selection = {
+      role: "busbar",
+      deviceId: "bb",
+      groupId: "g1",
+      circuitId: null,
+      notes: [],
+      busbarPiece: 0,
+    };
+    expect(sameSelection([base], [{ ...base }])).toBe(true);
+    expect(sameSelection([base], [{ ...base, busbarPiece: 1 }])).toBe(false);
+    const rcdRow: Selection = {
+      role: "rcd",
+      deviceId: "r",
+      groupId: "g1",
+      circuitId: null,
+      notes: [],
+      busbarPiece: null,
+    };
+    expect(sameSelection([rcdRow], [{ ...rcdRow, notes: ["busbar_missing"] }])).toBe(false);
   });
 });

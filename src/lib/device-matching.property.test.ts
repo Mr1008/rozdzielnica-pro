@@ -634,3 +634,150 @@ describe("matchDevices — property: the result follows the S-04 rule table", ()
     expect(barsSelected).toBeGreaterThan(0);
   });
 });
+
+// ---------------------------------------------------------------------------------------------
+// Comb busbars (plan `rcd-group-busbars`): a layer over the rule table, never part of it
+// ---------------------------------------------------------------------------------------------
+
+const busbarCatalogArb = fc.array(
+  fc.record({
+    poles: fc.constantFrom("1P", "3P"),
+    rated: fc.constantFrom(16, 32, 63, 100, 160, 400),
+    pins: fc.constantFrom(4, 12, 24, 54),
+    price: fc.integer({ min: 100, max: 20_000 }),
+  }),
+  { maxLength: 5 },
+);
+
+/** A fully servable project (every role has a compliant device), so busbars are actually reached. */
+const servableArb = fc
+  .record({
+    threePhase: fc.boolean(),
+    groupSizes: fc.array(fc.integer({ min: 1, max: 4 }), { minLength: 1, maxLength: 3 }),
+  })
+  .map(({ threePhase, groupSizes }) => {
+    const supply: SupplyParams = {
+      premeter_protection_a: 25,
+      earthing_system: "TN-S",
+      phase_count: threePhase ? 3 : 1,
+      wlz_length_m: 10,
+      wlz_cross_section_mm2: 10,
+      wlz_material: "Cu",
+      wlz_installation: "conduit_flush",
+    };
+    const groups: RcdGroupInput[] = groupSizes.map((_, i) => ({
+      id: groupId(i),
+      label: `G${String(i)}`,
+      residual_current_ma: 30,
+      min_rcd_type: "A",
+      rcd_margin_percent: 15,
+    }));
+    let n = 0;
+    const circuits: CircuitInput[] = groupSizes.flatMap((size, gi) =>
+      Array.from({ length: size }, (): CircuitInput => {
+        n += 1;
+        return {
+          id: circuitId(n),
+          rcd_group_id: groupId(gi),
+          name: `C${String(n)}`,
+          rated_current_a: 16,
+          phase_count: threePhase ? 3 : 1,
+          cross_section_mm2: 2.5,
+          installation: "conduit_flush",
+          entry_side: "top",
+        };
+      }),
+    );
+    const catalog: Device[] = [
+      buildDevice(deviceId(1), {
+        kind: "switch_disconnector",
+        rated_current_a: 40,
+        poles: threePhase ? "4P" : "2P",
+        price_grosze: 100,
+      }),
+      buildDevice(deviceId(2), {
+        kind: "mcb_b",
+        rated_current_a: 16,
+        poles: threePhase ? "3P" : "1P",
+        breaking_capacity_ka: 6,
+        price_grosze: 100,
+      }),
+      buildDevice(deviceId(3), {
+        kind: "rcd",
+        rated_current_a: 125,
+        residual_current_ma: 30,
+        rcd_type: "A",
+        poles: "4P",
+        price_grosze: 100,
+      }),
+      buildDevice(deviceId(4), {
+        kind: "rcbo",
+        rated_current_a: 16,
+        residual_current_ma: 30,
+        rcd_type: "A",
+        poles: threePhase ? "3P+N" : "1P+N",
+        breaking_capacity_ka: 6,
+        price_grosze: 100,
+      }),
+    ];
+    const input: MatchInput = { supply, groups, circuits };
+    return { input, catalog };
+  });
+
+describe("matchDevices — property: comb busbars", () => {
+  it("never change the status or the other selections, come last, and are never under-rated or the wrong phase", () => {
+    let busbarsSelected = 0;
+    fc.assert(
+      fc.property(fc.oneof(scenarioArb, servableArb), busbarCatalogArb, ({ input, catalog }, rows) => {
+        const busbars = rows.map((row, i) =>
+          buildDevice(deviceId(9_000 + i), {
+            kind: "comb_busbar",
+            poles: row.poles,
+            rated_current_a: row.rated,
+            width_mm: row.pins * 17.5,
+            price_grosze: row.price,
+          }),
+        );
+        const plain = matchDevices(input, catalog);
+        const withBusbars = matchDevices({ ...input, maxRailMm: 54 * 17.5 }, [...catalog, ...busbars]);
+
+        // A busbar miss or hit never turns a match into a gap, nor the reverse.
+        expect(withBusbars.status).toBe(plain.status);
+        if (withBusbars.status !== "matched" || plain.status !== "matched") return;
+
+        const isBusbar = (s: Selection) => s.role === "busbar";
+        const firstBusbar = withBusbars.selections.findIndex(isBusbar);
+        if (firstBusbar !== -1) {
+          expect(withBusbars.selections.slice(firstBusbar).every(isBusbar)).toBe(true);
+        }
+
+        // Without the busbars and their notes, the selections are exactly the plain ones.
+        const stripped = withBusbars.selections
+          .filter((s) => !isBusbar(s))
+          .map((s) => ({
+            ...s,
+            notes: s.notes.filter((n) => n !== "busbar_missing" && n !== "busbar_group_too_wide"),
+          }));
+        expect(stripped).toEqual(plain.selections);
+
+        // The guardrail: In >= the group RCD's In, phases match, never an RCBO group.
+        const byId = new Map([...catalog, ...busbars].map((d) => [d.id, d]));
+        for (const selection of withBusbars.selections.filter(isBusbar)) {
+          busbarsSelected += 1;
+          const device = byId.get(selection.deviceId);
+          const rcdSelection = withBusbars.selections.find((s) => s.role === "rcd" && s.groupId === selection.groupId);
+          const rcdDevice = rcdSelection === undefined ? undefined : byId.get(rcdSelection.deviceId);
+          expect(device?.kind).toBe("comb_busbar");
+          expect(rcdDevice?.kind).toBe("rcd");
+          if (device?.kind !== "comb_busbar" || rcdDevice?.kind !== "rcd") return;
+          expect(device.rated_current_a).toBeGreaterThanOrEqual(rcdDevice.rated_current_a);
+          expect(device.poles === "3P" ? 3 : 1).toBe(rcdDevice.poles === "4P" ? 3 : 1);
+          expect(selection.busbarPiece).not.toBeNull();
+        }
+      }),
+      { numRuns: 500 },
+    );
+    // Distribution guard: the property must not pass vacuously.
+    expect(busbarsSelected).toBeGreaterThan(0);
+  });
+});

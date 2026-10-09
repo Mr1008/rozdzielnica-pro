@@ -75,7 +75,10 @@ export interface QuoteCabinet {
 
 export interface QuoteInput {
   /** The project's match view; a `MatchView` is one as is. */
-  matchView: { state: MatchViewState; snapshot: readonly Pick<SnapshotRow, "price_grosze">[] };
+  matchView: {
+    state: MatchViewState;
+    snapshot: readonly Pick<SnapshotRow, "price_grosze" | "device_id" | "role" | "busbar_piece">[];
+  };
   /** The project's cabinet snapshot (`cabinet_name`, `cabinet_price_grosze`). */
   cabinet: QuoteCabinet;
   /** The electrician's `pricing_profiles` row, or null when none is configured. */
@@ -115,13 +118,34 @@ export type QuoteViewState = QuoteView["state"];
  * built-in bar, so cabinet + snapshot never double-counts. "Outdated" is compared on every render,
  * never stored, so a profile change — which no trigger on `projects` can see — is caught too.
  */
+/**
+ * The material cost of the snapshot's devices. A comb busbar segment is one row, but the segments of
+ * one bought piece share it: a piece is priced once, per distinct `(device_id, busbar_piece)`; every
+ * other row counts at its full price.
+ */
+export function devicesCostGrosze(
+  rows: readonly Pick<SnapshotRow, "device_id" | "price_grosze" | "role" | "busbar_piece">[],
+): number {
+  const pieces = new Set<string>();
+  let sum = 0;
+  for (const row of rows) {
+    if (row.role === "busbar") {
+      const key = `${row.device_id}|${String(row.busbar_piece)}`;
+      if (pieces.has(key)) continue;
+      pieces.add(key);
+    }
+    sum += row.price_grosze;
+  }
+  return sum;
+}
+
 export function computeQuoteView(input: QuoteInput): QuoteView {
   const { matchView, cabinet, profile, override } = input;
   if (profile === null) return { state: "no_profile" };
   if (matchView.state !== "current") return { state: "not_current" };
 
   const deviceCount = matchView.snapshot.length;
-  const devicesGrosze = matchView.snapshot.reduce((sum, row) => sum + row.price_grosze, 0);
+  const devicesGrosze = devicesCostGrosze(matchView.snapshot);
   const materialGrosze = cabinet.priceGrosze + devicesGrosze;
   const estimateMinutes = estimateLabourMinutes(deviceCount, profile);
   const labourMinutes = override === null ? estimateMinutes : override.minutes;

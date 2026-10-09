@@ -40,6 +40,7 @@ const SEEDED_MODELS = {
   rcbo: "PRZ-RCBO-B16-30-A",
   peBar: "PRZ-PE-6",
   nBar: "PRZ-N-6",
+  busbar: "PRZ-LZ-1F-54-63",
 } as const;
 
 const SUPPLY: SupplyParams = {
@@ -75,10 +76,12 @@ interface CircuitPayload {
 
 interface DevicePayload {
   device_id: string;
-  role: "main_switch" | "rcd" | "rcbo" | "mcb" | "pe_bar" | "n_bar";
+  role: "main_switch" | "rcd" | "rcbo" | "mcb" | "pe_bar" | "n_bar" | "busbar";
   rcd_group_id: string | null;
   circuit_id: string | null;
   notes: string[];
+  /** Optional: only a busbar segment carries one (the bought piece it is cut from). */
+  busbar_piece?: number;
   /** Optional (S-05): an item carrying both gets a placement row; one without them gets none. */
   rail_index?: number;
   x_mm?: number;
@@ -508,6 +511,88 @@ describe("row level security and the device snapshot on circuits, groups and pro
       expect(projectDevices.filter((row) => !bars.includes(row)).every((row) => row.terminal_groups === null)).toBe(
         true,
       );
+    });
+
+    it("stores busbar segments with their piece, unplaced, and copies the busbar's catalog columns", async () => {
+      const projectId = await insertProject(clientA, electricianA.id, SUPPLY);
+      const payload = samplePayload();
+      const rcdGroup = payload.groups[0];
+      await saveOrThrow(clientA, projectId, {
+        ...payload,
+        devices: [
+          ...payload.devices,
+          {
+            device_id: devices.busbar.id,
+            role: "busbar",
+            rcd_group_id: rcdGroup.id,
+            circuit_id: null,
+            notes: [],
+            busbar_piece: 0,
+          },
+          {
+            device_id: devices.busbar.id,
+            role: "busbar",
+            rcd_group_id: payload.groups[1].id,
+            circuit_id: null,
+            notes: [],
+            busbar_piece: 0,
+          },
+        ],
+      });
+      const { projectDevices } = await readAll(projectId);
+      const segments = projectDevices.filter((row) => row.role === "busbar");
+      expect(segments.map((row) => [row.kind, row.busbar_piece, row.price_grosze])).toEqual([
+        ["comb_busbar", 0, devices.busbar.price_grosze],
+        ["comb_busbar", 0, devices.busbar.price_grosze],
+      ]);
+      // Every other row carries no piece, and a segment never gets a placement.
+      expect(projectDevices.filter((row) => row.role !== "busbar").every((row) => row.busbar_piece === null)).toBe(
+        true,
+      );
+      const placements = await service
+        .from("project_device_placements")
+        .select("project_device_id")
+        .eq("project_id", projectId);
+      expect(placements.error).toBeNull();
+      const placed = new Set((placements.data ?? []).map((row) => row.project_device_id));
+      expect(segments.some((row) => placed.has(row.id))).toBe(false);
+    });
+
+    it("accepts the busbar notes on an RCD row", async () => {
+      const projectId = await insertProject(clientA, electricianA.id, SUPPLY);
+      const payload = samplePayload();
+      await saveOrThrow(clientA, projectId, {
+        ...payload,
+        devices: payload.devices.map((d) => (d.role === "rcd" ? { ...d, notes: ["busbar_missing"] } : d)),
+      });
+      const { projectDevices } = await readAll(projectId);
+      expect(projectDevices.find((row) => row.role === "rcd")?.notes).toEqual(["busbar_missing"]);
+    });
+
+    it("refuses busbar_piece on a row that is not a busbar, and a busbar without one, with 23514", async () => {
+      const projectId = await insertProject(clientA, electricianA.id);
+      const onMcb = await clientA.from("project_devices").insert({
+        project_id: projectId,
+        position: 0,
+        role: "mcb",
+        device_id: devices.mcbB16.id,
+        notes: [],
+        busbar_piece: 0,
+      });
+      expect(onMcb.error?.code).toBe("23514");
+      const bare = await clientA
+        .from("project_devices")
+        .insert({ project_id: projectId, position: 1, role: "busbar", device_id: devices.busbar.id, notes: [] });
+      expect(bare.error?.code).toBe("23514");
+      const negative = await clientA.from("project_devices").insert({
+        project_id: projectId,
+        position: 2,
+        role: "busbar",
+        device_id: devices.busbar.id,
+        notes: [],
+        busbar_piece: -1,
+      });
+      expect(negative.error?.code).toBe("23514");
     });
 
     it("refuses a role outside the list with 23514", async () => {

@@ -345,6 +345,7 @@ export type Database = {
       project_devices: {
         Row: {
           breaking_capacity_ka: number | null
+          busbar_piece: number | null
           circuit_id: string | null
           created_at: string
           depth_mm: number
@@ -371,6 +372,7 @@ export type Database = {
         }
         Insert: {
           breaking_capacity_ka?: number | null
+          busbar_piece?: number | null
           circuit_id?: string | null
           created_at?: string
           depth_mm?: number
@@ -399,6 +401,7 @@ export type Database = {
         }
         Update: {
           breaking_capacity_ka?: number | null
+          busbar_piece?: number | null
           circuit_id?: string | null
           created_at?: string
           depth_mm?: number

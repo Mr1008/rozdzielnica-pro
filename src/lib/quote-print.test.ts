@@ -33,6 +33,7 @@ function row(position: number, overrides: Partial<SnapshotRow> = {}): SnapshotRo
     rcd_group_id: null,
     circuit_id: null,
     notes: [],
+    busbar_piece: null,
     kind: "mcb_b",
     name: "MCB B16",
     manufacturer: "Producent",
@@ -153,6 +154,27 @@ describe("material lines", () => {
   it("orders lines by position, not by array order", () => {
     const lines = linesOf([row(2, { device_id: "b", name: "B" }), row(0, { device_id: "a", name: "A" })]);
     expect(lines.map((line) => line.deviceId)).toEqual(["a", "b"]);
+  });
+
+  it("itemises a busbar by pieces, not segments, and names its pins; the lines still sum to devicesGrosze", () => {
+    const busbar = (position: number, piece: number): SnapshotRow =>
+      row(position, {
+        device_id: "busbar-1f",
+        role: "busbar",
+        kind: "comb_busbar",
+        poles: "1P",
+        width_mm: 210,
+        price_grosze: 5_000,
+        busbar_piece: piece,
+      });
+    const rows = [row(0), busbar(1, 0), busbar(2, 0), busbar(3, 1)];
+    const view = computePrintView(input({ quote: quoteFor(rows), snapshot: rows }));
+    if (view.state !== "ready") throw new Error("expected ready");
+    expect(view.lines).toEqual([
+      expect.objectContaining({ deviceId: "mcb-b16", quantity: 1, pins: null }),
+      expect.objectContaining({ deviceId: "busbar-1f", quantity: 2, pins: 12, unitGrosze: 5_000, totalGrosze: 10_000 }),
+    ]);
+    expect(view.quote.devicesGrosze).toBe(11_000);
   });
 
   it("itemises catalog PE/N bars", () => {

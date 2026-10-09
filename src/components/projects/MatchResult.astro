@@ -2,6 +2,7 @@
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { demandPins } from "@/lib/busbar-cutting";
 import { circuitWarningMessage, circuitWarnings } from "@/lib/circuit-warnings";
 import type { MatchContext, MatchView, SnapshotRow } from "@/lib/device-matching-server";
 import {
@@ -46,12 +47,18 @@ interface Row {
   manufacturer: string;
   model: string;
   summary: string | null;
-  priceGrosze: number;
+  /** Null for a busbar segment cut from a piece an earlier row already priced. */
+  priceGrosze: number | null;
   notes: string[];
   serves: string;
 }
 
-const SELECTION_NOTES: readonly string[] = ["rcbo_fallback", "no_rcd"] satisfies SelectionNote[];
+const SELECTION_NOTES: readonly string[] = [
+  "rcbo_fallback",
+  "no_rcd",
+  "busbar_missing",
+  "busbar_group_too_wide",
+] satisfies SelectionNote[];
 
 function isSelectionRole(value: string): value is SelectionRole {
   return (SELECTION_ROLES as readonly string[]).includes(value);
@@ -72,12 +79,29 @@ function servesText(groupId: string | null, circuitId: string | null): string {
   return t.circuitSection.servesSupply;
 }
 
+/** A busbar segment's length in TE: the width of its group's RCD and MCBs, rounded up. */
+function segmentModules(widthsMm: readonly number[]): number {
+  return demandPins(widthsMm.reduce((sum, width) => sum + width, 0));
+}
+
+function busbarServes(groupId: string | null, piece: number, modules: number): string {
+  const groupLabel = groupId === null ? undefined : groupLabels.get(groupId);
+  return t.circuitSection.busbarSegment(groupLabel ?? "", piece + 1, modules);
+}
+
 /**
  * A stored row carries its own copy of the device's spec (a catalog bar's terminal groups included);
  * it is re-parsed, never trusted blindly.
  */
-function snapshotRow(row: SnapshotRow): Row {
+function snapshotRow(row: SnapshotRow, pricedPieces: Set<string>): Row {
   const parsed = parseDeviceSpec(row);
+  const pieceKey = `${row.device_id}|${String(row.busbar_piece)}`;
+  const isBusbar = row.role === "busbar" && row.busbar_piece !== null;
+  const repeated = isBusbar && pricedPieces.has(pieceKey);
+  if (isBusbar) pricedPieces.add(pieceKey);
+  const groupWidths = view.snapshot
+    .filter((other) => other.role !== "busbar" && other.rcd_group_id === row.rcd_group_id)
+    .map((other) => other.width_mm);
   return {
     key: row.id,
     role: isSelectionRole(row.role) ? selectionRoleLabel(row.role) : deviceKindLabel(row.kind),
@@ -85,16 +109,31 @@ function snapshotRow(row: SnapshotRow): Row {
     manufacturer: row.manufacturer,
     model: row.model,
     summary: parsed.ok ? deviceParameterSummary(parsed.spec) : null,
-    priceGrosze: row.price_grosze,
+    priceGrosze: repeated ? null : row.price_grosze,
     notes: row.notes.filter(isSelectionNote).map(selectionNoteMessage),
-    serves: servesText(row.rcd_group_id, row.circuit_id),
+    serves:
+      isBusbar && row.busbar_piece !== null
+        ? busbarServes(row.rcd_group_id, row.busbar_piece, segmentModules(groupWidths))
+        : servesText(row.rcd_group_id, row.circuit_id),
   };
 }
 
 /** A fresh selection, for the unsaved preview only. Its device comes from the active catalog. */
-function previewRow(selection: Selection, index: number): Row | null {
+function previewRow(
+  selection: Selection,
+  index: number,
+  all: readonly Selection[],
+  pricedPieces: Set<string>,
+): Row | null {
   const device = context.catalog.find((entry) => entry.id === selection.deviceId);
   if (device === undefined) return null;
+  const pieceKey = `${selection.deviceId}|${String(selection.busbarPiece)}`;
+  const isBusbar = selection.role === "busbar" && selection.busbarPiece !== null;
+  const repeated = isBusbar && pricedPieces.has(pieceKey);
+  if (isBusbar) pricedPieces.add(pieceKey);
+  const groupWidths = all
+    .filter((other) => other.role !== "busbar" && other.groupId === selection.groupId)
+    .map((other) => context.catalog.find((entry) => entry.id === other.deviceId)?.width_mm ?? 0);
   return {
     key: `${String(index)}-${selection.deviceId}`,
     role: selectionRoleLabel(selection.role),
@@ -102,17 +141,24 @@ function previewRow(selection: Selection, index: number): Row | null {
     manufacturer: device.manufacturer,
     model: device.model,
     summary: deviceParameterSummary(device),
-    priceGrosze: device.price_grosze,
+    priceGrosze: repeated ? null : device.price_grosze,
     notes: selection.notes.map(selectionNoteMessage),
-    serves: servesText(selection.groupId, selection.circuitId),
+    serves:
+      isBusbar && selection.busbarPiece !== null
+        ? busbarServes(selection.groupId, selection.busbarPiece, segmentModules(groupWidths))
+        : servesText(selection.groupId, selection.circuitId),
   };
 }
 
-const snapshotRows = [...view.snapshot].sort((a, b) => a.position - b.position).map(snapshotRow);
+const snapshotPriced = new Set<string>();
+const snapshotRows = [...view.snapshot]
+  .sort((a, b) => a.position - b.position)
+  .map((row) => snapshotRow(row, snapshotPriced));
+const previewPriced = new Set<string>();
 const previewRows =
   view.state === "cleared" && view.fresh.status === "matched"
-    ? view.fresh.selections.flatMap((selection, index) => {
-        const row = previewRow(selection, index);
+    ? view.fresh.selections.flatMap((selection, index, all) => {
+        const row = previewRow(selection, index, all, previewPriced);
         return row === null ? [] : [row];
       })
     : [];
@@ -269,7 +315,13 @@ const linkClass = "font-semibold underline underline-offset-4";
                 </TableCell>
                 <TableCell className={cellClass}>{row.serves}</TableCell>
                 <TableCell className={cn(cellClass, "pr-4 text-right font-mono whitespace-nowrap tabular-nums")}>
-                  {formatMoney(row.priceGrosze / 100)}
+                  {row.priceGrosze === null ? (
+                    <span class="font-sans text-xs font-normal text-muted-foreground">
+                      {t.circuitSection.busbarSharedPrice}
+                    </span>
+                  ) : (
+                    formatMoney(row.priceGrosze / 100)
+                  )}
                 </TableCell>
               </TableRow>
             ))}

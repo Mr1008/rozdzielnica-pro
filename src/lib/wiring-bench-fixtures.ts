@@ -27,6 +27,7 @@ const ROLE_KIND = {
   mcb: "mcb_b",
   pe_bar: "pe_bar",
   n_bar: "n_bar",
+  busbar: "comb_busbar",
 } as const;
 
 export function uuid(prefix: string, n: number): string {
@@ -72,6 +73,7 @@ export function row(
     rcd_group_id: refs.group ?? null,
     circuit_id: refs.circuit ?? null,
     notes: [],
+    busbar_piece: null,
     kind: ROLE_KIND[role],
     name: "x",
     manufacturer: "Alfa",
