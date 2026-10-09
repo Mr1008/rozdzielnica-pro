@@ -3,7 +3,7 @@
 **RozdzielnicaPro** — a switchboard (rozdzielnica) planning and labour-quoting tool for a solo
 electrician. Scaffolded from `10x-astro-starter`. Product code so far is auth, i18n, the role/RLS
 baseline, the admin cabinet and device catalogs, the electrician pricing profile and projects (cabinet
-snapshot, OSD/WLZ supply and its warnings, circuits with RCD groups and device matching, the cabinet layout proposal with its wiring drawing and manual layout editing, the material and labour quote with its time override, the printable quote with the electrician's company details) — `src/pages/auth/*`, `src/pages/admin/` (including
+snapshot, OSD/WLZ supply and its warnings, circuits with RCD groups and device matching, the cabinet layout proposal with its wiring drawing, comb busbars feeding RCD groups and manual layout editing, the material and labour quote with its time override, the printable quote with the electrician's company details) — `src/pages/auth/*`, `src/pages/admin/` (including
 `src/pages/admin/devices/`), `src/pages/api/admin/`, `src/pages/dashboard.astro`,
 `src/pages/dashboard/profile.astro`, `src/pages/dashboard/projects/` (including the print page
 `src/pages/dashboard/projects/[id]/print.astro`), `src/pages/api/profile/` (including
@@ -125,6 +125,19 @@ These are correctness requirements, not preferences.
   layout, a save or a quote. In @src/lib/cabinet-drawing.ts a cable's sheath ends `SHEATH_STUB_MM` past
   its entry, and realistic circuit/WLZ runs are taut — only feeds sag. The project page's "Widok" switch
   is `?wiring=schematic` (@src/lib/wiring-view.ts); the printout stays schematic regardless.
+- **Comb busbar segments are snapshot rows that sit on no rail.** A `busbar` row (`isBusbarRole` in
+  @src/lib/cabinet-layout.ts) carries the group's `rcd_group_id` and a `busbar_piece` number, is never
+  placed, and must be excluded from every coverage, membership and contiguity check — filter it with
+  `isBusbarRole`, never count it as a device on a rail. **`busbar_piece` is guarded twice, and the two
+  guards must change together:** the `project_devices_busbar_piece_valid` CHECK in
+  `supabase/migrations/20261009120200_project_device_busbars.sql` (set exactly for `busbar` rows) and
+  `Selection.busbarPiece` with its snapshot mapping in @src/lib/device-matching-server.ts. Segments are cut
+  by @src/lib/busbar-cutting.ts (never a busbar rated below the group RCD); **a busbar miss is never a
+  catalog gap** — only an informational note (`busbar_missing`, `busbar_group_too_wide`), and the group
+  keeps its wire jumpers. The N-outward RCD orientation of a busbar group is a rule in the
+  @src/lib/cabinet-layout.ts header, not a score. `routeWiring` (@src/lib/cabinet-wiring.ts) replaces the
+  phase jumpers of a busbar group with the drawn busbar; N jumpers stay. The matcher gets busbars only
+  when `MatchInput.maxRailMm` is given (`maxRailMm` in `device-matching-server.ts`).
 - **Pricing bounds are guarded twice, and the two guards must change together.** The named CHECKs
   in `supabase/migrations/20260924120000_pricing_profiles.sql` and the `MIN_`/`MAX_` constants in
   @src/lib/pricing-profile.ts (plus `MAX_PRICE_GROSZE` for the rate) encode the same ranges. The
