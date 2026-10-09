@@ -37,6 +37,7 @@ import {
   kitchenSinkQuoteStates,
 } from "@/lib/kitchen-sink-circuits";
 import { EARTHING_SYSTEMS } from "@/lib/supply-params";
+import { wiringViewHrefs } from "@/lib/wiring-view";
 
 /**
  * The design-system screenshot check: every token, primitive and state the contract has to hold,
@@ -698,6 +699,8 @@ const subTitleClass = "text-sm font-medium text-muted-foreground";
                     view={state.view}
                     devices={state.devices}
                     wiring={state.wiring}
+                    wiringVariant={state.wiringVariant}
+                    viewHrefs={wiringViewHrefs(Astro.url.pathname, layoutAnchor)}
                     geometry={state.geometry}
                     projectId={KS_PROJECT_ID}
                     matchAnchor={circuitsAnchor}

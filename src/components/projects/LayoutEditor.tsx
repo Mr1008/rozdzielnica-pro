@@ -32,7 +32,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { buildDrawnDevices, type DrawnDevice } from "@/lib/cabinet-drawing";
+import { buildDrawnDevices, type DrawnDevice, type WiringVariant } from "@/lib/cabinet-drawing";
 import { RAIL_HEIGHT_MM, type CabinetGeometry } from "@/lib/cabinet-geometry";
 import {
   layoutIssueMessage,
@@ -81,6 +81,8 @@ export interface LayoutEditorProps {
    * the browser (S-11 Phase 5) and shown only while the draft equals the saved layout.
    */
   wiring: WiringData | null;
+  /** The look of the saved layout's wires (the page's "Widok" switch). Default realistic. */
+  wiringVariant?: WiringVariant;
   slackPercent: number;
   /** The endpoint a manual save posts to (`projectPlacementsApiPath(id)`). */
   saveAction: string;
@@ -185,6 +187,7 @@ export default function LayoutEditor({
   editedManually,
   names,
   wiring,
+  wiringVariant = "realistic",
   slackPercent,
   saveAction,
   reproposeAction,
@@ -291,7 +294,7 @@ export default function LayoutEditor({
     () => buildDrawnDevices(devices, saved.placements, geometry, groups),
     [devices, saved, geometry, groups],
   );
-  const savedWiring = useWiringDrawing(wiring, savedDrawn);
+  const savedWiring = useWiringDrawing(wiring, savedDrawn, wiringVariant);
   const wires = savedWiring?.wires ?? [];
   const cables = savedWiring?.cables ?? [];
   const ties = savedWiring?.ties ?? [];
@@ -706,6 +709,7 @@ export default function LayoutEditor({
           wires={wires}
           cables={cables}
           ties={ties}
+          wiring={wiringVariant}
           hideWires={wiresHidden}
           interactive={interactive}
         />
@@ -803,6 +807,7 @@ export default function LayoutEditor({
         wires={wiresHidden ? [] : wires}
         cables={wiresHidden ? [] : cables}
         ties={wiresHidden ? [] : ties}
+        wiring={wiringVariant}
       />
 
       {!wiresHidden && wiring !== null && savedWiring === null && (
