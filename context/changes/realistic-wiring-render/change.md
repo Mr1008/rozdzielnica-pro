@@ -1,7 +1,7 @@
 ---
 change_id: realistic-wiring-render
 title: Realistyczne okablowanie szafki
-status: implementing
+status: implemented
 created: 2026-10-08
 updated: 2026-10-09
 ---
