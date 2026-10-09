@@ -864,11 +864,11 @@ jumpers and shows the informational note.
 
 #### Automated
 
-- [x] 5.1 Full CI reproduction passes: `npm run lint && npx astro check && npm run test:unit && npm run build`
-- [x] 5.2 Integration tests pass: `npm run test:integration`
+- [x] 5.1 Full CI reproduction passes: `npm run lint && npx astro check && npm run test:unit && npm run build` — 4831504
+- [x] 5.2 Integration tests pass: `npm run test:integration` — 4831504
 
 #### Manual
 
-- [x] 5.3 `/dev/kitchen-sink` shows every new state correctly, including in greyscale print preview
-- [x] 5.4 The landing page shows the busbar in the hero drawing
-- [x] 5.5 End-to-end walk: admin adds busbars → electrician re-matches a project → proposes layout → sees busbars → prints a quote with busbar pieces
+- [x] 5.3 `/dev/kitchen-sink` shows every new state correctly, including in greyscale print preview — 4831504
+- [x] 5.4 The landing page shows the busbar in the hero drawing — 4831504
+- [x] 5.5 End-to-end walk: admin adds busbars → electrician re-matches a project → proposes layout → sees busbars → prints a quote with busbar pieces — 4831504
