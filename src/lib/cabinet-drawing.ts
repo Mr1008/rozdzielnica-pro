@@ -15,6 +15,7 @@ import {
   type Point,
 } from "@/lib/cabinet-layout";
 import {
+  WIRE_CLEARANCE_MM,
   WIRE_SLACK_RATIO,
   type Conductor,
   type ConductorKind,
@@ -23,6 +24,15 @@ import {
 } from "@/lib/cabinet-wiring";
 import type { Tables } from "@/lib/database.types";
 import { t } from "@/lib/i18n";
+import {
+  cableDiameterMm,
+  CABLE_CORE_COUNTS,
+  FERRULE,
+  WIRE_CROSS_SECTIONS_MM2,
+  type CableCores,
+  type FerruleColourToken,
+  type WireCrossSectionMm2,
+} from "@/lib/wire-dimensions";
 
 /**
  * Pure front-view geometry for `CabinetDrawing`. Kept out of the component so it stays hook-free and
@@ -293,8 +303,27 @@ export const SAG_SLACK_SHARE = 0.1;
 export const MAX_SAG_MM = 8;
 /** Runs shorter than this are drawn straight: a short jumper is taut. */
 export const MIN_SAG_SPAN_MM = 30;
-/** Bend radius at each corner of a route. */
+/** Bend radius at each corner of a route in the schematic drawing, and the least in the realistic one. */
 export const WIRE_BEND_MM = 4;
+/**
+ * The realistic drawing bends a conductor around a radius of this many of its outer diameters — the
+ * usual minimum inner bend radius for fixed PVC-insulated wiring (3–4 × d), so a thick WLZ core bends
+ * visibly wider than a 1.5 mm² one.
+ */
+export const BEND_RADIUS_DIAMETERS = 3;
+
+/**
+ * The two looks of one wiring (S-11): `realistic` draws every conductor at its true outer diameter, with
+ * ferrules, cable ties and sheaths; `schematic` draws thin lines with greyscale-safe patterns. Both draw
+ * the same routes — the variant never feeds back into routing.
+ */
+export type WiringVariant = "realistic" | "schematic";
+export const WIRING_VARIANTS = ["realistic", "schematic"] as const satisfies readonly WiringVariant[];
+
+/** The bend radius at a conductor's corners in a variant (still capped at half of each adjacent run). */
+export function bendRadiusMm(diameterMm: number, variant: WiringVariant): number {
+  return variant === "realistic" ? Math.max(WIRE_BEND_MM, BEND_RADIUS_DIAMETERS * diameterMm) : WIRE_BEND_MM;
+}
 
 /** How deep a horizontal run of `spanMm` sags, derived from the slack; 0 for a short run. */
 export function sagDepthMm(spanMm: number): number {
@@ -313,49 +342,78 @@ function towards(from: Point, to: Point, distanceMm: number): Point {
   return { x: from.x + (to.x - from.x) * share, y: from.y + (to.y - from.y) * share };
 }
 
-/**
- * An orthogonal route as an SVG path that looks wired rather than schematic: each corner is a short
- * bend, and each long horizontal run sags downward (gravity) by `sagDepthMm` — a quadratic curve whose
- * control point sits twice the depth below the run's middle. `sagLimits[i]`, when given, caps the sag
- * of the run from `points[i]` to `points[i + 1]` (see `sagLimits`). Presentation only: lengths come
- * from the route, never from this curve.
- */
-export function wirePathD(points: readonly Point[], sagLimits: readonly number[] = []): string {
-  if (points.length === 0) return "";
-  const first = points[0];
-  let d = `M${fmt(first.x)} ${fmt(first.y)}`;
-  if (points.length === 1) return d;
+/** One path segment's drawn piece: where it starts, and its path commands (each with a leading space). */
+interface PathPiece {
+  start: Point;
+  body: string;
+}
 
+/** Per segment of `points`: its run (straight or sagging) and the bend at its far corner. */
+function wirePathPieces(points: readonly Point[], sagLimits: readonly number[], bendMm: number): PathPiece[] {
   // Per corner: how far the bend reaches back along each adjacent run (at most half of either run).
   const radius = points.map((point, i) => {
     if (i === 0 || i === points.length - 1) return 0;
     const before = Math.abs(point.x - points[i - 1].x) + Math.abs(point.y - points[i - 1].y);
     const after = Math.abs(points[i + 1].x - point.x) + Math.abs(points[i + 1].y - point.y);
-    return Math.min(WIRE_BEND_MM, before / 2, after / 2);
+    return Math.min(bendMm, before / 2, after / 2);
   });
 
-  let start = first;
+  const pieces: PathPiece[] = [];
+  let start = points[0];
   for (let i = 1; i < points.length; i++) {
     const corner = points[i];
     const end = towards(corner, points[i - 1], radius[i]);
     const horizontal = Math.abs(end.y - start.y) < 1e-9;
     const sag = horizontal ? Math.min(sagDepthMm(Math.abs(end.x - start.x)), sagLimits.at(i - 1) ?? Infinity) : 0;
-    if (sag > 0) {
-      d += ` Q${fmt((start.x + end.x) / 2)} ${fmt(start.y + 2 * sag)} ${fmt(end.x)} ${fmt(end.y)}`;
-    } else {
-      d += ` L${fmt(end.x)} ${fmt(end.y)}`;
-    }
+    let body =
+      sag > 0
+        ? ` Q${fmt((start.x + end.x) / 2)} ${fmt(start.y + 2 * sag)} ${fmt(end.x)} ${fmt(end.y)}`
+        : ` L${fmt(end.x)} ${fmt(end.y)}`;
+    const pieceStart = start;
     if (i < points.length - 1) {
       const next = towards(corner, points[i + 1], radius[i]);
-      d += ` Q${fmt(corner.x)} ${fmt(corner.y)} ${fmt(next.x)} ${fmt(next.y)}`;
+      body += ` Q${fmt(corner.x)} ${fmt(corner.y)} ${fmt(next.x)} ${fmt(next.y)}`;
       start = next;
     }
+    pieces.push({ start: pieceStart, body });
   }
+  return pieces;
+}
+
+function moveTo(point: Point): string {
+  return `M${fmt(point.x)} ${fmt(point.y)}`;
+}
+
+/**
+ * An orthogonal route as an SVG path that looks wired rather than schematic: each corner is a bend of
+ * `bendMm` (`WIRE_BEND_MM` unless given; see `bendRadiusMm`), and each long horizontal run sags downward
+ * (gravity) by `sagDepthMm` — a quadratic curve whose control point sits twice the depth below the
+ * run's middle. `sagLimits[i]`, when given, caps the sag of the run from `points[i]` to `points[i + 1]`
+ * (see `sagLimits`). Presentation only: lengths come from the route, never from this curve.
+ */
+export function wirePathD(points: readonly Point[], sagLimits: readonly number[] = [], bendMm = WIRE_BEND_MM): string {
+  if (points.length === 0) return "";
+  const d = moveTo(points[0]);
+  if (points.length === 1) return d;
+  return d + wirePathPieces(points, sagLimits, bendMm).reduce((path, piece) => path + piece.body, "");
+}
+
+/**
+ * The same curve as `wirePathD`, cut into the segments `include` keeps: consecutive kept segments are
+ * one subpath, a skipped one breaks it. Empty when none is kept.
+ */
+function wireSubpathD(pieces: readonly PathPiece[], include: (segment: number) => boolean): string {
+  let d = "";
+  pieces.forEach((piece, segment) => {
+    if (!include(segment)) return;
+    const joined = segment > 0 && include(segment - 1);
+    d += (joined ? "" : `${d === "" ? "" : " "}${moveTo(piece.start)}`) + piece.body;
+  });
   return d;
 }
 
 /**
- * Conductor colours per PN-EN 60445 (the `--wire-*` tokens), plus a pattern per role so a greyscale
+ * The schematic drawing's conductor colours per PN-EN 60445 (the `--wire-*` tokens), plus a pattern per role so a greyscale
  * print still tells them apart: phases solid (L1 brown, L2 black, L3 grey), N dashed, PE a wider solid
  * green line with a solid yellow centre stripe — a hollow double line in greyscale, never mistaken for
  * the dashed N — and PEN the PE pair drawn heavier with blue dashes over the yellow stripe (user
@@ -379,16 +437,98 @@ export const WIRE_STYLES: Record<
 /** The blue dashes over a PEN's yellow stripe. */
 export const PEN_DASH = "3 3";
 
+/**
+ * The realistic drawing's insulation colours (S-11), also per PN-EN 60445 and also token classes only:
+ * L1 brown, L2 black and L3 grey, solid; N solid blue; PE a yellow body with green dashes along it
+ * (`dash`, in conductor diameters: drawn, then left open); PEN as PE plus blue sleeves at its ends
+ * (`sleeve`), the usual marking of a PEN core. `fill` colours a wire's end on a bar terminal.
+ */
+export const REALISTIC_WIRE_STYLES: Record<
+  ConductorRole,
+  {
+    body: string;
+    fill: string;
+    dash: { stroke: string; onDiameters: number; offDiameters: number } | null;
+    sleeve: string | null;
+  }
+> = {
+  L: { body: "stroke-wire-l1", fill: "fill-wire-l1", dash: null, sleeve: null },
+  L1: { body: "stroke-wire-l1", fill: "fill-wire-l1", dash: null, sleeve: null },
+  L2: { body: "stroke-wire-l2", fill: "fill-wire-l2", dash: null, sleeve: null },
+  L3: { body: "stroke-wire-l3", fill: "fill-wire-l3", dash: null, sleeve: null },
+  N: { body: "stroke-wire-n", fill: "fill-wire-n", dash: null, sleeve: null },
+  PE: {
+    body: "stroke-wire-pe-stripe",
+    fill: "fill-wire-pe",
+    dash: { stroke: "stroke-wire-pe", onDiameters: 2, offDiameters: 1.5 },
+    sleeve: null,
+  },
+  PEN: {
+    body: "stroke-wire-pe-stripe",
+    fill: "fill-wire-pe",
+    dash: { stroke: "stroke-wire-pe", onDiameters: 2, offDiameters: 1.5 },
+    sleeve: "stroke-wire-n",
+  },
+};
+
+/** The length of a PEN's blue sleeve, past its ferrule. */
+export const PEN_SLEEVE_MM = 6;
+
+/** Each ferrule colour's stroke class, spelt out so Tailwind generates every one. */
+const FERRULE_STROKE_CLASSES: Record<FerruleColourToken, string> = {
+  "ferrule-black": "stroke-ferrule-black",
+  "ferrule-blue": "stroke-ferrule-blue",
+  "ferrule-grey": "stroke-ferrule-grey",
+  "ferrule-yellow": "stroke-ferrule-yellow",
+  "ferrule-red": "stroke-ferrule-red",
+};
+
+function isWireCrossSection(mm2: number): mm2 is WireCrossSectionMm2 {
+  return (WIRE_CROSS_SECTIONS_MM2 as readonly number[]).includes(mm2);
+}
+
+/** A ferrule's colour class and sleeve length for a cross-section (DIN 46228-4); null when untabulated. */
+export function ferruleStyle(crossSectionMm2: number): { stroke: string; lengthMm: number } | null {
+  if (!isWireCrossSection(crossSectionMm2)) return null;
+  const ferrule = FERRULE[crossSectionMm2];
+  return { stroke: FERRULE_STROKE_CLASSES[ferrule.colourToken], lengthMm: ferrule.lengthMm };
+}
+
+/**
+ * Where a conductor ends on a device or bar terminal: the terminal point, the unit vector from it along
+ * the wire, and how long the end segment is (a ferrule never reaches past it).
+ */
+export interface TerminalEnd {
+  point: Point;
+  direction: Point;
+  runMm: number;
+}
+
 /** One conductor ready to draw. */
 export interface DrawnWire {
   key: string;
   role: ConductorRole;
   kind: ConductorKind;
+  crossSectionMm2: number;
+  /** The insulated core's outer diameter: the realistic body's width, in millimetres. */
+  diameterMm: number;
+  /** `Conductor.overflow`: some of it did not fit its tied bundle (`conductors_do_not_fit`). */
+  overflow: boolean;
+  /** The whole route, bent and sagging per the variant. */
   d: string;
+  /**
+   * `d` split by layer: the segments the router spilled into the overflow layer behind a bundle
+   * (`behindD`, drawn beneath the devices in the realistic variant), and the rest (`frontD`). Without
+   * overflow segments `frontD` is `d` and `behindD` is empty.
+   */
+  frontD: string;
+  behindD: string;
   /** The hover tooltip naming the conductor; empty when no names were given. */
   title: string;
   /** Where the conductor lands on a bar terminal — drawn as the terminal taken by its end. */
   barEnds: Point[];
+  /** Its device and bar terminal ends, never an entry — where the realistic drawing puts a ferrule. */
+  terminalEnds: TerminalEnd[];
 }
 
 /** What the tooltips name conductors by: circuit names by id, and the drawn devices. */
@@ -429,57 +569,262 @@ export function wireTitle(conductor: Conductor, names: WireNames): string {
  * Per conductor, per path segment: the deepest a horizontal run may sag so that it keeps above the
  * nearest run of another conductor below it that it runs alongside — half the gap between them, so
  * parallel tracks (true-scale spacing apart, see `WIRE_CLEARANCE_MM`) never touch or swap order
- * however long each span is.
+ * however long each span is. The schematic gap is centre to centre (thin lines); the realistic one is
+ * between the insulation bodies (`diameterMm`), so cores spaced at true scale, or overlapping in a
+ * bundle, barely sag or not at all.
  * The lowest run of a bundle, with nothing close beneath, keeps its full `sagDepthMm`. Vertical
  * segments are unlimited (they never sag). Presentation only.
  */
-export function sagLimits(conductors: readonly Conductor[]): number[][] {
+export function sagLimits(conductors: readonly Conductor[], variant: WiringVariant = "schematic"): number[][] {
   const limits = conductors.map((conductor) => conductor.path.slice(1).map(() => Infinity));
-  const runs: { owner: number; index: number; y: number; x1: number; x2: number }[] = [];
+  const bodies = variant === "realistic";
+  const runs: { owner: number; index: number; y: number; x1: number; x2: number; r: number }[] = [];
+  let widest = 0;
   conductors.forEach((conductor, owner) => {
+    const r = bodies ? conductor.diameterMm / 2 : 0;
+    widest = Math.max(widest, r);
     for (let index = 0; index + 1 < conductor.path.length; index++) {
       const [a, b] = [conductor.path[index], conductor.path[index + 1]];
       if (a.y !== b.y) continue;
-      runs.push({ owner, index, y: a.y, x1: Math.min(a.x, b.x), x2: Math.max(a.x, b.x) });
+      runs.push({ owner, index, y: a.y, x1: Math.min(a.x, b.x), x2: Math.max(a.x, b.x), r });
     }
   });
   runs.sort((p, q) => p.y - q.y);
-  // A run farther below than twice the deepest sag can never be reached, so the scan stops there.
-  const reach = 2 * MAX_SAG_MM;
+  // A run farther below than twice the deepest sag (plus both bodies) can never be reached, so the
+  // scan stops there.
+  const reach = 2 * MAX_SAG_MM + 2 * widest;
   runs.forEach((run, i) => {
     for (let j = i + 1; j < runs.length && runs[j].y - run.y < reach; j++) {
       const other = runs[j];
       if (other.owner === run.owner || other.y - run.y < 1e-9) continue;
       if (Math.min(run.x2, other.x2) - Math.max(run.x1, other.x1) <= 1e-9) continue;
-      limits[run.owner][run.index] = (other.y - run.y) / 2;
+      limits[run.owner][run.index] = Math.max(0, other.y - run.y - run.r - other.r) / 2;
       break;
     }
   });
   return limits;
 }
 
+/** The unit vector from `from` towards `to`; zero for the same point. */
+function unit(from: Point, to: Point): Point {
+  const length = Math.hypot(to.x - from.x, to.y - from.y);
+  return length === 0 ? { x: 0, y: 0 } : { x: (to.x - from.x) / length, y: (to.y - from.y) / length };
+}
+
+/** A conductor's device and bar terminal ends: its first point, its last, or both. */
+function terminalEnds(conductor: Conductor): TerminalEnd[] {
+  const { path } = conductor;
+  if (path.length < 2) return [];
+  const ends: TerminalEnd[] = [];
+  const end = (point: Point, next: Point) => ({
+    point,
+    direction: unit(point, next),
+    runMm: Math.hypot(next.x - point.x, next.y - point.y),
+  });
+  if (conductor.from.type !== "entry") ends.push(end(path[0], path[1]));
+  if (conductor.to.type !== "entry") ends.push(end(path[path.length - 1], path[path.length - 2]));
+  return ends;
+}
+
 /**
  * The conductors as SVG paths, protective conductors first so the live ones (L, N) paint over them,
  * then in routing order. A path that runs behind a device (allowed: under the DIN rail) is drawn
  * over it like any other, so it stays traceable.
+ *
+ * `variant` sets the bends (`bendRadiusMm`) and the sag: the schematic drawing sags as it always has;
+ * the realistic one keeps tied runs taut — a run the router laid in a tied bundle (`Conductor.tied`) or
+ * one a cable tie holds (`buildCableTies`) — and spaces the rest by their bodies (`sagLimits`).
  */
-export function buildDrawnWires(conductors: readonly Conductor[], names?: WireNames): DrawnWire[] {
-  const limits = sagLimits(conductors);
+export function buildDrawnWires(
+  conductors: readonly Conductor[],
+  names?: WireNames,
+  variant: WiringVariant = "realistic",
+): DrawnWire[] {
+  const limits = sagLimits(conductors, variant);
+  if (variant === "realistic") {
+    const held = tieLayout(conductors).held;
+    conductors.forEach((conductor, owner) => {
+      for (const tie of conductor.tied) limits[owner][tie.segment] = 0;
+      held.get(owner)?.forEach((segment) => {
+        limits[owner][segment] = 0;
+      });
+    });
+  }
   const layer = (role: ConductorRole) => (role === "PE" || role === "PEN" ? 0 : 1);
   return [...conductors]
     .map((conductor, index) => ({ conductor, index }))
     .sort((a, b) => layer(a.conductor.role) - layer(b.conductor.role) || a.index - b.index)
-    .map(({ conductor, index }) => ({
-      key: conductor.key,
-      role: conductor.role,
-      kind: conductor.kind,
-      d: wirePathD(conductor.path, limits[index]),
-      title: names === undefined ? "" : wireTitle(conductor, names),
-      barEnds: [
-        ...(conductor.from.type === "bar" ? conductor.path.slice(0, 1) : []),
-        ...(conductor.to.type === "bar" ? conductor.path.slice(-1) : []),
-      ],
-    }));
+    .map(({ conductor, index }) => {
+      const pieces = wirePathPieces(conductor.path, limits[index], bendRadiusMm(conductor.diameterMm, variant));
+      const behind = new Set(conductor.tied.filter((tie) => tie.layer === "overflow").map((tie) => tie.segment));
+      const d =
+        conductor.path.length === 0 ? "" : pieces.reduce((path, piece) => path + piece.body, moveTo(conductor.path[0]));
+      return {
+        key: conductor.key,
+        role: conductor.role,
+        kind: conductor.kind,
+        crossSectionMm2: conductor.crossSectionMm2,
+        diameterMm: conductor.diameterMm,
+        overflow: conductor.overflow,
+        d,
+        frontD: behind.size === 0 ? d : wireSubpathD(pieces, (segment) => !behind.has(segment)),
+        behindD: behind.size === 0 ? "" : wireSubpathD(pieces, (segment) => behind.has(segment)),
+        title: names === undefined ? "" : wireTitle(conductor, names),
+        barEnds: [
+          ...(conductor.from.type === "bar" ? conductor.path.slice(0, 1) : []),
+          ...(conductor.to.type === "bar" ? conductor.path.slice(-1) : []),
+        ],
+        terminalEnds: terminalEnds(conductor),
+      };
+    });
+}
+
+// ---------------------------------------------------------------------------------------------
+// Cable ties
+// ---------------------------------------------------------------------------------------------
+
+/** One cable tie every this many millimetres along a tied group's shared extent. */
+export const TIE_PITCH_MM = 60;
+/** A group of parallel runs is tied only from this many conductors up. */
+export const TIE_MIN_CONDUCTORS = 3;
+/** The tie strap's width along the runs it holds. */
+export const TIE_BAND_MM = 2.5;
+/** Neighbouring runs closer than this, insulation to insulation, belong to one group. */
+export const TIE_NEIGHBOUR_GAP_MM = 2 * WIRE_CLEARANCE_MM;
+
+/** One cable tie across a group of parallel runs, as a rectangle in millimetres. */
+export interface DrawnTie {
+  key: string;
+  rect: Rect;
+}
+
+interface TieRun {
+  owner: number;
+  segment: number;
+  /** The run's position across its axis, and its extent along it. */
+  across: number;
+  lo: number;
+  hi: number;
+  radius: number;
+}
+
+const TIE_EPS = 1e-6;
+
+/**
+ * The cable ties and, per conductor, the segments they hold. Inner path segments only — the end stubs
+ * at terminals and entries are never tied — and never a segment in the overflow layer, which lies
+ * behind the devices. Per axis, runs are joined into groups when they overlap along the axis and sit
+ * within `TIE_NEIGHBOUR_GAP_MM` of each other across it (a bundle's cores overlap, so they always do);
+ * a group of at least `TIE_MIN_CONDUCTORS` conductors gets a tie every `TIE_PITCH_MM`, centred on its
+ * extent, each as wide as the runs it crosses there. Sorting by position keeps it near O(n log n).
+ */
+function tieLayout(conductors: readonly Conductor[]): { ties: DrawnTie[]; held: Map<number, Set<number>> } {
+  const ties: DrawnTie[] = [];
+  const held = new Map<number, Set<number>>();
+  for (const axis of ["v", "h"] as const) {
+    const runs: TieRun[] = [];
+    conductors.forEach((conductor, owner) => {
+      const behind = new Set(conductor.tied.filter((tie) => tie.layer === "overflow").map((tie) => tie.segment));
+      for (let segment = 1; segment + 2 < conductor.path.length; segment++) {
+        if (behind.has(segment)) continue;
+        const [a, b] = [conductor.path[segment], conductor.path[segment + 1]];
+        const vertical = Math.abs(a.x - b.x) < TIE_EPS && Math.abs(a.y - b.y) > TIE_EPS;
+        const horizontal = Math.abs(a.y - b.y) < TIE_EPS && Math.abs(a.x - b.x) > TIE_EPS;
+        if (axis === "v" ? !vertical : !horizontal) continue;
+        const [p, q] = axis === "v" ? [a.y, b.y] : [a.x, b.x];
+        runs.push({
+          owner,
+          segment,
+          across: axis === "v" ? a.x : a.y,
+          lo: Math.min(p, q),
+          hi: Math.max(p, q),
+          radius: conductor.diameterMm / 2,
+        });
+      }
+    });
+    runs.sort((p, q) => p.across - q.across || p.lo - q.lo || p.owner - q.owner);
+    const widest = Math.max(0, ...runs.map((run) => run.radius));
+
+    // Groups: union-find over neighbouring, overlapping runs.
+    const parent = runs.map((_, i) => i);
+    const find = (i: number): number => {
+      while (parent[i] !== i) {
+        parent[i] = parent[parent[i]];
+        i = parent[i];
+      }
+      return i;
+    };
+    runs.forEach((run, i) => {
+      for (let j = i + 1; j < runs.length; j++) {
+        const other = runs[j];
+        if (other.across - run.across > run.radius + widest + TIE_NEIGHBOUR_GAP_MM + TIE_EPS) break;
+        if (other.across - run.across - run.radius - other.radius > TIE_NEIGHBOUR_GAP_MM + TIE_EPS) continue;
+        if (Math.min(run.hi, other.hi) - Math.max(run.lo, other.lo) <= TIE_EPS) continue;
+        parent[find(j)] = find(i);
+      }
+    });
+    const groups = new Map<number, TieRun[]>();
+    runs.forEach((run, i) => {
+      const root = find(i);
+      const group = groups.get(root);
+      if (group === undefined) groups.set(root, [run]);
+      else group.push(run);
+    });
+
+    let groupIndex = 0;
+    for (const group of groups.values()) {
+      if (new Set(group.map((run) => run.owner)).size < TIE_MIN_CONDUCTORS) continue;
+      const lo = Math.min(...group.map((run) => run.lo));
+      const hi = Math.max(...group.map((run) => run.hi));
+      const count = Math.floor((hi - lo + TIE_EPS) / TIE_PITCH_MM);
+      const first = lo + (hi - lo - (count - 1) * TIE_PITCH_MM) / 2;
+      for (let k = 0; k < count; k++) {
+        const at = first + k * TIE_PITCH_MM;
+        const active = group.filter((run) => run.lo < at - TIE_EPS && run.hi > at + TIE_EPS);
+        // The runs a tie crosses at this point, split wherever a gap opens between neighbours.
+        const clusters: TieRun[][] = [];
+        for (const run of active) {
+          const current = clusters.at(-1);
+          const previous = current?.at(-1);
+          if (
+            current !== undefined &&
+            previous !== undefined &&
+            run.across - previous.across - run.radius - previous.radius <= TIE_NEIGHBOUR_GAP_MM + TIE_EPS
+          ) {
+            current.push(run);
+          } else {
+            clusters.push([run]);
+          }
+        }
+        clusters.forEach((cluster, c) => {
+          if (new Set(cluster.map((run) => run.owner)).size < TIE_MIN_CONDUCTORS) return;
+          const from = Math.min(...cluster.map((run) => run.across - run.radius));
+          const to = Math.max(...cluster.map((run) => run.across + run.radius));
+          const rect =
+            axis === "v"
+              ? { x: from, y: at - TIE_BAND_MM / 2, w: to - from, h: TIE_BAND_MM }
+              : { x: at - TIE_BAND_MM / 2, y: from, w: TIE_BAND_MM, h: to - from };
+          ties.push({ key: `${axis}${String(groupIndex)}-${String(k)}-${String(c)}`, rect });
+          for (const run of cluster) {
+            const segments = held.get(run.owner) ?? new Set<number>();
+            segments.add(run.segment);
+            held.set(run.owner, segments);
+          }
+        });
+      }
+      groupIndex += 1;
+    }
+  }
+  return { ties, held };
+}
+
+/**
+ * The cable ties of the realistic drawing (S-11): across every group of at least `TIE_MIN_CONDUCTORS`
+ * parallel runs lying together — the side packs and the dense lane and row channels alike — one every
+ * `TIE_PITCH_MM`, as wide as the group. Derived from the routes alone; presentation only.
+ */
+export function buildCableTies(conductors: readonly Conductor[]): DrawnTie[] {
+  return tieLayout(conductors).ties;
 }
 
 /** One cable's sheathed run from its entry point, before it splits into its cores. */
@@ -487,6 +832,19 @@ export interface DrawnCable {
   key: string;
   kind: "circuit" | "wlz";
   d: string;
+  /**
+   * The sheath's outer diameter (`cableDiameterMm` for its core count and cross-section), which the
+   * realistic drawing draws it at; the schematic one keeps a fixed on-screen width.
+   */
+  diameterMm: number;
+}
+
+/** A cable's sheath diameter: tabulated by cores (2–5) and cross-section, or its widest core's. */
+function sheathDiameterMm(cores: readonly Conductor[]): number {
+  const count = Math.min(Math.max(cores.length, CABLE_CORE_COUNTS[0]), CABLE_CORE_COUNTS[CABLE_CORE_COUNTS.length - 1]);
+  const section = cores[0].crossSectionMm2;
+  if (isWireCrossSection(section)) return cableDiameterMm(count as CableCores, section);
+  return Math.max(...cores.map((core) => core.diameterMm));
 }
 
 /**
@@ -518,7 +876,7 @@ export function buildDrawnCables(conductors: readonly Conductor[]): DrawnCable[]
     const points = packedSheath(cable.cores) ?? strippedSheath(cable.cores);
     if (points === null) return [];
     const d = points.map((point, i) => `${i === 0 ? "M" : "L"}${fmt(point.x)} ${fmt(point.y)}`).join(" ");
-    return [{ key, kind: cable.kind, d }];
+    return [{ key, kind: cable.kind, d, diameterMm: sheathDiameterMm(cable.cores) }];
   });
 }
 

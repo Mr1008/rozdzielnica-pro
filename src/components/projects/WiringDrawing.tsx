@@ -4,7 +4,7 @@ import { CabinetDrawing } from "@/components/cabinets/CabinetDrawing";
 import { LayoutLegend } from "@/components/projects/LayoutLegend";
 import { WireLengthsTable } from "@/components/projects/WireLengthsTable";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import type { DrawnDevice } from "@/lib/cabinet-drawing";
+import type { DrawnDevice, WiringVariant } from "@/lib/cabinet-drawing";
 import type { CabinetGeometry } from "@/lib/cabinet-geometry";
 import { wiringWarningMessage } from "@/lib/cabinet-wiring";
 import { t } from "@/lib/i18n";
@@ -16,25 +16,33 @@ export const WIRING_READY_EVENT = "wiring-ready";
 /**
  * The placed layout's wires, routed in the browser (S-11 Phase 5). Starts as null on the server and on
  * the first client render, so hydration matches, then routes after mount. A timeout lets the page
- * paint the devices first. Null data stays null.
+ * paint the devices first. Null data stays null. `variant` must match the drawing's `wiring` prop.
  */
-export function useWiringDrawing(wiring: WiringData | null, devices: readonly DrawnDevice[]): Wiring | null {
+export function useWiringDrawing(
+  wiring: WiringData | null,
+  devices: readonly DrawnDevice[],
+  variant: WiringVariant = "realistic",
+): Wiring | null {
   // Kept with the inputs it was routed from, so new inputs read as "not drawn yet" without a reset.
   const [routed, setRouted] = useState<{
     wiring: WiringData;
     devices: readonly DrawnDevice[];
+    variant: WiringVariant;
     drawn: Wiring;
   } | null>(null);
   useEffect(() => {
     if (wiring === null) return;
     const timer = setTimeout(() => {
-      setRouted({ wiring, devices, drawn: buildWiringDrawing(wiring, devices) });
+      setRouted({ wiring, devices, variant, drawn: buildWiringDrawing(wiring, devices, variant) });
     }, 0);
     return () => {
       clearTimeout(timer);
     };
-  }, [wiring, devices]);
-  const drawn = routed !== null && routed.wiring === wiring && routed.devices === devices ? routed.drawn : null;
+  }, [wiring, devices, variant]);
+  const drawn =
+    routed !== null && routed.wiring === wiring && routed.devices === devices && routed.variant === variant
+      ? routed.drawn
+      : null;
   useEffect(() => {
     if (drawn !== null) window.dispatchEvent(new Event(WIRING_READY_EVENT));
   }, [drawn]);
@@ -49,6 +57,8 @@ interface Props {
   wiring: WiringData | null;
   /** Show the lengths table, with this slack share in percent. Omitted: no table (the printout). */
   slackPercent?: number;
+  /** The look of the wires; the printout keeps the schematic one (S-09). */
+  variant?: WiringVariant;
   /** Classes of the drawing's wrapper. */
   drawingWrapperClassName?: string;
   /** Classes of the drawing's `<svg>`. */
@@ -65,10 +75,11 @@ export default function WiringDrawing({
   devices,
   wiring,
   slackPercent,
+  variant = "realistic",
   drawingWrapperClassName,
   drawingClassName,
 }: Props): JSX.Element {
-  const drawn = useWiringDrawing(wiring, devices);
+  const drawn = useWiringDrawing(wiring, devices, variant);
   const pending = wiring !== null && drawn === null;
   const s = t.layout.section;
   return (
@@ -79,6 +90,8 @@ export default function WiringDrawing({
           devices={devices}
           wires={drawn?.wires ?? []}
           cables={drawn?.cables ?? []}
+          ties={drawn?.ties ?? []}
+          wiring={variant}
           className={drawingClassName}
         />
       </div>
@@ -93,7 +106,14 @@ export default function WiringDrawing({
           <AlertDescription className="block">{wiringWarningMessage(warning)}</AlertDescription>
         </Alert>
       ))}
-      <LayoutLegend geometry={geometry} devices={devices} wires={drawn?.wires ?? []} cables={drawn?.cables ?? []} />
+      <LayoutLegend
+        geometry={geometry}
+        devices={devices}
+        wires={drawn?.wires ?? []}
+        cables={drawn?.cables ?? []}
+        ties={drawn?.ties ?? []}
+        wiring={variant}
+      />
       {slackPercent !== undefined && drawn !== null && drawn.lengths.length > 0 && (
         <WireLengthsTable lengths={drawn.lengths} slackPercent={slackPercent} />
       )}

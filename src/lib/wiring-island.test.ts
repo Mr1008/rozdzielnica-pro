@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildDrawnCables, buildDrawnWires } from "@/lib/cabinet-drawing";
+import { buildCableTies, buildDrawnCables, buildDrawnWires } from "@/lib/cabinet-drawing";
 import { wireLengthsBySection, wiringWarnings } from "@/lib/cabinet-wiring";
 import { computeMatchView } from "@/lib/device-matching-server";
 import { buildLayoutDrawing, computeLayoutView, computeWiring } from "@/lib/layout-server";
@@ -39,8 +39,20 @@ describe.each([
     expect(conductors.length).toBeGreaterThan(0);
     expect(island.wires).toEqual(buildDrawnWires(conductors, names));
     expect(island.cables).toEqual(buildDrawnCables(conductors));
+    expect(island.ties).toEqual(buildCableTies(conductors));
+    expect(island.ties.length).toBeGreaterThan(0);
     expect(island.lengths).toEqual(wireLengthsBySection(conductors));
     expect(island.warnings).toEqual(wiringWarnings(conductors));
+  });
+
+  it("draws the schematic variant's wires, and no ties, when asked to", () => {
+    const conductors = computeWiring(layoutView, matchView, built.context);
+    const names = { circuits: new Map(built.context.circuits.map((c) => [c.id, c.name])), devices: drawing.devices };
+    const wiring = drawing.wiring;
+    if (wiring === null) throw new Error("expected wiring data");
+    const island = buildWiringDrawing(wiring, drawing.devices, "schematic");
+    expect(island.wires).toEqual(buildDrawnWires(conductors, names, "schematic"));
+    expect(island.ties).toEqual([]);
   });
 
   it("keeps prices and other snapshot columns off the wire", () => {

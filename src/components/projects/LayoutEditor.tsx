@@ -294,6 +294,7 @@ export default function LayoutEditor({
   const savedWiring = useWiringDrawing(wiring, savedDrawn);
   const wires = savedWiring?.wires ?? [];
   const cables = savedWiring?.cables ?? [];
+  const ties = savedWiring?.ties ?? [];
   const lengths = savedWiring?.lengths ?? [];
 
   // ---- Announcements ------------------------------------------------------------------------------
@@ -704,6 +705,7 @@ export default function LayoutEditor({
           devices={drawnList}
           wires={wires}
           cables={cables}
+          ties={ties}
           hideWires={wiresHidden}
           interactive={interactive}
         />
@@ -800,6 +802,7 @@ export default function LayoutEditor({
         devices={drawnList}
         wires={wiresHidden ? [] : wires}
         cables={wiresHidden ? [] : cables}
+        ties={wiresHidden ? [] : ties}
       />
 
       {!wiresHidden && wiring !== null && savedWiring === null && (
