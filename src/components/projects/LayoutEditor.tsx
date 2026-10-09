@@ -298,6 +298,7 @@ export default function LayoutEditor({
   const wires = savedWiring?.wires ?? [];
   const cables = savedWiring?.cables ?? [];
   const ties = savedWiring?.ties ?? [];
+  const busbars = savedWiring?.busbars ?? [];
   const lengths = savedWiring?.lengths ?? [];
 
   // ---- Announcements ------------------------------------------------------------------------------
@@ -709,6 +710,7 @@ export default function LayoutEditor({
           wires={wires}
           cables={cables}
           ties={ties}
+          busbars={busbars}
           wiring={wiringVariant}
           hideWires={wiresHidden}
           interactive={interactive}
@@ -807,6 +809,7 @@ export default function LayoutEditor({
         wires={wiresHidden ? [] : wires}
         cables={wiresHidden ? [] : cables}
         ties={wiresHidden ? [] : ties}
+        busbars={wiresHidden ? [] : busbars}
         wiring={wiringVariant}
       />
 

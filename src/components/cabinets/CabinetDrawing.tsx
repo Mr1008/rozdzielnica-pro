@@ -7,10 +7,12 @@ import {
   entryRect,
   ferruleStyle,
   groupOutlines,
+  BUSBAR_TOOTH_MM,
   PEN_DASH,
   PEN_SLEEVE_MM,
   REALISTIC_WIRE_STYLES,
   WIRE_STYLES,
+  type DrawnBusbar,
   type DrawnCable,
   type DrawnDevice,
   type DrawnRole,
@@ -52,6 +54,8 @@ interface CabinetDrawingProps {
   invalid?: readonly ElementRef[];
   /** Devices to draw on the rails, from `buildDrawnDevices`. Omitted: the bare cabinet. */
   devices?: readonly DrawnDevice[];
+  /** Comb busbars, from `buildDrawnBusbars`: painted over the devices and under the wires. */
+  busbars?: readonly DrawnBusbar[];
   /** Conductors to draw over the devices, from `buildDrawnWires`. Omitted: no wires. */
   wires?: readonly DrawnWire[];
   /** The cables' sheathed stubs just inside their entry points, from `buildDrawnCables`. Omitted: none. */
@@ -65,7 +69,7 @@ interface CabinetDrawingProps {
   wiring?: WiringVariant;
   /** Make devices and group labels interactive (the layout editor). Wires then ignore the pointer. */
   interactive?: DrawingInteraction;
-  /** Draw no wires or cables — the editor hides them while the layout has unsaved changes. */
+  /** Draw no wires, cables or busbars — the editor hides them while the layout has unsaved changes. */
   hideWires?: boolean;
   className?: string;
 }
@@ -304,6 +308,74 @@ function RealisticWireShape({ wire, screwRadius }: { wire: DrawnWire; screwRadiu
   );
 }
 
+/** The schematic busbar's line and tick widths, on screen. */
+const BUSBAR_LINE_PX = 4;
+const BUSBAR_TICK_PX = 2;
+
+/**
+ * A comb busbar (`rcd-group-busbars`). Realistic: a dark insulating strip with bare copper teeth into the
+ * terminals. Schematic: one heavy line with tick teeth, in the frame colour so a greyscale print keeps it
+ * apart from the wires. Its `<title>` names it on hover.
+ */
+function BusbarShape({ busbar }: { busbar: DrawnBusbar }) {
+  const { body } = busbar;
+  const centreY = body.y + body.h / 2;
+  if (busbar.variant === "schematic") {
+    return (
+      <g className="busbar">
+        <title>{busbar.title}</title>
+        {busbar.teeth.map((tooth, index) => (
+          <line
+            key={`tooth-${String(index)}`}
+            x1={tooth.x}
+            y1={centreY}
+            x2={tooth.x}
+            y2={tooth.y2}
+            className="stroke-drawing-frame"
+            strokeWidth={BUSBAR_TICK_PX}
+            vectorEffect="non-scaling-stroke"
+          />
+        ))}
+        <line
+          x1={body.x}
+          y1={centreY}
+          x2={body.x + body.w}
+          y2={centreY}
+          className="stroke-drawing-frame"
+          strokeWidth={BUSBAR_LINE_PX}
+          strokeLinecap="butt"
+          vectorEffect="non-scaling-stroke"
+        />
+      </g>
+    );
+  }
+  return (
+    <g className="busbar">
+      <title>{busbar.title}</title>
+      {busbar.teeth.map((tooth, index) => (
+        <rect
+          key={`tooth-${String(index)}`}
+          x={tooth.x - BUSBAR_TOOTH_MM / 2}
+          y={Math.min(tooth.y1, tooth.y2)}
+          width={BUSBAR_TOOTH_MM}
+          height={Math.abs(tooth.y2 - tooth.y1)}
+          className="fill-busbar-copper stroke-drawing-frame"
+          {...HAIRLINE}
+        />
+      ))}
+      <rect
+        x={body.x}
+        y={body.y}
+        width={body.w}
+        height={body.h}
+        rx={Math.min(body.w, body.h) / 4}
+        className="fill-busbar-insulation stroke-drawing-frame"
+        {...HAIRLINE}
+      />
+    </g>
+  );
+}
+
 /** The outline an editor state paints over a device: focus, lifted (tinted) or a refused drop. */
 const STATE_OUTLINE_CLASSES = {
   selected: "stroke-drawing-highlight fill-none",
@@ -486,6 +558,7 @@ export function CabinetDrawing({
   wires = [],
   cables = [],
   ties = [],
+  busbars = [],
   wiring = "realistic",
   interactive,
   hideWires = false,
@@ -632,6 +705,15 @@ export function CabinetDrawing({
                   state={stateOf(device.id)}
                 />
               ))}
+          </g>
+        )}
+
+        {!hideWires && busbars.length > 0 && (
+          // The busbars sit over the devices' terminals and under the wires. In the editor they ignore the pointer.
+          <g aria-hidden="true" pointerEvents={interactive ? "none" : undefined}>
+            {busbars.map((busbar) => (
+              <BusbarShape key={`busbar-${busbar.key}`} busbar={busbar} />
+            ))}
           </g>
         )}
 

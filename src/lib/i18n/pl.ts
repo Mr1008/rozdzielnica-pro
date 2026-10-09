@@ -1171,7 +1171,13 @@ export const pl = {
         protection: "Wyłącznik różnicowoprądowy (RCD) i różnicowonadprądowy (RCBO)",
         mcb: "Wyłącznik nadprądowy (MCB)",
         group: "Przerywany obrys — grupa RCD",
+        /** A comb busbar in the drawing, both variants (`rcd-group-busbars`). */
+        busbar:
+          "Listwa zasilająca (grzebieniowa) — zasila fazami aparaty grupy zamiast przewodów; ząb przy każdym zacisku fazowym",
       },
+      /** The tooltip of a comb busbar in the drawing: "Listwa zasilająca 3F — grupa „Kuchnia”, 8 pinów". */
+      busbarTitle: (phases: number, group: string, pins: number) =>
+        `Listwa zasilająca ${String(phases)}F${group === "" ? "" : ` — grupa „${group}”`}, ${String(pins)} ${plural(pins, { one: "pin", few: "piny", many: "pinów" })}`,
       /** The wire legend: colour per PN-EN 60445 plus the pattern a greyscale print keeps. */
       wireLegendLabel: "Legenda przewodów",
       /** The tooltip of one conductor in the drawing, shown on hover. */

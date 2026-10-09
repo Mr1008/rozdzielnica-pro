@@ -835,30 +835,30 @@ jumpers and shows the informational note.
 
 #### Automated
 
-- [x] 3.1 Unit and property tests pass: `npm run test:unit`
-- [x] 3.2 Integration tests pass: `npm run test:integration`
-- [x] 3.3 Type check, lint and build pass: `npx astro check && npm run lint && npm run build`
+- [x] 3.1 Unit and property tests pass: `npm run test:unit` — a92634a
+- [x] 3.2 Integration tests pass: `npm run test:integration` — a92634a
+- [x] 3.3 Type check, lint and build pass: `npx astro check && npm run lint && npm run build` — a92634a
 
 #### Manual
 
-- [x] 3.4 "Zaproponuj układ" for a project with busbar groups places each RCD with its N terminal at the outer end of its group
-- [x] 3.5 Manual edit (move a group, move the RCD to the other end) saves without `layout_invalid`, and a re-match carries the manual layout over
+- [x] 3.4 "Zaproponuj układ" for a project with busbar groups places each RCD with its N terminal at the outer end of its group — a92634a
+- [x] 3.5 Manual edit (move a group, move the RCD to the other end) saves without `layout_invalid`, and a re-match carries the manual layout over — a92634a
 
 ### Phase 4: Busbar in the wiring and the drawing
 
 #### Automated
 
-- [ ] 4.1 Unit tests pass: `npm run test:unit`
-- [ ] 4.2 Type check, lint and build pass: `npx astro check && npm run lint && npm run build`
-- [ ] 4.3 Smoke passes against the preview: `npm run build && npm run preview` + `npm run smoke`
+- [x] 4.1 Unit tests pass: `npm run test:unit`
+- [x] 4.2 Type check, lint and build pass: `npx astro check && npm run lint && npm run build`
+- [x] 4.3 Smoke passes against the preview: `npm run build && npm run preview` + `npm run smoke`
 
 #### Manual
 
-- [ ] 4.4 Project page, realistic and schematic views: busbars drawn along each busbar group, no phase jumpers there, N jumpers only where MCBs carry N; hover titles correct
-- [ ] 4.5 A 3F group shows 1P MCBs on L1, L2, L3 in turn
-- [ ] 4.6 The printout shows the busbars in the schematic drawing and the busbar pieces in the material table; a greyscale print preview stays legible
-- [ ] 4.7 The editor hides busbars while dirty and shows them after save
-- [ ] 4.8 Wiring renders without noticeable delay on the largest seed cabinet (no regression against S-11)
+- [x] 4.4 Project page, realistic and schematic views: busbars drawn along each busbar group, no phase jumpers there, N jumpers only where MCBs carry N; hover titles correct
+- [x] 4.5 A 3F group shows 1P MCBs on L1, L2, L3 in turn
+- [x] 4.6 The printout shows the busbars in the schematic drawing and the busbar pieces in the material table; a greyscale print preview stays legible
+- [x] 4.7 The editor hides busbars while dirty and shows them after save
+- [x] 4.8 Wiring renders without noticeable delay on the largest seed cabinet (no regression against S-11)
 
 ### Phase 5: Kitchen sink, landing, docs
 

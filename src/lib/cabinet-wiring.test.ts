@@ -19,6 +19,7 @@ import {
   wiringWarningMessage,
   wiringWarnings,
   routeConductors,
+  routeWiring,
   wireClass,
   wireLengthsBySection,
   type Conductor,
@@ -1689,5 +1690,168 @@ describe("wireLengthsBySection", () => {
     expect(wireLengthsBySection(pair)).toEqual([
       { crossSectionMm2: base.crossSectionMm2, wireClass: "L", kinds: [base.kind], count: 2, totalMm: 345 },
     ]);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------
+// Comb busbars (rcd-group-busbars, Phase 4)
+// ---------------------------------------------------------------------------------------------
+
+describe("routeWiring — comb busbars", () => {
+  const BUS_CIRCUITS = [1, 2, 3, 4].map((n) => circuit(n, G1, 1, 1.5));
+  const THREE_PHASE: WiringSupply = { earthing_system: "TN-S", wlz_cross_section_mm2: 16 };
+
+  function group(rcdPoles: PoleConfig, rcdWidth: number, nSide: "left" | "right") {
+    const rcd = device(1, "rcd", rcdPoles, rcdWidth, { group: G1, nSide });
+    const mcbs = [1, 2, 3, 4].map((n) => device(n + 1, "mcb", "1P", 17.5, { group: G1, circuit: circuitId(n) }));
+    return { rcd, mcbs, devices: [device(0, "main_switch", "4P", 70, { nSide: "right" }), rcd, ...mcbs] };
+  }
+
+  /** A comb busbar row of the group: no placement, never in a block. */
+  function segment(poles: "1P" | "3P", piece = 0): LayoutDevice & { busbar_piece: number } {
+    return {
+      ...device(20, "mcb", poles, 210, { group: G1 }),
+      role: "busbar",
+      kind: "comb_busbar",
+      busbar_piece: piece,
+    };
+  }
+
+  function wire(rcdPoles: PoleConfig, rcdWidth: number, nSide: "left" | "right", busbarPoles: "1P" | "3P" | null) {
+    const g = group(rcdPoles, rcdWidth, nSide);
+    // A busbar row changes the layout (the RCD's end), so propose with it present.
+    const row = busbarPoles === null ? null : segment(busbarPoles);
+    const devices = row === null ? g.devices : [...g.devices, row];
+    const proposal = proposeLayout({
+      devices,
+      groups: [{ id: G1, label: "RCD 1" }],
+      circuits: BUS_CIRCUITS,
+      geometry: SEED_B,
+    });
+    if (!proposal.ok) throw new Error("fixture does not fit");
+    const input: WiringInput = {
+      geometry: SEED_B,
+      devices,
+      placements: proposal.placements,
+      circuits: BUS_CIRCUITS,
+      supply: THREE_PHASE,
+    };
+    return { ...g, row, input };
+  }
+
+  const jumpersOf = (conductors: readonly Conductor[], rcdId: string) =>
+    conductors.filter((c) => c.kind === "feed" && c.from.type === "terminal" && c.from.deviceId === rcdId);
+
+  it("replaces every RCD -> MCB phase jumper by one busbar and keeps the group's other conductors", () => {
+    const { rcd, input } = wire("4P", 70, "left", "3P");
+    const { conductors, busbars } = routeWiring(input);
+    expect(busbars).toHaveLength(1);
+    expect(busbars[0]).toMatchObject({ groupId: G1, phases: 3, piece: 0 });
+    expect(jumpersOf(conductors, rcd.id)).toEqual([]);
+    for (const n of [1, 2, 3, 4]) expect(ofCircuit(conductors, n).length).toBeGreaterThan(0);
+  });
+
+  it("keeps the jumpers of a group without a busbar row, as before", () => {
+    const { rcd, input } = wire("4P", 70, "left", null);
+    const { conductors, busbars } = routeWiring(input);
+    expect(busbars).toEqual([]);
+    expect(jumpersOf(conductors, rcd.id)).toHaveLength(4);
+    expect(routeConductors(input)).toEqual(conductors);
+  });
+
+  it("keeps the N jumpers to MCBs that carry N, and only those", () => {
+    const rcd = device(1, "rcd", "2P", 35, { group: G1, nSide: "left" });
+    const plain = device(2, "mcb", "1P", 17.5, { group: G1, circuit: circuitId(1) });
+    const withN = device(3, "mcb", "1P+N", 35, { group: G1, circuit: circuitId(2), nSide: "left" });
+    const devices = [device(0, "main_switch", "4P", 70, { nSide: "right" }), rcd, plain, withN, segment("1P")];
+    const circuits = BUS_CIRCUITS.slice(0, 2);
+    const proposal = proposeLayout({ devices, groups: [{ id: G1, label: "RCD 1" }], circuits, geometry: SEED_B });
+    if (!proposal.ok) throw new Error("fixture does not fit");
+    const { conductors, busbars } = routeWiring({
+      geometry: SEED_B,
+      devices,
+      placements: proposal.placements,
+      circuits,
+      supply: THREE_PHASE,
+    });
+    expect(busbars).toHaveLength(1);
+    const feeds = jumpersOf(conductors, rcd.id);
+    expect(feeds.map((c) => c.role)).toEqual(["N"]);
+    expect(feeds[0].to.type === "terminal" && feeds[0].to.deviceId === withN.id).toBe(true);
+  });
+
+  it("puts a tooth on every phase terminal of the RCD and the MCBs, on the group's out edge", () => {
+    const { rcd, mcbs, input } = wire("4P", 70, "left", "3P");
+    const { conductors, busbars } = routeWiring(input);
+    const [busbar] = busbars;
+    const expected = [rcd, ...mcbs].flatMap((dev) => {
+      const rect = rectOfDevice(input, dev.id);
+      const terminals = deviceTerminals(dev, rect)[busbar.edge];
+      return terminals.filter((terminal) => terminal.pole !== "N").map((terminal) => terminal.x);
+    });
+    expect(busbar.teeth.map((tooth) => tooth.x)).toEqual([...expected].sort((a, b) => a - b));
+    expect(busbar.teeth).toHaveLength(3 + 4);
+    expect(busbar.rect.x).toBeCloseTo(Math.min(...expected));
+    expect(busbar.rect.x + busbar.rect.w).toBeCloseTo(Math.max(...expected));
+    // The RCD gives out on the MCBs' supply edge: the circuits' cables leave the MCBs on the other one.
+    const phase = only(ofCircuit(conductors, 1).filter((c) => wireClass(c.role) === "L"));
+    expect(phase.to.type === "terminal" && phase.to.side).not.toBe(busbar.edge);
+  });
+
+  it("spreads 1P MCBs over L1, L2, L3 by pin on a 3F busbar, and their circuit cores follow", () => {
+    const { mcbs, rcd, input } = wire("4P", 70, "left", "3P");
+    const { conductors, busbars } = routeWiring(input);
+    const teeth = busbars[0].teeth;
+    // The RCD stands at the group's start (N outside): its slots are N, L1, L2, L3, then the MCBs.
+    expect(teeth.filter((tooth) => tooth.deviceId === rcd.id).map((tooth) => tooth.pole)).toEqual(["L1", "L2", "L3"]);
+    const mcbPoles = mcbs.map((mcb) => teeth.find((tooth) => tooth.deviceId === mcb.id)?.pole);
+    expect(mcbPoles).toEqual(["L1", "L2", "L3", "L1"]);
+    mcbs.forEach((_mcb, index) => {
+      const phase = only(ofCircuit(conductors, index + 1).filter((c) => wireClass(c.role) === "L"));
+      expect(phase.role).toBe(mcbPoles[index]);
+    });
+    expect(teeth.map((tooth) => tooth.pin)).toEqual([0, 1, 2, 3, 4, 5, 6]);
+  });
+
+  it("maps every pin of a 1F busbar to L, and leaves the circuits' cores L", () => {
+    const { mcbs, input } = wire("2P", 35, "left", "1P");
+    const { conductors, busbars } = routeWiring(input);
+    expect(busbars[0].phases).toBe(1);
+    expect(busbars[0].teeth.map((tooth) => tooth.pole)).toEqual(Array.from({ length: 5 }, () => "L"));
+    mcbs.forEach((_mcb, index) => {
+      expect(only(ofCircuit(conductors, index + 1).filter((c) => wireClass(c.role) === "L")).role).toBe("L");
+    });
+  });
+
+  it("numbers pins from the RCD's end when the RCD stands at the other end of its group", () => {
+    // N on the right puts the RCD last when a busbar is present: the MCBs are to its left.
+    const last = wire("4P", 70, "right", "3P");
+    const teeth = routeWiring(last.input).busbars[0].teeth;
+    const rcdRect = rectOfDevice(last.input, last.rcd.id);
+    expect(
+      teeth
+        .filter((tooth) => tooth.deviceId === last.rcd.id)
+        .map((tooth) => tooth.pin)
+        .sort((a, b) => a - b),
+    ).toEqual([0, 1, 2]);
+    expect(Math.max(...teeth.map((tooth) => tooth.pin))).toBe(6);
+    expect(teeth.every((tooth) => tooth.x <= rcdRect.x + rcdRect.w)).toBe(true);
+    // Adjacent 1P MCBs sit on adjacent pins whichever way the pins run.
+    const mcbPins = last.mcbs.map((mcb) => teeth.find((tooth) => tooth.deviceId === mcb.id)?.pin ?? -1);
+    expect([...mcbPins].sort((a, b) => a - b)).toEqual([3, 4, 5, 6]);
+    // One phase per pin class: pins three apart carry the same phase.
+    for (const tooth of teeth) {
+      const same = teeth.filter((other) => other.pin % 3 === tooth.pin % 3);
+      expect(new Set(same.map((other) => other.pole)).size).toBe(1);
+    }
+  });
+
+  it("shrinks the 16 mm2 L row by the replaced jumpers", () => {
+    const withBar = routeConductors(wire("4P", 70, "left", "3P").input);
+    const without = routeConductors(wire("4P", 70, "left", null).input);
+    const row = (list: Conductor[]) =>
+      wireLengthsBySection(list).find((r) => r.crossSectionMm2 === 16 && r.wireClass === "L");
+    expect(row(without)?.count).toBe((row(withBar)?.count ?? 0) + 4);
+    expect(row(withBar)?.totalMm ?? 0).toBeLessThan(row(without)?.totalMm ?? 0);
   });
 });

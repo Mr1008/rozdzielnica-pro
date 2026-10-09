@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   BEND_RADIUS_DIAMETERS,
+  BUSBAR_OVERHANG_MM,
+  BUSBAR_TOOTH_DEPTH_MM,
   MAX_SAG_MM,
   MIN_SAG_SPAN_MM,
   PEN_DASH,
@@ -12,6 +14,7 @@ import {
   WIRE_STYLES,
   bendRadiusMm,
   buildCableTies,
+  buildDrawnBusbars,
   buildDrawnCables,
   buildDrawnDevices,
   buildDrawnWires,
@@ -32,7 +35,7 @@ import {
   type DrawnDevice,
 } from "./cabinet-drawing";
 import { RAIL_HEIGHT_MM, parseCabinetGeometry, type CabinetGeometry } from "./cabinet-geometry";
-import { WIRE_CLEARANCE_MM, type Conductor } from "./cabinet-wiring";
+import { WIRE_CLEARANCE_MM, type Busbar, type Conductor } from "./cabinet-wiring";
 import { WIRE_CROSS_SECTIONS_MM2, cableDiameterMm } from "./wire-dimensions";
 
 const INTERIOR = { widthMm: 400, heightMm: 300, depthMm: 100 };
@@ -1010,5 +1013,66 @@ describe("bar terminals and cables in the drawn wires", () => {
     expect(fromLeft.map((cable) => cable.d)).toEqual(["M0 100 L25 100"]);
     // A stub too short for a bend's clearance still gets half of it.
     expect(buildDrawnCables([core("a", 6, 70)]).map((cable) => cable.d)).toEqual(["M50 0 L50 3"]);
+  });
+});
+
+describe("buildDrawnBusbars", () => {
+  const busbar: Busbar = {
+    key: "busbar-g1",
+    groupId: "g1",
+    edge: "bottom",
+    rect: { x: 100, y: 200, w: 70, h: 4 },
+    phases: 3,
+    pins: 8,
+    piece: 0,
+    teeth: [
+      { x: 100, y: 200, pole: "L1", pin: 0, deviceId: "rcd" },
+      { x: 135, y: 198, pole: "L2", pin: 2, deviceId: "mcb-1" },
+      { x: 170, y: 200, pole: "L3", pin: 4, deviceId: "mcb-2" },
+    ],
+  };
+
+  it("reaches the strip past its end teeth and keeps its height and edge", () => {
+    const [drawn] = buildDrawnBusbars([busbar], "realistic");
+    expect(drawn.body).toEqual({
+      x: 100 - BUSBAR_OVERHANG_MM,
+      y: 200,
+      w: 70 + 2 * BUSBAR_OVERHANG_MM,
+      h: 4,
+    });
+    expect(drawn).toMatchObject({ key: "busbar-g1", groupId: "g1", phases: 3, pins: 8, variant: "realistic" });
+  });
+
+  it("runs each tooth from the strip's device-facing edge into its terminal", () => {
+    const [drawn] = buildDrawnBusbars([busbar], "realistic");
+    // Bottom edge: the devices are above the strip, so the strip's top edge is where teeth start and
+    // they end BUSBAR_TOOTH_DEPTH_MM above the terminal.
+    expect(drawn.teeth.map((tooth) => [tooth.x, tooth.y1, tooth.y2, tooth.pole])).toEqual([
+      [100, 200, 200 - BUSBAR_TOOTH_DEPTH_MM, "L1"],
+      [135, 200, 198 - BUSBAR_TOOTH_DEPTH_MM, "L2"],
+      [170, 200, 200 - BUSBAR_TOOTH_DEPTH_MM, "L3"],
+    ]);
+    const top = buildDrawnBusbars([{ ...busbar, edge: "top", rect: { x: 100, y: 90, w: 70, h: 4 } }], "schematic")[0];
+    expect(top.teeth[0].y1).toBe(94);
+    expect(top.teeth[0].y2).toBe(200 + BUSBAR_TOOTH_DEPTH_MM);
+  });
+
+  it("draws the same geometry in both variants — only the variant differs", () => {
+    const [realistic] = buildDrawnBusbars([busbar], "realistic");
+    const [schematic] = buildDrawnBusbars([busbar], "schematic");
+    expect({ ...schematic, variant: "realistic" }).toEqual(realistic);
+    expect(schematic.variant).toBe("schematic");
+  });
+
+  it("titles a busbar with its phases, its group and its pins", () => {
+    const [named] = buildDrawnBusbars([busbar], "realistic", new Map([["g1", "Kuchnia"]]));
+    expect(named.title).toBe("Listwa zasilająca 3F — grupa „Kuchnia”, 8 pinów");
+    const [single] = buildDrawnBusbars([{ ...busbar, phases: 1, pins: 1 }], "realistic", new Map([["g1", "Kuchnia"]]));
+    expect(single.title).toBe("Listwa zasilająca 1F — grupa „Kuchnia”, 1 pin");
+    expect(buildDrawnBusbars([busbar], "realistic")[0].title).toBe("Listwa zasilająca 3F, 8 pinów");
+  });
+
+  it("draws nothing for no busbars", () => {
+    expect(buildDrawnBusbars([], "schematic")).toEqual([]);
   });
 });

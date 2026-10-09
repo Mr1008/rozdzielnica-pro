@@ -146,6 +146,7 @@ export function catalogDevice(
 export const FR_ID = "a1000000-0000-4000-8000-0000000000f1";
 export const RCD_ID = "a1000000-0000-4000-8000-0000000000f2";
 export const MCB_ID = "a1000000-0000-4000-8000-0000000000f3";
+export const BUSBAR_ID = "a1000000-0000-4000-8000-0000000000f4";
 
 /** What the render path needs: the match context (snapshot included) and the stored placements. */
 export interface RenderFixture {
@@ -154,14 +155,24 @@ export interface RenderFixture {
   placements: Placement[];
 }
 
-/** Matches `groupCount` × `perGroup` circuits on `geometry` and stores the proposed layout. */
-export function renderFixture(groupCount: number, perGroup: number, geometry: CabinetGeometry): RenderFixture {
+/**
+ * Matches `groupCount` × `perGroup` circuits on `geometry` and stores the proposed layout. With
+ * `busbars` the catalog also holds a 1F comb busbar (12 pins), so every group of at least two MCBs gets
+ * a busbar segment (`rcd-group-busbars`) instead of wire jumpers.
+ */
+export function renderFixture(
+  groupCount: number,
+  perGroup: number,
+  geometry: CabinetGeometry,
+  options: { busbars?: boolean } = {},
+): RenderFixture {
   const generated = project(groupCount, perGroup);
   // perGroup × 16 A × 1.15 stays under 63 A for the sizes used here: the groups need a 63 A RCD.
   const catalog = [
     catalogDevice(FR_ID, "switch_disconnector", "2P", 35),
     catalogDevice(RCD_ID, "rcd", "2P", 35, { rated_current_a: 63 }),
     catalogDevice(MCB_ID, "mcb_b", "1P", 17.5),
+    ...(options.busbars === true ? [catalogDevice(BUSBAR_ID, "comb_busbar", "1P", 17.5 * 12)] : []),
   ];
   const base: MatchContext = {
     supply: {
@@ -191,6 +202,7 @@ export function renderFixture(groupCount: number, perGroup: number, geometry: Ca
       }),
       device_id: spec.id,
       notes: [...selection.notes],
+      busbar_piece: selection.busbarPiece,
       poles: spec.poles,
       rated_current_a: spec.rated_current_a,
       n_terminal_side: spec.n_terminal_side,
@@ -210,4 +222,9 @@ export function worstCaseFixture(): RenderFixture {
 /** 12 circuits in 4 RCD groups on seed cabinet (b): a typical single-family house. */
 export function realisticFixture(): RenderFixture {
   return renderFixture(4, 3, SEED_B);
+}
+
+/** The realistic project with a comb busbar in every group (`rcd-group-busbars`). */
+export function busbarFixture(): RenderFixture {
+  return renderFixture(4, 3, SEED_B, { busbars: true });
 }

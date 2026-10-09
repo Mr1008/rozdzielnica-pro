@@ -1,6 +1,7 @@
 import type { JSX } from "react";
 import {
   ferruleStyle,
+  type DrawnBusbar,
   type DrawnCable,
   type DrawnDevice,
   type DrawnTie,
@@ -26,6 +27,8 @@ interface Props {
   wires: readonly LegendWire[];
   cables: readonly LegendCable[];
   ties?: readonly Pick<DrawnTie, "key">[];
+  /** The drawn comb busbars; a legend entry appears when there is at least one. */
+  busbars?: readonly Pick<DrawnBusbar, "key">[];
   wiring?: WiringVariant;
 }
 
@@ -40,6 +43,7 @@ export function LayoutLegend({
   wires,
   cables,
   ties = [],
+  busbars = [],
   wiring = "realistic",
 }: Props): JSX.Element {
   // A cabinet without built-in bars gets them from the catalog (plan Phase 5b), placed on a DIN rail.
@@ -67,6 +71,12 @@ export function LayoutLegend({
           <span className={cn(legendBox, "border-drawing-group border border-dashed")} aria-hidden="true" />
           {s.legend.group}
         </li>
+        {busbars.length > 0 && (
+          <li className="flex items-center gap-2">
+            <BusbarSwatch wiring={wiring} />
+            {s.legend.busbar}
+          </li>
+        )}
       </ul>
       {wires.length > 0 &&
         (wiring === "realistic" ? (
@@ -77,6 +87,45 @@ export function LayoutLegend({
       {noBars && <p className="text-muted-foreground text-xs">{s.noBarsNote}</p>}
       {catalogBars && <p className="text-muted-foreground text-xs">{s.catalogBarsNote}</p>}
     </>
+  );
+}
+
+/** The busbar swatch in the variant's own look: a copper-toothed strip, or a heavy line with ticks. */
+function BusbarSwatch({ wiring }: { wiring: WiringVariant }) {
+  return (
+    <svg viewBox="0 0 24 8" className={legendLine} aria-hidden="true">
+      {wiring === "realistic" ? (
+        <>
+          {[5, 12, 19].map((x) => (
+            <rect
+              key={x}
+              x={x - 1}
+              y="3"
+              width="2"
+              height="5"
+              className="fill-busbar-copper stroke-drawing-frame"
+              strokeWidth="0.4"
+            />
+          ))}
+          <rect
+            x="1"
+            y="1"
+            width="22"
+            height="3.5"
+            rx="0.8"
+            className="fill-busbar-insulation stroke-drawing-frame"
+            strokeWidth="0.5"
+          />
+        </>
+      ) : (
+        <>
+          {[5, 12, 19].map((x) => (
+            <line key={x} x1={x} y1="2.5" x2={x} y2="7.5" className="stroke-drawing-frame" strokeWidth="1" />
+          ))}
+          <line x1="1" y1="2.5" x2="23" y2="2.5" className="stroke-drawing-frame" strokeWidth="2.4" />
+        </>
+      )}
+    </svg>
   );
 }
 
