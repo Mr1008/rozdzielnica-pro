@@ -908,25 +908,25 @@ next phase.
 
 #### Automated
 
-- [x] 5.1 Unit suite, lint, types, build: `npm run test:unit && npm run lint && npx astro check && npm run build` — 903eb6a
+- [x] 5.1 Unit suite, lint, types, build: `npm run test:unit && npm run lint && npx astro check && npm run build` — 0b81dee
 
 #### Manual
 
-- [x] 5.2 Router v2 CPU median/max for both fixtures, read from Cloudflare, recorded with the decision in `change.md` — 903eb6a
-- [x] 5.3 If the island was built: on the project page, wires appear after hydration, hover and lengths work, and devices render without JS — 903eb6a
+- [x] 5.2 Router v2 CPU median/max for both fixtures, read from Cloudflare, recorded with the decision in `change.md` — 0b81dee
+- [x] 5.3 If the island was built: on the project page, wires appear after hydration, hover and lengths work, and devices render without JS — 0b81dee
 
 ### Phase 6: Drawing — realistic and schematic variants
 
 #### Automated
 
-- [x] 6.1 Drawing tests pass, including ties, ferrule ends and realistic bend strings: `npm run test:unit -- cabinet-drawing`
-- [x] 6.2 Full unit suite, lint, types, build: `npm run test:unit && npm run lint && npx astro check && npm run build`
+- [x] 6.1 Drawing tests pass, including ties, ferrule ends and realistic bend strings: `npm run test:unit -- cabinet-drawing` — 894de8f
+- [x] 6.2 Full unit suite, lint, types, build: `npm run test:unit && npm run lint && npx astro check && npm run build` — 894de8f
 
 #### Manual
 
-- [x] 6.3 Bench re-run on Cloudflare with the realistic drawing stays within the Phase 5 rule on the chosen runtime (recorded in `change.md`)
-- [x] 6.4 Realistic view on `/dev/kitchen-sink` (medium, large, TN-C, no-bars states) resembles `rozdzielnica-z-opaskami.webp`: tied side packs, WLZ clearly thickest, ferrules at terminals; hover highlight and tooltips still work
-- [x] 6.5 Schematic variant looks as before over the new routes, and PE / N / PEN stay distinguishable in a greyscale screenshot
+- [x] 6.3 Bench re-run on Cloudflare with the realistic drawing stays within the Phase 5 rule on the chosen runtime (recorded in `change.md`) — 894de8f
+- [x] 6.4 Realistic view on `/dev/kitchen-sink` (medium, large, TN-C, no-bars states) resembles `rozdzielnica-z-opaskami.webp`: tied side packs, WLZ clearly thickest, ferrules at terminals; hover highlight and tooltips still work — 894de8f
+- [x] 6.5 Schematic variant looks as before over the new routes, and PE / N / PEN stay distinguishable in a greyscale screenshot — 894de8f
 
 ### Phase 7: View switch, warning, landing, kitchen sink, docs
 

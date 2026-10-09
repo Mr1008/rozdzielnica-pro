@@ -632,8 +632,12 @@ function terminalEnds(conductor: Conductor): TerminalEnd[] {
  * over it like any other, so it stays traceable.
  *
  * `variant` sets the bends (`bendRadiusMm`) and the sag: the schematic drawing sags as it always has;
- * the realistic one keeps tied runs taut — a run the router laid in a tied bundle (`Conductor.tied`) or
- * one a cable tie holds (`buildCableTies`) — and spaces the rest by their bodies (`sagLimits`).
+ * the realistic one draws every circuit and WLZ core taut — straight runs with tight bends, as a
+ * carefully wired cabinet's packs and channels are laid (the electrician, 2026-10-09, comparing
+ * `context/foundation/references/wiring/rozdzielnica-z-opaskami.webp`) — and lets only the feeds, the
+ * short jumpers between devices, hang loose: never a run the router laid in a tied bundle
+ * (`Conductor.tied`) or one a cable tie holds (`buildCableTies`), and the rest spaced by their bodies
+ * (`sagLimits`).
  */
 export function buildDrawnWires(
   conductors: readonly Conductor[],
@@ -644,6 +648,7 @@ export function buildDrawnWires(
   if (variant === "realistic") {
     const held = tieLayout(conductors).held;
     conductors.forEach((conductor, owner) => {
+      if (conductor.kind !== "feed") limits[owner].fill(0);
       for (const tie of conductor.tied) limits[owner][tie.segment] = 0;
       held.get(owner)?.forEach((segment) => {
         limits[owner][segment] = 0;
@@ -827,7 +832,7 @@ export function buildCableTies(conductors: readonly Conductor[]): DrawnTie[] {
   return tieLayout(conductors).ties;
 }
 
-/** One cable's sheathed run from its entry point, before it splits into its cores. */
+/** One cable's sheathed stub from its entry point, before it splits into its cores. */
 export interface DrawnCable {
   key: string;
   kind: "circuit" | "wlz";
@@ -848,20 +853,20 @@ function sheathDiameterMm(cores: readonly Conductor[]): number {
 }
 
 /**
+ * How far a cable keeps its outer sheath past its entry point (the electrician, 2026-10-09): the sheath
+ * is stripped just inside the cabinet and only the bare cores run on — to their packs, channels and
+ * terminals. A couple of centimetres, as a carefully wired cabinet shows.
+ */
+export const SHEATH_STUB_MM = 25;
+
+/**
  * The cables at the entries (plan Phase 5c): every conductor that starts at an entry belongs to one
  * cable — the WLZ, or its circuit's cable — whose cores share the entry point and run along one stub
- * line from it.
- *
- * A cable whose cores all run in one side pack (plan Phase 4) keeps its sheath until it reaches the
- * pack, and splits into its cores there: the sheath follows the cores' shared route from the entry
- * point to the first point where one of them enters the pack (the start of its `packSegment`).
- *
- * Any other cable — cores going to different packs, or no pack at all — splits progressively, like
- * stripping a cable (the electrician, 2026-10-07): its cores leave the stub line one at a time, each
- * onto its own track, and the sheath runs from the entry point to the last of those turn-offs: the point
- * past which at most one core stays on the line, so no bare cores are ever drawn on top of each other.
- * The one core left may carry straight on past it. A cable of a single core keeps a short sheath,
- * stopping one bend before the core turns off. Cables in routing order. Presentation only.
+ * line from it. The sheath covers only the start of that stub: `SHEATH_STUB_MM` from the entry point,
+ * cut back to stop before the first core bends off the line (one `WIRE_BEND_MM` before the shortest
+ * stub's end, at most halfway along it) — it never reaches a bend. Past it every core runs bare, on
+ * its own track (`routeConductors`). Both variants draw the same sheath. Cables in routing order.
+ * Presentation only.
  */
 export function buildDrawnCables(conductors: readonly Conductor[]): DrawnCable[] {
   const cables = new Map<string, { kind: "circuit" | "wlz"; cores: Conductor[] }>();
@@ -873,47 +878,23 @@ export function buildDrawnCables(conductors: readonly Conductor[]): DrawnCable[]
     else cable.cores.push(conductor);
   }
   return [...cables].flatMap(([key, cable]) => {
-    const points = packedSheath(cable.cores) ?? strippedSheath(cable.cores);
+    const points = sheathStub(cable.cores);
     if (points === null) return [];
     const d = points.map((point, i) => `${i === 0 ? "M" : "L"}${fmt(point.x)} ${fmt(point.y)}`).join(" ");
     return [{ key, kind: cable.kind, d, diameterMm: sheathDiameterMm(cable.cores) }];
   });
 }
 
-/** The route from the entry to where the cable reaches its pack, or null when it has no single pack. */
-function packedSheath(cores: readonly Conductor[]): Point[] | null {
-  const side = cores[0].packSide;
-  if (side === null || cores.some((core) => core.packSide !== side || core.packSegment === null)) return null;
-  let best: Point[] | null = null;
-  let bestLength = Infinity;
-  for (const core of cores) {
-    const prefix = core.path.slice(0, (core.packSegment ?? 0) + 1);
-    let length = 0;
-    for (let i = 1; i < prefix.length; i++) {
-      length += Math.abs(prefix[i].x - prefix[i - 1].x) + Math.abs(prefix[i].y - prefix[i - 1].y);
-    }
-    if (length > 0 && length < bestLength) {
-      best = prefix;
-      bestLength = length;
-    }
-  }
-  return best;
-}
-
-/** The progressive split's sheath: entry point to the last turn-off; null when it has no length. */
-function strippedSheath(cores: readonly Conductor[]): Point[] | null {
+/** The sheath's stub: from the entry point along the shared stub line; null when it has no length. */
+function sheathStub(cores: readonly Conductor[]): Point[] | null {
   const from = cores[0].path[0];
-  const firsts = cores
-    .map((core) => {
-      const to = core.path[1];
-      return { to, length: Math.abs(to.x - from.x) + Math.abs(to.y - from.y) };
-    })
-    .sort((a, b) => b.length - a.length);
-  // The second-deepest turn-off; a single core stops one bend before its own.
-  const end =
-    firsts.length > 1
-      ? firsts[1].to
-      : towards(from, firsts[0].to, Math.max(firsts[0].length - WIRE_BEND_MM, firsts[0].length / 2));
-  if (end.x === from.x && end.y === from.y) return null;
-  return [from, end];
+  let shortest: { to: Point; length: number } | null = null;
+  for (const core of cores) {
+    const to = core.path[1];
+    const length = Math.abs(to.x - from.x) + Math.abs(to.y - from.y);
+    if (length > 0 && (shortest === null || length < shortest.length)) shortest = { to, length };
+  }
+  if (shortest === null) return null;
+  const reach = Math.min(SHEATH_STUB_MM, Math.max(shortest.length - WIRE_BEND_MM, shortest.length / 2));
+  return [from, towards(from, shortest.to, reach)];
 }

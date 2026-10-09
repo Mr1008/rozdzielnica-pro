@@ -17,13 +17,7 @@ import {
 import type { CircuitInput, EntrySide } from "@/lib/circuit-params";
 import type { SupplyParams } from "@/lib/supply-params";
 import { t } from "@/lib/i18n";
-import {
-  cableDiameterMm,
-  conductorDiameterMm,
-  WIRE_CROSS_SECTIONS_MM2,
-  type CableCores,
-  type WireCrossSectionMm2,
-} from "@/lib/wire-dimensions";
+import { conductorDiameterMm, WIRE_CROSS_SECTIONS_MM2, type WireCrossSectionMm2 } from "@/lib/wire-dimensions";
 
 /**
  * The wiring of a placed layout (S-05, plan Phase 5): which conductors run where, their orthogonal
@@ -62,8 +56,9 @@ import {
  * cables never share a point, however many there are (the spacing closes up instead). The cores then
  * leave the stub one at a time, each at its own lane — a progressive split, like stripping a cable (the
  * electrician, 2026-10-07): a core that has turned off keeps its spacing off its own cable's stub, and at
- * most the last one carries straight on along its line (`avoidPins`, `place`). The drawing's sheath runs
- * to the last turn-off (`buildDrawnCables`).
+ * most the last one carries straight on along its line (`avoidPins`, `place`). The drawing's sheath ends
+ * `SHEATH_STUB_MM` past the entry point, on that stub (`buildDrawnCables`): from there only the bare cores
+ * run, each on its own track — to a pack as well, where every core takes its own place in the lane.
  *
  * Bar terminals (plan Phase 5c): every conductor landing on a PE or N bar takes its own terminal whose
  * cross-section range fits it — the nearest free one; never two conductors on one terminal. When a
@@ -347,28 +342,8 @@ interface RawRoute {
   /** The pack the route runs in, and its raw segment there (`Router.packRoute`); null without one. */
   packSide: PackSide | null;
   packIndex: number | null;
-  /**
-   * The cable a core from an entry belongs to (its entry and slot), null otherwise; and that cable's
-   * outer diameter over the cores sharing its pack (`sheathRun`).
-   */
-  cable: string | null;
-  sheathMm: number;
   /** A feed: never tied into overflow — a feed that does not fit is only `squeezed`. */
   feed: boolean;
-}
-
-/**
- * The raw segment a packed core runs along the top or bottom lane to its pack, still in its cable's
- * sheath — the cable splits into its cores where it reaches the pack (plan Phase 4). Null for a core
- * entering from a side (its stub leads straight into the pack) and outside a pack.
- */
-function sheathRun(route: Pick<RawRoute, "packIndex" | "firstVertical">): number | null {
-  return route.packIndex !== null && route.firstVertical ? route.packIndex - 1 : null;
-}
-
-/** The cores of one cable running to one pack share their sheathed lane run (`sheathRun`). */
-function sheathKey(route: Pick<RawRoute, "cable" | "packSide">): string {
-  return `${route.cable ?? ""}|${route.packSide ?? ""}`;
 }
 
 interface Located {
@@ -830,8 +805,6 @@ interface Segment {
   anchor: number | null;
   /** For an anchored segment, the side it turns to at its far end (-1, 0, 1); else 0. */
   lean: number;
-  /** The other cores of a sheathed lane run (`sheathRun`), which take this segment's track. */
-  followers: number[];
   /** A circuit or WLZ core (not a feed): spilled from a tied bundle, it runs in the overflow layer. */
   tieable: boolean;
   /**
@@ -1665,18 +1638,8 @@ function nudgeAxis(
   const vertical = axis === "v";
   const segments: Segment[] = [];
   const squeezed: boolean[] = [];
-  // A cable's cores share its sheathed lane run to their pack: the first core's segment stands for the
-  // cable, as wide as it, over all the cores' extents; the others follow its track.
-  const sheaths = new Map<string, number[]>();
-  if (!vertical) {
-    routes.forEach((route, pathIndex) => {
-      if (sheathRun(route) === null) return;
-      const key = sheathKey(route);
-      const members = sheaths.get(key);
-      if (members === undefined) sheaths.set(key, [pathIndex]);
-      else members.push(pathIndex);
-    });
-  }
+  // Every core takes its own track past its cable's stub — a lane run to a pack too: the sheath ends
+  // just inside the entry (`SHEATH_STUB_MM` in `src/lib/cabinet-drawing.ts`).
   routes.forEach((route, pathIndex) => {
     const path = route.points;
     const ends = [path[0], path[path.length - 1]] as const;
@@ -1688,21 +1651,9 @@ function nudgeAxis(
       const a = path[index];
       const b = path[index + 1];
       const [p, q] = vertical ? [a.y, b.y] : [a.x, b.x];
-      let from = Math.min(p, q);
-      let to = Math.max(p, q);
-      let diameter = route.diameterMm;
-      let followers: number[] = [];
-      if (!vertical && index === sheathRun(route)) {
-        const members = sheaths.get(sheathKey(route)) ?? [pathIndex];
-        if (members[0] !== pathIndex) continue;
-        followers = members.slice(1);
-        for (const member of followers) {
-          const points = routes[member].points;
-          from = Math.min(from, points[index].x, points[index + 1].x);
-          to = Math.max(to, points[index].x, points[index + 1].x);
-        }
-        diameter = route.sheathMm;
-      }
+      const from = Math.min(p, q);
+      const to = Math.max(p, q);
+      const diameter = route.diameterMm;
       // A zero-length segment overlaps nothing, so it never needs a track of its own.
       if (to - from <= EPS) continue;
       const desired = vertical ? a.x : a.y;
@@ -1726,7 +1677,6 @@ function nudgeAxis(
         diameter,
         anchor,
         lean,
-        followers,
         tieable: !route.feed,
         channel: { lo: channel.loHard, hi: channel.hiHard },
       });
@@ -1775,16 +1725,15 @@ function nudgeAxis(
   for (const bundle of stack) layBundle(bundle, segments, keyOf, track, squeezed, tied, ties);
 
   segments.forEach((segment, i) => {
-    for (const owner of [segment.path, ...segment.followers]) {
-      const path = paths[owner];
-      for (const point of [path[segment.index], path[segment.index + 1]]) {
-        if (axis === "v") point.x = track[i];
-        else point.y = track[i];
-      }
-      if (squeezed[i]) squeezedOf[owner].add(segment.index);
-      const tie = tied[i];
-      if (tie !== null) ties.raw[owner].set(segment.index, tie);
+    const owner = segment.path;
+    const path = paths[owner];
+    for (const point of [path[segment.index], path[segment.index + 1]]) {
+      if (axis === "v") point.x = track[i];
+      else point.y = track[i];
     }
+    if (squeezed[i]) squeezedOf[owner].add(segment.index);
+    const tie = tied[i];
+    if (tie !== null) ties.raw[owner].set(segment.index, tie);
   });
 }
 
@@ -1837,15 +1786,14 @@ function simplifiedIndex(points: readonly Point[], simplified: readonly Point[])
  * first pass laid out. Whatever overlaps in the end is recorded, never hidden — by reason: when either
  * segment is a route's end stub, both go to `stubOverlaps` (fixed geometry, not overflow); otherwise
  * both go to `squeezed`. The same exceptions as the router's own: segments ending on one shared endpoint
- * share its stub, the cores of one cable run along their cable's stub together — and along their
- * sheathed lane run to their pack (`sheathRun`) — and the runs of one tied round bundle (a pack, a lane
- * or a channel; either layer) overlap by design. One sweep per axis in track order.
+ * share its stub, the cores of one cable run along their cable's stub together, and the runs of one
+ * tied round bundle (a pack, a lane or a channel; either layer) overlap by design. One sweep per axis in
+ * track order.
  */
 function recordOverlaps(
   routes: readonly RawRoute[],
   paths: readonly Point[][],
   tiedBy: readonly ReadonlyMap<number, Tie>[],
-  sheath: readonly { segment: number | null; group: number }[],
   squeezed: Set<number>[],
   stubOverlaps: Set<number>[],
 ): void {
@@ -1865,8 +1813,6 @@ function recordOverlaps(
   const isEnd = new Uint8Array(count);
   /** The tied bundle a run lies in, plus one; 0 outside any. */
   const tie = new Int32Array(count);
-  /** The cable group (1-based) of a sheathed lane run, 0 otherwise. */
-  const sheathGroup = new Int32Array(count);
   const byAxis: Record<Axis, number[]> = { v: [], h: [] };
   let maxRadius = 0;
   let n = 0;
@@ -1890,7 +1836,6 @@ function recordOverlaps(
       onStub[n] = i === 0 && routes[r].fromEntry ? 1 : 0;
       isEnd[n] = end === null ? 0 : 1;
       tie[n] = (tiedBy[r].get(i)?.bundle ?? -1) + 1;
-      sheathGroup[n] = sheath[r].segment === i ? sheath[r].group : 0;
     }
   });
   // NaN never compares close, so an interior segment never shares an endpoint.
@@ -1907,7 +1852,6 @@ function recordOverlaps(
         if (Math.min(high[s], high[t]) - Math.max(low[s], low[t]) <= EPS) continue;
         if (onStub[s] === onStub[t] && sameEnd(s, t)) continue;
         if (tie[s] !== 0 && tie[s] === tie[t]) continue;
-        if (sheathGroup[s] !== 0 && sheathGroup[s] === sheathGroup[t]) continue;
         const into = isEnd[s] === 1 || isEnd[t] === 1 ? stubOverlaps : squeezed;
         into[route[s]].add(index[s]);
         into[route[t]].add(index[t]);
@@ -1971,17 +1915,8 @@ function nudgeTracks(routes: readonly RawRoute[], router: Router): NudgedRoute[]
     }
     return out;
   });
-  const groups = new Map<string, number>();
-  const sheath = working.map((route, r) => {
-    const raw = sheathRun(route);
-    if (raw === null) return { segment: null, group: 0 };
-    const key = sheathKey(route);
-    const group = groups.get(key) ?? groups.size + 1;
-    groups.set(key, group);
-    return { segment: simplified(r, raw), group };
-  });
   const stubOverlaps = working.map(() => new Set<number>());
-  recordOverlaps(working, paths, tiedBy, sheath, squeezed, stubOverlaps);
+  recordOverlaps(working, paths, tiedBy, squeezed, stubOverlaps);
   const sorted = (set: Set<number>) => [...set].sort((p, q) => p - q);
   return paths.map((path, r) => {
     const route = working[r];
@@ -2437,15 +2372,11 @@ export function routeConductors(input: WiringInput): Conductor[] {
       packSide === null
         ? { ...router.route(from.stub, to.stub, item.kind !== "feed"), packIndex: null }
         : router.packRoute(from.stub, to.stub, packSide);
-    const cable =
-      item.from.type === "entry" ? `${String(item.from.cable.entryIndex)}:${String(item.from.cable.slot)}` : null;
     routes.push({
       ...raw,
       fromEntry: item.from.type === "entry",
       diameterMm,
       packSide,
-      cable,
-      sheathMm: diameterMm,
       feed: item.kind === "feed",
     });
     return {
@@ -2468,16 +2399,6 @@ export function routeConductors(input: WiringInput): Conductor[] {
       tied: [],
       overflow: false,
     };
-  });
-
-  // A cable's sheath over the cores it takes to one pack.
-  const coresTo = new Map<string, number>();
-  for (const route of routes)
-    if (sheathRun(route) !== null) coresTo.set(sheathKey(route), (coresTo.get(sheathKey(route)) ?? 0) + 1);
-  routes.forEach((route, index) => {
-    const cores = coresTo.get(sheathKey(route)) ?? 1;
-    if (sheathRun(route) === null || cores < 2) return;
-    route.sheathMm = cableDiameterMm(Math.min(cores, 5) as CableCores, routable[index].crossSectionMm2);
   });
 
   const nudged = nudgeTracks(routes, router);

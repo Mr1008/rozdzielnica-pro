@@ -54,7 +54,7 @@ interface CabinetDrawingProps {
   devices?: readonly DrawnDevice[];
   /** Conductors to draw over the devices, from `buildDrawnWires`. Omitted: no wires. */
   wires?: readonly DrawnWire[];
-  /** The cables' sheathed runs from their entry points, from `buildDrawnCables`. Omitted: none. */
+  /** The cables' sheathed stubs just inside their entry points, from `buildDrawnCables`. Omitted: none. */
   cables?: readonly DrawnCable[];
   /** The cable ties over tied runs, from `buildCableTies`; drawn in the realistic variant only. */
   ties?: readonly DrawnTie[];
