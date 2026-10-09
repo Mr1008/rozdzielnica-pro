@@ -69,6 +69,14 @@ describe("parseBusinessForm", () => {
     expect(parsed({ company_name: "😀".repeat(MAX_COMPANY_NAME_LENGTH + 1) })).toBeNull();
   });
 
+  it("normalises CRLF newlines before measuring an address", () => {
+    // 149 + newline + 150 is exactly the limit once CRLF counts as one character, as `maxlength` does.
+    const first = "a".repeat(MAX_ADDRESS_LENGTH / 2 - 1);
+    const second = "a".repeat(MAX_ADDRESS_LENGTH / 2);
+    expect(parsed({ address: `${first}\r\n${second}\r\n` })?.address).toBe(`${first}\n${second}`);
+    expect(parsed({ address: `${first}\r\n${second}a` })).toBeNull();
+  });
+
   it("allows newlines inside an address", () => {
     expect(parsed({ address: "ul. Długa 1\n00-001 Warszawa" })?.address).toBe("ul. Długa 1\n00-001 Warszawa");
   });

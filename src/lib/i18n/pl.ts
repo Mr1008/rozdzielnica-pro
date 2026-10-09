@@ -666,7 +666,7 @@ export const pl = {
       overrideOutdated: (estimate: string) =>
         `Nadpisany czas robocizny może być nieaktualny — obecna estymacja to ${estimate}. Na wydruku jest Twój czas.`,
       businessMissing:
-        "Nie uzupełniono danych firmy — w nagłówku wydruku zamiast nazwy firmy będzie Twoje imię i nazwisko albo adres email. Dane firmy uzupełnisz w profilu.",
+        "Nie podano nazwy firmy — w nagłówku wydruku zamiast niej będzie Twoje imię i nazwisko albo adres email. Nazwę firmy uzupełnisz w profilu.",
       rateWarning: "Stawka godzinowa jest bardzo wysoka — sprawdź, czy to nie literówka, zanim wydrukujesz wycenę.",
     },
     notFound: "Nie znaleziono tego projektu.",
