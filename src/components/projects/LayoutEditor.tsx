@@ -11,11 +11,12 @@ import {
   type SubmitEvent,
   type SVGProps,
 } from "react";
-import { Redo2, Save, Undo2, WandSparkles } from "lucide-react";
+import { Redo2, Save, TriangleAlertIcon, Undo2, WandSparkles } from "lucide-react";
 import { z } from "zod";
 import { CabinetDrawing, type DrawingInteraction } from "@/components/cabinets/CabinetDrawing";
 import { clearStoredDraft, readStoredDraft, writeStoredDraft } from "@/components/forms/draft-storage";
 import { LayoutLegend } from "@/components/projects/LayoutLegend";
+import { useWiringDrawing } from "@/components/projects/WiringDrawing";
 import { WireLengthsTable } from "@/components/projects/WireLengthsTable";
 import {
   AlertDialog,
@@ -31,7 +32,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { buildDrawnDevices, type DrawnCable, type DrawnDevice, type DrawnWire } from "@/lib/cabinet-drawing";
+import { buildDrawnDevices, type DrawnDevice } from "@/lib/cabinet-drawing";
 import { RAIL_HEIGHT_MM, type CabinetGeometry } from "@/lib/cabinet-geometry";
 import {
   layoutIssueMessage,
@@ -41,7 +42,7 @@ import {
   type LayoutIssueNames,
   type Placement,
 } from "@/lib/cabinet-layout";
-import type { WireLengthRow } from "@/lib/cabinet-wiring";
+import { wiringWarningMessage } from "@/lib/cabinet-wiring";
 import { DIN_MODULE_MM } from "@/lib/din-module";
 import { formatNumber, t } from "@/lib/i18n";
 import type { EditorDevice } from "@/lib/layout-editor-data";
@@ -62,6 +63,7 @@ import {
   type StepDirection,
 } from "@/lib/layout-editing";
 import { cn } from "@/lib/utils";
+import type { WiringData } from "@/lib/wiring-island";
 
 export interface LayoutEditorProps {
   geometry: CabinetGeometry;
@@ -74,10 +76,11 @@ export interface LayoutEditorProps {
   editedManually: boolean;
   /** Device and group names for the refusal messages. */
   names: LayoutIssueNames;
-  /** The saved layout's conductors and lengths, shown only while the draft equals it. */
-  wires: DrawnWire[];
-  cables: DrawnCable[];
-  lengths: WireLengthRow[];
+  /**
+   * The router's input for the saved layout. Its wires, overflow warning and lengths are routed here in
+   * the browser (S-11 Phase 5) and shown only while the draft equals the saved layout.
+   */
+  wiring: WiringData | null;
   slackPercent: number;
   /** The endpoint a manual save posts to (`projectPlacementsApiPath(id)`). */
   saveAction: string;
@@ -172,7 +175,7 @@ function drawnMembers(drawn: ReadonlyMap<string, DrawnDevice>, unit: EditUnit): 
  * `<form method="POST">` carries one hidden JSON field, which the endpoint judges again.
  *
  * Wires and lengths belong to the saved layout, so they are hidden while there are unsaved changes (and
- * while a unit is in the air) and come back, re-routed by the server, after the save.
+ * while a unit is in the air) and come back after the save, routed here in the browser from `wiring`.
  */
 export default function LayoutEditor({
   geometry,
@@ -181,9 +184,7 @@ export default function LayoutEditor({
   placements,
   editedManually,
   names,
-  wires,
-  cables,
-  lengths,
+  wiring,
   slackPercent,
   saveAction,
   reproposeAction,
@@ -284,6 +285,16 @@ export default function LayoutEditor({
   const drawn = useMemo(() => new Map(drawnList.map((device) => [device.id, device])), [drawnList]);
 
   const wiresHidden = dirty || moving !== null;
+
+  // The wires belong to the saved layout, so they are routed over its devices, not the draft's.
+  const savedDrawn = useMemo(
+    () => buildDrawnDevices(devices, saved.placements, geometry, groups),
+    [devices, saved, geometry, groups],
+  );
+  const savedWiring = useWiringDrawing(wiring, savedDrawn);
+  const wires = savedWiring?.wires ?? [];
+  const cables = savedWiring?.cables ?? [];
+  const lengths = savedWiring?.lengths ?? [];
 
   // ---- Announcements ------------------------------------------------------------------------------
 
@@ -790,6 +801,19 @@ export default function LayoutEditor({
         wires={wiresHidden ? [] : wires}
         cables={wiresHidden ? [] : cables}
       />
+
+      {!wiresHidden && wiring !== null && savedWiring === null && (
+        <p role="status" className="text-muted-foreground text-xs">
+          {t.layout.section.wiresLoading}
+        </p>
+      )}
+      {!wiresHidden &&
+        savedWiring?.warnings.map((warning) => (
+          <Alert key={warning.code} variant="warning" role="status">
+            <TriangleAlertIcon aria-hidden="true" />
+            <AlertDescription className="block">{wiringWarningMessage(warning)}</AlertDescription>
+          </Alert>
+        ))}
 
       {dirty ? (
         <div className="flex flex-col gap-3">

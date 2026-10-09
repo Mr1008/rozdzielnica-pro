@@ -1171,6 +1171,8 @@ export const pl = {
           "Zacisk szyny PE/N — kółko; zacisk zajęty przez przewód jest wypełniony jego kolorem (jeden przewód na zacisk)",
         cable: "Kabel w izolacji zewnętrznej — od wprowadzenia do miejsca, w którym rozchodzą się żyły",
       },
+      /** Where the wires go while the browser routes them (`WiringDrawing`). */
+      wiresLoading: "Wczytywanie przewodów…",
       lengthsTitle: "Długości przewodów",
       lengthsColumns: {
         crossSection: "Przekrój",

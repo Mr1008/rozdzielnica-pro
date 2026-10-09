@@ -1,6 +1,5 @@
 ---
-import { CabinetDrawing } from "@/components/cabinets/CabinetDrawing";
-import { LayoutLegend } from "@/components/projects/LayoutLegend";
+import WiringDrawing from "@/components/projects/WiringDrawing";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { CabinetGeometry } from "@/lib/cabinet-geometry";
 import { deviceKindLabel } from "@/lib/device-spec";
@@ -14,7 +13,9 @@ import { cn } from "@/lib/utils";
  * The printed quote (FR-012, S-09): two A4 sheets — the price breakdown, then the cabinet drawing with
  * its legends. It renders a ready `PrintView` and does no arithmetic of its own: every amount is a
  * `view.quote` total or a `view.lines` entry, both settled by `computePrintView`. Colours print because
- * the root sets `print-color-adjust: exact`; the page rules live in `global.css` (`.quote-page`).
+ * the root sets `print-color-adjust: exact`; the page rules live in `global.css` (`.quote-page`). The
+ * wires are routed in the browser by the `WiringDrawing` island (S-11 Phase 5), so the print page
+ * enables printing only after it fires `wiring-ready`.
  */
 interface Props {
   view: Extract<PrintView, { state: "ready" }>;
@@ -186,14 +187,13 @@ const strongClass = "font-semibold";
       <h2 class="text-xl font-bold">{p.drawingTitle}</h2>
       <p class="text-muted-foreground">{project.cabinet_name}</p>
     </header>
-    <CabinetDrawing
+    <WiringDrawing
       geometry={geometry}
       devices={drawing.devices}
-      wires={drawing.wires}
-      cables={drawing.cables}
-      className="mx-auto max-h-[190mm] w-full"
+      wiring={drawing.wiring}
+      drawingClassName="mx-auto max-h-[190mm] w-full"
+      client:load
     />
-    <LayoutLegend geometry={geometry} devices={drawing.devices} wires={drawing.wires} cables={drawing.cables} />
   </section>
 </div>
 

@@ -2,15 +2,16 @@
 import { CabinetDrawing } from "@/components/cabinets/CabinetDrawing";
 import LayoutEditor from "@/components/projects/LayoutEditor";
 import { LayoutLegend } from "@/components/projects/LayoutLegend";
-import { WireLengthsTable } from "@/components/projects/WireLengthsTable";
+import WiringDrawing from "@/components/projects/WiringDrawing";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import type { CabinetGeometry } from "@/lib/cabinet-geometry";
-import type { DrawnCable, DrawnDevice, DrawnWire } from "@/lib/cabinet-drawing";
+import type { DrawnDevice } from "@/lib/cabinet-drawing";
 import { layoutFailureMessage } from "@/lib/cabinet-layout";
-import { WIRE_SLACK_RATIO, type WireLengthRow } from "@/lib/cabinet-wiring";
+import { WIRE_SLACK_RATIO } from "@/lib/cabinet-wiring";
 import type { LayoutEditorData } from "@/lib/layout-editor-data";
 import type { LayoutView } from "@/lib/layout-server";
+import type { WiringData } from "@/lib/wiring-island";
 import { t } from "@/lib/i18n";
 import { projectLayoutApiPath, projectPlacementsApiPath } from "@/lib/project";
 import { CircleAlertIcon, InfoIcon, TriangleAlertIcon } from "lucide-react";
@@ -20,7 +21,9 @@ import { CircleAlertIcon, InfoIcon, TriangleAlertIcon } from "lucide-react";
  * state. Only a `placed` layout is drawn — a stored layout that fails validation is never shown, and
  * `does_not_fit` has nothing to draw. `view` is null while the match is not `current`, and the panel
  * then points back at the match result. A placed layout carries its wires (with sag) and, under the
- * drawing, the conductor lengths per cross-section with the installation slack included.
+ * drawing, the conductor lengths per cross-section with the installation slack included. The wires are
+ * routed in the browser (S-11 Phase 5): the server renders the devices, and the `WiringDrawing` island
+ * (or the editor) routes and draws the wires from `wiring`.
  *
  * With `editor` data a placed layout is the interactive editor island (FR-009, S-06); its fallback slot
  * is the static drawing, so the layout shows before the island hydrates.
@@ -29,12 +32,8 @@ interface Props {
   view: LayoutView | null;
   /** The placed devices, from `buildDrawnDevices`; used only when `view.state` is `placed`. */
   devices: readonly DrawnDevice[];
-  /** The placed layout's conductors, from `buildDrawnWires`; empty draws none. */
-  wires?: readonly DrawnWire[];
-  /** The cables' sheathed runs from the entries, from `buildDrawnCables`; empty draws none. */
-  cables?: readonly DrawnCable[];
-  /** The conductor lengths, from `wireLengthsBySection`; empty hides the table. */
-  lengths?: readonly WireLengthRow[];
+  /** The router's input for a placed layout, from `buildLayoutDrawing`; null draws no wires. */
+  wiring?: WiringData | null;
   geometry: CabinetGeometry | null;
   projectId: string;
   /** The in-page anchor of the match result's section, the link for a match that is not current. */
@@ -57,9 +56,7 @@ interface Props {
 const {
   view,
   devices,
-  wires = [],
-  cables = [],
-  lengths = [],
+  wiring = null,
   geometry,
   projectId,
   matchAnchor,
@@ -138,9 +135,7 @@ const slackPercent = Math.round(WIRE_SLACK_RATIO * 100);
             placements={editor.placements}
             editedManually={view.editedManually}
             names={editor.names}
-            wires={[...wires]}
-            cables={[...cables]}
-            lengths={[...lengths]}
+            wiring={wiring}
             slackPercent={slackPercent}
             saveAction={placementsAction}
             reproposeAction={layoutAction}
@@ -151,21 +146,26 @@ const slackPercent = Math.round(WIRE_SLACK_RATIO * 100);
           >
             <div slot="fallback" class="flex flex-col gap-3">
               <div class="mx-auto w-full max-w-3xl">
-                <CabinetDrawing geometry={geometry} devices={devices} wires={wires} cables={cables} />
+                <CabinetDrawing geometry={geometry} devices={devices} />
               </div>
-              <LayoutLegend geometry={geometry} devices={devices} wires={wires} cables={cables} />
-              {lengths.length > 0 && <WireLengthsTable lengths={lengths} slackPercent={slackPercent} />}
+              {wiring && (
+                <p role="status" class="text-xs text-muted-foreground">
+                  {s.wiresLoading}
+                </p>
+              )}
+              <LayoutLegend geometry={geometry} devices={devices} wires={[]} cables={[]} />
             </div>
           </LayoutEditor>
         </div>
       ) : (
-        <>
-          <div class="mx-auto w-full max-w-3xl">
-            <CabinetDrawing geometry={geometry} devices={devices} wires={wires} cables={cables} />
-          </div>
-          <LayoutLegend geometry={geometry} devices={devices} wires={wires} cables={cables} />
-          {lengths.length > 0 && <WireLengthsTable lengths={lengths} slackPercent={slackPercent} />}
-        </>
+        <WiringDrawing
+          geometry={geometry}
+          devices={[...devices]}
+          wiring={wiring}
+          slackPercent={slackPercent}
+          drawingWrapperClassName="mx-auto w-full max-w-3xl"
+          client:idle
+        />
       )}
     </div>
   )}
