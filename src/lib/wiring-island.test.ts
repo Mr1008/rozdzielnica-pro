@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { buildCableTies, buildDrawnCables, buildDrawnWires } from "@/lib/cabinet-drawing";
+import {
+  WIRE_BEND_MM,
+  buildCableTies,
+  buildDrawnCables,
+  buildDrawnWires,
+  sagLimits,
+  wirePathD,
+} from "@/lib/cabinet-drawing";
 import { wireLengthsBySection, wiringWarnings } from "@/lib/cabinet-wiring";
 import { computeMatchView } from "@/lib/device-matching-server";
 import { buildLayoutDrawing, computeLayoutView, computeWiring } from "@/lib/layout-server";
@@ -53,6 +60,38 @@ describe.each([
     const island = buildWiringDrawing(wiring, drawing.devices, "schematic");
     expect(island.wires).toEqual(buildDrawnWires(conductors, names, "schematic"));
     expect(island.ties).toEqual([]);
+  });
+
+  it("keeps the schematic variant as it was: every run sagging per sagLimits, every corner a 4 mm bend", () => {
+    const conductors = computeWiring(layoutView, matchView, built.context);
+    const limits = sagLimits(conductors, "schematic");
+    const byKey = new Map(conductors.map((conductor, index) => [conductor.key, { conductor, index }]));
+    for (const wire of buildDrawnWires(conductors, undefined, "schematic")) {
+      const found = byKey.get(wire.key);
+      if (found === undefined) throw new Error("unknown wire");
+      expect(wire.d).toBe(wirePathD(found.conductor.path, limits[found.index], WIRE_BEND_MM));
+    }
+  });
+
+  it("draws every realistic circuit and WLZ core taut — straight runs and bends — with sag left to the feeds", () => {
+    const conductors = computeWiring(layoutView, matchView, built.context);
+    const byKey = new Map(conductors.map((conductor) => [conductor.key, conductor]));
+    const wires = buildDrawnWires(conductors, undefined, "realistic");
+    expect(wires.some((wire) => wire.kind !== "feed")).toBe(true);
+    for (const wire of wires) {
+      if (wire.kind === "feed") continue;
+      const path = byKey.get(wire.key)?.path ?? [];
+      // Every quadratic curve is a bend whose control point is a corner of the route — never a sag.
+      const controls = [...wire.d.matchAll(/Q(-?[\d.]+) (-?[\d.]+) /g)].map((m) => ({
+        x: Number(m[1]),
+        y: Number(m[2]),
+      }));
+      for (const control of controls) {
+        expect(
+          path.some((corner) => Math.abs(corner.x - control.x) < 0.01 && Math.abs(corner.y - control.y) < 0.01),
+        ).toBe(true);
+      }
+    }
   });
 
   it("keeps prices and other snapshot columns off the wire", () => {

@@ -5,6 +5,7 @@ import {
   MIN_SAG_SPAN_MM,
   PEN_DASH,
   REALISTIC_WIRE_STYLES,
+  SHEATH_STUB_MM,
   TIE_BAND_MM,
   TIE_PITCH_MM,
   WIRE_BEND_MM,
@@ -35,6 +36,19 @@ import { WIRE_CLEARANCE_MM, type Conductor } from "./cabinet-wiring";
 import { WIRE_CROSS_SECTIONS_MM2, cableDiameterMm } from "./wire-dimensions";
 
 const INTERIOR = { widthMm: 400, heightMm: 300, depthMm: 100 };
+
+/**
+ * The control points of a drawn path's quadratic curves that are no corner of its route — its sags. A
+ * bend's control point is the corner it rounds (`wirePathD`); a sag's lies below the run's middle.
+ */
+function sagControls(d: string, path: readonly { x: number; y: number }[]): { x: number; y: number }[] {
+  return [...d.matchAll(/Q(-?[\d.]+) (-?[\d.]+) /g)]
+    .map((match) => ({ x: Number(match[1]), y: Number(match[2]) }))
+    .filter(
+      (control) =>
+        !path.some((corner) => Math.abs(corner.x - control.x) < 0.01 && Math.abs(corner.y - control.y) < 0.01),
+    );
+}
 
 /** The bug report's repro: rail 3 ends at 350 + 35 = 385 mm, below the 300 mm interior. */
 const REPRO: CabinetGeometry = {
@@ -477,9 +491,11 @@ describe("buildCableTies", () => {
       buildCableTies([spilled(core("a", 190, 130)), spilled(core("b", 191, 140)), spilled(core("c", 192, 150))]),
     ).toEqual([]);
     // Three 200 mm row runs on neighbouring tracks: tied, so the realistic drawing keeps them taut (no
-    // sag control point at the run's middle, x 100); the schematic one still sags the lowest.
+    // sag control point at the run's middle, x 100); the schematic one still sags the lowest. Feeds —
+    // the one kind the realistic drawing lets hang — so it is the tie that holds them.
     const rows = [0, 1, 2].map((i) => ({
       ...core(String(i), 0, 0),
+      kind: "feed" as const,
       path: [
         { x: 0, y: 0 },
         { x: 0, y: 20 + i * step },
@@ -488,7 +504,18 @@ describe("buildCableTies", () => {
       ],
     }));
     expect(buildCableTies(rows)).toHaveLength(3);
-    for (const wire of buildDrawnWires(rows, undefined, "realistic")) expect(wire.d).not.toMatch(/Q100 /);
+    for (const wire of buildDrawnWires(rows, undefined, "realistic")) {
+      const row = rows.find((candidate) => candidate.key === wire.key);
+      expect(sagControls(wire.d, row?.path ?? [])).toEqual([]);
+    }
+    // Untied (too few to tie), the lowest of them hangs: the tie is what holds the three taut.
+    const pair = rows.slice(1);
+    expect(buildCableTies(pair)).toEqual([]);
+    expect(
+      buildDrawnWires(pair, undefined, "realistic").some(
+        (wire) => sagControls(wire.d, pair.find((row) => row.key === wire.key)?.path ?? []).length > 0,
+      ),
+    ).toBe(true);
     expect(buildDrawnWires(rows, undefined, "schematic").some((wire) => wire.d.includes("Q100 "))).toBe(true);
   });
 });
@@ -656,9 +683,40 @@ describe("sag of parallel runs", () => {
   });
 
   it("keeps a realistic run taut where the router tied it into a bundle", () => {
-    const tied = { ...run("a", 10), tied: [{ segment: 1, bundle: 0, layer: "bundle" as const }] };
-    expect(buildDrawnWires([tied], undefined, "realistic")[0].d).not.toMatch(/Q50 /);
+    // A feed: the one kind the realistic drawing lets sag at all, so only the tie keeps it taut.
+    const tied = {
+      ...run("a", 10),
+      kind: "feed" as const,
+      tied: [{ segment: 1, bundle: 0, layer: "bundle" as const }],
+    };
+    expect(sagControls(buildDrawnWires([{ ...tied, tied: [] }], undefined, "realistic")[0].d, tied.path)).toHaveLength(
+      1,
+    );
+    expect(sagControls(buildDrawnWires([tied], undefined, "realistic")[0].d, tied.path)).toEqual([]);
     expect(buildDrawnWires([tied], undefined, "schematic")[0].d).toMatch(/Q50 /);
+  });
+
+  it("draws realistic circuit and WLZ cores taut — straight runs and bends only — and lets only feeds hang", () => {
+    // The same lone 100 mm run, nothing beneath it: the schematic drawing sags it whatever its kind.
+    for (const kind of ["circuit", "wlz"] as const) {
+      const core = { ...run("a", 10), kind };
+      const realistic = buildDrawnWires([core], undefined, "realistic")[0].d;
+      expect(realistic).toMatch(/Q/);
+      expect(sagControls(realistic, core.path)).toEqual([]);
+      expect(buildDrawnWires([core], undefined, "schematic")[0].d).toMatch(/Q50 /);
+    }
+    const feed = { ...run("f", 10), kind: "feed" as const };
+    const [hanging] = buildDrawnWires([feed], undefined, "realistic");
+    // Hung below the run, as deep as its span allows (the cap).
+    expect(sagControls(hanging.d, feed.path).map((point) => point.y)).toEqual([10 + 2 * MAX_SAG_MM]);
+    // A feed sags only within the gap to the run below it, the insulation bodies apart.
+    const [upper] = buildDrawnWires(
+      [feed, { ...run("b", 10 + spacing), kind: "feed" as const }],
+      undefined,
+      "realistic",
+    );
+    const [control] = sagControls(upper.d, feed.path);
+    expect((control.y - 10) / 2).toBeCloseTo(WIRE_CLEARANCE_MM / 2, 2);
   });
 
   it("leaves a run with no neighbour below unlimited", () => {
@@ -881,7 +939,7 @@ describe("bar terminals and cables in the drawn wires", () => {
     expect(wireTitle(base, names)).toBe("Obwód „Gniazda kuchnia” — PE, 2,5 mm², 0,13 m — szyna PE, zacisk 3");
   });
 
-  it("draws one sheath per cable from its entry point to where the last core but one turns off", () => {
+  it("draws one sheath per cable from its entry point, cut back before its first core turns off", () => {
     const cores: Conductor[] = [
       { ...base, key: "a", role: "L" },
       {
@@ -915,16 +973,16 @@ describe("bar terminals and cables in the drawn wires", () => {
     ];
     const cables = buildDrawnCables(cores);
     expect(cables.map((cable) => cable.key)).toEqual(["c:c1", "c:c2"]);
-    // c1's two cores leave the entry at (50, 0) and turn off 14 and 20 mm down: past 14 mm only one
-    // core is left on the line, so the sheath ends there. c2 has a single core: the sheath stops one
-    // bend (4 mm) before it turns off.
-    expect(cables[0].d).toBe("M50 0 L50 14");
-    expect(cables[1].d).toBe("M80 0 L80 26");
+    // c1's two cores leave the entry at (50, 0) and turn off 14 and 20 mm down: the sheath stops one bend
+    // (4 mm) before the first turn-off. c2's single core turns off 30 mm down: the sheath stops at
+    // SHEATH_STUB_MM, short of the bend.
+    expect(cables[0].d).toBe("M50 0 L50 10");
+    expect(cables[1].d).toBe(`M80 0 L80 ${String(SHEATH_STUB_MM)}`);
     // The sheath at true scale: c1 is a two-core 2.5 mm² cable; c2's single core counts as two.
     expect(cables.map((cable) => cable.diameterMm)).toEqual([cableDiameterMm(2, 2.5), cableDiameterMm(2, 2.5)]);
   });
 
-  it("ends the sheath at the last turn-off, whichever order the cores turn off in, and lets the last core run on", () => {
+  it("ends the sheath SHEATH_STUB_MM past the entry, however far the cores run on together", () => {
     const core = (key: string, depth: number, x: number): Conductor => ({
       ...base,
       key,
@@ -934,8 +992,23 @@ describe("bar terminals and cables in the drawn wires", () => {
         { x, y: depth },
       ],
     });
-    // Three cores: two turn off at 12 and 18 mm, the third carries straight on to 300 mm.
-    const cables = buildDrawnCables([core("a", 300, 70), core("b", 12, 30), core("c", 18, 20)]);
-    expect(cables.map((cable) => cable.d)).toEqual(["M50 0 L50 18"]);
+    // Three cores turning off at 300, 40 and 60 mm: the sheath is stripped 25 mm in, the cores run bare.
+    expect(SHEATH_STUB_MM).toBe(25);
+    const cables = buildDrawnCables([core("a", 300, 70), core("b", 40, 30), core("c", 60, 20)]);
+    expect(cables.map((cable) => cable.d)).toEqual(["M50 0 L50 25"]);
+    // A side entry's stub runs across: the sheath follows it, just as short.
+    const fromLeft = buildDrawnCables([
+      {
+        ...base,
+        path: [
+          { x: 0, y: 100 },
+          { x: 80, y: 100 },
+          { x: 80, y: 200 },
+        ],
+      },
+    ]);
+    expect(fromLeft.map((cable) => cable.d)).toEqual(["M0 100 L25 100"]);
+    // A stub too short for a bend's clearance still gets half of it.
+    expect(buildDrawnCables([core("a", 6, 70)]).map((cable) => cable.d)).toEqual(["M50 0 L50 3"]);
   });
 });

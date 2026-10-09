@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildDrawnCables } from "./cabinet-drawing";
+import { buildDrawnCables, SHEATH_STUB_MM, WIRE_BEND_MM } from "./cabinet-drawing";
 import {
   deviceRect,
   deviceTerminals,
@@ -511,11 +511,6 @@ function tiedBundle(c: Conductor, segment: number): number | null {
   return c.tied.find((tie) => tie.segment === segment)?.bundle ?? null;
 }
 
-/** The lane run a packed core takes to its pack from a top or bottom entry, still in its cable's sheath. */
-function sheathSegment(c: Conductor): number | null {
-  return c.from.type === "entry" && c.packSegment !== null && c.packSegment >= 2 ? c.packSegment - 1 : null;
-}
-
 /**
  * The user's requirement: every trace visible — no two conductors on one track, and at true scale no
  * two conductor bodies overlapping. Two parallel segments of different conductors that overlap along
@@ -524,9 +519,10 @@ function sheathSegment(c: Conductor): number | null {
  * scale) or `stubOverlaps` (a fixed end stub the geometry puts there). The exceptions by design: end
  * segments touching the same terminal or bar endpoint (conductors sharing it share its stub); the cores
  * of one cable on their cable's stub line — each core's first segment, from the entry point to where it
- * turns off — and on their cable's sheathed lane run to its pack (plan Phase 4); and two segments of one
- * tied round bundle (`Conductor.tied`, user decision 2026-10-09), whose cores overlap in the front view.
- * A core that has turned off and runs alongside its own cable's stub is a clash like any other.
+ * turns off; and two segments of one tied round bundle (`Conductor.tied`, user decision 2026-10-09),
+ * whose cores overlap in the front view. Past its stub a cable's cores run bare, each on its own track
+ * (the electrician, 2026-10-09) — to a pack as well: a core that has turned off and runs alongside its
+ * own cable's stub, or alongside a sibling core, is a clash like any other.
  */
 function trackClashes(conductors: readonly Conductor[]): string[] {
   const segments = conductors.flatMap((c, conductor) =>
@@ -546,8 +542,6 @@ function trackClashes(conductors: readonly Conductor[]): string[] {
         /** The segment runs on its cable's stub line: a cable core's first segment. */
         onStub: i === 0 && c.from.type === "entry",
         bundle: tiedBundle(c, i),
-        /** The cable and pack of a sheathed lane run, else null. */
-        sheath: sheathSegment(c) === i ? `${String(c.path[0].x)}:${String(c.path[0].y)}:${String(c.packSide)}` : null,
       };
     }),
   );
@@ -562,7 +556,6 @@ function trackClashes(conductors: readonly Conductor[]): string[] {
       // A shared entry point means one cable; only its stub runs may coincide.
       if (sameEnd && s.onStub === t.onStub) continue;
       if (s.bundle !== null && s.bundle === t.bundle) continue;
-      if (s.sheath !== null && s.sheath === t.sheath) continue;
       clashes.push(`${conductors[s.conductor].key}/${conductors[t.conductor].key} at ${String(s.at)}`);
     }
   }
@@ -659,14 +652,14 @@ describe.each([
  * WIRE_CLEARANCE_MM`, and how many 1.5 mm² / 16 mm² pairs lie within a millimetre of that spacing.
  * Movable segments only (a route's first and last pass through their endpoints and never move), and
  * none the router recorded (squeezed, or overlapping a fixed stub). A run tied into a round bundle (a
- * pack, a crowded lane or channel) gives up true-scale spacing by design, as does a cable's sheathed
- * lane run; `trackClashes` and the bundle tests check those instead.
+ * pack, a crowded lane or channel) gives up true-scale spacing by design; `trackClashes` and the bundle
+ * tests check those instead.
  */
 function spacingCheck(conductors: readonly Conductor[]): { tooClose: string[]; mixedNeighbours: number } {
   const runs = conductors.flatMap((c) =>
     c.path.slice(1).flatMap((b, i) => {
       if (i === 0 || i === c.path.length - 2 || c.squeezed.includes(i) || c.stubOverlaps.includes(i)) return [];
-      if (tiedBundle(c, i) !== null || sheathSegment(c) === i) return [];
+      if (tiedBundle(c, i) !== null) return [];
       const a = c.path[i];
       const vertical = a.x === b.x;
       return [
@@ -697,10 +690,13 @@ function spacingCheck(conductors: readonly Conductor[]): { tooClose: string[]; m
 }
 
 describe("routeConductors — a 1.5 mm² core beside a 16 mm² one", () => {
-  // A lone 1.5 mm² circuit on seed (a) with a 16 mm² WLZ: its runs meet the WLZ-section feeds in the
-  // free channel, untied. (The fuller fixtures put their circuit cores into side packs and tied
-  // channel bundles, where true-scale spacing gives way by design.)
-  const conductors = routeConductors(wiringInput(SEED_A, [MAIN, MCB_4], [circuit(4, null, 1, 1.5)]));
+  // A lone 1.5 mm² circuit on seed (a) with a 16 mm² single-phase WLZ (a 2P main switch): its runs meet
+  // the WLZ's own bare cores in the free channel above the rail, untied. (A four-core WLZ there, or the
+  // fuller fixtures, fill the channel past true scale and tie their runs into bundles by design — since
+  // every core runs bare past its sheath stub, not inside one sheathed lane run.)
+  const conductors = routeConductors(
+    wiringInput(SEED_A, [device(0, "main_switch", "2P", 35, { nSide: "right" }), MCB_4], [circuit(4, null, 1, 1.5)]),
+  );
 
   it("spaces them by both radii plus the clearance", () => {
     const { tooClose, mixedNeighbours } = spacingCheck(conductors);
@@ -894,14 +890,13 @@ function wlzBesideTerminal(): WiringInput {
 }
 
 /**
- * The oracle for where a cable splits into its cores. A cable whose cores all run in one side pack
- * keeps its sheath until it reaches the pack and splits there (plan Phase 4): the sheath follows the
- * cores' shared route to the first point where one of them enters the pack. Any other cable splits
- * progressively (the electrician, 2026-10-07): its cores leave its stub line one at a time, like
- * stripping a cable, and the sheath runs from the entry point to the last turn-off — the point past which
- * at most one core is left on the line. Either way, a core that has turned off never runs so close to its
- * own cable's stub that their bodies overlap (one core diameter, the cores of a cable sharing a
- * cross-section), unless the router recorded that run (squeezed, or overlapping a fixed stub).
+ * The oracle for where a cable splits into its cores (the electrician, 2026-10-09): the outer sheath is
+ * stripped just inside the cabinet — it ends on the cable's stub line, `SHEATH_STUB_MM` past the entry
+ * point at most and before any core bends off — and from there only the bare cores run, each on its own
+ * track, to a pack as well. The cores leave the stub line one at a time, like stripping a cable (the
+ * electrician, 2026-10-07), and a core that has turned off never runs so close to its own cable's stub
+ * that their bodies overlap (one core diameter, the cores of a cable sharing a cross-section), unless
+ * the router recorded that run (squeezed, or overlapping a fixed stub).
  */
 describe.each([
   ["seed (a), one RCD group", wiringInput(SEED_A, [MAIN, RCD, MCB_1, MCB_2], CIRCUITS.slice(0, 2))],
@@ -947,37 +942,78 @@ describe.each([
       .filter((route) => route.length > 0)
       .sort((a, b) => a.length - b.length)[0].points;
 
-  it("ends a packed cable's sheath where it reaches its pack, any other one at its last turn-off", () => {
+  it("ends every cable's sheath on its stub line, at most SHEATH_STUB_MM past the entry point, before any core bends off", () => {
     expect(multiCore.length).toBeGreaterThan(0);
-    for (const [cable, cores] of multiCore) {
+    for (const [cable, cores] of cables) {
       const numbers = (sheaths.get(sheathKey(cable)) ?? "").match(/-?[\d.]+/g)?.map(Number) ?? [];
-      if (packed(cores)) {
-        const expected = toPack(cores).flatMap((p) => [p.x, p.y]);
-        expect(numbers).toHaveLength(expected.length);
-        expected.forEach((value, i) => {
-          expect(numbers[i]).toBeCloseTo(value, 1);
-        });
-        continue;
-      }
-      const byDepth = [...cores].sort((a, b) => depth(b) - depth(a));
-      const last = byDepth[1].path[1];
+      const entry = cores[0].path[0];
+      const shortest = Math.min(...cores.map(depth));
       expect(numbers).toHaveLength(4);
-      expect(numbers[0]).toBeCloseTo(cores[0].path[0].x, 1);
-      expect(numbers[1]).toBeCloseTo(cores[0].path[0].y, 1);
-      expect(numbers[2]).toBeCloseTo(last.x, 1);
-      expect(numbers[3]).toBeCloseTo(last.y, 1);
+      expect(numbers[0]).toBeCloseTo(entry.x, 1);
+      expect(numbers[1]).toBeCloseTo(entry.y, 1);
+      const end = { x: numbers[2], y: numbers[3] };
+      const length = Math.abs(end.x - entry.x) + Math.abs(end.y - entry.y);
+      // On the stub line, which every core shares: straight in from the entry point.
+      expect(Math.min(Math.abs(end.x - entry.x), Math.abs(end.y - entry.y))).toBeLessThan(0.01);
+      expect(length).toBeGreaterThan(0);
+      expect(length).toBeLessThanOrEqual(SHEATH_STUB_MM + 0.01);
+      // Never as far as the first core's turn-off, and one bend short of it where the stub allows.
+      expect(length).toBeLessThan(shortest);
+      expect(length).toBeCloseTo(Math.min(SHEATH_STUB_MM, Math.max(shortest - WIRE_BEND_MM, shortest / 2)), 1);
     }
+  });
+
+  it("runs the cores of one cable on tracks of their own past the stub, at true scale unless one bundle ties them", () => {
+    const shared: string[] = [];
+    for (const [cable, cores] of multiCore) {
+      for (const [n, s] of cores.entries()) {
+        for (const t of cores.slice(n + 1)) {
+          for (let i = 1; i + 1 < s.path.length; i++) {
+            for (let j = 1; j + 1 < t.path.length; j++) {
+              const [a, b] = [s.path[i], s.path[i + 1]];
+              const [c, d] = [t.path[j], t.path[j + 1]];
+              const vertical = a.x === b.x && a.y !== b.y;
+              if (vertical !== (c.x === d.x && c.y !== d.y)) continue;
+              const [sAt, tAt] = vertical ? [a.x, c.x] : [a.y, c.y];
+              const [sLow, sHigh] = vertical
+                ? [Math.min(a.y, b.y), Math.max(a.y, b.y)]
+                : [Math.min(a.x, b.x), Math.max(a.x, b.x)];
+              const [tLow, tHigh] = vertical
+                ? [Math.min(c.y, d.y), Math.max(c.y, d.y)]
+                : [Math.min(c.x, d.x), Math.max(c.x, d.x)];
+              if (Math.min(sHigh, tHigh) - Math.max(sLow, tLow) <= 1e-6) continue;
+              // One track is never shared, tied or not.
+              if (Math.abs(sAt - tAt) < 1e-6) {
+                shared.push(`${cable}: ${s.key}/${t.key} on one track at ${String(sAt)}`);
+                continue;
+              }
+              const tiedTogether = tiedBundle(s, i) !== null && tiedBundle(s, i) === tiedBundle(t, j);
+              const recorded =
+                s.squeezed.includes(i) ||
+                s.stubOverlaps.includes(i) ||
+                t.squeezed.includes(j) ||
+                t.stubOverlaps.includes(j);
+              if (tiedTogether || recorded) continue;
+              if (Math.abs(sAt - tAt) < (s.diameterMm + t.diameterMm) / 2 - 1e-6) {
+                shared.push(`${cable}: ${s.key}/${t.key} overlap at ${String(sAt)}`);
+              }
+            }
+          }
+        }
+      }
+    }
+    expect(shared).toEqual([]);
   });
 
   it("never runs two conductors along the same track", () => {
     expect(trackClashes(conductors)).toEqual([]);
   });
 
-  it("splits each cable in its pack, or else in the free margin by its entry, before the first device or bar", () => {
-    // A packed cable splits where it reaches its pack: inside the pack's room (strip plus the band
-    // behind the rail ends). Any other cable's cores turn off onto their lanes, which lie between the
-    // entry's cabinet edge and the nearest device or bar facing it; a sheath reaching past that would
-    // mean several cores ran on together.
+  it("turns each cable's cores off in its pack, or else in the free margin by its entry, before the first device or bar", () => {
+    // A packed cable's first core reaches its pack inside the pack's room (strip plus the band behind
+    // the rail ends). Any other cable's cores turn off onto their lanes, which lie between the entry's
+    // cabinet edge and the nearest device or bar facing it; a later turn-off would mean several cores
+    // ran on together along the stub.
     const rects = [
       ...input.placements.map((p) => rectOfDevice(input, p.projectDeviceId)),
       ...input.geometry.bars.map(barRect),
