@@ -1,48 +1,97 @@
 # Wiring bench
 
-A throwaway Worker, `rozdzielnica-pro-wiring-bench`, that runs the project page's full render path on
-a fixed fixture and returns a one-line text body. It exists to measure the CPU the render path costs
-on Cloudflare, before and after the realistic-wiring change (`context/changes/realistic-wiring-render`).
+A standalone benchmark Worker, **`rozdzielnica-pro-wiring-bench`**, that measures how much Cloudflare
+CPU time the cabinet wiring render costs.
 
-The render path is `computeMatchView` → `computeLayoutView` → `computeWiring` → `buildDrawnWires` /
-`buildDrawnCables` → `wireLengthsBySection` → React `renderToString(<CabinetDrawing …/>)`. The
-fixtures are the ones `src/lib/layout-server.test.ts` uses (`src/lib/wiring-bench-fixtures.ts`):
+Wiring is routed and drawn in the browser because the router exceeded the Worker CPU budget (see
+`AGENTS.md`, "Wiring (S-11) is display-only"). Any proposal to move it back to the server has to be
+decided with numbers from this bench on Cloudflare — never from local timings.
 
-- `?fixture=worst` — 60 circuits, 20 RCD groups, seed cabinet (c)
-- `?fixture=realistic` — 12 circuits, 4 RCD groups, seed cabinet (b)
+> **Never deploy this under the name `rozdzielnica-pro`** — that is the production Worker. Always pass
+> `-c scripts/wiring-bench/wrangler.jsonc`; never deploy with the root `wrangler.jsonc`.
 
-The Worker has no bindings and no secrets. It does not time itself: inside a Worker `performance.now()`
-only advances on I/O, so the figure is Cloudflare's per-invocation CPU time.
+## What it measures
 
-**Never deploy it under the name `rozdzielnica-pro`** — that is the production Worker. Deploy only with
-the explicit config path below, never with the root `wrangler.jsonc`.
+Each request runs the full server-side render path on a fixed fixture, using the real modules:
 
-## Check without deploying
+`computeMatchView` → `computeLayoutView` → `routeWiring` → `buildDrawnWires` / `buildDrawnCables` /
+`buildCableTies` / `buildDrawnBusbars` → `wireLengthsBySection` → `renderToString(<CabinetDrawing/>)`
+
+The response is a single line of sizes (conductors, wires, SVG bytes…), so the work cannot be optimised
+away. The Worker does not time itself — inside a Worker `performance.now()` only advances on I/O — so
+the figure is Cloudflare's per-invocation `cpuTime`.
+
+Fixtures come from `src/lib/wiring-bench-fixtures.ts` (shared with `src/lib/layout-server.test.ts`):
+
+| Query                | Project                                                 |
+| -------------------- | ------------------------------------------------------- |
+| `?fixture=worst`     | 60 circuits, 20 RCD groups, seed cabinet (c)            |
+| `?fixture=realistic` | 12 circuits, 4 RCD groups, seed cabinet (b)             |
+| `?fixture=busbar`    | The realistic project with a comb busbar in every group |
+
+The Worker has no bindings and no secrets; observability is enabled.
+
+## Files
+
+| File             | Purpose                                                              |
+| ---------------- | -------------------------------------------------------------------- |
+| `worker.ts`      | The Worker: one fixture per request                                  |
+| `wrangler.jsonc` | Its own config, name `rozdzielnica-pro-wiring-bench`                 |
+| `measure.mjs`    | Dependency-free helper: `send` requests, compute `stats` from a tail |
+
+## Check the build without deploying
 
 ```bash
 npx wrangler deploy -c scripts/wiring-bench/wrangler.jsonc --dry-run
 ```
 
-## Measurement procedure
+## Measuring
 
-1. Deploy the bench (after confirming with the owner of the Cloudflare account):
-   `npx wrangler deploy -c scripts/wiring-bench/wrangler.jsonc`. Note the `workers.dev` URL it prints.
-2. Start the tail and keep its output:
-   `npx wrangler tail rozdzielnica-pro-wiring-bench --format json > tail.jsonl`.
-3. Send 5 warm-up requests, then 30 requests per fixture:
-   `node scripts/wiring-bench/measure.mjs send https://rozdzielnica-pro-wiring-bench.<account>.workers.dev`.
-   It paces the requests 1 s apart: a burst makes the tail drop events (70 back-to-back requests gave
-   11 events on 2026-10-08). A freshly deployed `workers.dev` URL can answer with an error page for the
-   first few seconds — wait until a single `curl` returns the one-line body before starting.
-4. Stop the tail and take the median and max CPU per fixture from the per-invocation CPU field:
-   `node scripts/wiring-bench/measure.mjs stats tail.jsonl` (it skips the first 5 events per fixture).
-   The tail prints pretty-printed, multi-line JSON; the CPU field is `cpuTime` (ms, integer).
-5. Record the median and max for `worst` and `realistic`, with the date and `npx wrangler --version`,
-   in `change.md` under `## Measurements`.
+Deploying creates a Worker on the Cloudflare account — confirm with the account owner first.
 
-If the tail output has no CPU field, read the invocations' CPU time from a Workers Logs query instead
-(observability is enabled on the Worker). If that is unavailable too, stop and ask for the Cloudflare
-MCP server.
+1. Deploy and note the `workers.dev` URL:
 
-Run the same procedure after the rendering change (Phase 5) so the two sets of numbers compare
-like for like. Delete the Worker afterwards: `npx wrangler delete -c scripts/wiring-bench/wrangler.jsonc`.
+   ```bash
+   npx wrangler deploy -c scripts/wiring-bench/wrangler.jsonc
+   ```
+
+   A fresh URL can answer with an error page for a few seconds; wait until a single `curl` returns the
+   one-line body.
+
+2. Keep a tail running and save its output:
+
+   ```bash
+   npx wrangler tail rozdzielnica-pro-wiring-bench --format json > tail.jsonl
+   ```
+
+3. Send 5 warm-up and 30 measured requests per fixture, paced 1 s apart (a burst makes the tail drop
+   events):
+
+   ```bash
+   node scripts/wiring-bench/measure.mjs send https://rozdzielnica-pro-wiring-bench.<account>.workers.dev
+   ```
+
+   `send` covers `worst` and `realistic`. To measure `busbar`, add it to `FIXTURES` in `measure.mjs`.
+
+4. Stop the tail and compute median and max CPU per fixture (warm-ups are skipped):
+
+   ```bash
+   node scripts/wiring-bench/measure.mjs stats tail.jsonl
+   ```
+
+   If the tail has no CPU field, read `cpuTime` from a Workers Logs query instead.
+
+5. Record median and max per fixture with the date and `npx wrangler --version` in the change's
+   `change.md` under `## Measurements`. Measure before and after the change you are evaluating, with the
+   same procedure, so the numbers compare like for like.
+
+6. Delete the Worker:
+
+   ```bash
+   npx wrangler delete -c scripts/wiring-bench/wrangler.jsonc
+   ```
+
+## Previous results
+
+The baseline and the realistic-wiring router were measured on 2026-10-08/09; the tables are in
+`context/archive/2026-10-08-realistic-wiring-render/change.md` under `## Measurements`.
