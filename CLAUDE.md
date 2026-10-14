@@ -8,7 +8,7 @@ domain rules. Read it first; this file only adds what is specific to Claude Code
 ## 10xDevs toolkit
 
 This repo is also a 10xDevs AI Toolkit workspace. The full lesson text — chain diagram, task router,
-the inclusion test, the five-pattern calibration drill — is preserved at @docs/10x-toolkit.md.
+the inclusion test, the five-pattern calibration drill — is preserved at `docs/10x-toolkit.md` — open it only when working on the toolkit itself.
 
 Skill chain:
 
@@ -33,9 +33,14 @@ starts with `context/archive/`, stop and say: "This change is archived. Open a n
 
 Before adding a rule here or to `AGENTS.md`, apply the inclusion test: _could an agent that already
 knows TypeScript, Astro and Supabase figure this out without being told?_ If yes, drop it. Keep
-project-specific conventions, traps and workarounds; reference canonical files with `@`-paths rather
-than pasting their contents. Most important rules go at the top — attention is weakest in the middle
-of a long file. Per-area rules belong in a nested `AGENTS.md` next to the code they govern.
+project-specific conventions, traps and workarounds; reference canonical files by a plain backtick
+path rather than pasting their contents — never an `@`-path: in Claude Code `@path` _imports_ the whole
+file into every session (that is how `AGENTS.md` once loaded ~350 KB of source). Most important rules go at the top — attention is weakest in the middle
+of a long file. A per-area rule goes in its file in `context/foundation/agent-rules/` (tool-agnostic,
+the only copy); a new area also needs a `.claude/rules/<area>.md` shim (`paths:` globs plus
+`@../../context/foundation/agent-rules/<area>.md`) and an entry with the same patterns in the
+`AGENTS.md` "Area tripwires" index. Never write a rule into a shim, and keep the shim's `paths:` and
+the index patterns identical.
 <!-- BEGIN @przeprogramowani/10x-cli -->
 
 ## 10xDevs AI Toolkit - Module 3, Lesson 4 (E2E Tests)
