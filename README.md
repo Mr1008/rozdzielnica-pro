@@ -1,303 +1,259 @@
-# 10x Astro Starter
+# RozdzielnicaPro
 
 ![RozdzielnicaPro](./public/og-image.png)
 
-A modern, opinionated starter template for building fast, accessible web applications.
+Switchboard (_rozdzielnica_) planning and labour quoting for a solo electrician working on simple
+installations in single-family homes and flats.
 
-## Tech Stack
+The electrician enters the supply and the circuits; the app picks the cheapest catalog devices that
+satisfy every circuit, lays them out on the DIN rails of a real cabinet, draws the wiring, and prints a
+quote with material, labour and the cabinet drawing. It is deliberately narrow — a planning assistant
+with a few explicit rules, not an electrical CAD tool or an optimiser.
 
-- [Astro](https://astro.build/) v7 - Modern web framework with server-first rendering
-- [React](https://react.dev/) v19 - UI library for interactive components
-- [TypeScript](https://www.typescriptlang.org/) v6 - Type-safe JavaScript
-- [Tailwind CSS](https://tailwindcss.com/) v4 - Utility-first CSS framework
-- [Supabase](https://supabase.com/) - Authentication, Postgres and row-level security
-- [Cloudflare Workers](https://workers.cloudflare.com/) - Edge deployment runtime
-- [Vitest](https://vitest.dev/) - Unit and integration test runner
+## What it does
 
-## Prerequisites
+| Step                 | What happens                                                                                                                                                                                                                 |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Catalogs** (admin) | The admin maintains the device catalog (FR switch-disconnectors, RCD, RCBO, type-B MCB, 1F/3F comb busbars, PE/N bars) and the cabinet catalog (interior, DIN rails, cable entries, built-in PE/N bars).                     |
+| **Project**          | The electrician creates a project, picks a cabinet (the project keeps a snapshot of it) and enters the OSD supply and the WLZ. Simplified, informational checks flag ampacity, PEN size and voltage drop.                    |
+| **Circuits**         | Circuits are grouped under RCDs with a drag-and-drop editor. Each group's RCD is sized from the summed circuit currents plus a margin; a single-circuit group gets one RCBO.                                                 |
+| **Device matching**  | Only devices that satisfy the circuit are considered, then the cheapest wins. If nothing in the catalog fits, the electrician sees a "catalog gap — contact the admin" error, never a weaker device.                         |
+| **Layout**           | A greedy heuristic places the devices on the rails: (1) a group stays together next to its RCD, (2) near the side its cables enter, (3) close to the N and PE bars. The electrician can then drag devices and groups around. |
+| **Wiring**           | Conductors are routed in the browser and drawn either realistically (true-scale cores, ferrules, cable ties, comb busbars) or schematically, with a wire-length bill per cross-section.                                      |
+| **Quote**            | Material from catalog prices; labour = devices × mount time + project overhead, × hourly rate — all from the electrician's profile. The time estimate can be overridden.                                                     |
+| **Printout**         | An A4 quote with the company letterhead, itemised material, labour, total and the cabinet drawing — printed or saved as PDF from the browser.                                                                                |
 
-- Node.js v24.21.0 (as specified in `.nvmrc`)
-- npm (comes with Node.js)
+Two roles: **admin** (catalogs only, never sees projects) and **elektryk** (sees only their own projects).
+Isolation is enforced by Postgres row-level security, not by application code.
 
-## Getting Started
+## Tech stack
 
-1. Clone the repository:
+- [Astro](https://astro.build/) 7, SSR (`output: "server"`), with [React](https://react.dev/) 19 islands
+- [TypeScript](https://www.typescriptlang.org/) 6, [Tailwind CSS](https://tailwindcss.com/) 4, shadcn/ui
+- [Supabase](https://supabase.com/) — Postgres, auth, row-level security
+- [Cloudflare Workers](https://workers.cloudflare.com/) via `@astrojs/cloudflare`
+- [Vitest](https://vitest.dev/) (unit, property-based and RLS integration tests), ESLint + Prettier, husky
+
+## Getting started
+
+Prerequisites: Node.js **24.21.0** (`.nvmrc`) and Docker with ~7 GB of RAM for the local Supabase stack.
 
 ```bash
-git clone https://github.com/przeprogramowani/10x-astro-starter.git
-cd 10x-astro-starter
+git clone git@github.com:Mr1008/rozdzielnica-pro.git
+cd rozdzielnica-pro
+npm ci
+npx supabase start
 ```
 
-2. Install dependencies:
+`supabase start` applies `supabase/migrations/` and `supabase/seed.sql`. Copy the API URL and anon key
+it prints (or `npx supabase status -o env`) into **both** `.env` (Node tooling, tests) and `.dev.vars`
+(the Cloudflare runtime used by `npm run dev`):
 
-```bash
-npm install
 ```
-
-3. Set up Supabase and configure environment variables — see [Supabase Configuration](#supabase-configuration) below.
-
-4. Create a `.dev.vars` file for local Cloudflare dev secrets:
-
-```bash
-cp .env.example .dev.vars
+SUPABASE_URL=http://127.0.0.1:55321
+SUPABASE_KEY=<anon key>
 ```
-
-5. Run the development server:
 
 ```bash
 npm run dev
 ```
 
-## Available Scripts
+The app runs at http://localhost:4321. Sign up to get an `elektryk` account, or sign in as the seeded admin.
 
-- `npm run dev` - Start development server (Cloudflare workerd runtime)
-- `npm run build` - Build for production
-- `npm run preview` - Preview production build
-- `npm run lint` - Run ESLint with type-checked rules
-- `npm run lint:fix` - Auto-fix ESLint issues
-- `npm run format` - Run Prettier
-- `npm run test:unit` - Vitest unit tests (`src/**/*.test.ts`); no database or network required
-- `npm run test:integration` - Vitest RLS integration tests (`tests/integration/`); needs a running local Supabase
-- `npm test` - Both suites; fails without a local Supabase stack
-- `npm run smoke` - Smoke test the auth flow against a running server (`BASE_URL`, defaults to `http://localhost:4321`)
+### Local stack
 
-## Project Structure
+The ports are moved off the Supabase CLI defaults in `supabase/config.toml`:
 
-```md
-.
-├── src/
-│ ├── layouts/ # Astro layouts
-│ ├── pages/ # Astro pages
-│ │ └── api/ # API endpoints
-│ ├── components/ # UI components (Astro & React)
-│ ├── lib/ # Feature helpers, each with its unit test beside it
-│ └── assets/ # Static assets
-├── supabase/ # config.toml, migrations/, seed.sql
-├── tests/integration/ # Vitest suite that needs a live Supabase stack
-├── scripts/ # smoke.mjs and other repo tooling
-├── public/ # Public assets
-├── wrangler.jsonc # Cloudflare Workers config
-```
+| Service | URL                      |
+| ------- | ------------------------ |
+| API     | `http://127.0.0.1:55321` |
+| Studio  | `http://localhost:55323` |
+| Mailpit | `http://localhost:55324` |
 
-## Supabase Configuration
+The seed — **local and CI only**, never pushed to the cloud — creates:
 
-This project uses [Supabase](https://supabase.com/) for authentication. Environment variables are declared via Astro's `astro:env` schema and are treated as **server-only secrets** — they are never exposed to the client.
+- an admin account: `admin@example.com` / `admin123456`;
+- three cabinets that differ in size and rails (small 1-row, medium 3-row with vertical PE/N bars,
+  large 4-row with horizontal bars and a split rail), so the layout heuristic visibly adapts;
+- a starter device catalog.
 
-### First-time setup (local, no cloud project needed)
+Email confirmation is off locally; sign-up signs you straight in.
 
-Requires [Docker](https://www.docker.com/) and ~7 GB RAM.
+> After editing `supabase/config.toml`, run `npx supabase stop` then `npx supabase start`.
+> `supabase db reset` does not re-read the config, and without the access-token hook the `user_role`
+> JWT claim silently disappears.
 
-1. Create your `.env` file:
+The app also boots and builds without Supabase variables (auth is then disabled) — CI relies on that.
 
-```bash
-cp .env.example .env
-```
+## Scripts
 
-2. The `supabase/` folder is committed — config, migrations and seed data are all in the repository,
-   so there is nothing to initialize.
+| Command                              | What it does                                                                          |
+| ------------------------------------ | ------------------------------------------------------------------------------------- |
+| `npm run dev`                        | Dev server on the Cloudflare `workerd` runtime                                        |
+| `npm run build` / `npm run preview`  | Production build / serve it locally (`preview:fresh` does both)                       |
+| `npm run lint` / `lint:fix`          | Type-checked ESLint; Prettier runs as an ESLint rule                                  |
+| `npx astro check`                    | Type-checks `.astro` files (not covered by `lint`)                                    |
+| `npm run format`                     | Prettier over the repo                                                                |
+| `npm run test:unit`                  | Vitest over `src/**/*.test.ts` — no infrastructure needed                             |
+| `npm run test:integration`           | RLS assertions in `tests/integration/` against the running local Supabase             |
+| `npm test`                           | Both suites — fails if no local stack is running                                      |
+| `npm run smoke`                      | End-to-end auth flow over HTTP against a running server (`BASE_URL`, default `:4321`) |
+| `npm run db:types`                   | Regenerate `src/lib/database.types.ts` from the local stack after a migration         |
+| `npm run brand:assets`               | Re-render favicons and the OG image from `src/assets/brand/`                          |
+| `node scripts/roadmap-to-github.mjs` | Mirror `context/foundation/roadmap.md` to GitHub issues and the project board         |
 
-3. Start the local stack (downloads Docker images on first run):
+Reproduce the CI `ci` job locally:
 
 ```bash
-npx supabase start
+npm run lint && npx astro check && npm run test:unit && npm run build
 ```
 
-4. Copy the credentials printed by the CLI into your `.env` and `.dev.vars`:
+A pre-commit hook (husky + lint-staged) runs `eslint --fix` on staged `*.{ts,tsx,astro}` and
+`prettier --write` on `*.{json,css,md}`.
+
+## Testing
+
+| Layer       | Command                    | Covers                                                                          | Needs                            |
+| ----------- | -------------------------- | ------------------------------------------------------------------------------- | -------------------------------- |
+| Unit        | `npm run test:unit`        | Domain logic in `src/lib/` — matching, layout, wiring, busbars, quote, parsers  | Nothing (runs in CI)             |
+| Integration | `npm run test:integration` | Row-level security policies, with real users and rows                           | Local Supabase                   |
+| Smoke       | `npm run smoke`            | Build, Cloudflare adapter, sign-up/sign-in, role gates, sign-out over real HTTP | Running server + seeded Supabase |
+
+The Vitest suites never touch HTTP; the smoke script never touches domain logic. Visual states are
+checked on the development-only page `/dev/kitchen-sink`, which renders every UI component, drawing
+and quote state from real view models.
+
+## Routes
+
+| Route                            | Role     | Purpose                                                             |
+| -------------------------------- | -------- | ------------------------------------------------------------------- |
+| `/`                              | public   | Landing page                                                        |
+| `/auth/signin`, `/auth/signup`   | public   | Email + password auth                                               |
+| `/dashboard`                     | elektryk | Home                                                                |
+| `/dashboard/profile`             | elektryk | Pricing parameters and company details for the letterhead           |
+| `/dashboard/projects`            | elektryk | Project list; `/new` creates one                                    |
+| `/dashboard/projects/[id]`       | elektryk | Supply, circuits, matching, layout editor, wiring, quote            |
+| `/dashboard/projects/[id]/print` | elektryk | Printable A4 quote                                                  |
+| `/admin`                         | admin    | Admin home; `/admin/cabinets` and `/admin/devices` are the catalogs |
+| `/dev/kitchen-sink`              | dev only | UI state catalog; not in production builds                          |
+
+Access rules live in `src/lib/route-access.ts` (`PROTECTED_ROUTES`), applied by `src/middleware.ts`.
+Gate a new page there, never inside the page.
+
+## Project structure
 
 ```
-SUPABASE_URL=http://127.0.0.1:55321
-SUPABASE_KEY=<anon key from CLI output>
+src/
+  pages/            Astro pages; api/ holds FormData endpoints that redirect with ?error=<code>
+  components/       ui/ (shadcn), brand/, cabinets/, devices/, circuits/, projects/, forms/
+  lib/              Domain logic, each module with its *.test.ts beside it
+    i18n/           Polish message catalog (pl.ts) and formatters — no inline UI strings
+  styles/global.css Design tokens — the only source of colours
+  middleware.ts     Session, role and route gate on every request
+supabase/           config.toml, migrations/, seed.sql
+tests/integration/  RLS suite (needs a live database)
+scripts/            smoke.mjs, roadmap-to-github.mjs, brand-assets.mjs, wiring-bench/
+context/            Product docs: PRD, roadmap, tech stack, change plans and their archive
 ```
 
-> This project overrides the Supabase CLI's default ports in `supabase/config.toml` — the API is on
-> **55321**, not the usual 54321. Take the values from the CLI's own output (or
-> `npx supabase status -o env`) rather than from memory.
+Key domain modules in `src/lib/`:
 
-5. To stop the stack when done:
+| Module                                    | Responsibility                                                     |
+| ----------------------------------------- | ------------------------------------------------------------------ |
+| `device-spec.ts`, `cabinet-geometry.ts`   | Validate catalog rows (mirroring the database CHECKs)              |
+| `supply-params.ts`, `supply-warnings.ts`  | OSD/WLZ input and the informational checks                         |
+| `circuit-params.ts`, `device-matching.ts` | Circuits and RCD groups; compliance-first, then cheapest matching  |
+| `busbar-cutting.ts`                       | Which comb-busbar piece each RCD group is cut from                 |
+| `cabinet-layout.ts`, `layout-editing.ts`  | The layout heuristic, its validator, and the manual editor's model |
+| `cabinet-wiring.ts`, `cabinet-drawing.ts` | Conductor routing and its realistic/schematic SVG presentation     |
+| `quote.ts`, `quote-print.ts`              | The quote and the printout — the only places money is computed     |
 
-```bash
-npx supabase stop
-```
+## Design notes
 
-The local Studio UI is available at `http://localhost:55323`.
+A few decisions shape the whole codebase:
 
-### Database, seed data and the local admin account
+- **Never an under-rated device.** Matching filters for compliance before it sorts by price, and a
+  missing device is reported as a catalog gap. A partial match is never stored.
+- **Snapshots, not live references.** A project copies its cabinet's geometry and each matched
+  device's catalog data at save time (database triggers write those columns). Admin edits never move
+  an existing project's layout or quote.
+- **Rules guarded twice.** Value lists and bounds live both in a database CHECK and in a TypeScript
+  parser, and change together. The database is the enforcement point; the parser gives Polish errors.
+- **Wiring runs in the browser.** Routing exceeded the Worker CPU budget, so the server hands a placed
+  layout to a client island. Moving it back must be measured on Cloudflare with
+  [`scripts/wiring-bench`](scripts/wiring-bench/README.md).
+- **No server-side PDF.** The edge runtime cannot render one; the quote prints from the browser.
+- **Polish UI, i18n-ready.** Every user-facing string comes from `src/lib/i18n/pl.ts`, typed so a
+  second locale fails `astro check` if a key is missing.
 
-`supabase start` applies everything in `supabase/migrations/` and then runs `supabase/seed.sql`. `npx supabase db reset` replays both from scratch.
-
-The migrations add a `public.user_role` enum (`admin`, `elektryk`), a `public.profiles` table with row-level security, a signup trigger that gives every new account a profile, and `public.custom_access_token_hook`, which mints the role into each JWT as the `user_role` claim.
-
-The seed creates one working admin account so that admin-gated routes can be exercised without dashboard setup:
-
-```
-email:    admin@example.com
-password: admin123456
-```
-
-The seed is **local and CI only**. `supabase db push` applies migrations, never seeds, so these credentials never reach a cloud project.
-
-> Two traps worth knowing before you touch `supabase/config.toml`:
->
-> - `npx supabase db reset` does **not** re-read `config.toml` — it restarts the containers with their existing environment. Any config change (the `[auth.hook.custom_access_token]` block above all) needs a full `npx supabase stop` followed by `npx supabase start`, or the `user_role` claim silently goes missing.
-> - `[analytics]` is disabled on purpose. The `supabase_vector` container cannot reach the Docker socket on Windows and restarts in a loop; nothing local uses it, and CI already excludes `logflare,vector` from `supabase start`.
-
-### Using a cloud Supabase project instead
-
-If you prefer to use a hosted Supabase project, add these variables to your `.env` and `.dev.vars` files:
-
-| Variable       | Description                                                |
-| -------------- | ---------------------------------------------------------- |
-| `SUPABASE_URL` | Project URL from Supabase dashboard → Settings → API       |
-| `SUPABASE_KEY` | `anon` public key from Supabase dashboard → Settings → API |
-
-```
-SUPABASE_URL=https://<project-ref>.supabase.co
-SUPABASE_KEY=<anon-key>
-```
-
-Migrations reach the cloud project through the `.github/workflows/deploy.yml` GitHub Actions workflow (job `migrate`) — see [CI](#ci) below.
-
-#### One-time cloud setup: the access-token hook
-
-The `user_role` JWT claim only exists if the cloud project is told to call the hook function. This is a manual, one-time step in the Supabase dashboard:
-
-**Authentication → Hooks → Customize Access Token (JWT) Claims → enable, Postgres function `public.custom_access_token_hook`**
-
-> Do **not** do this with `supabase config push`. That command would also push `config.toml`'s local `site_url` (`http://127.0.0.1:3000`) to the cloud project and break production auth redirects. Local config stays local.
-
-### Email confirmation in local development
-
-By default Supabase requires email confirmation before a user can sign in. To skip this during local development:
-
-1. Open the Supabase dashboard for your project
-2. Go to **Authentication → Email → Confirm email**
-3. Toggle it **off**
-
-Users can then sign in immediately after sign-up without clicking a confirmation link.
-
-### Auth routes
-
-| Route                            | Description                                                                                                                                                                                                                                                                               |
-| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/auth/signin`                   | Email/password sign-in form                                                                                                                                                                                                                                                               |
-| `/auth/signup`                   | Email/password sign-up form                                                                                                                                                                                                                                                               |
-| `/auth/confirm-email`            | Post-signup "check your inbox" page                                                                                                                                                                                                                                                       |
-| `/dashboard`                     | Electrician page — requires the `elektryk` role                                                                                                                                                                                                                                           |
-| `/dashboard/profile`             | Electrician pricing profile (rate, mount time, overhead) and company details for the printed quote                                                                                                                                                                                        |
-| `/dashboard/projects`            | Electrician's projects: list                                                                                                                                                                                                                                                              |
-| `/dashboard/projects/new`        | New project: details and a cabinet from the catalog                                                                                                                                                                                                                                       |
-| `/dashboard/projects/[id]`       | Project page: details, cabinet snapshot, OSD/WLZ supply and its warnings, circuits and RCD groups, device matching, cabinet layout with wires and comb busbars (a realistic / schematic view switch) and manual layout editing, quote (material and labour, with a time override), delete |
-| `/dashboard/projects/[id]/print` | Printable quote: letterhead, itemised material, labour, total and the cabinet drawing on A4 — print or save as PDF from the browser                                                                                                                                                       |
-| `/admin`                         | Admin panel — requires the `admin` role                                                                                                                                                                                                                                                   |
-| `/admin/cabinets`                | Cabinet catalog: list, create, edit, archive — `admin` role                                                                                                                                                                                                                               |
-| `/admin/devices`                 | Device catalog: list, create, edit, archive — `admin` role                                                                                                                                                                                                                                |
-
-Route protection is applied in `src/middleware.ts`, but the rules live in `src/lib/route-access.ts`. Add an entry to the `PROTECTED_ROUTES` array there — a path prefix plus the roles allowed to reach it — rather than checking the role inside a page.
+The full list of these rules and their traps is in [AGENTS.md](AGENTS.md).
 
 ## Deployment
 
-Deployed to [Cloudflare Workers](https://workers.cloudflare.com/) as the Worker **`rozdzielnica-pro`**:
+Production is the Cloudflare Worker **`rozdzielnica-pro`** with a cloud Supabase project.
 
-**https://rozdzielnica-pro.rozdzielnica-pro.workers.dev**
+**Pushing to `master` deploys.** `.github/workflows/ci.yml` runs two jobs on every push and PR:
 
-### Auto-deploy (the normal path)
+- `ci` — lint, `astro check`, unit tests, build;
+- `smoke` — a local Supabase, a production preview and the smoke script.
 
-Pushing to `master` deploys, through GitHub Actions. When CI for the push finishes green,
-`.github/workflows/deploy.yml` applies pending migrations (job `migrate`) and then runs
-`npm run build` + `npx wrangler deploy` (job `deploy`) — always in that order. A red CI run ships
-nothing. See [CI](#ci) for the secrets it needs.
+When CI for a push to `master` is green, `.github/workflows/deploy.yml` runs `supabase db push`
+(job `migrate`) and then `npm run build` + `npx wrangler deploy` (job `deploy`). A red CI ships
+nothing. Because the old code briefly runs against the new schema, **every migration must stay
+backward-compatible with the deployed code**.
 
-> Cloudflare Workers Builds' auto-deploy on `master` is **switched off** in the Cloudflare dashboard
-> (Worker → Settings → Build). Leave it off: two deployers on the same push would race again, and
-> Workers Builds would ship before the migration and regardless of CI.
+Repository secrets for the deploy workflow:
 
-### Manual deploy (fallback)
+| Secret                  | Notes                                                                                   |
+| ----------------------- | --------------------------------------------------------------------------------------- |
+| `SUPABASE_ACCESS_TOKEN` | Must cover the project-config reads `supabase link` makes, not just Migrations/Database |
+| `SUPABASE_PROJECT_REF`  | Cloud project ref                                                                       |
+| `SUPABASE_DB_PASSWORD`  | Cloud database password                                                                 |
+| `CLOUDFLARE_API_TOKEN`  | Workers Scripts:Edit on this account                                                    |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account id                                                                   |
 
-```bash
-npm run build
-npx wrangler deploy
-```
-
-Never `wrangler pages deploy` — `@astrojs/cloudflare` v14 dropped Pages support and the two commands
-are not interchangeable.
-
-### Secrets
-
-`SUPABASE_URL` and `SUPABASE_KEY` are runtime Workers Secrets, not build-time variables:
+Runtime secrets live on the Worker:
 
 ```bash
 npx wrangler secret put SUPABASE_URL
 npx wrangler secret put SUPABASE_KEY
 ```
 
-Use the Supabase **publishable** key (`sb_publishable_...`). Never a `sb_secret_...` or
-`service_role` key — `src/lib/supabase.ts` builds a cookie-scoped SSR client that acts as the
-signed-in user, and a secret key there would bypass Row Level Security.
+Use the **publishable** key (`sb_publishable_…`), never a secret or `service_role` key — that would
+bypass RLS. Run `wrangler secret put` on a real TTY: without one it reports success but stores an
+empty value.
 
-> `wrangler secret put` prompts on a TTY. Run without one (some CI shells, an agent session) it
-> reports `Success` but stores an **empty** value, and `wrangler secret list` shows only names, so it
-> cannot be detected there. Verify by checking the running app, not the command's exit code.
+One-time cloud setup, in the Supabase dashboard: **Authentication → Hooks → Customize Access Token
+(JWT) Claims → `public.custom_access_token_hook`**. Do not use `supabase config push` — it would
+upload the local `site_url` and break production auth redirects.
 
-### Operations
+Don'ts:
 
-```bash
-npx wrangler deployments list     # what is deployed
-npx wrangler versions list        # version history
-npx wrangler rollback             # revert to the previous version
-npx wrangler tail                 # live logs
-```
+- Don't rename the Worker in `wrangler.jsonc` — that creates a second Worker and orphans the first.
+- Don't enable Cloudflare Workers Builds for `master` — it would race the GitHub deploy.
+- Don't use `wrangler pages deploy`; the adapter targets Workers only.
 
-Rollback reverts **code only** — any Supabase migration applied in the interim does not roll back
-with it.
-
-Platform rationale and risk register: [`context/foundation/infrastructure.md`](context/foundation/infrastructure.md).
-Deployment record: [`context/changes/deployment/deployment-plan.md`](context/changes/deployment/deployment-plan.md).
-
-## Tests
-
-Two Vitest suites, kept in separate configs because their requirements differ:
-
-| Suite       | Command                    | Files                  | Needs                          |
-| ----------- | -------------------------- | ---------------------- | ------------------------------ |
-| Unit        | `npm run test:unit`        | `src/**/*.test.ts`     | Nothing — runs in CI           |
-| Integration | `npm run test:integration` | `tests/integration/**` | A running local Supabase stack |
-| Both        | `npm test`                 | —                      | A running local Supabase stack |
-
-The integration suite reads the stack's URL and keys from `supabase status -o env` and asserts the row-level security policies by creating real users and rows. Because of that, `npm test` fails on any machine with no stack running — use `npm run test:unit` for the no-infrastructure path.
-
-Neither suite exercises HTTP, the Cloudflare adapter or the real auth flow. The smoke script below does.
-
-## Smoke test
-
-`scripts/smoke.mjs` is a dependency-free Node script that walks the whole auth flow (sign-up, sign-in, protected pages, the role gate, sign-out) over HTTP. Run it against the dev server or the production preview after dependency upgrades:
+Operations:
 
 ```bash
-npm run dev            # or: npm run build && npm run preview
-BASE_URL=http://localhost:4321 npm run smoke
+npx wrangler deployments list
+npx wrangler rollback
+npx wrangler tail
 ```
 
-It needs a reachable Supabase instance (local or cloud) with email confirmation disabled, and its role-gate steps sign in as the seeded `admin@example.com`, so the instance must be seeded too.
+A rollback reverts code only; migrations stay applied.
 
-> **Note:** this script guards what Vitest cannot reach — that the build, the Cloudflare adapter and the real HTTP auth flow still work end to end. It complements the test suites above; neither one replaces the other.
+## Documentation
 
-## CI
-
-`.github/workflows/ci.yml` runs two jobs on every push and PR to `master`:
-
-- **ci** — lint, `astro check`, `npm run test:unit` and build. Configure `SUPABASE_URL` and `SUPABASE_KEY` as repository secrets for the build step.
-- **smoke** — starts a local Supabase via the Supabase CLI, builds, serves the production preview on the Cloudflare runtime and runs `npm run smoke` against it. No secrets required.
-
-`.github/workflows/deploy.yml` runs after CI succeeds for a push to `master` (never for a pull request). Job `migrate` applies pending migrations to the cloud project with `supabase link` + `supabase db push`; job `deploy` then builds and runs `npx wrangler deploy`. If master has already moved on to a newer commit, the older run stands down and the newer one deploys. It requires five repository secrets:
-
-| Secret                  | Description                                                                                                                                                               |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `SUPABASE_ACCESS_TOKEN` | Personal access token. `supabase link` reads several project-config endpoints, so a token scoped only to Migrations and Database fails with an opaque authorization error |
-| `SUPABASE_PROJECT_REF`  | The cloud project ref                                                                                                                                                     |
-| `SUPABASE_DB_PASSWORD`  | The cloud database password                                                                                                                                               |
-| `CLOUDFLARE_API_TOKEN`  | Cloudflare API token with **Workers Scripts:Edit** on this account only                                                                                                   |
-| `CLOUDFLARE_ACCOUNT_ID` | The Cloudflare account id                                                                                                                                                 |
-
-The migration always lands before the new code, so new code never meets the old schema. For the length of the deploy, though, the **old** code runs on the **new** schema, so every migration must stay backward-compatible with the currently deployed code.
+| Document                                                                     | Contents                                                       |
+| ---------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| [AGENTS.md](AGENTS.md)                                                       | Contributor guide: architecture, conventions, domain tripwires |
+| [context/foundation/prd.md](context/foundation/prd.md)                       | Product requirements (Polish)                                  |
+| [context/foundation/roadmap.md](context/foundation/roadmap.md)               | Milestones and slices (Polish), mirrored to GitHub             |
+| [context/foundation/tech-stack.md](context/foundation/tech-stack.md)         | Why this stack                                                 |
+| [context/foundation/infrastructure.md](context/foundation/infrastructure.md) | Hosting choice and risk register                               |
+| [context/foundation/test-plan.md](context/foundation/test-plan.md)           | Test strategy and quality gates                                |
+| [context/archive/](context/archive/)                                         | Plans and records of every completed change                    |
 
 ## License
 
