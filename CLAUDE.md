@@ -43,38 +43,27 @@ the only copy); a new area also needs a `.claude/rules/<area>.md` shim (`paths:`
 the index patterns identical.
 <!-- BEGIN @przeprogramowani/10x-cli -->
 
-## 10xDevs AI Toolkit - Module 3, Lesson 4 (E2E Tests)
+## 10xDevs AI Toolkit - Module 5, Lesson 5 (Async & Remote Agents)
 
-**For E2E tests, use the two M3L4 skills in this order:**
+Delegate a bounded, planned change and come back to review it. Control doesn't disappear; it moves to the task contract, the sandbox setup and the review at the end.
 
-1. **`/10x-e2e-setup`** — one-time setup: Playwright config (`webServer`,
-   auth `setup` project, `storageState`), a green seed test, and `context/foundation/test-stack.md`.
-2. **`/10x-e2e`** — the per-risk loop: risk → explore the running app with
-   `playwright-cli` → generate → review against the five anti-patterns →
-   re-prompt by name → verify with a deliberate break.
+```
+/10x-plan -> /goal + /10x-goal-implement (interactive or claude -p) -> review the commits and the manual checklist
+```
 
-The skills' `references/` carry the full rules, anti-patterns, seed pattern, and
-prompt-template.
+### Task Router - Where to start
 
-A few hard rules that hold even before you invoke the skill:
+| Skill                             | Use it when                                                                                                                                                             |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/10x-goal-implement <change-id>` | An approved `context/changes/<id>/plan.md` should run unattended. Pair it with `/goal <condition>`; it commits each phase on green and ends with pending manual checks. |
+| `/10x-implement`                  | You want to steer each phase yourself.                                                                                                                                  |
 
-- **Locators:** `getByRole` / `getByLabel` / `getByText` first; `getByTestId`
-  only when accessibility attributes are ambiguous. Never CSS selectors, XPath,
-  or DOM structure.
-- **Never `page.waitForTimeout()`.** Wait for state: `toBeVisible()`,
-  `waitForURL()`, `waitForResponse()`.
-- **Test independence + cleanup.** Each test runs standalone — its own setup,
-  action, assertion, and cleanup; unique ids (timestamp suffix) so parallel runs
-  and re-runs don't collide.
+### Hard rules
 
-Two boundaries to keep straight:
-
-- **DOM (snapshot) is the default.** Vision (`--caps=vision`) is a supplement for
-  visual-only risks (layout, z-index, animation); for pixel regression prefer
-  deterministic tools (`toHaveScreenshot`, Argos, Lost Pixel). VLM model
-  selection/cost is a debugging topic (Lesson 5), not testing.
-- **A red test is a signal, not a chore.** A changed selector → update the
-  locator in a reviewed diff. A changed business behavior → the test caught a
-  bug; never edit the assertion to match it. Fixing failing tests is Lesson 5.
+- **Delegate only planned work.** No approved `plan.md`, no unattended run.
+- **Bound every run.** The `/goal` condition names the finish state and a turn limit.
+- **A green run is not a finished change.** Review the commits and work through the manual checklist before merging.
+- **Give the sandbox only the secrets and network access the task needs.**
+- **Watch parallel and remote runs from one place.** Run each unattended session in its own herdr workspace so you can see which agents are working, blocked or done and step in from the browser (setup in the M2L6 Deep Dive).
 
 <!-- END @przeprogramowani/10x-cli -->
