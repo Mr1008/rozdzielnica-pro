@@ -375,11 +375,11 @@ new code, and the old code reads the new rows with no change. To undo it, archiv
 
 #### Automated
 
-- [x] 3.1 Lint passes: `npm run lint`
+- [x] 3.1 Lint passes: `npm run lint` — da011e7
 
 #### Manual
 
-- [x] 3.2 As the seeded admin, `/admin/cabinets` lists the 33 Karwasz cabinets with prices, and the RN-6-P, RN-48 and UNI SYSTEM 750-1450-250 M previews draw without clipping
-- [x] 3.3 As an electrician, a project on RN-48 with a few circuits gets a placed layout, wiring and a ready quote; the built-in bars are used (no catalog `pe_bar`/`n_bar` in the device list), and the cabinet line shows 330,25 zł
-- [x] 3.4 As an electrician, a project on UNI SYSTEM 750-1450-250 M places devices on its rails and takes PE/N bars from the device catalog
-- [x] 3.5 The E2E seed spec still passes: `npx playwright test tests/e2e/seed.spec.ts`
+- [x] 3.2 As the seeded admin, `/admin/cabinets` lists the 33 Karwasz cabinets with prices, and the RN-6-P, RN-48 and UNI SYSTEM 750-1450-250 M previews draw without clipping — da011e7
+- [x] 3.3 As an electrician, a project on RN-48 with a few circuits gets a placed layout, wiring and a ready quote; the built-in bars are used (no catalog `pe_bar`/`n_bar` in the device list), and the cabinet line shows 330,25 zł — da011e7
+- [x] 3.4 As an electrician, a project on UNI SYSTEM 750-1450-250 M places devices on its rails and takes PE/N bars from the device catalog — da011e7
+- [x] 3.5 The E2E seed spec still passes: `npx playwright test tests/e2e/seed.spec.ts` — da011e7
