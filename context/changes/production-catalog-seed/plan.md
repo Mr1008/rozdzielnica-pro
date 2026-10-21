@@ -340,24 +340,24 @@ correction means editing the generator and changing rows through the admin edito
 
 #### Automated
 
-- [x] 1.1 Both source files parse as JSON and the curation script reproduces them unchanged
-- [x] 1.2 Row count across both files is between 300 and 450, with no duplicate `(lower(manufacturer), lower(model))`
+- [x] 1.1 Both source files parse as JSON and the curation script reproduces them unchanged — cfdd267
+- [x] 1.2 Row count across both files is between 300 and 450, with no duplicate `(lower(manufacturer), lower(model))` — cfdd267
 
 #### Manual
 
-- [x] 1.3 Spot-check 10 random rows (at least 2 per kind) against the PDF page or URL in `source`
+- [x] 1.3 Spot-check 10 random rows (at least 2 per kind) against the PDF page or URL in `source` — cfdd267
 
 ### Phase 2: Generator and tests
 
 #### Automated
 
-- [ ] 2.1 `npm run test:unit` passes, including `src/lib/catalog-seed.test.ts` against the committed SQL file
-- [ ] 2.2 `npm run lint` passes
-- [ ] 2.3 `npx astro check` passes
+- [x] 2.1 `npm run test:unit` passes, including `src/lib/catalog-seed.test.ts` against the committed SQL file
+- [x] 2.2 `npm run lint` passes
+- [x] 2.3 `npx astro check` passes
 
 #### Manual
 
-- [ ] 2.4 Read the generated SQL's price list for one series per kind and confirm the prices look plausible for the Polish market
+- [x] 2.4 Read the generated SQL's price list for one series per kind and confirm the prices look plausible for the Polish market
 
 ### Phase 3: Local verification and runbook
 
