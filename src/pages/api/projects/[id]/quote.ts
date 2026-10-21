@@ -5,6 +5,7 @@ import { projectFormErrorPath, projectPath, projectsErrorPath } from "@/lib/proj
 import { PROJECT_ERROR, projectErrorFromPostgrest } from "@/lib/project-errors";
 import { computeQuoteView, parseLabourOverrideForm } from "@/lib/quote";
 import { SIGN_IN_PATH } from "@/lib/route-access";
+import { logServerError } from "@/lib/server-log";
 import { createClient } from "@/lib/supabase";
 
 /** The quote section of the project page, where every redirect from here lands. */
@@ -90,7 +91,10 @@ export const POST: APIRoute = async (context) => {
 
   const { data, error } = await supabase.from("projects").update(patch).eq("id", id).select("id");
 
-  if (error) return back(projectErrorFromPostgrest(error));
+  if (error) {
+    logServerError("projects.quote.override failed", error, { userId: context.locals.user?.id, projectId: id });
+    return back(projectErrorFromPostgrest(error));
+  }
   // RLS refuses an update by matching zero rows, with no error: another electrician's project and
   // one that does not exist look the same, and both are simply not found.
   if (data.length === 0) return notFound();

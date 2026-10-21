@@ -2,6 +2,7 @@ import type { APIRoute } from "astro";
 import { PRICING_ERROR, pricingErrorFromPostgrest } from "@/lib/pricing-errors";
 import { PRICING_PROFILE_PATH, parsePricingForm } from "@/lib/pricing-profile";
 import { SIGN_IN_PATH } from "@/lib/route-access";
+import { logServerError } from "@/lib/server-log";
 import { createClient } from "@/lib/supabase";
 
 /**
@@ -29,7 +30,10 @@ export const POST: APIRoute = async (context) => {
   const { error } = await supabase
     .from("pricing_profiles")
     .upsert({ user_id: user.id, ...parsed.value }, { onConflict: "user_id" });
-  if (error) return back(pricingErrorFromPostgrest(error));
+  if (error) {
+    logServerError("profile.pricing.upsert failed", error, { userId: context.locals.user?.id });
+    return back(pricingErrorFromPostgrest(error));
+  }
 
   return context.redirect(`${PRICING_PROFILE_PATH}?saved=1`);
 };

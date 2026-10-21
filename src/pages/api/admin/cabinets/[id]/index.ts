@@ -3,6 +3,7 @@ import { CABINETS_PATH, cabinetFormErrorPath, cabinetsErrorPath } from "@/lib/ca
 import { CABINET_ERROR, cabinetErrorFromPostgrest } from "@/lib/cabinet-errors";
 import { parseCabinetForm } from "@/lib/cabinet-form";
 import { isUuid } from "@/lib/catalog";
+import { logServerError } from "@/lib/server-log";
 import { createClient } from "@/lib/supabase";
 
 /**
@@ -26,7 +27,10 @@ export const POST: APIRoute = async (context) => {
 
   const { data, error } = await supabase.from("cabinets").update(parsed.value).eq("id", id).select("id");
 
-  if (error) return back(cabinetErrorFromPostgrest(error));
+  if (error) {
+    logServerError("admin.cabinets.update failed", error, { userId: context.locals.user?.id, cabinetId: id });
+    return back(cabinetErrorFromPostgrest(error));
+  }
   // RLS refuses an update by matching zero rows, with no error. The route gate has already turned
   // non-admins away, so here zero rows means the id names no cabinet.
   if (data.length === 0) return context.redirect(cabinetsErrorPath(CABINET_ERROR.notFound));

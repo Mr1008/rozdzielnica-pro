@@ -2,6 +2,7 @@ import type { APIRoute } from "astro";
 import { parseNewProjectForm, projectFormErrorPath, projectPath } from "@/lib/project";
 import { PROJECT_ERROR, projectErrorFromPostgrest } from "@/lib/project-errors";
 import { SIGN_IN_PATH } from "@/lib/route-access";
+import { logServerError } from "@/lib/server-log";
 import { createClient } from "@/lib/supabase";
 
 /**
@@ -31,7 +32,10 @@ export const POST: APIRoute = async (context) => {
     .insert({ user_id: user.id, ...parsed.value })
     .select("id")
     .single();
-  if (error) return back(projectErrorFromPostgrest(error));
+  if (error) {
+    logServerError("projects.create failed", error, { userId: context.locals.user?.id });
+    return back(projectErrorFromPostgrest(error));
+  }
 
   return context.redirect(`${projectPath(data.id)}?created=1`);
 };

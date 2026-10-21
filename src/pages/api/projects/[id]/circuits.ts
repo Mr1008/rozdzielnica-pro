@@ -13,6 +13,7 @@ import { chooseSelectionLayout, loadPreviousLayout } from "@/lib/layout-server";
 import { projectFormErrorPath, projectPath, projectsErrorPath } from "@/lib/project";
 import { PROJECT_ERROR } from "@/lib/project-errors";
 import { SIGN_IN_PATH } from "@/lib/route-access";
+import { logServerError } from "@/lib/server-log";
 import { createClient } from "@/lib/supabase";
 
 /** The circuits section of the project page, where every redirect from here lands. */
@@ -84,6 +85,7 @@ export const POST: APIRoute = async (context) => {
     saveCircuitsArgs(id, parsed.value, result, choice.layout, choice.editedManually),
   );
   if (error) {
+    logServerError("projects.circuits.rpc failed", error, { userId: context.locals.user.id, projectId: id });
     const code = circuitsRpcErrorCode(error);
     return code === PROJECT_ERROR.notFound ? notFound() : back(code);
   }

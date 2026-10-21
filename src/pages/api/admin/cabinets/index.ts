@@ -2,6 +2,7 @@ import type { APIRoute } from "astro";
 import { CABINETS_PATH, cabinetFormErrorPath } from "@/lib/cabinet-catalog";
 import { CABINET_ERROR, cabinetErrorFromPostgrest } from "@/lib/cabinet-errors";
 import { parseCabinetForm } from "@/lib/cabinet-form";
+import { logServerError } from "@/lib/server-log";
 import { createClient } from "@/lib/supabase";
 
 /**
@@ -22,7 +23,10 @@ export const POST: APIRoute = async (context) => {
 
   // Unlike an update, an insert RLS refuses does come back as an error (42501).
   const { error } = await supabase.from("cabinets").insert(parsed.value);
-  if (error) return back(cabinetErrorFromPostgrest(error));
+  if (error) {
+    logServerError("admin.cabinets.create failed", error, { userId: context.locals.user?.id });
+    return back(cabinetErrorFromPostgrest(error));
+  }
 
   return context.redirect(CABINETS_PATH);
 };

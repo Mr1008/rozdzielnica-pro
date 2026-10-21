@@ -331,27 +331,27 @@ any saved log search on the old `"… load failed"` strings needs the new event 
 
 #### Automated
 
-- [x] 1.1 `npm run test:unit` passes, including the new `server-log.test.ts` cases and an `""` → `unknown` case per mapper
-- [x] 1.2 `npm run lint` passes
-- [x] 1.3 `npx astro check` passes
+- [x] 1.1 `npm run test:unit` passes, including the new `server-log.test.ts` cases and an `""` → `unknown` case per mapper — 0f45f14
+- [x] 1.2 `npm run lint` passes — 0f45f14
+- [x] 1.3 `npx astro check` passes — 0f45f14
 
 #### Manual
 
-- [x] 1.4 Read `src/lib/server-log.ts` and confirm it never reads `details` and never spreads the error object
+- [x] 1.4 Read `src/lib/server-log.ts` and confirm it never reads `details` and never spreads the error object — 0f45f14
 
 ### Phase 2: Log write failures
 
 #### Automated
 
-- [ ] 2.1 `npm run test:unit` passes
-- [ ] 2.2 `npm run lint` passes
-- [ ] 2.3 `npx astro check` passes
-- [ ] 2.4 `npm run build` passes
-- [ ] 2.5 Every `ErrorFromPostgrest(` / `RpcErrorCode(` call in `src/pages/api` has a `logServerError(` call in the same branch
+- [x] 2.1 `npm run test:unit` passes
+- [x] 2.2 `npm run lint` passes
+- [x] 2.3 `npx astro check` passes
+- [x] 2.4 `npm run build` passes
+- [x] 2.5 Every `ErrorFromPostgrest(` / `RpcErrorCode(` call in `src/pages/api` has a `logServerError(` call in the same branch
 
 #### Manual
 
-- [ ] 2.6 Spot-read three routes (one admin, one profile, one project RPC) and confirm event name, ids and unchanged redirect
+- [x] 2.6 Spot-read three routes (one admin, one profile, one project RPC) and confirm event name, ids and unchanged redirect
 
 ### Phase 3: Move read logs onto the helper
 

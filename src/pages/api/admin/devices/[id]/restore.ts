@@ -2,6 +2,7 @@ import type { APIRoute } from "astro";
 import { isUuid } from "@/lib/catalog";
 import { DEVICES_PATH, devicesErrorPath } from "@/lib/device-catalog";
 import { DEVICE_ERROR, deviceErrorFromPostgrest } from "@/lib/device-errors";
+import { logServerError } from "@/lib/server-log";
 import { createClient } from "@/lib/supabase";
 
 /**
@@ -17,7 +18,10 @@ export const POST: APIRoute = async (context) => {
 
   const { data, error } = await supabase.from("devices").update({ archived_at: null }).eq("id", id).select("id");
 
-  if (error) return context.redirect(devicesErrorPath(deviceErrorFromPostgrest(error)));
+  if (error) {
+    logServerError("admin.devices.restore failed", error, { userId: context.locals.user?.id, deviceId: id });
+    return context.redirect(devicesErrorPath(deviceErrorFromPostgrest(error)));
+  }
   // RLS refuses an update by matching zero rows, with no error. The route gate has already turned
   // non-admins away, so here zero rows means the id names no device.
   if (data.length === 0) return context.redirect(devicesErrorPath(DEVICE_ERROR.notFound));

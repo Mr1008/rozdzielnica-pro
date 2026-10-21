@@ -3,6 +3,7 @@ import type { TablesInsert } from "@/lib/database.types";
 import { DEVICES_PATH, deviceFormErrorPath } from "@/lib/device-catalog";
 import { DEVICE_ERROR, deviceErrorFromPostgrest } from "@/lib/device-errors";
 import { parseDeviceForm } from "@/lib/device-form";
+import { logServerError } from "@/lib/server-log";
 import { createClient } from "@/lib/supabase";
 
 /**
@@ -26,7 +27,10 @@ export const POST: APIRoute = async (context) => {
   const row: TablesInsert<"devices"> = parsed.value;
   // Unlike an update, an insert RLS refuses does come back as an error (42501).
   const { error } = await supabase.from("devices").insert(row);
-  if (error) return back(deviceErrorFromPostgrest(error));
+  if (error) {
+    logServerError("admin.devices.create failed", error, { userId: context.locals.user?.id });
+    return back(deviceErrorFromPostgrest(error));
+  }
 
   return context.redirect(DEVICES_PATH);
 };
