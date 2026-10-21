@@ -1,0 +1,74 @@
+import { describe, expect, it } from "vitest";
+import { parseCabinetGeometry } from "./cabinet-geometry";
+import { KARWASZ_CABINETS, KARWASZ_MANUFACTURER, karwaszGeometry, type KarwaszCabinet } from "./karwasz-cabinets";
+
+const byModel = (model: string): KarwaszCabinet => {
+  const found = KARWASZ_CABINETS.find((row) => row.model === model);
+  if (!found) throw new Error(`no row ${model}`);
+  return found;
+};
+
+const rows = KARWASZ_CABINETS.map((row) => [row.model, row] as const);
+
+describe("KARWASZ_CABINETS", () => {
+  it("holds 33 rows with unique case-insensitive models", () => {
+    expect(KARWASZ_MANUFACTURER).toBe("Karwasz");
+    expect(KARWASZ_CABINETS).toHaveLength(33);
+    expect(new Set(KARWASZ_CABINETS.map((row) => row.model.toLowerCase())).size).toBe(33);
+  });
+
+  it.each(rows)("%s has a positive integer price", (_model, row) => {
+    expect(Number.isInteger(row.priceGrosze)).toBe(true);
+    expect(row.priceGrosze).toBeGreaterThan(0);
+  });
+});
+
+describe("karwaszGeometry", () => {
+  it.each(rows)("%s passes parseCabinetGeometry", (_model, row) => {
+    expect(parseCabinetGeometry(karwaszGeometry(row))).toMatchObject({ ok: true });
+  });
+
+  it.each(rows)("%s keeps the catalog interior and rails", (_model, row) => {
+    const geometry = karwaszGeometry(row);
+    expect(geometry.interior).toEqual({ widthMm: row.widthMm, heightMm: row.heightMm, depthMm: row.depthMm });
+    expect(geometry.rails).toHaveLength(row.rails.count);
+    for (const rail of geometry.rails) expect(rail.lengthMm).toBe(Math.ceil(row.rails.modules * 17.5));
+  });
+
+  it.each(rows.filter(([, row]) => row.bars))(
+    "%s has one N and one PE bar with the catalog terminal groups",
+    (_model, row) => {
+      const { mains, small } = row.bars ?? { mains: 0, small: 0 };
+      const expected = [
+        { count: small, minMm2: 1.5, maxMm2: 16 },
+        ...(mains > 0 ? [{ count: mains, minMm2: 6, maxMm2: 32 }] : []),
+      ];
+      const { bars } = karwaszGeometry(row);
+      expect(bars.map((bar) => bar.kind).sort()).toEqual(["N", "PE"]);
+      for (const bar of bars) expect(bar.terminalGroups).toEqual(expected);
+    },
+  );
+
+  it("gives UNI SYSTEM cabinets no built-in bars", () => {
+    const uniRows = KARWASZ_CABINETS.filter((row) => row.model.startsWith("UNI SYSTEM"));
+    expect(uniRows).toHaveLength(8);
+    for (const row of uniRows) {
+      expect(row.bars).toBeNull();
+      expect(karwaszGeometry(row).bars).toEqual([]);
+    }
+  });
+
+  it("encodes RP-80 with two main terminals and RN-48 with one", () => {
+    expect(byModel("RP-80").bars).toEqual({ mains: 2, small: 16 });
+    expect(byModel("RN-48").bars).toEqual({ mains: 1, small: 16 });
+  });
+
+  it.each(["RN-6-P", "RP-6-P", "RNH-6-P"])("places the bars of the narrow %s without throwing", (model) => {
+    expect(karwaszGeometry(byModel(model)).bars).toHaveLength(2);
+  });
+
+  it("throws, naming the model, when nothing fits", () => {
+    const tooNarrow: KarwaszCabinet = { ...byModel("RN-6-P"), model: "TINY", widthMm: 100 };
+    expect(() => karwaszGeometry(tooNarrow)).toThrow("TINY");
+  });
+});
