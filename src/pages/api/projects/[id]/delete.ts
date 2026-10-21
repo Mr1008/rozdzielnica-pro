@@ -3,6 +3,7 @@ import { isUuid } from "@/lib/catalog";
 import { parseDeleteConfirmation, projectFormErrorPath, PROJECTS_PATH, projectsErrorPath } from "@/lib/project";
 import { PROJECT_ERROR, projectErrorFromPostgrest } from "@/lib/project-errors";
 import { SIGN_IN_PATH } from "@/lib/route-access";
+import { logServerError } from "@/lib/server-log";
 import { createClient } from "@/lib/supabase";
 
 /**
@@ -29,7 +30,10 @@ export const POST: APIRoute = async (context) => {
 
   const { data, error } = await supabase.from("projects").delete().eq("id", id).select("id");
 
-  if (error) return back(projectErrorFromPostgrest(error));
+  if (error) {
+    logServerError("projects.delete failed", error, { userId: context.locals.user.id, projectId: id });
+    return back(projectErrorFromPostgrest(error));
+  }
   // RLS refuses a delete by matching zero rows, with no error: another electrician's project and one
   // that does not exist look the same, and both are simply not found.
   if (data.length === 0) return notFound();

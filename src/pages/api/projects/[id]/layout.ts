@@ -6,6 +6,7 @@ import { layoutRpcErrorCode, loadLayoutContext, saveLayoutArgs } from "@/lib/lay
 import { projectFormErrorPath, projectPath, projectsErrorPath } from "@/lib/project";
 import { PROJECT_ERROR } from "@/lib/project-errors";
 import { SIGN_IN_PATH } from "@/lib/route-access";
+import { logServerError } from "@/lib/server-log";
 import { createClient } from "@/lib/supabase";
 
 /** The layout section of the project page, where every redirect from here lands. */
@@ -49,6 +50,7 @@ export const POST: APIRoute = async (context) => {
 
   const { error } = await supabase.rpc("save_project_layout", saveLayoutArgs(id, proposal.placements));
   if (error) {
+    logServerError("projects.layout.rpc failed", error, { userId: context.locals.user.id, projectId: id });
     const code = layoutRpcErrorCode(error);
     return code === PROJECT_ERROR.notFound ? notFound() : back(code);
   }

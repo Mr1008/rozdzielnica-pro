@@ -3,6 +3,7 @@ import { isUuid } from "@/lib/catalog";
 import { DEVICES_PATH, deviceFormErrorPath, devicesErrorPath } from "@/lib/device-catalog";
 import { DEVICE_ERROR, deviceErrorFromPostgrest } from "@/lib/device-errors";
 import { parseDeviceForm } from "@/lib/device-form";
+import { logServerError } from "@/lib/server-log";
 import { createClient } from "@/lib/supabase";
 
 /**
@@ -26,7 +27,10 @@ export const POST: APIRoute = async (context) => {
 
   const { data, error } = await supabase.from("devices").update(parsed.value).eq("id", id).select("id");
 
-  if (error) return back(deviceErrorFromPostgrest(error));
+  if (error) {
+    logServerError("admin.devices.update failed", error, { userId: context.locals.user?.id, deviceId: id });
+    return back(deviceErrorFromPostgrest(error));
+  }
   // RLS refuses an update by matching zero rows, with no error. The route gate has already turned
   // non-admins away, so here zero rows means the id names no device.
   if (data.length === 0) return context.redirect(devicesErrorPath(DEVICE_ERROR.notFound));

@@ -2,6 +2,7 @@ import type { APIRoute } from "astro";
 import { BUSINESS_ERROR, businessErrorFromPostgrest } from "@/lib/business-errors";
 import { BUSINESS_PROFILE_PATH, parseBusinessForm } from "@/lib/business-profile";
 import { SIGN_IN_PATH } from "@/lib/route-access";
+import { logServerError } from "@/lib/server-log";
 import { createClient } from "@/lib/supabase";
 
 /**
@@ -32,7 +33,10 @@ export const POST: APIRoute = async (context) => {
   const { error } = await supabase
     .from("business_profiles")
     .upsert({ user_id: user.id, ...parsed.value }, { onConflict: "user_id" });
-  if (error) return back(businessErrorFromPostgrest(error));
+  if (error) {
+    logServerError("profile.business.upsert failed", error, { userId: context.locals.user?.id });
+    return back(businessErrorFromPostgrest(error));
+  }
 
   return context.redirect(`${BUSINESS_PROFILE_PATH}?businessSaved=1`);
 };

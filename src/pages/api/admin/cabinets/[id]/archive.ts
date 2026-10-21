@@ -2,6 +2,7 @@ import type { APIRoute } from "astro";
 import { CABINETS_PATH, cabinetsErrorPath } from "@/lib/cabinet-catalog";
 import { CABINET_ERROR, cabinetErrorFromPostgrest } from "@/lib/cabinet-errors";
 import { isUuid } from "@/lib/catalog";
+import { logServerError } from "@/lib/server-log";
 import { createClient } from "@/lib/supabase";
 
 /**
@@ -22,7 +23,10 @@ export const POST: APIRoute = async (context) => {
     .eq("id", id)
     .select("id");
 
-  if (error) return context.redirect(cabinetsErrorPath(cabinetErrorFromPostgrest(error)));
+  if (error) {
+    logServerError("admin.cabinets.archive failed", error, { userId: context.locals.user?.id, cabinetId: id });
+    return context.redirect(cabinetsErrorPath(cabinetErrorFromPostgrest(error)));
+  }
   // RLS refuses an update by matching zero rows, with no error. The route gate has already turned
   // non-admins away, so here zero rows means the id names no cabinet.
   if (data.length === 0) return context.redirect(cabinetsErrorPath(CABINET_ERROR.notFound));
