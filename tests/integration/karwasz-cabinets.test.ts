@@ -14,11 +14,16 @@ describe("seeded Karwasz cabinets", () => {
     const { data, error } = await service
       .from("cabinets")
       .select("name, model, price_grosze, geometry")
-      .eq("manufacturer", KARWASZ_MANUFACTURER);
+      .eq("manufacturer", KARWASZ_MANUFACTURER)
+      // Keyed on the module's models, so a Karwasz cabinet added locally through the UI doesn't break it.
+      .in(
+        "model",
+        KARWASZ_CABINETS.map((cabinet) => cabinet.model),
+      );
 
     expect(error).toBeNull();
     const rows = data ?? [];
-    expect(rows).toHaveLength(33);
+    expect(rows).toHaveLength(KARWASZ_CABINETS.length);
 
     for (const row of rows) {
       expect(parseCabinetGeometry(row.geometry), `${row.model} must be valid geometry`).toMatchObject({ ok: true });
