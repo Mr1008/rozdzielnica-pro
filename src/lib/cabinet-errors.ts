@@ -51,6 +51,6 @@ export function cabinetErrorFromPostgrest(error: { code?: string | null }): stri
     case "42501":
       return CABINET_ERROR.forbidden;
     default:
-      return error.code ?? CABINET_ERROR.unknown;
+      return error.code === undefined || error.code === null || error.code === "" ? CABINET_ERROR.unknown : error.code;
   }
 }

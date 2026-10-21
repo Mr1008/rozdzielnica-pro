@@ -51,6 +51,6 @@ export function deviceErrorFromPostgrest(error: { code?: string | null }): strin
     case "42501":
       return DEVICE_ERROR.forbidden;
     default:
-      return error.code ?? DEVICE_ERROR.unknown;
+      return error.code === undefined || error.code === null || error.code === "" ? DEVICE_ERROR.unknown : error.code;
   }
 }
