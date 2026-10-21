@@ -40,8 +40,9 @@ describe("cabinetErrorFromPostgrest", () => {
     expect(cabinetErrorFromPostgrest({ code: "PGRST204" })).toBe("PGRST204");
   });
 
-  it("falls back to unknown when there is no code", () => {
+  it("falls back to unknown when there is no code or it is empty (a transport failure)", () => {
     expect(cabinetErrorFromPostgrest({ code: null })).toBe(CABINET_ERROR.unknown);
     expect(cabinetErrorFromPostgrest({})).toBe(CABINET_ERROR.unknown);
+    expect(cabinetErrorFromPostgrest({ code: "" })).toBe(CABINET_ERROR.unknown);
   });
 });

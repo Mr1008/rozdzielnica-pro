@@ -41,8 +41,9 @@ describe("businessErrorFromPostgrest", () => {
     expect(businessErrorFromPostgrest({ code: "PGRST204" })).toBe("PGRST204");
   });
 
-  it("falls back to unknown when there is no code", () => {
+  it("falls back to unknown when there is no code or it is empty (a transport failure)", () => {
     expect(businessErrorFromPostgrest({ code: null })).toBe(BUSINESS_ERROR.unknown);
     expect(businessErrorFromPostgrest({})).toBe(BUSINESS_ERROR.unknown);
+    expect(businessErrorFromPostgrest({ code: "" })).toBe(BUSINESS_ERROR.unknown);
   });
 });

@@ -47,6 +47,6 @@ export function businessErrorFromPostgrest(error: { code?: string | null }): str
     case "23514":
       return BUSINESS_ERROR.invalidInput;
     default:
-      return error.code ?? BUSINESS_ERROR.unknown;
+      return error.code === undefined || error.code === null || error.code === "" ? BUSINESS_ERROR.unknown : error.code;
   }
 }

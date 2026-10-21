@@ -41,8 +41,9 @@ describe("deviceErrorFromPostgrest", () => {
     expect(deviceErrorFromPostgrest({ code: "PGRST204" })).toBe("PGRST204");
   });
 
-  it("falls back to unknown when there is no code", () => {
+  it("falls back to unknown when there is no code or it is empty (a transport failure)", () => {
     expect(deviceErrorFromPostgrest({ code: null })).toBe(DEVICE_ERROR.unknown);
     expect(deviceErrorFromPostgrest({})).toBe(DEVICE_ERROR.unknown);
+    expect(deviceErrorFromPostgrest({ code: "" })).toBe(DEVICE_ERROR.unknown);
   });
 });

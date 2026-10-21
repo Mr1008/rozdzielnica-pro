@@ -62,8 +62,9 @@ describe("projectErrorFromPostgrest", () => {
     expect(projectErrorFromPostgrest({ code: "PGRST204" })).toBe("PGRST204");
   });
 
-  it("falls back to unknown when there is no code", () => {
+  it("falls back to unknown when there is no code or it is empty (a transport failure)", () => {
     expect(projectErrorFromPostgrest({ code: null })).toBe(PROJECT_ERROR.unknown);
     expect(projectErrorFromPostgrest({})).toBe(PROJECT_ERROR.unknown);
+    expect(projectErrorFromPostgrest({ code: "" })).toBe(PROJECT_ERROR.unknown);
   });
 });

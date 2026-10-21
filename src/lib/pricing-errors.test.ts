@@ -41,8 +41,9 @@ describe("pricingErrorFromPostgrest", () => {
     expect(pricingErrorFromPostgrest({ code: "PGRST204" })).toBe("PGRST204");
   });
 
-  it("falls back to unknown when there is no code", () => {
+  it("falls back to unknown when there is no code or it is empty (a transport failure)", () => {
     expect(pricingErrorFromPostgrest({ code: null })).toBe(PRICING_ERROR.unknown);
     expect(pricingErrorFromPostgrest({})).toBe(PRICING_ERROR.unknown);
+    expect(pricingErrorFromPostgrest({ code: "" })).toBe(PRICING_ERROR.unknown);
   });
 });

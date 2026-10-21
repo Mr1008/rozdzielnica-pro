@@ -47,6 +47,6 @@ export function pricingErrorFromPostgrest(error: { code?: string | null }): stri
     case "23514":
       return PRICING_ERROR.invalidInput;
     default:
-      return error.code ?? PRICING_ERROR.unknown;
+      return error.code === undefined || error.code === null || error.code === "" ? PRICING_ERROR.unknown : error.code;
   }
 }

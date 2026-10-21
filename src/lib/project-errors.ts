@@ -70,7 +70,9 @@ export function projectErrorMessage(code: string | null | undefined): string | n
  * database refuses. `P0002` is the snapshot trigger finding no active cabinet — it runs BEFORE the
  * foreign keys, so a `cabinet_id` naming no cabinet raises it too, and a `23503` can only come from
  * another key (`user_id`); it is not mapped, so it is never mislabelled as a cabinet problem. An
- * unmapped SQLSTATE passes through as-is.
+ * unmapped SQLSTATE passes through as-is. An empty, null or missing code (postgrest-js reports a
+ * transport failure as `code: ""`, a gateway error body has none) maps to `unknown`, so the user
+ * gets the generic banner rather than a blank `?error=`.
  */
 export function projectErrorFromPostgrest(error: { code?: string | null }): string {
   switch (error.code) {
@@ -81,6 +83,6 @@ export function projectErrorFromPostgrest(error: { code?: string | null }): stri
     case "P0002":
       return PROJECT_ERROR.cabinetUnavailable;
     default:
-      return error.code ?? PROJECT_ERROR.unknown;
+      return error.code === undefined || error.code === null || error.code === "" ? PROJECT_ERROR.unknown : error.code;
   }
 }
