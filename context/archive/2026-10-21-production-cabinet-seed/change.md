@@ -1,10 +1,10 @@
 ---
 change_id: production-cabinet-seed
 title: Produkcyjny seed katalogu szaf Karwasz z katalogu producenta
-status: impl_reviewed
+status: archived
 created: 2026-10-21
 updated: 2026-10-21
-archived_at: null
+archived_at: 2026-10-21T11:59:46Z
 ---
 
 ## Notes
