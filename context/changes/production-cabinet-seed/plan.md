@@ -349,27 +349,27 @@ new code, and the old code reads the new rows with no change. To undo it, archiv
 
 #### Automated
 
-- [x] 1.1 Unit tests pass: `npm run test:unit`
-- [x] 1.2 Lint passes: `npm run lint`
-- [x] 1.3 Type check passes: `npx astro check`
+- [x] 1.1 Unit tests pass: `npm run test:unit` — 69f9a7d
+- [x] 1.2 Lint passes: `npm run lint` — 69f9a7d
+- [x] 1.3 Type check passes: `npx astro check` — 69f9a7d
 
 #### Manual
 
-- [x] 1.4 The 33 rows in the module match the catalog pages (RN p. 19, RP p. 18, RNH p. 13, UNI M p. 10) and the price list, spot-checked on at least one model per line.
+- [x] 1.4 The 33 rows in the module match the catalog pages (RN p. 19, RP p. 18, RNH p. 13, UNI M p. 10) and the price list, spot-checked on at least one model per line. — 69f9a7d
 
 ### Phase 2: Generated migration
 
 #### Automated
 
-- [ ] 2.1 The migration file is produced by `npx vitest run --config vitest.config.ts -u src/lib/karwasz-cabinets.test.ts`, and a plain `npm run test:unit` then passes without `-u`
-- [ ] 2.2 Local stack applies it: `npx supabase db reset` completes without errors (Docker, not wslc)
-- [ ] 2.3 Integration tests pass: `npm run test:integration`
-- [ ] 2.4 Re-running the migration's SQL against the local database inserts 0 rows (idempotence)
-- [ ] 2.5 CI parity: `npm run lint && npx astro check && npm run test:unit && npm run build`
+- [x] 2.1 The migration file is produced by `npx vitest run --config vitest.config.ts -u src/lib/karwasz-cabinets.test.ts`, and a plain `npm run test:unit` then passes without `-u`
+- [x] 2.2 Local stack applies it: `npx supabase db reset` completes without errors (Docker, not wslc)
+- [x] 2.3 Integration tests pass: `npm run test:integration`
+- [x] 2.4 Re-running the migration's SQL against the local database inserts 0 rows (idempotence)
+- [x] 2.5 CI parity: `npm run lint && npx astro check && npm run test:unit && npm run build`
 
 #### Manual
 
-- [ ] 2.6 The migration header comment reads correctly and cites both sources.
+- [x] 2.6 The migration header comment reads correctly and cites both sources.
 
 ### Phase 3: Verification in the app and documentation
 
