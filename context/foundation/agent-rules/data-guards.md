@@ -9,6 +9,11 @@ Change one, change the other in the same change.
   endpoints do, via `parseCabinetForm`); never write the column around it.
   `projects.cabinet_geometry` has no TypeScript writer at all: only the `projects_snapshot_cabinet`
   trigger writes it, copying a `cabinets.geometry` that has already passed the parser.
+- **Catalog cabinets shipped by migration are generated, never hand-written.**
+  `supabase/migrations/20261021120000_karwasz_cabinets.sql` is rendered from
+  `src/lib/karwasz-cabinets.ts` and pinned to it by `toMatchFileSnapshot` in its unit test, which is
+  how those geometries go through the parser. A deployed data migration is never regenerated: a data
+  fix (a price, a new model) is a new migration.
 - **A project must snapshot its cabinet's `geometry`, not reference it live** (S-03). Admin edits to
   a cabinet must never shift an existing project's layout or quote; archiving only hides the cabinet
   from the picker. The snapshot (`cabinet_geometry`, `cabinet_name`, `cabinet_manufacturer`,

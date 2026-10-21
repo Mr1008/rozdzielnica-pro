@@ -77,6 +77,9 @@ The seed — **local and CI only**, never pushed to the cloud — creates:
   large 4-row with horizontal bars and a split rail), so the layout heuristic visibly adapts;
 - a starter device catalog.
 
+The 33 Karwasz cabinets (RN, RP, RNH, UNI SYSTEM M) are not seed data: they come from a migration,
+so they exist in the cloud too.
+
 Email confirmation is off locally; sign-up signs you straight in.
 
 > After editing `supabase/config.toml`, run `npx supabase stop` then `npx supabase start`.

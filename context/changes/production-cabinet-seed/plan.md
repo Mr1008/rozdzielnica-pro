@@ -361,25 +361,25 @@ new code, and the old code reads the new rows with no change. To undo it, archiv
 
 #### Automated
 
-- [x] 2.1 The migration file is produced by `npx vitest run --config vitest.config.ts -u src/lib/karwasz-cabinets.test.ts`, and a plain `npm run test:unit` then passes without `-u`
-- [x] 2.2 Local stack applies it: `npx supabase db reset` completes without errors (Docker, not wslc)
-- [x] 2.3 Integration tests pass: `npm run test:integration`
-- [x] 2.4 Re-running the migration's SQL against the local database inserts 0 rows (idempotence)
-- [x] 2.5 CI parity: `npm run lint && npx astro check && npm run test:unit && npm run build`
+- [x] 2.1 The migration file is produced by `npx vitest run --config vitest.config.ts -u src/lib/karwasz-cabinets.test.ts`, and a plain `npm run test:unit` then passes without `-u` — 6e9f80d
+- [x] 2.2 Local stack applies it: `npx supabase db reset` completes without errors (Docker, not wslc) — 6e9f80d
+- [x] 2.3 Integration tests pass: `npm run test:integration` — 6e9f80d
+- [x] 2.4 Re-running the migration's SQL against the local database inserts 0 rows (idempotence) — 6e9f80d
+- [x] 2.5 CI parity: `npm run lint && npx astro check && npm run test:unit && npm run build` — 6e9f80d
 
 #### Manual
 
-- [x] 2.6 The migration header comment reads correctly and cites both sources.
+- [x] 2.6 The migration header comment reads correctly and cites both sources. — 6e9f80d
 
 ### Phase 3: Verification in the app and documentation
 
 #### Automated
 
-- [ ] 3.1 Lint passes: `npm run lint`
+- [x] 3.1 Lint passes: `npm run lint`
 
 #### Manual
 
-- [ ] 3.2 As the seeded admin, `/admin/cabinets` lists the 33 Karwasz cabinets with prices, and the RN-6-P, RN-48 and UNI SYSTEM 750-1450-250 M previews draw without clipping
-- [ ] 3.3 As an electrician, a project on RN-48 with a few circuits gets a placed layout, wiring and a ready quote; the built-in bars are used (no catalog `pe_bar`/`n_bar` in the device list), and the cabinet line shows 330,25 zł
-- [ ] 3.4 As an electrician, a project on UNI SYSTEM 750-1450-250 M places devices on its rails and takes PE/N bars from the device catalog
-- [ ] 3.5 The E2E seed spec still passes: `npx playwright test tests/e2e/seed.spec.ts`
+- [x] 3.2 As the seeded admin, `/admin/cabinets` lists the 33 Karwasz cabinets with prices, and the RN-6-P, RN-48 and UNI SYSTEM 750-1450-250 M previews draw without clipping
+- [x] 3.3 As an electrician, a project on RN-48 with a few circuits gets a placed layout, wiring and a ready quote; the built-in bars are used (no catalog `pe_bar`/`n_bar` in the device list), and the cabinet line shows 330,25 zł
+- [x] 3.4 As an electrician, a project on UNI SYSTEM 750-1450-250 M places devices on its rails and takes PE/N bars from the device catalog
+- [x] 3.5 The E2E seed spec still passes: `npx playwright test tests/e2e/seed.spec.ts`
