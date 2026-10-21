@@ -1568,6 +1568,22 @@ export const pl = {
     },
   },
 
+  /** Device names of the generated production catalog (`src/lib/catalog-seed.ts`). */
+  catalogSeed: {
+    mcb: (series: string, ratedCurrentA: number, poles: string) =>
+      `Wyłącznik nadprądowy ${series} B${String(ratedCurrentA)} ${poles}`,
+    rcd: (series: string, ratedCurrentA: number, poles: string, residualCurrentMa: number, rcdType: string) =>
+      `Wyłącznik różnicowoprądowy ${series} ${String(ratedCurrentA)}A ${poles} ${String(residualCurrentMa)}mA typ ${rcdType}`,
+    rcbo: (series: string, ratedCurrentA: number, poles: string, residualCurrentMa: number, rcdType: string) =>
+      `Wyłącznik różnicowonadprądowy ${series} B${String(ratedCurrentA)} ${poles} ${String(residualCurrentMa)}mA typ ${rcdType}`,
+    switchDisconnector: (series: string, ratedCurrentA: number, poles: string) =>
+      `Rozłącznik izolacyjny ${series} ${String(ratedCurrentA)}A ${poles}`,
+    combBusbar: (series: string, phases: string, pins: number, ratedCurrentA: number) =>
+      `Listwa zasilająca ${series} ${phases} ${String(pins)} ${plural(pins, { one: "pin", few: "piny", many: "pinów" })} ${String(ratedCurrentA)}A`,
+    peBar: (model: string, terminals: number) => `Szyna PE ${model} ${String(terminals)}-torowa`,
+    nBar: (model: string, terminals: number) => `Szyna N ${model} ${String(terminals)}-torowa`,
+  },
+
   config: {
     supabaseMissing: "Supabase nie jest skonfigurowany — funkcje uwierzytelniania są wyłączone.",
     supabaseDocsLabel: "Zobacz instrukcję konfiguracji",
