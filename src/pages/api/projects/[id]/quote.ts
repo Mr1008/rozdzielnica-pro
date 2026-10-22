@@ -60,9 +60,7 @@ export const POST: APIRoute = async (context) => {
       ["pricing_profiles", profile.error],
     ] as const) {
       if (error !== null) {
-        // Only the SQLSTATE / PostgREST code — never Supabase's message text.
-        // eslint-disable-next-line no-console
-        console.error(`quote override load failed: ${what}`, error.code);
+        logServerError("quote override load failed", error, { userId: context.locals.user?.id, projectId: id, what });
         return back(PROJECT_ERROR.unknown);
       }
     }

@@ -21,6 +21,7 @@ import {
   type SelectionRole,
 } from "@/lib/device-matching";
 import { PROJECT_ERROR, projectErrorFromPostgrest } from "@/lib/project-errors";
+import { logServerError, type ServerLogContext } from "@/lib/server-log";
 import { supplyFromRow, type SupplyParams, type SupplyRow } from "@/lib/supply-params";
 
 /**
@@ -65,10 +66,8 @@ export type LoadMatchContextResult = { ok: true; context: MatchContext } | LoadF
 const SUPPLY_COLUMNS =
   "premeter_protection_a, earthing_system, phase_count, wlz_length_m, wlz_cross_section_mm2, wlz_material, wlz_installation";
 
-function logLoadFailure(what: string, code: string | null | undefined): void {
-  // Only the SQLSTATE / PostgREST code — never Supabase's message text.
-  // eslint-disable-next-line no-console
-  console.error(`match context load failed: ${what}`, code);
+function logLoadFailure(what: string, error: unknown, projectId: string, extra: ServerLogContext = {}): void {
+  logServerError("match context load failed", error, { ...extra, projectId, what });
 }
 
 function hasId(row: unknown): row is { id: unknown } {
@@ -84,8 +83,7 @@ function parseCatalog(rows: readonly unknown[]): DeviceSpecWithId[] {
   if (catalog.length < rows.length) {
     const kept = new Set(catalog.map((device) => device.id));
     const dropped = rows.flatMap((row) => (hasId(row) && !kept.has(row.id as string) ? [String(row.id)] : []));
-    // eslint-disable-next-line no-console
-    console.error("match catalog: devices dropped as unparseable", dropped);
+    logServerError("match catalog devices dropped", undefined, { dropped: dropped.join(","), count: dropped.length });
   }
   return catalog;
 }
@@ -111,7 +109,7 @@ export async function loadMatchBase(
     ["devices", devices.error],
   ] as const) {
     if (error !== null) {
-      logLoadFailure(what, error.code);
+      logLoadFailure(what, error, projectId);
       return { ok: false, code: "unknown" };
     }
   }
@@ -147,7 +145,7 @@ export async function loadMatchContext(
     ["project_devices", snapshot.error],
   ] as const) {
     if (error !== null) {
-      logLoadFailure(what, error.code);
+      logLoadFailure(what, error, projectId);
       return { ok: false, code: "unknown" };
     }
   }
@@ -156,7 +154,7 @@ export async function loadMatchContext(
   // `position`, `project_id`, …). A failure here is unreachable in practice and never guessed around.
   const parsed = parseCircuitsPayload({ groups: groups.data ?? [], circuits: circuits.data ?? [] });
   if (!parsed.ok) {
-    logLoadFailure("stored circuits do not parse", parsed.issues.at(0)?.code);
+    logLoadFailure("stored circuits do not parse", undefined, projectId, { issueCode: parsed.issues.at(0)?.code });
     return { ok: false, code: "unknown" };
   }
 

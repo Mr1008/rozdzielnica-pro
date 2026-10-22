@@ -22,6 +22,7 @@ import {
 } from "@/lib/device-matching-server";
 import { carryOverPlacements } from "@/lib/layout-editing";
 import { PROJECT_ERROR, projectErrorFromPostgrest } from "@/lib/project-errors";
+import { logServerError } from "@/lib/server-log";
 import { toWiringData, type WiringData } from "@/lib/wiring-island";
 
 /**
@@ -333,9 +334,7 @@ export async function loadLayoutContext(
   ]);
   if (!match.ok) return match;
   if (placements.error !== null) {
-    // Only the SQLSTATE / PostgREST code — never Supabase's message text.
-    // eslint-disable-next-line no-console
-    console.error("layout context load failed: project_device_placements", placements.error.code);
+    logServerError("layout context load failed", placements.error, { projectId, what: "project_device_placements" });
     return { ok: false, code: "unknown" };
   }
   return {
@@ -396,9 +395,7 @@ export async function loadPreviousLayout(
     ["project_device_placements", placements.error],
   ] as const) {
     if (error !== null) {
-      // Only the SQLSTATE / PostgREST code — never Supabase's message text.
-      // eslint-disable-next-line no-console
-      console.error(`previous layout load failed: ${what}`, error.code);
+      logServerError("previous layout load failed", error, { projectId, what });
     }
   }
   return previousLayoutFromReads(snapshot, placements);

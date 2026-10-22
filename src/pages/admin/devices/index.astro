@@ -13,6 +13,7 @@ import { DEVICE_KINDS, deviceKindLabel, parseDeviceSpec } from "@/lib/device-spe
 import { deviceParameterSummary, deviceWidthLabel } from "@/lib/device-summary";
 import { formatMoney, t } from "@/lib/i18n";
 import { ROLE_HOME } from "@/lib/route-access";
+import { logServerError } from "@/lib/server-log";
 import { createClient } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { PlusIcon } from "lucide-react";
@@ -33,9 +34,7 @@ async function loadDevices() {
       "id, kind, name, manufacturer, model, price_grosze, width_mm, height_mm, depth_mm, poles, rated_current_a, residual_current_ma, rcd_type, breaking_capacity_ka, terminal_groups, n_terminal_side, archived_at",
     );
   if (error) {
-    // The SQLSTATE only, never Supabase's message — `wrangler tail` is the only trace a failure leaves.
-    // eslint-disable-next-line no-console
-    console.error("devices list load failed", error.code);
+    logServerError("devices list load failed", error, { userId: Astro.locals.user?.id });
     Astro.response.status = 500;
     return { rows: [], loadError: t.devices.catalog.loadFailed };
   }

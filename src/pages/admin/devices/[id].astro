@@ -9,6 +9,7 @@ import { DEVICES_PATH, deviceApiPath } from "@/lib/device-catalog";
 import { deviceErrorMessage } from "@/lib/device-errors";
 import type { DeviceRow } from "@/lib/device-form";
 import { t } from "@/lib/i18n";
+import { logServerError } from "@/lib/server-log";
 import { createClient } from "@/lib/supabase";
 
 // No role check here on purpose: `/admin/*` is gated in `src/lib/route-access.ts`, and RLS lets an
@@ -32,9 +33,7 @@ async function loadDevice(): Promise<{ row: DeviceRow | null; loadError: string 
     .eq("id", id)
     .maybeSingle();
   if (queryError) {
-    // The SQLSTATE only, never Supabase's message — `wrangler tail` is the only trace a failure leaves.
-    // eslint-disable-next-line no-console
-    console.error("device load failed", queryError.code);
+    logServerError("device load failed", queryError, { userId: Astro.locals.user?.id, deviceId: id });
     Astro.response.status = 500;
     return { row: null, loadError: t.devices.editor.loadFailed };
   }

@@ -9,6 +9,7 @@ import { formatDate, t } from "@/lib/i18n";
 import { NEW_PROJECT_PATH, projectPath } from "@/lib/project";
 import { projectErrorMessage } from "@/lib/project-errors";
 import { ROLE_HOME } from "@/lib/route-access";
+import { logServerError } from "@/lib/server-log";
 import { createClient } from "@/lib/supabase";
 import { supplyFromRow } from "@/lib/supply-params";
 import { PlusIcon } from "lucide-react";
@@ -30,9 +31,7 @@ async function loadProjects() {
     )
     .order("updated_at", { ascending: false });
   if (error) {
-    // The SQLSTATE only, never Supabase's message — `wrangler tail` is the only trace a failure leaves.
-    // eslint-disable-next-line no-console
-    console.error("projects list load failed", error.code);
+    logServerError("projects list load failed", error, { userId: Astro.locals.user?.id });
     Astro.response.status = 500;
     return { rows: [], loadError: t.projects.list.loadFailed };
   }

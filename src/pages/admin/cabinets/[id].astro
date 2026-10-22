@@ -9,6 +9,7 @@ import { cabinetErrorMessage } from "@/lib/cabinet-errors";
 import type { CabinetRow } from "@/lib/cabinet-form";
 import { isUuid } from "@/lib/catalog";
 import { t } from "@/lib/i18n";
+import { logServerError } from "@/lib/server-log";
 import { createClient } from "@/lib/supabase";
 
 // No role check here on purpose: `/admin/*` is gated in `src/lib/route-access.ts`, and RLS lets an
@@ -30,9 +31,7 @@ async function loadCabinet(): Promise<{ row: CabinetRow | null; loadError: strin
     .eq("id", id)
     .maybeSingle();
   if (queryError) {
-    // The SQLSTATE only, never Supabase's message — `wrangler tail` is the only trace a failure leaves.
-    // eslint-disable-next-line no-console
-    console.error("cabinet load failed", queryError.code);
+    logServerError("cabinet load failed", queryError, { userId: Astro.locals.user?.id, cabinetId: id });
     Astro.response.status = 500;
     return { row: null, loadError: t.cabinets.editor.loadFailed };
   }

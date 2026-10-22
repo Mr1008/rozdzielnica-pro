@@ -33,6 +33,7 @@ import {
 } from "@/lib/project";
 import { projectErrorMessage } from "@/lib/project-errors";
 import { computeQuoteView, type QuoteView } from "@/lib/quote";
+import { logServerError } from "@/lib/server-log";
 import { createClient } from "@/lib/supabase";
 import { WIRING_VIEW_PARAM, wiringViewFromParam, wiringViewHrefs } from "@/lib/wiring-view";
 import { supplyFormDefaults, supplyFromRow } from "@/lib/supply-params";
@@ -87,9 +88,7 @@ async function loadProject() {
     .eq("id", id)
     .maybeSingle();
   if (queryError) {
-    // The SQLSTATE only, never Supabase's message — `wrangler tail` is the only trace a failure leaves.
-    // eslint-disable-next-line no-console
-    console.error("project load failed", queryError.code);
+    logServerError("project load failed", queryError, { userId: Astro.locals.user?.id, projectId: id });
     Astro.response.status = 500;
     return { project: null, loadError: t.projects.page.loadFailed };
   }
@@ -106,8 +105,7 @@ async function loadCabinets() {
     .select("id, name, manufacturer, model, geometry, archived_at")
     .is("archived_at", null);
   if (queryError) {
-    // eslint-disable-next-line no-console
-    console.error("project cabinet picker load failed", queryError.code);
+    logServerError("project cabinet picker load failed", queryError, { userId: Astro.locals.user?.id, projectId: id });
     return { cabinets: [], cabinetsError: t.projects.cabinet.loadFailed };
   }
   const cabinets = sortForCatalogList(data).map(({ id: cabinetId, name, manufacturer, model, geometry }) => {
@@ -173,9 +171,7 @@ async function loadPricingProfile() {
     .eq("user_id", user.id)
     .maybeSingle();
   if (queryError) {
-    // The SQLSTATE only, never Supabase's message.
-    // eslint-disable-next-line no-console
-    console.error("project quote profile load failed", queryError.code);
+    logServerError("project quote profile load failed", queryError, { userId: Astro.locals.user?.id, projectId: id });
     return { profile: null, profileError: t.quote.loadFailed };
   }
   return { profile: data, profileError: null };

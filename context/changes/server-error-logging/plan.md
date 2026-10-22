@@ -343,29 +343,29 @@ any saved log search on the old `"… load failed"` strings needs the new event 
 
 #### Automated
 
-- [x] 2.1 `npm run test:unit` passes
-- [x] 2.2 `npm run lint` passes
-- [x] 2.3 `npx astro check` passes
-- [x] 2.4 `npm run build` passes
-- [x] 2.5 Every `ErrorFromPostgrest(` / `RpcErrorCode(` call in `src/pages/api` has a `logServerError(` call in the same branch
+- [x] 2.1 `npm run test:unit` passes — 06a0d69
+- [x] 2.2 `npm run lint` passes — 06a0d69
+- [x] 2.3 `npx astro check` passes — 06a0d69
+- [x] 2.4 `npm run build` passes — 06a0d69
+- [x] 2.5 Every `ErrorFromPostgrest(` / `RpcErrorCode(` call in `src/pages/api` has a `logServerError(` call in the same branch — 06a0d69
 
 #### Manual
 
-- [x] 2.6 Spot-read three routes (one admin, one profile, one project RPC) and confirm event name, ids and unchanged redirect
+- [x] 2.6 Spot-read three routes (one admin, one profile, one project RPC) and confirm event name, ids and unchanged redirect — 06a0d69
 
 ### Phase 3: Move read logs onto the helper
 
 #### Automated
 
-- [ ] 3.1 `npm run test:unit` passes
-- [ ] 3.2 `npm run lint` passes
-- [ ] 3.3 `npx astro check` passes
-- [ ] 3.4 `npm run build` passes
-- [ ] 3.5 No `console.error` in `src` outside `src/lib/server-log.ts`
+- [x] 3.1 `npm run test:unit` passes
+- [x] 3.2 `npm run lint` passes
+- [x] 3.3 `npx astro check` passes
+- [x] 3.4 `npm run build` passes
+- [x] 3.5 No `console.error` in `src` outside `src/lib/server-log.ts`
 
 #### Manual
 
-- [ ] 3.6 Spot-read `print.astro` and confirm the caught error object (not its message) reaches the helper
+- [x] 3.6 Spot-read `print.astro` and confirm the caught error object (not its message) reaches the helper
 
 ### Phase 4: Before/after proof with the probe suite
 
