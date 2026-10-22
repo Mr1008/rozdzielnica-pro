@@ -371,12 +371,12 @@ any saved log search on the old `"… load failed"` strings needs the new event 
 
 #### Automated
 
-- [x] 4.1 `bash probe/suite.sh` completes and its `trap` leaves the auth/rest containers running and no `probe_fail` trigger
-- [x] 4.2 `probe/out/C2-transport.txt` case A shows `?error=unknown`
+- [x] 4.1 `bash probe/suite.sh` completes and its `trap` leaves the auth/rest containers running and no `probe_fail` trigger — 691c57e
+- [x] 4.2 `probe/out/C2-transport.txt` case A shows `?error=unknown` — 691c57e
 
 #### Manual
 
-- [x] 4.3 `probe/out/C3.txt` shows a `projects.circuits.rpc failed` record with `code: "XX000"` and the project id
-- [x] 4.4 `probe/out/C2.txt` REST-down read lines show `code: "none"` with project/user ids and no literal `undefined`
-- [x] 4.5 No user-facing difference other than C2 case A: the C1, C3 and C5 landing pages match the before run
-- [x] 4.6 A short before/after note is added to the change folder (or a `mode: verify` audit report is written)
+- [x] 4.3 `probe/out/C3.txt` shows a `projects.circuits.rpc failed` record with `code: "XX000"` and the project id — 691c57e
+- [x] 4.4 `probe/out/C2.txt` REST-down read lines show `code: "none"` with project/user ids and no literal `undefined` — 691c57e
+- [x] 4.5 No user-facing difference other than C2 case A: the C1, C3 and C5 landing pages match the before run — 691c57e
+- [x] 4.6 A short before/after note is added to the change folder (or a `mode: verify` audit report is written) — 691c57e
