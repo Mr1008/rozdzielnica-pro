@@ -1,10 +1,10 @@
 ---
 change_id: production-catalog-seed
 title: Produkcyjny seed katalogu aparatów Eaton i Legrand z katalogów producentów
-status: implemented
+status: archived
 created: 2026-10-21
 updated: 2026-10-22
-archived_at: null
+archived_at: 2026-10-22T08:55:16Z
 ---
 
 ## Notes
