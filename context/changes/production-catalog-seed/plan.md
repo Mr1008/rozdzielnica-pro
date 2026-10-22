@@ -377,6 +377,6 @@ correction means editing the generator and changing rows through the admin edito
 
 #### Manual
 
-- [x] 4.1 Jakub explicitly approves the production apply in chat before it runs
-- [x] 4.2 After the apply, production `devices` holds the generated Eaton and Legrand row counts and the total active catalog is below 1000
-- [ ] 4.3 A production project with ordinary circuits matches Eaton/Legrand devices and renders its layout
+- [x] 4.1 Jakub explicitly approves the production apply in chat before it runs — b3071be
+- [x] 4.2 After the apply, production `devices` holds the generated Eaton and Legrand row counts and the total active catalog is below 1000 — b3071be
+- [x] 4.3 A production project with ordinary circuits matches Eaton/Legrand devices and renders its layout
