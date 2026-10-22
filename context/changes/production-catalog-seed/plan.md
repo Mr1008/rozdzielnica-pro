@@ -351,27 +351,27 @@ correction means editing the generator and changing rows through the admin edito
 
 #### Automated
 
-- [x] 2.1 `npm run test:unit` passes, including `src/lib/catalog-seed.test.ts` against the committed SQL file
-- [x] 2.2 `npm run lint` passes
-- [x] 2.3 `npx astro check` passes
+- [x] 2.1 `npm run test:unit` passes, including `src/lib/catalog-seed.test.ts` against the committed SQL file — 9406424
+- [x] 2.2 `npm run lint` passes — 9406424
+- [x] 2.3 `npx astro check` passes — 9406424
 
 #### Manual
 
-- [x] 2.4 Read the generated SQL's price list for one series per kind and confirm the prices look plausible for the Polish market
+- [x] 2.4 Read the generated SQL's price list for one series per kind and confirm the prices look plausible for the Polish market — 9406424
 
 ### Phase 3: Local verification and runbook
 
 #### Automated
 
-- [ ] 3.1 On a local stack after `npx supabase db reset`, the first apply of `supabase/catalog/eaton-legrand.sql` exits 0 and inserts exactly the generated row count
-- [ ] 3.2 A second apply exits 0 and inserts 0 rows (count per manufacturer unchanged)
-- [ ] 3.3 `npm run test:unit`, `npm run lint` and `npx astro check` still pass
+- [x] 3.1 On a local stack after `npx supabase db reset`, the first apply of `supabase/catalog/eaton-legrand.sql` exits 0 and inserts exactly the generated row count
+- [x] 3.2 A second apply exits 0 and inserts 0 rows (count per manufacturer unchanged)
+- [x] 3.3 `npm run test:unit`, `npm run lint` and `npx astro check` still pass
 
 #### Manual
 
-- [ ] 3.4 In the browser on the local stack (catalog applied, sample catalog archived for the check), a 1-phase and a 3-phase project with ordinary circuits match Eaton/Legrand devices and the layout and wiring drawings render
-- [ ] 3.5 The admin device list shows the new catalog with Polish names and prices
-- [ ] 3.6 The cloud project's PostgREST max rows setting is confirmed ≥ 1000
+- [x] 3.4 In the browser on the local stack (catalog applied, sample catalog archived for the check), a 1-phase and a 3-phase project with ordinary circuits match Eaton/Legrand devices and the layout and wiring drawings render
+- [x] 3.5 The admin device list shows the new catalog with Polish names and prices
+- [x] 3.6 The cloud project's PostgREST max rows setting is confirmed ≥ 1000
 
 ### Phase 4: Production apply
 
