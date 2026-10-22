@@ -46,3 +46,9 @@ where manufacturer in ('Eaton', 'Legrand') group by 1, 2 order by 1, 2;
 Expected: Eaton 204 (FR 36, RCD 36, RCBO 44, MCB 57, comb busbar 16, PE 12, N 3) and Legrand 151 (FR 24,
 RCD 53, RCBO 16, MCB 48, comb busbar 6, PE 2, N 2). The total active catalog must stay well below the
 PostgREST `max_rows` (1000) — the matcher loads it unpaginated.
+
+## Applied to production
+
+- 2026-10-22 — project `rozdzielnica-pro`: Eaton 204, Legrand 151 (355 active devices in total; the
+  catalog was empty before). Applied from commit `9406424` through the Supabase MCP in three idempotent
+  chunks; the per-manufacturer md5 over every column matched the same file applied locally.
