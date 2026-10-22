@@ -363,20 +363,20 @@ correction means editing the generator and changing rows through the admin edito
 
 #### Automated
 
-- [x] 3.1 On a local stack after `npx supabase db reset`, the first apply of `supabase/catalog/eaton-legrand.sql` exits 0 and inserts exactly the generated row count
-- [x] 3.2 A second apply exits 0 and inserts 0 rows (count per manufacturer unchanged)
-- [x] 3.3 `npm run test:unit`, `npm run lint` and `npx astro check` still pass
+- [x] 3.1 On a local stack after `npx supabase db reset`, the first apply of `supabase/catalog/eaton-legrand.sql` exits 0 and inserts exactly the generated row count — 89dff5f
+- [x] 3.2 A second apply exits 0 and inserts 0 rows (count per manufacturer unchanged) — 89dff5f
+- [x] 3.3 `npm run test:unit`, `npm run lint` and `npx astro check` still pass — 89dff5f
 
 #### Manual
 
-- [x] 3.4 In the browser on the local stack (catalog applied, sample catalog archived for the check), a 1-phase and a 3-phase project with ordinary circuits match Eaton/Legrand devices and the layout and wiring drawings render
-- [x] 3.5 The admin device list shows the new catalog with Polish names and prices
-- [x] 3.6 The cloud project's PostgREST max rows setting is confirmed ≥ 1000
+- [x] 3.4 In the browser on the local stack (catalog applied, sample catalog archived for the check), a 1-phase and a 3-phase project with ordinary circuits match Eaton/Legrand devices and the layout and wiring drawings render — 89dff5f
+- [x] 3.5 The admin device list shows the new catalog with Polish names and prices — 89dff5f
+- [x] 3.6 The cloud project's PostgREST max rows setting is confirmed ≥ 1000 — 89dff5f
 
 ### Phase 4: Production apply
 
 #### Manual
 
-- [ ] 4.1 Jakub explicitly approves the production apply in chat before it runs
-- [ ] 4.2 After the apply, production `devices` holds the generated Eaton and Legrand row counts and the total active catalog is below 1000
+- [x] 4.1 Jakub explicitly approves the production apply in chat before it runs
+- [x] 4.2 After the apply, production `devices` holds the generated Eaton and Legrand row counts and the total active catalog is below 1000
 - [ ] 4.3 A production project with ordinary circuits matches Eaton/Legrand devices and renders its layout
