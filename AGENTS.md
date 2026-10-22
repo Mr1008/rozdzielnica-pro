@@ -90,9 +90,10 @@ change both together.
   `src/lib/auth-errors.ts`, `src/pages/auth/**`, `src/pages/api/auth/**`, `src/pages/api/admin/**`,
   `src/pages/admin/**`, `supabase/migrations/**`, `tests/integration/**`.
 - **`deploy-tooling.md`** — the smoke script, local Supabase config, CI/deploy, the Worker name,
-  ESLint plugin workarounds. Patterns: `wrangler.jsonc`, `package.json`, `eslint.config.js`,
-  `astro.config.mjs`, `.github/workflows/**`, `supabase/config.toml`, `supabase/seed.sql`,
-  `scripts/smoke.mjs`, `context/changes/deployment/**`.
+  ESLint plugin workarounds, the generated production device catalog. Patterns: `wrangler.jsonc`,
+  `package.json`, `eslint.config.js`, `astro.config.mjs`, `.github/workflows/**`,
+  `supabase/config.toml`, `supabase/seed.sql`, `scripts/smoke.mjs`, `context/changes/deployment/**`,
+  `supabase/catalog/**`, `src/lib/catalog-seed.ts`.
 - **`roadmap-sync.md`** — every roadmap edit is mirrored to GitHub. Patterns:
   `context/foundation/roadmap.md`, `scripts/roadmap-to-github.mjs`.
 

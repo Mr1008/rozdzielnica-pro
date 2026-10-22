@@ -32,6 +32,15 @@
   block in `package.json`.** Both exist because `eslint-plugin-react` / `eslint-plugin-jsx-a11y` do
   not yet support ESLint 10. Removing either breaks `npm run lint`.
 
+- **`supabase/catalog/eaton-legrand.sql` is generated and production-only.** It is the output of
+  `src/lib/catalog-seed.ts`, pinned by a file snapshot in `catalog-seed.test.ts`: change the generator
+  or `supabase/catalog/source/*.json`, then regenerate with `-u` — never edit the SQL by hand. Never
+  move it into `supabase/migrations/` or `supabase/seed.sql`: it would reach every local and CI
+  database and break the catalog-gap tests that rely on the sample catalog having no B40
+  (`tests/e2e/seed.spec.ts`, `tests/integration/rls-devices.test.ts`). The matcher loads the whole
+  active catalog with no pagination under PostgREST `max_rows = 1000`, so keep the catalog well below
+  that. How to apply it: `supabase/catalog/README.md`.
+
 ## CI and deploy
 
 CI (on `master`): `.github/workflows/ci.yml` job `ci` = lint + `astro check` + `test:unit` + build;

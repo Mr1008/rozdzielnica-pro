@@ -9,6 +9,8 @@ paths:
   - "supabase/seed.sql"
   - "scripts/smoke.mjs"
   - "context/changes/deployment/**"
+  - "supabase/catalog/**"
+  - "src/lib/catalog-seed.ts"
 ---
 
 @../../context/foundation/agent-rules/deploy-tooling.md
