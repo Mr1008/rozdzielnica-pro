@@ -159,7 +159,7 @@ The full script list is in `README.md` `## Scripts`. What it does not say:
 
 ## Environment
 
-Node 24.21.0 (`.nvmrc`). `SUPABASE_URL` and `SUPABASE_KEY` go in **both** `.env` (Node tooling) and
+Node 24, any 24.x (`.nvmrc` pins the major only). `SUPABASE_URL` and `SUPABASE_KEY` go in **both** `.env` (Node tooling) and
 `.dev.vars` (Cloudflare local dev) — both gitignored. Local stack: `npx supabase start` (Docker,
 ~7 GB), which applies `supabase/migrations/` and `supabase/seed.sql`. The seed is **local and CI
 only** — `supabase db push` carries migrations, never seeds. CI and deploy: see

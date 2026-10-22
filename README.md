@@ -36,7 +36,7 @@ Isolation is enforced by Postgres row-level security, not by application code.
 
 ## Getting started
 
-Prerequisites: Node.js **24.21.0** (`.nvmrc`) and Docker with ~7 GB of RAM for the local Supabase stack.
+Prerequisites: Node.js **24** — any 24.x (`.nvmrc`) and Docker with ~7 GB of RAM for the local Supabase stack.
 
 ```bash
 git clone git@github.com:Mr1008/rozdzielnica-pro.git
