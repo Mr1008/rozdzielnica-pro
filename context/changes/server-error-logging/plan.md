@@ -357,26 +357,26 @@ any saved log search on the old `"… load failed"` strings needs the new event 
 
 #### Automated
 
-- [x] 3.1 `npm run test:unit` passes
-- [x] 3.2 `npm run lint` passes
-- [x] 3.3 `npx astro check` passes
-- [x] 3.4 `npm run build` passes
-- [x] 3.5 No `console.error` in `src` outside `src/lib/server-log.ts`
+- [x] 3.1 `npm run test:unit` passes — 01036e7
+- [x] 3.2 `npm run lint` passes — 01036e7
+- [x] 3.3 `npx astro check` passes — 01036e7
+- [x] 3.4 `npm run build` passes — 01036e7
+- [x] 3.5 No `console.error` in `src` outside `src/lib/server-log.ts` — 01036e7
 
 #### Manual
 
-- [x] 3.6 Spot-read `print.astro` and confirm the caught error object (not its message) reaches the helper
+- [x] 3.6 Spot-read `print.astro` and confirm the caught error object (not its message) reaches the helper — 01036e7
 
 ### Phase 4: Before/after proof with the probe suite
 
 #### Automated
 
-- [ ] 4.1 `bash probe/suite.sh` completes and its `trap` leaves the auth/rest containers running and no `probe_fail` trigger
-- [ ] 4.2 `probe/out/C2-transport.txt` case A shows `?error=unknown`
+- [x] 4.1 `bash probe/suite.sh` completes and its `trap` leaves the auth/rest containers running and no `probe_fail` trigger
+- [x] 4.2 `probe/out/C2-transport.txt` case A shows `?error=unknown`
 
 #### Manual
 
-- [ ] 4.3 `probe/out/C3.txt` shows a `projects.circuits.rpc failed` record with `code: "XX000"` and the project id
-- [ ] 4.4 `probe/out/C2.txt` REST-down read lines show `code: "none"` with project/user ids and no literal `undefined`
-- [ ] 4.5 No user-facing difference other than C2 case A: the C1, C3 and C5 landing pages match the before run
-- [ ] 4.6 A short before/after note is added to the change folder (or a `mode: verify` audit report is written)
+- [x] 4.3 `probe/out/C3.txt` shows a `projects.circuits.rpc failed` record with `code: "XX000"` and the project id
+- [x] 4.4 `probe/out/C2.txt` REST-down read lines show `code: "none"` with project/user ids and no literal `undefined`
+- [x] 4.5 No user-facing difference other than C2 case A: the C1, C3 and C5 landing pages match the before run
+- [x] 4.6 A short before/after note is added to the change folder (or a `mode: verify` audit report is written)
