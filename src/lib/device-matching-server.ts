@@ -83,7 +83,15 @@ function parseCatalog(rows: readonly unknown[]): DeviceSpecWithId[] {
   if (catalog.length < rows.length) {
     const kept = new Set(catalog.map((device) => device.id));
     const dropped = rows.flatMap((row) => (hasId(row) && !kept.has(row.id as string) ? [String(row.id)] : []));
-    logServerError("match catalog devices dropped", undefined, { dropped: dropped.join(","), count: dropped.length });
+    // The first ids are enough to find the rows; the whole list could reach the 1000-row cap.
+    logServerError(
+      "match catalog devices dropped",
+      { code: "parse" },
+      {
+        dropped: dropped.slice(0, 10).join(","),
+        count: dropped.length,
+      },
+    );
   }
   return catalog;
 }
@@ -154,7 +162,9 @@ export async function loadMatchContext(
   // `position`, `project_id`, …). A failure here is unreachable in practice and never guessed around.
   const parsed = parseCircuitsPayload({ groups: groups.data ?? [], circuits: circuits.data ?? [] });
   if (!parsed.ok) {
-    logLoadFailure("stored circuits do not parse", undefined, projectId, { issueCode: parsed.issues.at(0)?.code });
+    logLoadFailure("stored circuits do not parse", { code: "parse" }, projectId, {
+      issueCode: parsed.issues.at(0)?.code,
+    });
     return { ok: false, code: "unknown" };
   }
 

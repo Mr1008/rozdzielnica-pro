@@ -39,6 +39,20 @@ describe("serverErrorRecord", () => {
     expect(record.message.endsWith("…")).toBe(true);
   });
 
+  it("truncates a long hint", () => {
+    expect(serverErrorRecord("e", { code: "1", hint: "h".repeat(500) }).hint).toHaveLength(201);
+  });
+
+  it("masks quoted input in a class 22 message", () => {
+    const record = serverErrorRecord("e", { code: "22P02", message: 'invalid input syntax for type uuid: "jan@x.pl"' });
+    expect(record.message).toBe('invalid input syntax for type uuid: "…"');
+  });
+
+  it("leaves quoted names in other messages", () => {
+    const message = 'new row violates check constraint "projects_name_valid"';
+    expect(serverErrorRecord("e", { code: "23514", message }).message).toBe(message);
+  });
+
   it("keeps name, message and stack of a plain Error", () => {
     const error = new TypeError("boom");
     const record = serverErrorRecord("e", error);
@@ -80,5 +94,19 @@ describe("logServerError", () => {
     expect(spy).toHaveBeenCalledTimes(1);
     expect(spy.mock.calls[0]).toHaveLength(1);
     expect(spy.mock.calls[0]?.[0]).toMatchObject({ event: "project.insert", code: "42501", userId: "u1" });
+  });
+
+  it("never throws, even when the error cannot be read", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const hostile = {
+      get code(): string {
+        throw new Error("getter");
+      },
+    };
+    expect(() => {
+      logServerError("print view failed", hostile);
+    }).not.toThrow();
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy.mock.calls[0]?.[0]).toMatchObject({ event: "print view failed", code: "none" });
   });
 });

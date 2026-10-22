@@ -1,7 +1,7 @@
 ---
 change_id: server-error-logging
 title: Log server-side failures with context and stop losing the transport error code
-status: implemented
+status: impl_reviewed
 created: 2026-10-21
 updated: 2026-10-22
 archived_at: null
