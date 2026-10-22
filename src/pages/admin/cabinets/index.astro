@@ -12,6 +12,7 @@ import { sortForCatalogList } from "@/lib/catalog";
 import { parseCabinetGeometry } from "@/lib/cabinet-geometry";
 import { formatMoney, t } from "@/lib/i18n";
 import { ROLE_HOME } from "@/lib/route-access";
+import { logServerError } from "@/lib/server-log";
 import { createClient } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { PlusIcon } from "lucide-react";
@@ -30,9 +31,7 @@ async function loadCabinets() {
     .from("cabinets")
     .select("id, name, manufacturer, model, price_grosze, geometry, archived_at");
   if (error) {
-    // The SQLSTATE only, never Supabase's message — `wrangler tail` is the only trace a failure leaves.
-    // eslint-disable-next-line no-console
-    console.error("cabinets list load failed", error.code);
+    logServerError("cabinets list load failed", error, { userId: Astro.locals.user?.id });
     Astro.response.status = 500;
     return { rows: [], loadError: t.cabinets.catalog.loadFailed };
   }

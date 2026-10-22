@@ -12,6 +12,7 @@ import { buildLayoutDrawing, computeLayoutView, loadLayoutContext } from "@/lib/
 import { PROJECTS_PATH, projectPath } from "@/lib/project";
 import { computeQuoteView } from "@/lib/quote";
 import { computePrintView, type PrintView } from "@/lib/quote-print";
+import { logServerError } from "@/lib/server-log";
 import { createClient } from "@/lib/supabase";
 import { CircleAlertIcon } from "lucide-react";
 
@@ -36,9 +37,7 @@ async function loadProject() {
     .eq("id", id)
     .maybeSingle();
   if (queryError) {
-    // The SQLSTATE only, never Supabase's message.
-    // eslint-disable-next-line no-console
-    console.error("print project load failed", queryError.code);
+    logServerError("print project load failed", queryError, { userId: Astro.locals.user?.id, projectId: id });
     return { project: null, loadError: t.quotePrint.loadFailed };
   }
   return { project: data, loadError: null };
@@ -67,8 +66,7 @@ async function loadOwnRows() {
     ["profiles", profile],
   ] as const) {
     if (result.error) {
-      // eslint-disable-next-line no-console
-      console.error(`print ${what} load failed`, result.error.code);
+      logServerError("print own rows load failed", result.error, { userId: user.id, projectId: id, what });
       return { failed: true as const };
     }
   }
@@ -100,8 +98,7 @@ function printView(compute: () => PrintView): PrintView | "failed" {
   try {
     return compute();
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error("print view failed", error instanceof Error ? error.message : "unknown");
+    logServerError("print view failed", error, { userId: Astro.locals.user?.id, projectId: id });
     return "failed";
   }
 }

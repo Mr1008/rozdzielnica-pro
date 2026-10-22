@@ -12,6 +12,7 @@ import { sortForCatalogList } from "@/lib/catalog";
 import { t } from "@/lib/i18n";
 import { PROJECTS_API_PATH, PROJECTS_PATH } from "@/lib/project";
 import { projectErrorMessage } from "@/lib/project-errors";
+import { logServerError } from "@/lib/server-log";
 import { createClient } from "@/lib/supabase";
 import { TriangleAlertIcon } from "lucide-react";
 
@@ -30,9 +31,7 @@ async function loadCabinets() {
     .select("id, name, manufacturer, model, geometry, archived_at")
     .is("archived_at", null);
   if (queryError) {
-    // The SQLSTATE only, never Supabase's message — `wrangler tail` is the only trace a failure leaves.
-    // eslint-disable-next-line no-console
-    console.error("project cabinet picker load failed", queryError.code);
+    logServerError("project cabinet picker load failed", queryError, { userId: Astro.locals.user?.id });
     Astro.response.status = 500;
     return { cabinets: [], loadError: t.projects.new.loadFailed };
   }

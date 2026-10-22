@@ -25,6 +25,7 @@ import {
   type PricingFormDefaults,
 } from "@/lib/pricing-profile";
 import { RATE_WARNING_THRESHOLD_GROSZE, rateWarning } from "@/lib/quote";
+import { logServerError } from "@/lib/server-log";
 import { createClient } from "@/lib/supabase";
 import { TriangleAlertIcon } from "lucide-react";
 
@@ -53,9 +54,7 @@ async function loadDefaults(): Promise<{
     .eq("user_id", user.id)
     .maybeSingle();
   if (queryError) {
-    // The SQLSTATE only, never Supabase's message — `wrangler tail` is the only trace a failure leaves.
-    // eslint-disable-next-line no-console
-    console.error("pricing profile load failed", queryError.code);
+    logServerError("pricing profile load failed", queryError, { userId: Astro.locals.user?.id });
     Astro.response.status = 500;
     return { defaults: null, loadError: t.pricingProfile.loadFailed, rateWarning: false };
   }
@@ -79,9 +78,7 @@ async function loadBusinessDefaults(): Promise<{ defaults: BusinessFormDefaults 
     .eq("user_id", user.id)
     .maybeSingle();
   if (queryError) {
-    // The SQLSTATE only, never Supabase's message.
-    // eslint-disable-next-line no-console
-    console.error("business profile load failed", queryError.code);
+    logServerError("business profile load failed", queryError, { userId: Astro.locals.user?.id });
     Astro.response.status = 500;
     return { defaults: null, loadError: t.businessProfile.loadFailed };
   }
