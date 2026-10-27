@@ -669,9 +669,9 @@ push to `master`; they are reverted by reverting the commit.
 
 #### Automated
 
-- [x] 6.1 Probe suite C1 and C5 runs pass: `bash probe/suite.sh` in the probe worktree
-- [x] 6.2 Full local gate passes: `npm run lint && npx astro check && npm run test:unit && npm run build`
-- [x] 6.3 Roadmap sync plan shows only the intended issue change: `node scripts/roadmap-to-github.mjs`
+- [x] 6.1 Probe suite C1 and C5 runs pass: `bash probe/suite.sh` in the probe worktree — 17c4782
+- [x] 6.2 Full local gate passes: `npm run lint && npx astro check && npm run test:unit && npm run build` — 17c4782
+- [x] 6.3 Roadmap sync plan shows only the intended issue change: `node scripts/roadmap-to-github.mjs` — 17c4782
 
 #### Manual
 

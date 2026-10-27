@@ -1,7 +1,7 @@
 ---
 change_id: observability
 title: Close the remaining observability gaps — auth outages, browser errors, silent fallbacks, boundaries, metrics
-status: implementing
+status: implemented
 created: 2026-10-27
 updated: 2026-10-27
 ---
