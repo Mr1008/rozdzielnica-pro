@@ -97,7 +97,7 @@ export function decodeClaims(accessToken: string) {
 
 /**
  * Created through the admin API with `email_confirm: true` rather than through the public signup
- * endpoint, so these tests keep working when `enable_confirmations` is turned on later.
+ * endpoint, so these tests keep working if `enable_confirmations` is ever turned on.
  */
 export async function createElectrician(service: ServiceClient, label: string): Promise<Electrician> {
   const email = `rls-${label}-${Date.now()}@example.com`;

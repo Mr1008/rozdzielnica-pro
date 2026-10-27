@@ -1,34 +1,19 @@
 ---
-import { CircleCheckIcon, MailCheckIcon } from "lucide-react";
+import { CircleCheckIcon } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import AuthLayout from "@/layouts/AuthLayout.astro";
 import { t } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
-const isAutoConfirmed = import.meta.env.DEV;
-
-const content = isAutoConfirmed
-  ? {
-      Icon: CircleCheckIcon,
-      tone: "bg-success-muted text-success",
-      heading: t.confirmEmail.confirmedHeading,
-      description: t.confirmEmail.confirmedDescription,
-      linkText: t.confirmEmail.confirmedLink,
-    }
-  : {
-      Icon: MailCheckIcon,
-      tone: "bg-info-muted text-info",
-      heading: t.confirmEmail.pendingHeading,
-      description: t.confirmEmail.pendingDescription,
-      linkText: t.confirmEmail.pendingLink,
-    };
+// Email confirmation is off in every environment (cancelled 2026-10-27, see
+// `context/foundation/agent-rules/deploy-tooling.md`), so a signup is usable at once.
 ---
 
-<AuthLayout title={content.heading} description={content.description} centered>
-  <span slot="icon" class:list={cn("mb-2 flex size-12 items-center justify-center rounded-full", content.tone)}>
-    <content.Icon className="size-6" aria-hidden="true" />
+<AuthLayout title={t.confirmEmail.heading} description={t.confirmEmail.description} centered>
+  <span slot="icon" class="mb-2 flex size-12 items-center justify-center rounded-full bg-success-muted text-success">
+    <CircleCheckIcon className="size-6" aria-hidden="true" />
   </span>
   <a href="/auth/signin" class:list={cn(buttonVariants({ variant: "default" }), "w-full")}>
-    {content.linkText}
+    {t.confirmEmail.link}
   </a>
 </AuthLayout>
