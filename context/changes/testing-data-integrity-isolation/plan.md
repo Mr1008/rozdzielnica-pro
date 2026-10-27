@@ -406,7 +406,7 @@ None. No schema change.
 
 #### Automated
 
-- [x] 3.1 `npm run test:integration` passes, including the new device-edit snapshot case
+- [x] 3.1 `npm run test:integration` passes, including the new device-edit snapshot case — 94233de
 - [x] 3.2 Deliberate break: asserting the edited price instead of the snapshotted one fails (reverted) — 94233de
 - [x] 3.3 `npm run lint` and `npx astro check` pass — 94233de
 
