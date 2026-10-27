@@ -10,7 +10,13 @@
     "directory": "./dist",
     "not_found_handling": "404-page",
   },
+  "upload_source_maps": true,
   "observability": {
     "enabled": true,
+    // Automatic tracing: outgoing Supabase REST/Auth calls show up as timed spans. One user, so sample everything.
+    "traces": {
+      "enabled": true,
+      "head_sampling_rate": 1,
+    },
   },
 }

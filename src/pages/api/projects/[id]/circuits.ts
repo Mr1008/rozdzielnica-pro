@@ -9,6 +9,7 @@ import {
   maxRailMm,
   saveCircuitsArgs,
 } from "@/lib/device-matching-server";
+import { MissingNTerminalSideError } from "@/lib/cabinet-layout";
 import { chooseSelectionLayout, loadPreviousLayout } from "@/lib/layout-server";
 import { projectFormErrorPath, projectPath, projectsErrorPath } from "@/lib/project";
 import { PROJECT_ERROR } from "@/lib/project-errors";
@@ -94,7 +95,17 @@ export const POST: APIRoute = async (context) => {
 
   // The layout is carried over or proposed on the same match and stored in the same RPC; one that
   // does not fit stores the devices with no placements, and the page reports it.
-  const choice = chooseSelectionLayout(previous, result, catalog, parsed.value, geometry);
+  let choice: ReturnType<typeof chooseSelectionLayout>;
+  try {
+    choice = chooseSelectionLayout(previous, result, catalog, parsed.value, geometry);
+  } catch (error) {
+    logServerError("projects.circuits.layout failed", error, {
+      userId: context.locals.user.id,
+      projectId: id,
+      deviceId: error instanceof MissingNTerminalSideError ? String(error.deviceId) : undefined,
+    });
+    return back(PROJECT_ERROR.unknown);
+  }
   const { error } = await supabase.rpc(
     "save_project_circuits",
     saveCircuitsArgs(id, parsed.value, result, choice.layout, choice.editedManually),

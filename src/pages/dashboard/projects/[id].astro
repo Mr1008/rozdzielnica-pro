@@ -21,6 +21,7 @@ import { payloadToDraft } from "@/lib/circuit-draft";
 import { computeMatchView, type MatchView } from "@/lib/device-matching-server";
 import { formatMoney, t } from "@/lib/i18n";
 import { layoutIssueNames, toEditorDevices, type LayoutEditorData } from "@/lib/layout-editor-data";
+import { MissingNTerminalSideError } from "@/lib/cabinet-layout";
 import { buildLayoutDrawing, computeLayoutView, loadLayoutContext, type LayoutView } from "@/lib/layout-server";
 import {
   PROJECTS_PATH,
@@ -141,9 +142,29 @@ if (matchLoad && !matchLoad.ok && matchLoad.code === "unknown") Astro.response.s
 const matchContext = matchLoad?.ok ? matchLoad.context : null;
 const matchView = matchContext ? computeMatchView(matchContext) : null;
 // The layout state is read only through `computeLayoutView`, never from the raw placement rows.
-const layoutView =
+// A catalog row that breaks the layout step is logged and shown as the section's load-failed alert,
+// never a blank 500.
+const layoutState = { failed: false };
+function guardLayout<T>(compute: () => T, fallback: T): T {
+  try {
+    return compute();
+  } catch (error) {
+    layoutState.failed = true;
+    logServerError("project layout failed", error, {
+      userId: Astro.locals.user?.id,
+      projectId: id,
+      deviceId: error instanceof MissingNTerminalSideError ? String(error.deviceId) : undefined,
+    });
+    Astro.response.status = 500;
+    return fallback;
+  }
+}
+const layoutView: LayoutView | null =
   matchLoad?.ok && matchView
-    ? computeLayoutView(matchView, matchLoad.context, matchLoad.placements, matchLoad.editedManually)
+    ? guardLayout(
+        () => computeLayoutView(matchView, matchLoad.context, matchLoad.placements, matchLoad.editedManually),
+        null,
+      )
     : null;
 // Stored placements that no longer validate are shown as outdated; keep the reason in the log.
 if (layoutView?.state === "outdated" && matchLoad?.ok && matchLoad.placements.length > 0) {
@@ -159,7 +180,10 @@ if (layoutView?.state === "outdated" && matchLoad?.ok && matchLoad.placements.le
 }
 // Wires are display-only and drawn only over a `placed` layout; the aside thumbnail stays without them.
 // They are routed in the browser from `wiring` (S-11 Phase 5): the server never runs the router here.
-const drawing = matchContext && matchView ? buildLayoutDrawing(layoutView, matchView, matchContext) : null;
+const drawing =
+  matchContext && matchView && !layoutState.failed
+    ? guardLayout(() => buildLayoutDrawing(layoutView, matchView, matchContext), null)
+    : null;
 const placedDevices = drawing?.devices ?? [];
 const placedWiring = drawing?.wiring ?? null;
 // What the layout editor island is mounted with: the snapshot the placed layout covers, never a live query.
@@ -535,7 +559,7 @@ const headingClass = "scroll-mt-6 text-lg leading-none font-semibold";
               <CardDescription>{t.layout.section.description}</CardDescription>
             </CardHeader>
             <CardContent>
-              {matchContext && matchView ? (
+              {matchContext && matchView && !layoutState.failed ? (
                 <LayoutSection
                   view={layoutView}
                   devices={placedDevices}

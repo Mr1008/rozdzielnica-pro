@@ -639,9 +639,9 @@ push to `master`; they are reverted by reverting the commit.
 
 #### Automated
 
-- [x] 4.1 Unit tests for layout-server, device-matching, device-matching-server, layout-editing pass: `npm run test:unit`
-- [x] 4.2 RLS integration suite still passes against the local stack: `npm run test:integration`
-- [x] 4.3 Lint and type check pass: `npm run lint && npx astro check`
+- [x] 4.1 Unit tests for layout-server, device-matching, device-matching-server, layout-editing pass: `npm run test:unit` — d9633e5
+- [x] 4.2 RLS integration suite still passes against the local stack: `npm run test:integration` — d9633e5
+- [x] 4.3 Lint and type check pass: `npm run lint && npx astro check` — d9633e5
 
 #### Manual
 
@@ -653,10 +653,10 @@ push to `master`; they are reverted by reverting the commit.
 
 #### Automated
 
-- [ ] 5.1 quote-print and cabinet-layout tests pass: `npm run test:unit`
-- [ ] 5.2 Lint, type check and build pass: `npm run lint && npx astro check && npm run build`
-- [ ] 5.3 Build emits server source maps and no client ones: `dist/server` has `.map` files, `dist/client` has none
-- [ ] 5.4 `npx wrangler deploy --dry-run` accepts the config with `upload_source_maps`
+- [x] 5.1 quote-print and cabinet-layout tests pass: `npm run test:unit`
+- [x] 5.2 Lint, type check and build pass: `npm run lint && npx astro check && npm run build`
+- [x] 5.3 Build emits server source maps and no client ones: `dist/server` has `.map` files, `dist/client` has none
+- [x] 5.4 `npx wrangler deploy --dry-run` accepts the config with `upload_source_maps`
 
 #### Manual
 

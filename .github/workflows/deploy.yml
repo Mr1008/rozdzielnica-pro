@@ -82,8 +82,15 @@ jobs:
       # SUPABASE_URL / SUPABASE_KEY are runtime Workers Secrets, not build inputs, so the build needs
       # none. The Worker name comes from wrangler.jsonc and must stay `rozdzielnica-pro`.
       - run: npm run build
+      # The version tag is the short commit sha and the message is the commit subject, so a logged stack
+      # names its release. The subject is attacker-influenced text: it reaches the shell only through an
+      # env var, never by `${{ }}` interpolation into the script.
       - name: Deploy the Worker
-        run: npx wrangler deploy
+        run: |
+          subject=$(printf '%s' "$COMMIT_MESSAGE" | head -n 1 | cut -c1-100)
+          npx wrangler deploy --tag "${HEAD_SHA::7}" --message "$subject"
         env:
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          COMMIT_MESSAGE: ${{ github.event.workflow_run.head_commit.message }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

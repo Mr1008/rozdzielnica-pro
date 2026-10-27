@@ -29,6 +29,30 @@ export interface MaterialLine {
   totalGrosze: number;
 }
 
+/** One snapshot row as the invariant error reports it: ids, role, piece and price only, no client data. */
+export interface PrintInvariantRow {
+  deviceId: string;
+  role: string;
+  busbarPiece: number | null;
+  priceGrosze: number;
+}
+
+/** The itemised material lines do not sum to the quote: a bug, never a state. Carries the offending rows for the log. */
+export class PrintInvariantError extends Error {
+  readonly rows: readonly PrintInvariantRow[];
+  readonly itemisedGrosze: number;
+  readonly devicesGrosze: number;
+  constructor(itemisedGrosze: number, devicesGrosze: number, rows: readonly PrintInvariantRow[]) {
+    super(
+      `print view: material lines sum to ${String(itemisedGrosze)} gr, the quote's devices to ${String(devicesGrosze)} gr`,
+    );
+    this.name = "PrintInvariantError";
+    this.rows = rows;
+    this.itemisedGrosze = itemisedGrosze;
+    this.devicesGrosze = devicesGrosze;
+  }
+}
+
 export interface Letterhead {
   title: string | null;
   nip: string | null;
@@ -130,8 +154,15 @@ export function computePrintView(input: PrintInput): PrintView {
   const lines = materialLines(input.snapshot);
   const itemised = lines.reduce((sum, line) => sum + line.totalGrosze, 0);
   if (itemised !== quote.devicesGrosze) {
-    throw new Error(
-      `print view: material lines sum to ${String(itemised)} gr, the quote's devices to ${String(quote.devicesGrosze)} gr`,
+    throw new PrintInvariantError(
+      itemised,
+      quote.devicesGrosze,
+      input.snapshot.map((row) => ({
+        deviceId: row.device_id,
+        role: row.role,
+        busbarPiece: row.busbar_piece,
+        priceGrosze: row.price_grosze,
+      })),
     );
   }
 

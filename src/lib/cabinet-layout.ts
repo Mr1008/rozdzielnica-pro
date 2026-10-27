@@ -224,6 +224,19 @@ const PHASE_POLES: Record<PoleConfig, readonly TerminalPole[]> = {
 };
 
 /**
+ * An N-carrying device without an `n_terminal_side`: a catalog row the CHECK should have refused. A named
+ * class so the callers can log the offending `deviceId` and show a Polish state instead of a blank 500.
+ */
+export class MissingNTerminalSideError extends Error {
+  readonly deviceId: string | number;
+  constructor(deviceId: string | number) {
+    super(`device ${String(deviceId)} carries N but has no n_terminal_side`);
+    this.name = "MissingNTerminalSideError";
+    this.deviceId = deviceId;
+  }
+}
+
+/**
  * Terminal positions per pole: the poles split the width into equal slots, each terminal in its
  * slot's centre, with N in the leftmost or rightmost slot by `n_terminal_side`. A device without
  * poles has no terminals. An N-carrying device without a side is a bug (the CHECK forbids it), not a
@@ -238,7 +251,7 @@ export function deviceTerminals(
   let poles: readonly TerminalPole[] = phases;
   if (polesCarryN(device.poles)) {
     if (device.n_terminal_side === null) {
-      throw new Error(`device ${device.id} carries N but has no n_terminal_side`);
+      throw new MissingNTerminalSideError(device.id);
     }
     poles = device.n_terminal_side === "left" ? ["N", ...phases] : [...phases, "N"];
   }

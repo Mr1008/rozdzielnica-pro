@@ -6,6 +6,7 @@ import type { LayoutView } from "./layout-server";
 import type { PricingProfile } from "./pricing-profile";
 import {
   computePrintView,
+  PrintInvariantError,
   printBlockLinkLabel,
   printBlockMessage,
   printNoticeMessage,
@@ -205,6 +206,21 @@ describe("material lines", () => {
     expect(() => computePrintView(input({ quote: { ...quote, devicesGrosze: quote.devicesGrosze + 1 } }))).toThrow(
       Error,
     );
+  });
+
+  it("throws a PrintInvariantError carrying the snapshot rows, without client data", () => {
+    const quote = quoteFor(ROWS);
+    if (quote.state !== "ready") throw new Error("expected ready");
+    let caught: unknown;
+    try {
+      computePrintView(input({ quote: { ...quote, devicesGrosze: quote.devicesGrosze + 1 } }));
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(PrintInvariantError);
+    const { rows } = caught as PrintInvariantError;
+    expect(rows).toHaveLength(ROWS.length);
+    expect(Object.keys(rows[0] ?? {}).sort()).toEqual(["busbarPiece", "deviceId", "priceGrosze", "role"]);
   });
 });
 

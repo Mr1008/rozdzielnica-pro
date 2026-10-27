@@ -8,13 +8,20 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button, buttonVariants } from "@/components/ui/button";
 import Layout from "@/layouts/Layout.astro";
 import { isUuid } from "@/lib/catalog";
-import { computeMatchView } from "@/lib/device-matching-server";
+import { computeMatchView, type MatchView } from "@/lib/device-matching-server";
 import { t } from "@/lib/i18n";
-import { buildLayoutDrawing, computeLayoutView, loadLayoutContext } from "@/lib/layout-server";
+import { MissingNTerminalSideError } from "@/lib/cabinet-layout";
+import {
+  buildLayoutDrawing,
+  computeLayoutView,
+  loadLayoutContext,
+  type LayoutDrawing,
+  type LayoutView,
+} from "@/lib/layout-server";
 import { PROJECTS_PATH, projectPath } from "@/lib/project";
 import { computeQuoteView } from "@/lib/quote";
-import { computePrintView, type PrintView } from "@/lib/quote-print";
-import { logServerError } from "@/lib/server-log";
+import { computePrintView, PrintInvariantError, type PrintView } from "@/lib/quote-print";
+import { logServerError, logServerWarn } from "@/lib/server-log";
 import { createClient } from "@/lib/supabase";
 import { CircleAlertIcon } from "lucide-react";
 
@@ -29,7 +36,10 @@ async function loadProject() {
   // Checked before querying: a non-UUID would reach PostgREST as `22P02` and read as a failure,
   // when it is simply a project that does not exist.
   if (!isUuid(id)) return { project: null, loadError: null };
-  if (!supabase) return { project: null, loadError: t.quotePrint.loadFailed };
+  if (!supabase) {
+    logServerWarn("print load failed", { branch: "no_supabase", userId: Astro.locals.user?.id, projectId: id });
+    return { project: null, loadError: t.quotePrint.loadFailed };
+  }
 
   const { data, error: queryError } = await supabase
     .from("projects")
@@ -39,7 +49,11 @@ async function loadProject() {
     .eq("id", id)
     .maybeSingle();
   if (queryError) {
-    logServerError("print project load failed", queryError, { userId: Astro.locals.user?.id, projectId: id });
+    logServerError("print project load failed", queryError, {
+      branch: "project_query",
+      userId: Astro.locals.user?.id,
+      projectId: id,
+    });
     return { project: null, loadError: t.quotePrint.loadFailed };
   }
   return { project: data, loadError: null };
@@ -48,7 +62,14 @@ async function loadProject() {
 /** The electrician's own rows the quote and the letterhead read. A failure is reported, never defaulted. */
 async function loadOwnRows() {
   const { user } = Astro.locals;
-  if (!supabase || !user) return { failed: true as const };
+  if (!supabase || !user) {
+    logServerWarn("print load failed", {
+      branch: !supabase ? "no_supabase" : "no_user",
+      userId: user?.id,
+      projectId: id,
+    });
+    return { failed: true as const };
+  }
   const [pricing, business, profile] = await Promise.all([
     supabase
       .from("pricing_profiles")
@@ -68,7 +89,12 @@ async function loadOwnRows() {
     ["profiles", profile],
   ] as const) {
     if (result.error) {
-      logServerError("print own rows load failed", result.error, { userId: user.id, projectId: id, what });
+      logServerError("print own rows load failed", result.error, {
+        branch: "own_rows",
+        userId: user.id,
+        projectId: id,
+        what,
+      });
       return { failed: true as const };
     }
   }
@@ -86,54 +112,86 @@ if (!project && !projectLoadError) Astro.response.status = 404;
 const own = project ? await loadOwnRows() : null;
 const layoutLoad = project && supabase ? await loadLayoutContext(supabase, project.id, project) : null;
 const context = layoutLoad?.ok ? layoutLoad.context : null;
-const matchView = context ? computeMatchView(context) : null;
-const layoutView =
-  layoutLoad?.ok && matchView
-    ? computeLayoutView(matchView, layoutLoad.context, layoutLoad.placements, layoutLoad.editedManually)
-    : null;
+// The load itself logs its failure; the branch is repeated here so one search finds every 500 of this page.
+if (layoutLoad && !layoutLoad.ok) {
+  logServerWarn("print load failed", {
+    branch: "layout_context",
+    code: layoutLoad.code,
+    userId: Astro.locals.user?.id,
+    projectId: id,
+  });
+}
 
 /**
- * `computePrintView` throws when the itemised lines do not sum to the quote (a bug, never a state); the
- * page then reports a load failure in Polish instead of the runtime's default error page.
+ * One guard over the compute pipeline (match, layout, quote, drawing, print view). Any throw is logged
+ * with the route, project, user, the failing step and the stack, and the page then reports a load failure
+ * in Polish instead of the runtime's default error page. `PrintInvariantError` (the itemised lines do not
+ * sum to the quote — a bug, never a state) also logs the offending rows.
  */
-function printView(compute: () => PrintView): PrintView | "failed" {
+const pipeline = { failed: false };
+function guard<T>(name: string, compute: () => T, fallback: T): T {
+  if (pipeline.failed) return fallback;
   try {
     return compute();
   } catch (error) {
-    logServerError("print view failed", error, { userId: Astro.locals.user?.id, projectId: id });
-    return "failed";
+    pipeline.failed = true;
+    logServerError("print pipeline failed", error, {
+      route: "dashboard/projects/[id]/print",
+      branch: name,
+      userId: Astro.locals.user?.id,
+      projectId: id,
+      deviceId: error instanceof MissingNTerminalSideError ? String(error.deviceId) : undefined,
+      rows: error instanceof PrintInvariantError ? JSON.stringify(error.rows) : undefined,
+    });
+    return fallback;
   }
 }
 
-const computed =
-  project && own && !own.failed && matchView
-    ? printView(() =>
-        computePrintView({
-          quote: computeQuoteView({
-            matchView,
-            cabinet: { name: project.cabinet_name, priceGrosze: project.cabinet_price_grosze },
-            profile: own.pricing,
-            override:
-              project.labour_minutes_override !== null && project.labour_override_base_minutes !== null
-                ? { minutes: project.labour_minutes_override, baseMinutes: project.labour_override_base_minutes }
-                : null,
-          }),
-          matchCurrent: matchView.state === "current",
-          layout: layoutView,
-          snapshot: matchView.snapshot,
-          business: own.business,
-          fullName: own.fullName,
-          userEmail: Astro.locals.user?.email ?? null,
-        }),
+const matchView = context ? guard<MatchView | null>("match", () => computeMatchView(context), null) : null;
+const layoutView =
+  layoutLoad?.ok && matchView
+    ? guard<LayoutView | null>(
+        "layout",
+        () => computeLayoutView(matchView, layoutLoad.context, layoutLoad.placements, layoutLoad.editedManually),
+        null,
       )
     : null;
-const view = computed === "failed" ? null : computed;
+
+const computed =
+  project && own && !own.failed && matchView && !pipeline.failed
+    ? guard<PrintView | null>(
+        "print_view",
+        () =>
+          computePrintView({
+            quote: computeQuoteView({
+              matchView,
+              cabinet: { name: project.cabinet_name, priceGrosze: project.cabinet_price_grosze },
+              profile: own.pricing,
+              override:
+                project.labour_minutes_override !== null && project.labour_override_base_minutes !== null
+                  ? { minutes: project.labour_minutes_override, baseMinutes: project.labour_override_base_minutes }
+                  : null,
+            }),
+            matchCurrent: matchView.state === "current",
+            layout: layoutView,
+            snapshot: matchView.snapshot,
+            business: own.business,
+            fullName: own.fullName,
+            userEmail: Astro.locals.user?.email ?? null,
+          }),
+        null,
+      )
+    : null;
+const drawing =
+  context && matchView && !pipeline.failed
+    ? guard<LayoutDrawing | null>("drawing", () => buildLayoutDrawing(layoutView, matchView, context), null)
+    : null;
+const view = pipeline.failed ? null : computed;
 
 const loadError =
   projectLoadError ??
-  (project && (own === null || own.failed || !context || computed === "failed") ? t.quotePrint.loadFailed : null);
+  (project && (own === null || own.failed || !context || pipeline.failed) ? t.quotePrint.loadFailed : null);
 if (loadError) Astro.response.status = 500;
-const drawing = context && matchView ? buildLayoutDrawing(layoutView, matchView, context) : null;
 
 const title = project ? t.quotePrint.pageTitle(project.name) : t.quotePrint.title;
 ---

@@ -5,6 +5,7 @@ import {
   deviceTerminals,
   GROUP_GAP_MM,
   layoutFailureMessage,
+  MissingNTerminalSideError,
   proposeLayout,
   validateLayout,
   type LayoutCircuit,
@@ -604,7 +605,12 @@ describe("deviceRect and deviceTerminals", () => {
 
   it("throws on an N-carrying device without a side — a bug, not a state", () => {
     const [device] = devices({ ...draft("rcd", "2P", 35), n_terminal_side: null });
-    expect(() => deviceTerminals(device, { x: 0, y: 0, w: 35, h: 85 })).toThrow();
+    expect(() => deviceTerminals(device, { x: 0, y: 0, w: 35, h: 85 })).toThrow(MissingNTerminalSideError);
+    try {
+      deviceTerminals(device, { x: 0, y: 0, w: 35, h: 85 });
+    } catch (error) {
+      expect((error as MissingNTerminalSideError).deviceId).toBe(device.id);
+    }
   });
 });
 

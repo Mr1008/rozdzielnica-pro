@@ -2,6 +2,7 @@ import type { APIRoute } from "astro";
 import { isUuid } from "@/lib/catalog";
 import { matchDevices } from "@/lib/device-matching";
 import { cabinetBarKinds, circuitsRpcErrorCode, maxRailMm, saveCircuitsArgs } from "@/lib/device-matching-server";
+import { MissingNTerminalSideError } from "@/lib/cabinet-layout";
 import { chooseSelectionLayout, loadLayoutContext } from "@/lib/layout-server";
 import { projectFormErrorPath, projectPath, projectsErrorPath } from "@/lib/project";
 import { PROJECT_ERROR } from "@/lib/project-errors";
@@ -45,13 +46,23 @@ export const POST: APIRoute = async (context) => {
   );
   // A new match carries a still-valid manual layout over, or gets a new proposal, stored in the same
   // RPC (none when it does not fit).
-  const choice = chooseSelectionLayout(
-    { snapshot, placements: loaded.placements, editedManually: loaded.editedManually },
-    result,
-    catalog,
-    { groups, circuits },
-    geometry,
-  );
+  let choice: ReturnType<typeof chooseSelectionLayout>;
+  try {
+    choice = chooseSelectionLayout(
+      { snapshot, placements: loaded.placements, editedManually: loaded.editedManually },
+      result,
+      catalog,
+      { groups, circuits },
+      geometry,
+    );
+  } catch (error) {
+    logServerError("projects.rematch.layout failed", error, {
+      userId: context.locals.user.id,
+      projectId: id,
+      deviceId: error instanceof MissingNTerminalSideError ? String(error.deviceId) : undefined,
+    });
+    return back(PROJECT_ERROR.unknown);
+  }
 
   const { error } = await supabase.rpc(
     "save_project_circuits",
