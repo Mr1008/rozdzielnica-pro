@@ -1,9 +1,9 @@
 import { existsSync } from "node:fs";
 import { defineConfig, devices } from "@playwright/test";
 
-// Local secrets (E2E_USERNAME, E2E_PASSWORD) come from the gitignored `.env`. The preview server
-// itself (Cloudflare adapter) reads SUPABASE_URL / SUPABASE_KEY from `.dev.vars`, not from here.
-// In CI the file is absent and the variables come from the job.
+// Optional local credentials (E2E_USERNAME, E2E_PASSWORD) come from the gitignored `.env`; without
+// them the setup project provisions an electrician in the local stack (that is how CI runs). The
+// preview server itself (Cloudflare adapter) reads SUPABASE_URL / SUPABASE_KEY from `.dev.vars`.
 if (existsSync(".env")) process.loadEnvFile(".env");
 
 // 4321 is the `astro preview` default (astro.config.mjs sets no server.port, the script no --port).
@@ -17,7 +17,8 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
-  reporter: "html",
+  // CI: a readable log plus the report the workflow uploads on failure; never try to open a browser.
+  reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : "html",
   use: {
     baseURL,
     trace: "on-first-retry",

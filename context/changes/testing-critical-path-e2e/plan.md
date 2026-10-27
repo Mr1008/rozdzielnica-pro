@@ -480,18 +480,18 @@ CI runs Playwright with 1 worker and 2 retries.
 
 #### Automated
 
-- [x] 4.1 `npx playwright test tests/e2e/quote-override.spec.ts` green
-- [x] 4.2 Deliberate break: base taken from the form → red; revert
-- [x] 4.3 `npm run lint` and `npx astro check` pass
+- [x] 4.1 `npx playwright test tests/e2e/quote-override.spec.ts` green — 79ffed6
+- [x] 4.2 Deliberate break: base taken from the form → red; revert — 79ffed6
+- [x] 4.3 `npm run lint` and `npx astro check` pass — 79ffed6
 
 ### Phase 5: CI gate and documents
 
 #### Automated
 
-- [ ] 5.1 `npm run lint`, `npx astro check`, `npm run test:unit` pass
-- [ ] 5.2 `npm run test:integration` passes against the local stack
-- [ ] 5.3 `npm run test:e2e` passes (all five specs)
-- [ ] 5.4 `ci.yml` parses
+- [x] 5.1 `npm run lint`, `npx astro check`, `npm run test:unit` pass
+- [x] 5.2 `npm run test:integration` passes against the local stack
+- [x] 5.3 `npm run test:e2e` passes (all five specs)
+- [x] 5.4 `ci.yml` parses
 
 #### Manual
 
