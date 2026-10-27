@@ -389,18 +389,18 @@ None. No schema change.
 
 #### Automated
 
-- [x] 1.1 `npm run test:integration` passes, including `rls-coverage.test.ts` and the new B-against-A cases
-- [x] 1.2 `npm run test:unit` passes, including `src/lib/rls-premise.test.ts`
-- [x] 1.3 Deliberate break: removing a table from the classification map makes `rls-coverage.test.ts` fail (reverted)
-- [x] 1.4 `npm run lint` and `npx astro check` pass
+- [x] 1.1 `npm run test:integration` passes, including `rls-coverage.test.ts` and the new B-against-A cases — 330f146
+- [x] 1.2 `npm run test:unit` passes, including `src/lib/rls-premise.test.ts` — 330f146
+- [x] 1.3 Deliberate break: removing a table from the classification map makes `rls-coverage.test.ts` fail (reverted) — 330f146
+- [x] 1.4 `npm run lint` and `npx astro check` pass — 330f146
 
 ### Phase 2: CHECK↔parser parity (#7)
 
 #### Automated
 
-- [ ] 2.1 `npm run test:integration` passes, including `check-parser-parity.test.ts` with all 7 pairs
-- [ ] 2.2 Deliberate break: flipping one fixture's verdict (or one parser bound) makes the suite fail on that row (reverted)
-- [ ] 2.3 `npm run lint` and `npx astro check` pass
+- [x] 2.1 `npm run test:integration` passes, including `check-parser-parity.test.ts` with all 7 pairs
+- [x] 2.2 Deliberate break: flipping one fixture's verdict (or one parser bound) makes the suite fail on that row (reverted)
+- [x] 2.3 `npm run lint` and `npx astro check` pass
 
 ### Phase 3: Device snapshot immutability (#7)
 
