@@ -12,14 +12,13 @@ export const PLAIN_ENV = { ...process.env, NO_COLOR: "1", FORCE_COLOR: "0", CI: 
 export const LINT_EXTENSIONS = [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".astro"];
 /** Vitest related mode makes sense for modules, not for .astro pages. */
 export const TEST_EXTENSIONS = [".ts", ".tsx", ".js", ".jsx", ".mjs"];
-/** A change to any of these can break the typecheck or the unit suite. */
+/** A change to any of these can break lint or the unit suite. */
 export const CODE_EXTENSIONS = [...LINT_EXTENSIONS, ".json"];
 
 /** Tools are run from the checkout's own node_modules: a missing one fails visibly, never passes. */
 export const TOOLS = {
   eslint: "node_modules/eslint/bin/eslint.js",
   vitest: "node_modules/vitest/vitest.mjs",
-  astro: "node_modules/astro/bin/astro.mjs",
 };
 
 export function fail(message) {

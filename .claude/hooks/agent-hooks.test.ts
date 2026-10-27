@@ -9,7 +9,7 @@ import { afterAll, describe, it } from "vitest";
  * Proof for the Claude Code hooks in `.claude/settings.json` (10x-configure-hook, Step 7). Each case
  * pipes a payload into the real script and asserts the exit code and the channel: exit 2 + stderr is
  * the only signal Claude sees. Work happens in throwaway git repos whose `node_modules` hold stub
- * ESLint / Vitest / astro entries that react to markers (LINT_ERROR, TEST_FAIL, TYPE_ERROR) — git and
+ * ESLint / Vitest entries that react to markers (LINT_ERROR, TEST_FAIL) — git and
  * the scripts are real, only the slow tools are stubbed. Every stub run is appended to `tools.log`.
  */
 
@@ -46,13 +46,6 @@ const args = process.argv.slice(2);
 const files = args[0] === "related" ? [args[1]] : walk("src");
 const bad = hits(files, "TEST_FAIL");
 for (const f of bad) console.log("FAIL " + f + " > AssertionError: expected 1 to be 2");
-process.exit(bad.length > 0 ? 1 : 0);
-`,
-  "node_modules/astro/bin/astro.mjs": `import { createRequire } from "node:module";
-const require = createRequire(import.meta.url);
-const TOOL = "astro";${STUB_HEADER}
-const bad = hits(walk("src"), "TYPE_ERROR");
-for (const f of bad) console.log(f + ":1:7 - error ts(2322): Type 'string' is not assignable to type 'number'.");
 process.exit(bad.length > 0 ? 1 : 0);
 `,
 };
@@ -255,14 +248,14 @@ describe.concurrent("end-of-turn.mjs (Stop)", { timeout: 30_000 }, () => {
     expect(toolsLog(root)).toBe("");
   });
 
-  it("passes on a clean change after running lint, unit tests and astro check", async ({ expect }) => {
+  it("passes on a clean change after running lint and unit tests, never astro check", async ({ expect }) => {
     const root = await makeRepo();
     write(path.join(root, "src", "ok.ts"), "export const ok = 2;\n");
     expect(await run(STOP, stop(root), root)).toMatchObject({ status: 0, stderr: "" });
     const log = toolsLog(root);
     expect(log).toContain("eslint");
     expect(log).toContain("vitest run --config vitest.config.ts");
-    expect(log).toContain("astro check");
+    expect(log).not.toContain("astro");
   });
 
   it("blocks on a lint error written through the shell, which no per-edit hook saw", async ({ expect }) => {
@@ -273,13 +266,13 @@ describe.concurrent("end-of-turn.mjs (Stop)", { timeout: 30_000 }, () => {
     expect(result.stderr).toContain("src/shell.ts");
   });
 
-  it("blocks on a failing unit test and on a type error, in one message", async ({ expect }) => {
+  it("blocks on a lint error and a failing unit test, in one message", async ({ expect }) => {
     const root = await makeRepo();
-    write(path.join(root, "src", "ok.ts"), "export const ok: number = 'x'; // TYPE_ERROR TEST_FAIL\n");
+    write(path.join(root, "src", "ok.ts"), "const LINT_ERROR = 1; // TEST_FAIL\n");
     const result = await run(STOP, stop(root), root);
     expect(result.status).toBe(2);
+    expect(result.stderr).toContain("ESLint errors");
     expect(result.stderr).toContain("Unit tests fail");
-    expect(result.stderr).toContain("astro check fails");
   });
 
   it("lets the agent finish on the retry, even with the error still present", async ({ expect }) => {
@@ -320,13 +313,13 @@ describe.concurrent("end-of-turn.mjs (Stop)", { timeout: 30_000 }, () => {
     await git(session, "worktree", "remove", "--force", worktree);
   });
 
-  it("fails visibly when astro is not installed", async ({ expect }) => {
+  it("fails visibly when vitest is not installed", async ({ expect }) => {
     const root = await makeRepo();
-    rmSync(path.join(root, "node_modules", "astro"), { recursive: true });
+    rmSync(path.join(root, "node_modules", "vitest"), { recursive: true });
     write(path.join(root, "src", "ok.ts"), "export const ok = 2;\n");
     const result = await run(STOP, stop(root), root);
     expect(result.status).toBe(2);
-    expect(result.stderr).toContain("astro is not installed");
+    expect(result.stderr).toContain("vitest is not installed");
   });
 });
 
