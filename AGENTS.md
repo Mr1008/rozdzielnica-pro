@@ -39,8 +39,10 @@ These are correctness requirements, not preferences.
   `astro check` / `test:unit` / `test:integration` / build / smoke you actually ran.
 - **UI is Polish, code is English.** Every user-facing string — labels, validation and error
   messages, the printed quote — is Polish, as is domain vocabulary (obwód, rozdzielnica,
-  wyłącznik różnicowoprądowy, szyna PE/N). Identifiers, comments, commit messages and
-  translation keys stay English. **Never inline user-facing text in a component** — add a key to
+  wyłącznik różnicowoprądowy, szyna PE/N). Identifiers, comments, commit messages,
+  translation keys and **project documents** (`context/**`, `README.md`, rule files) stay English
+  (decided 2026-10-27; Polish domain terms may appear in them as vocabulary). Docs still in Polish
+  (`prd.md`, parts of `test-plan.md`) are translated when next edited — never add Polish prose. **Never inline user-facing text in a component** — add a key to
   `src/lib/i18n/pl.ts` and read it via `import { t } from "@/lib/i18n"`, which works unchanged in
   `.astro` frontmatter and in React islands (no provider, no context). MVP ships one locale, `pl`;
   the requirement is that nothing _blocks_ a second one, not that a second one exists — `pl.ts` is

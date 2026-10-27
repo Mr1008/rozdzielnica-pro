@@ -24,7 +24,7 @@ checkpoint:
     - topic: "admin visibility (resolved during PRD validation, 2026-09-15)"
       decision: "admin manages catalogs only and has NO access to electricians' projects or client data"
     - topic: "PRD language (resolved during PRD validation, 2026-09-15)"
-      decision: "prd.md is written in Polish end-to-end, keeping schema tokens (FR-NNN, Priority:, **Given/When/Then**) — regeneration must preserve this"
+      decision: "SUPERSEDED 2026-10-27 — project documents, prd.md included, are written in English; the UI stays Polish (see AGENTS.md, 'UI is Polish, code is English'). Was: prd.md is written in Polish end-to-end, keeping schema tokens (FR-NNN, Priority:, **Given/When/Then**)"
     - topic: "no matching device in catalog (resolved 2026-09-16)"
       decision: "system raises an error asking the user to contact the admin; it never falls back to an under-rated device — a missing device is a catalog gap the admin fills"
     - topic: "layout heuristic scope (resolved 2026-09-16)"
