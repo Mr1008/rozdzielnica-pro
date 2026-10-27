@@ -488,10 +488,10 @@ CI runs Playwright with 1 worker and 2 retries.
 
 #### Automated
 
-- [x] 5.1 `npm run lint`, `npx astro check`, `npm run test:unit` pass
-- [x] 5.2 `npm run test:integration` passes against the local stack
-- [x] 5.3 `npm run test:e2e` passes (all five specs)
-- [x] 5.4 `ci.yml` parses
+- [x] 5.1 `npm run lint`, `npx astro check`, `npm run test:unit` pass — 6e8171d
+- [x] 5.2 `npm run test:integration` passes against the local stack — 6e8171d
+- [x] 5.3 `npm run test:e2e` passes (all five specs) — 6e8171d
+- [x] 5.4 `ci.yml` parses — 6e8171d
 
 #### Manual
 

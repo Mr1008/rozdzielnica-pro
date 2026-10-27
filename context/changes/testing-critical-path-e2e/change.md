@@ -1,7 +1,7 @@
 ---
 change_id: testing-critical-path-e2e
 title: Critical-path e2e — project page domain verdicts and cross-electrician IDOR (test-plan Phase 3)
-status: implementing
+status: implemented
 created: 2026-10-27
 updated: 2026-10-27
 archived_at: null
