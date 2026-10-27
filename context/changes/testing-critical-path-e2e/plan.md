@@ -464,17 +464,17 @@ CI runs Playwright with 1 worker and 2 retries.
 
 #### Automated
 
-- [x] 2.1 `npx playwright test tests/e2e/idor.spec.ts` green
-- [x] 2.2 Deliberate break: remove the 0-row check in `index.ts` → red; revert
-- [x] 2.3 `npm run lint` and `npx astro check` pass
+- [x] 2.1 `npx playwright test tests/e2e/idor.spec.ts` green — dddb7c0
+- [x] 2.2 Deliberate break: remove the 0-row check in `index.ts` → red; revert — dddb7c0
+- [x] 2.3 `npm run lint` and `npx astro check` pass — dddb7c0
 
 ### Phase 3: Risk #2 — match state and circuit round-trip on the project page
 
 #### Automated
 
-- [ ] 3.1 `npx playwright test tests/e2e/circuits-match-state.spec.ts` green
-- [ ] 3.2 Deliberate break: empty snapshot reads as `current` → red at step 3; revert
-- [ ] 3.3 `npm run lint` and `npx astro check` pass
+- [x] 3.1 `npx playwright test tests/e2e/circuits-match-state.spec.ts` green
+- [x] 3.2 Deliberate break: empty snapshot reads as `current` → red at step 3; revert
+- [x] 3.3 `npm run lint` and `npx astro check` pass
 
 ### Phase 4: Quote override endpoint (§6.3 candidates)
 
