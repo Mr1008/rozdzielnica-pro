@@ -10,156 +10,158 @@
 
 ## 1. Strategy
 
-Testy w tym projekcie trzymają się trzech zasad:
+Tests in this project follow three principles:
 
-1. **Cost × signal.** Wygrywa najtańszy test, który daje realny sygnał dla
-   danego ryzyka. Nie promujemy testu do e2e, bo „wydaje się bezpieczniejszy”.
-   Nie kładziemy modelu wizyjnego na deterministyczną różnicę, która już łapie
-   regresję.
-2. **Obawy użytkownika są pełnoprawnym dowodem.** Ryzyko „autor boi się, że
-   system zaprojektuje niebezpieczną rozdzielnicę, za którą elektryk weźmie
-   odpowiedzialność” waży tyle samo co linia PRD czy dane o churnie.
-3. **Risks are scenarios, not code locations.** Ten plan opisuje, _co może
-   się zepsuć_ i _dlaczego uważamy to za prawdopodobne_ — na podstawie
-   dokumentów, wywiadu i sygnału z kodu (churn, struktura, baza testów). NIE
-   twierdzi, która linia odpowiada za awarię. Tę wiedzę produkuje
-   `/10x-research` w każdej fazie wdrażania. Gdy plan i research się nie
-   zgadzają co do miejsca awarii, research jest źródłem prawdy.
+1. **Cost × signal.** The cheapest test that gives a real signal for a given
+   risk wins. We do not promote a test to e2e because it "feels safer".
+   We do not put a vision model on a deterministic difference that already
+   catches the regression.
+2. **The user's fears are first-class evidence.** The risk "the author fears
+   the system will design an unsafe switchboard (rozdzielnica) that the
+   electrician (elektryk) then takes responsibility for" weighs as much as a PRD
+   line or churn data.
+3. **Risks are scenarios, not code locations.** This plan describes _what can
+   break_ and _why we consider it likely_ — based on documents, the interview and
+   signals from the code (churn, structure, the test base). It does NOT claim
+   which line is responsible for a failure. That knowledge is produced by
+   `/10x-research` in each rollout phase. When the plan and the research
+   disagree about where a failure is, the research is the source of truth.
 
-Dodatkowa zasada domenowa: **wyrocznia testu pochodzi z wymagań lub normy,
-nigdy z kodu pod testem.** Oczekiwany aparat, blokada czy kwota jest
-wyprowadzona z PRD, tabeli normy albo przykładu policzonego ręcznie.
+An additional domain principle: **a test's oracle comes from the requirements or
+the standard, never from the code under test.** The expected device, block or
+amount is derived from the PRD, a table in the standard or a hand-computed
+example.
 
 Hot-spot scope used for likelihood weighting: `src/`, `supabase/migrations/`,
-`scripts/` (bez `src/lib/database.types.ts` i `src/lib/i18n/pl.ts`).
+`scripts/` (excluding `src/lib/database.types.ts` and `src/lib/i18n/pl.ts`).
 
 ## 2. Risk Map
 
-| #   | Risk (failure scenario)                                                                                                                                                                                                                     | Impact | Likelihood     | Source (evidence — not anchor)                                                                                                                                                                                           |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 1   | System proponuje aparat niespełniający parametrów obwodu (za niskie In, złe bieguny, za wysokie IΔn lub za niski typ RCD, FR poniżej zabezpieczenia przedlicznikowego) albo przy luce w katalogu po cichu podstawia zamiennik zamiast błędu | High   | High           | PRD `## Success Criteria` (guardrail), US-01 AC; interview Q1; roadmap S-04 in-progress; hot-spot dir `src/lib/` (30 commits/30d)                                                                                        |
-| 2   | Domena liczy poprawnie, ale elektryk widzi co innego: nieaktualny dobór po zmianie przyłącza lub obwodów, niewidoczny błąd luki, fallback RCD+MCB pokazany jak zwykła propozycja, zapis obwodów gubi dane                                   | High   | High           | interview Q4 (brak e2e); AGENTS.md Tripwires (suite covers no HTTP); `context/changes/circuit-input-and-device-matching/plan.md` p3 (ręczne kroki o stanie nieaktualnym); hot-spot dir `src/pages/api/` (12 commits/30d) |
-| 3   | Niebezpieczna konfiguracja przechodzi bez blokady lub ostrzeżenia: RCD w TN-C, obwód 3F przy przyłączu 1F, obciążalność przewodu poniżej In, błąd w przepisanej tabeli obciążalności                                                        | High   | Medium         | interview Q1; PRD FR-005, `## Non-Goals` (tylko proste walidacje); archive `2026-09-24-project-setup-and-supply-params` (pierwsza transkrypcja D1 była błędna)                                                           |
-| 4   | Propozycja układu albo ręczna edycja daje układ fizycznie niemożliwy lub łamiący reguły (aparat poza szyną lub nachodzący na inny, MCB oderwane od swojego RCD, grupa jednoobwodowa bez RCBO), który trafia na wydruk                       | High   | High (od S-05) | interview Q3 (edytor szafki i układu, dużo przyszłych zmian); PRD FR-008, FR-009, `## Business Logic`; roadmap S-05, S-06; hot-spot dir `src/components/cabinets/` (8 commits/30d)                                       |
-| 5   | Wycena błędna: zła liczba aparatów, zaokrąglenia groszy lub minut, domyślne wartości zamiast blokady przy braku profilu, estymacja pokazana jako ostateczna i nienadpisywalna                                                               | High   | Medium         | PRD FR-010, FR-011, FR-013, `## Business Logic`; AGENTS.md Tripwires (brak wiersza profilu = nieskonfigurowany); roadmap S-08                                                                                            |
-| 6   | Nadużycie: elektryk czyta lub zmienia cudzy projekt albo obwody (IDOR przez id w URL lub formularzu), admin widzi projekty, nowa tabela trafia do bazy bez RLS                                                                              | High   | Medium         | PRD `## Access Control`, NFR izolacji; roadmap F-01; hot-spot dir `supabase/migrations/` (9 commits/30d)                                                                                                                 |
-| 7   | Rozjazd danych katalog↔projekt: CHECK w bazie i parser w TS przestają się zgadzać (aparaty, przyłącze, wycena, obwody) albo edycja katalogu przez admina zmienia istniejący projekt lub dobór                                               | Medium | Medium         | AGENTS.md Tripwires (reguły pilnowane dwa razy, snapshot S-03); interview Q5 (liczą się dane katalogu, nie wygląd); hot-spot dir `supabase/migrations/` (9 commits/30d)                                                  |
+| #   | Risk (failure scenario)                                                                                                                                                                                                                                             | Impact | Likelihood       | Source (evidence — not anchor)                                                                                                                                                                                         |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | The system proposes a device that does not meet the circuit's parameters (In too low, wrong poles, IΔn too high or RCD type too low, FR below the upstream-of-meter protection), or on a catalog gap silently substitutes a replacement instead of raising an error | High   | High             | PRD `## Success Criteria` (guardrail), US-01 AC; interview Q1; roadmap S-04 in-progress; hot-spot dir `src/lib/` (30 commits/30d)                                                                                      |
+| 2   | The domain computes correctly, but the electrician sees something else: a stale match after a supply (przyłącze) or circuit (obwód) change, an invisible gap error, an RCD+MCB fallback shown like an ordinary proposal, a circuit save that loses data             | High   | High             | interview Q4 (no e2e); AGENTS.md Tripwires (suite covers no HTTP); `context/changes/circuit-input-and-device-matching/plan.md` p3 (manual steps about the stale state); hot-spot dir `src/pages/api/` (12 commits/30d) |
+| 3   | An unsafe configuration passes without a block or warning: RCD in TN-C, a 3F circuit on a 1F supply, conductor ampacity below In, an error in the transcribed ampacity table                                                                                        | High   | Medium           | interview Q1; PRD FR-005, `## Non-Goals` (simple validations only); archive `2026-09-24-project-setup-and-supply-params` (the first transcription of D1 was wrong)                                                     |
+| 4   | A layout proposal or a manual edit yields a physically impossible layout or one that breaks the rules (device off the rail or overlapping another, an MCB detached from its RCD, a single-circuit group without an RCBO), which ends up on the printout             | High   | High (from S-05) | interview Q3 (cabinet and layout editor, many future changes); PRD FR-008, FR-009, `## Business Logic`; roadmap S-05, S-06; hot-spot dir `src/components/cabinets/` (8 commits/30d)                                    |
+| 5   | A wrong quote: wrong device count, rounding of grosze or minutes, default values instead of a block when there is no profile, an estimate shown as final and not overridable                                                                                        | High   | Medium           | PRD FR-010, FR-011, FR-013, `## Business Logic`; AGENTS.md Tripwires (no profile row = not configured); roadmap S-08                                                                                                   |
+| 6   | Abuse: an electrician reads or changes someone else's project or circuits (IDOR via an id in the URL or form), the admin sees projects, a new table lands in the database without RLS                                                                               | High   | Medium           | PRD `## Access Control`, isolation NFR; roadmap F-01; hot-spot dir `supabase/migrations/` (9 commits/30d)                                                                                                              |
+| 7   | Catalog↔project data drift: the CHECK in the database and the TS parser stop agreeing (devices, supply, quote, circuits), or an admin's catalog edit changes an existing project or its match                                                                       | Medium | Medium           | AGENTS.md Tripwires (rules guarded twice, S-03 snapshot); interview Q5 (catalog data matters, not looks); hot-spot dir `supabase/migrations/` (9 commits/30d)                                                          |
 
-Wysoki wpływ × niskie prawdopodobieństwo (awaria Supabase lub Cloudflare,
-migracja psująca dane produkcyjne) należy do obserwowalności i procesu
-wdrożenia, nie do testów.
+A high-impact × low-likelihood event (a Supabase or Cloudflare outage, a migration
+corrupting production data) belongs to observability and the deployment process,
+not to tests.
 
 ### Risk Response Guidance
 
-| Risk | What would prove protection                                                                                                                          | Must challenge                                                                                        | Context `/10x-research` must ground                                                                        | Likely cheapest layer                                                        | Anti-pattern to avoid                                     |
-| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | --------------------------------------------------------- |
-| #1   | Dla każdej kombinacji obwodu i katalogu-fixture wybrany aparat spełnia każdy parametr; przy luce jest błąd z nazwą brakującego aparatu, nigdy aparat | „Najtańszy” liczony dopiero po filtrze poprawności; istniejące testy doboru mają niezależną wyrocznię | tabela reguł dopasowania, zachowanie fallbacku RCBO → RCD+MCB, skąd obecne testy biorą oczekiwane wartości | unit (tabelaryczne + property-based na katalogu-fixture)                     | oczekiwania skopiowane z implementacji (problem wyroczni) |
-| #2   | Na stronie projektu widać ten sam wynik co w domenie: błąd luki, oznaczenie nieaktualnego doboru, brak zamiennika; zapisane obwody wracają bez strat | „Endpoint woła parser i matcher, więc UI jest OK”                                                     | ścieżka formularz → endpoint → zapis → render, mapowanie `?error=`, snapshot doboru                        | e2e na 2–3 krytycznych przepływach, reszta integration                       | e2e dla każdego wariantu zamiast dla przepływu            |
-| #3   | Każdy blocker i warning odpala się na granicy (In równe obciążalności, ±1 A); wartości tabeli przypięte do normy                                     | „Tabela kompletna, więc poprawna”                                                                     | źródło wartości tabeli, warunki blokad i ostrzeżeń                                                         | unit z wartościami granicznymi                                               | test tylko przypadku jawnie niebezpiecznego               |
-| #4   | Po propozycji i po każdej edycji: brak kolizji, aparaty w obrębie szyn, grupa obok swojego RCD, RCBO dla grupy jednoobwodowej                        | „Heurystyka dała układ, więc jest fizycznie poprawny”                                                 | model układu z S-05, rozstrzygnięta precedencja reguł (OQ#2)                                               | unit na niezmiennikach + 1 e2e edycji + selektywny przegląd wizualny wydruku | snapshot SVG bez znaczenia                                |
-| #5   | Kwoty z przykładów policzonych ręcznie w groszach i minutach; brak profilu blokuje; nadpisany czas zmienia koszt                                     | „Liczba aparatów to długość listy”                                                                    | co liczy się jako aparat, zaokrąglenia, ścieżka nadpisania                                                 | unit z przykładami z PRD                                                     | formuła przepisana z kodu do testu                        |
-| #6   | Elektryk B dostaje odmowę lub pustą odpowiedź na zasoby A; admin nie widzi projektów; każda tabela z danymi elektryka ma test RLS                    | „Jest RLS, więc endpoint jest bezpieczny”                                                             | pełna lista tabel z danymi elektryka, endpointy przyjmujące id                                             | integration (RLS) + 1 e2e IDOR przez URL                                     | test tylko własnego odczytu                               |
-| #7   | Ten sam fixture przechodzi albo pada identycznie w parserze TS i w CHECK bazy; edycja szafki lub aparatu nie zmienia istniejącego projektu           | „Unit parsera wystarczy”                                                                              | pary CHECK↔parser, trigger snapshotu, snapshot doboru                                                      | integration (żywa baza)                                                      | osobne fixtury dla bazy i parsera                         |
+| Risk | What would prove protection                                                                                                                                        | Must challenge                                                                                                | Context `/10x-research` must ground                                                                               | Likely cheapest layer                                                           | Anti-pattern to avoid                                        |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| #1   | For every combination of circuit and fixture catalog the chosen device meets every parameter; on a gap there is an error naming the missing device, never a device | "Cheapest" computed only after the correctness filter; the existing matching tests have an independent oracle | the matching rule table, the RCBO → RCD+MCB fallback behaviour, where the current tests get their expected values | unit (table-driven + property-based on the fixture catalog)                     | expectations copied from the implementation (oracle problem) |
+| #2   | The project page shows the same result as the domain: the gap error, the stale-match marker, no substitute; saved circuits come back without loss                  | "The endpoint calls the parser and the matcher, so the UI is OK"                                              | the form → endpoint → save → render path, the `?error=` mapping, the match snapshot                               | e2e on 2–3 critical flows, the rest integration                                 | e2e for every variant instead of for the flow                |
+| #3   | Every blocker and warning fires at the boundary (In equal to ampacity, ±1 A); table values pinned to the standard                                                  | "The table is complete, so it is correct"                                                                     | the source of the table values, the conditions of blocks and warnings                                             | unit with boundary values                                                       | a test of only the plainly unsafe case                       |
+| #4   | After a proposal and after every edit: no collisions, devices within the rails, a group next to its RCD, an RCBO for a single-circuit group                        | "The heuristic produced a layout, so it is physically correct"                                                | the layout model from S-05, the decided rule precedence (OQ#2)                                                    | unit on invariants + 1 e2e of editing + selective visual review of the printout | an SVG snapshot without meaning                              |
+| #5   | Amounts from hand-computed examples in grosze and minutes; a missing profile blocks; an overridden time changes the cost                                           | "The device count is the list length"                                                                         | what counts as a device, rounding, the override path                                                              | unit with examples from the PRD                                                 | a formula copied from the code into the test                 |
+| #6   | Electrician B gets a refusal or an empty response for A's resources; the admin does not see projects; every table with electrician data has an RLS test            | "There is RLS, so the endpoint is secure"                                                                     | the full list of tables with electrician data, endpoints that take an id                                          | integration (RLS) + 1 e2e IDOR via URL                                          | a test of only one's own read                                |
+| #7   | The same fixture passes or fails identically in the TS parser and in the database CHECK; editing a cabinet or device does not change an existing project           | "A parser unit test is enough"                                                                                | the CHECK↔parser pairs, the snapshot trigger, the match snapshot                                                  | integration (live database)                                                     | separate fixtures for the database and the parser            |
 
 ## 3. Phased Rollout
 
-| #   | Phase name                     | Goal (one line)                                                                                                               | Risks covered | Test types                                    | Status      | Change folder                              |
-| --- | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- | ------------- | --------------------------------------------- | ----------- | ------------------------------------------ |
-| 1   | Matching and validation oracle | Udowodnić guardrail doboru i blokady na danych z wymagań i normy, nie z kodu                                                  | #1, #3        | unit (table-driven, boundary, property-based) | complete    | `context/changes/testing-matching-oracle/` |
-| 2   | Data integrity and isolation   | Parytet CHECK↔parser, niezmienność snapshotów, RLS każdej tabeli; `test:integration` w CI                                     | #6, #7        | integration + CI gate                         | not started | —                                          |
-| 3   | Critical-path e2e              | Bootstrap Playwright: projekt → przyłącze → obwody → dobór, luka w katalogu, stan nieaktualny, IDOR przez URL (po S-04 p3–p4) | #2, #6        | e2e + CI gate                                 | in progress | —                                          |
-| 4   | Layout and quote invariants    | Niezmienniki układu i edycji, wycena z przykładów ręcznych, przegląd wizualny wydruku (po S-05, S-06, S-08)                   | #4, #5        | unit + e2e + multimodal visual review         | in progress | —                                          |
+| #   | Phase name                     | Goal (one line)                                                                                                         | Risks covered | Test types                                    | Status      | Change folder                              |
+| --- | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------- | ------------- | --------------------------------------------- | ----------- | ------------------------------------------ |
+| 1   | Matching and validation oracle | Prove the matching guardrail and the blocks on data from the requirements and the standard, not from the code           | #1, #3        | unit (table-driven, boundary, property-based) | complete    | `context/changes/testing-matching-oracle/` |
+| 2   | Data integrity and isolation   | CHECK↔parser parity, snapshot immutability, RLS on every table; `test:integration` in CI                                | #6, #7        | integration + CI gate                         | not started | —                                          |
+| 3   | Critical-path e2e              | Playwright bootstrap: project → supply → circuits → matching, catalog gap, stale state, IDOR via URL (after S-04 p3–p4) | #2, #6        | e2e + CI gate                                 | in progress | —                                          |
+| 4   | Layout and quote invariants    | Layout and edit invariants, quote from hand-computed examples, visual review of the printout (after S-05, S-06, S-08)   | #4, #5        | unit + e2e + multimodal visual review         | in progress | —                                          |
 
 ## 4. Stack
 
-| Layer                 | Tool                                                       | Version              | Notes                                                                                                                                             |
-| --------------------- | ---------------------------------------------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| unit                  | Vitest (`vitest.config.ts`)                                | ^5.0.1               | `src/**/*.test.ts`, bez infrastruktury, w CI                                                                                                      |
-| integration (RLS, DB) | Vitest (`vitest.integration.config.ts`) + lokalny Supabase | ^5.0.1 / CLI ^2.23.4 | `tests/integration/**`; dziś tylko lokalnie — do CI w §3 Phase 2                                                                                  |
-| property-based        | fast-check — checked: 2026-09-30                           | ^4.10.2              | `src/lib/*.property.test.ts`, w `test:unit` i w CI                                                                                                |
-| e2e                   | Playwright Test (`playwright.config.ts`)                   | ^1.64.1              | `tests/e2e/**`, `npm run test:e2e`; tylko lokalnie (build + preview, lokalny Supabase) — do CI w §3 Phase 3; szczegóły w `test-stack.md`          |
-| HTTP smoke            | `scripts/smoke.mjs`                                        | —                    | tylko auth i bramki ról                                                                                                                           |
-| (optional) AI-native  | multimodal review wydruku wyceny — checked: 2026-09-29     | n/a                  | Tylko 1–2 ekrany (rysunek szafki, wydruk). When NOT to use: gdy deterministyczny test niezmienników układu albo porównanie DOM już łapie regresję |
+| Layer                 | Tool                                                          | Version              | Notes                                                                                                                                                        |
+| --------------------- | ------------------------------------------------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| unit                  | Vitest (`vitest.config.ts`)                                   | ^5.0.1               | `src/**/*.test.ts`, no infrastructure, in CI                                                                                                                 |
+| integration (RLS, DB) | Vitest (`vitest.integration.config.ts`) + local Supabase      | ^5.0.1 / CLI ^2.23.4 | `tests/integration/**`; local only today — to CI in §3 Phase 2                                                                                               |
+| property-based        | fast-check — checked: 2026-09-30                              | ^4.10.2              | `src/lib/*.property.test.ts`, in `test:unit` and in CI                                                                                                       |
+| e2e                   | Playwright Test (`playwright.config.ts`)                      | ^1.64.1              | `tests/e2e/**`, `npm run test:e2e`; local only (build + preview, local Supabase) — to CI in §3 Phase 3; details in `test-stack.md`                           |
+| HTTP smoke            | `scripts/smoke.mjs`                                           | —                    | auth and role gates only                                                                                                                                     |
+| (optional) AI-native  | multimodal review of the quote printout — checked: 2026-09-29 | n/a                  | Only 1–2 screens (cabinet drawing, printout). When NOT to use: when a deterministic layout-invariant test or a DOM comparison already catches the regression |
 
 **Stack grounding tools (current session):**
 
-- Docs: Supabase MCP `search_docs` — dostępny, nieużyty na tym etapie; Context7 not available in current session; checked: 2026-09-29
-- Search: WebSearch/WebFetch — dostępne, nieużyte; Exa.ai not available in current session; checked: 2026-09-29
-- Runtime/browser: wbudowana przeglądarka (Claude Browser) — do ręcznej weryfikacji, nie jako warstwa testów; checked: 2026-09-29
-- Provider/platform: Supabase MCP, SonarQube MCP — potencjalnie do bramki jakości (pokrycie, issues), nieużyte; checked: 2026-09-29
+- Docs: Supabase MCP `search_docs` — available, unused at this stage; Context7 not available in current session; checked: 2026-09-29
+- Search: WebSearch/WebFetch — available, unused; Exa.ai not available in current session; checked: 2026-09-29
+- Runtime/browser: built-in browser (Claude Browser) — for manual verification, not as a test layer; checked: 2026-09-29
+- Provider/platform: Supabase MCP, SonarQube MCP — potentially for a quality gate (coverage, issues), unused; checked: 2026-09-29
 
 ## 5. Quality Gates
 
-| Gate                     | Where                             | Required?                 | Catches                                    |
-| ------------------------ | --------------------------------- | ------------------------- | ------------------------------------------ |
-| lint + `astro check`     | local (pre-commit lint) + CI `ci` | required                  | typy, formatowanie, rozjazd enumów TS↔baza |
-| `test:unit`              | local + CI `ci`                   | required                  | regresje logiki domenowej                  |
-| `test:integration`       | local + CI                        | required after §3 Phase 2 | RLS, parytet CHECK↔parser, snapshoty       |
-| e2e on critical flows    | local (`test:e2e`), later CI      | required after §3 Phase 3 | zepsute krytyczne przepływy elektryka      |
-| smoke (`smoke.mjs`)      | CI `smoke`                        | required                  | build, adapter Cloudflare, auth przez HTTP |
-| multimodal visual review | on demand                         | optional after §3 Phase 4 | nieczytelny rysunek szafki lub wydruk      |
+| Gate                     | Where                             | Required?                 | Catches                                   |
+| ------------------------ | --------------------------------- | ------------------------- | ----------------------------------------- |
+| lint + `astro check`     | local (pre-commit lint) + CI `ci` | required                  | types, formatting, TS↔database enum drift |
+| `test:unit`              | local + CI `ci`                   | required                  | domain-logic regressions                  |
+| `test:integration`       | local + CI                        | required after §3 Phase 2 | RLS, CHECK↔parser parity, snapshots       |
+| e2e on critical flows    | local (`test:e2e`), later CI      | required after §3 Phase 3 | broken critical electrician flows         |
+| smoke (`smoke.mjs`)      | CI `smoke`                        | required                  | build, Cloudflare adapter, auth over HTTP |
+| multimodal visual review | on demand                         | optional after §3 Phase 4 | an unreadable cabinet drawing or printout |
 
 ## 6. Cookbook Patterns
 
 ### 6.1 Adding a unit test for a domain rule
 
-- **Gdzie:** `src/lib/<module>.test.ts` obok helpera; testy property-based w `src/lib/<module>.property.test.ts`. Uruchomienie: `npm run test:unit` (bez infrastruktury, w CI).
-- **Nazewnictwo:** nazwa testu (lub komentarz nad tabelą) wskazuje źródło oczekiwanej wartości: wiersz tabeli reguł, sekcję PRD albo ręczne obliczenie. Bez źródła test jest tylko opisem kodu.
-- **Wyrocznia:** oczekiwane wartości są literałami z PRD, normy lub obliczenia ręcznego. Test nie importuje reguł implementacji (list, tabel, predykatów) — predykat w teście property-based jest napisany od nowa z tabeli reguł S-04.
-- **Granica:** wartości są dyskretne (listy In, przekrojów, zabezpieczeń), więc „±1 A” nie istnieje. Granica to „równe” kontra „następna wartość z listy”; równość nigdy nie ostrzega ani nie odrzuca aparatu.
-- **Testy wzorcowe:**
-  - `src/lib/device-matching.test.ts`, bloki `describe("boundaries — …")` pod komentarzem „Boundary tables (risk #1)” (aparaty tuż poniżej i tuż powyżej wymagania w jednym katalogu),
-  - `src/lib/device-matching.property.test.ts` (niezależny predykat, „najtańszy spośród zgodnych”, dokładna lista luk, strażnik rozkładu statusów),
-  - tabela równości `it.each` w `src/lib/supply-warnings.test.ts` (blok `wlz_ampacity_below_protection`).
-- **Jak dodać test graniczny dla nowego ostrzeżenia (bez czytania planu):**
-  1. Wskaż źródło reguły (PRD, tabela normy, obliczenie ręczne) i zapisz je w komentarzu nad tabelą.
-  2. Wypisz z wartości dyskretnych wszystkie kombinacje, w których wartość jest dokładnie równa progowi, oraz następną wartość z listy po stronie ostrzeżenia.
-  3. Wstaw je do jednego `it.each`; w każdym wierszu oczekiwane kody ostrzeżeń i liczby jako literały, nigdy odczytane z kodu implementacji.
-  4. Asercja: równość nie ostrzega, następna wartość ostrzega (`toContainEqual` z pełnym obiektem ostrzeżenia).
-  5. Sprawdź, że test czegoś pilnuje: zmień w implementacji operator (`>` na `>=`) albo wartość w tabeli i upewnij się, że test pada; cofnij zmianę.
-  6. Przy obliczeniach zmiennoprzecinkowych dodaj przypadek dokładnie na progu (np. spadek napięcia 0,5 %).
+- **Where:** `src/lib/<module>.test.ts` next to the helper; property-based tests in `src/lib/<module>.property.test.ts`. Run with `npm run test:unit` (no infrastructure, in CI).
+- **Naming:** the test name (or a comment above the table) points to the source of the expected value: a row of the rule table, a PRD section or a hand computation. Without a source a test is only a description of the code.
+- **Oracle:** expected values are literals from the PRD, the standard or a hand computation. The test does not import implementation rules (lists, tables, predicates) — the predicate in a property-based test is written from scratch from the S-04 rule table.
+- **Boundary:** the values are discrete (lists of In, cross-sections, protections), so "±1 A" does not exist. The boundary is "equal" versus "the next value from the list"; equality never warns or rejects a device.
+- **Reference tests:**
+  - `src/lib/device-matching.test.ts`, the `describe("boundaries — …")` blocks under the "Boundary tables (risk #1)" comment (devices just below and just above the requirement in one catalog),
+  - `src/lib/device-matching.property.test.ts` (an independent predicate, "cheapest among the compliant", the exact list of gaps, a status-distribution guard),
+  - the `it.each` equality table in `src/lib/supply-warnings.test.ts` (the `wlz_ampacity_below_protection` block).
+- **How to add a boundary test for a new warning (without reading the plan):**
+  1. Name the source of the rule (PRD, a table in the standard, a hand computation) and write it in a comment above the table.
+  2. From the discrete values, list every combination where the value is exactly equal to the threshold, and the next value from the list on the warning side.
+  3. Put them in one `it.each`; in each row the expected warning codes and numbers are literals, never read from the implementation code.
+  4. Assertion: equality does not warn, the next value warns (`toContainEqual` with the full warning object).
+  5. Check that the test guards something: change an operator in the implementation (`>` to `>=`) or a value in the table and make sure the test fails; revert the change.
+  6. For floating-point computations add a case exactly on the threshold (e.g. a 0.5 % voltage drop).
 
 ### 6.2 Adding an integration test (RLS, CHECK↔parser parity)
 
-- TBD — see §3 Phase 2 (wzorzec: wspólny fixture dla parsera i bazy; test odmowy dostępu dla drugiego elektryka i admina).
+- TBD — see §3 Phase 2 (pattern: a shared fixture for the parser and the database; a denial test for a second electrician and for the admin).
 
 ### 6.3 Adding an e2e test for an electrician flow
 
-- **Gdzie:** `tests/e2e/<flow>.spec.ts`. Uruchomienie: `npm run test:e2e` (cały zestaw) albo `npx playwright test tests/e2e/<name>.spec.ts`. Wymaga lokalnego Supabase oraz `E2E_USERNAME` / `E2E_PASSWORD` w `.env`; config buduje aplikację i stawia `astro preview`. Konfiguracja: `context/foundation/test-stack.md`.
-- **Wzorzec:** `tests/e2e/seed.spec.ts` — ryzyko #2, luka w katalogu (brak B40 w lokalnym seedzie) widoczna na stronie projektu jako błąd, nigdy jako zamiennik. Każdy nowy test kopiuje jego układ.
-- **Nagłówek:** komentarz `// risk: test-plan.md #<n> — …` z numerem ryzyka z §2 i ścieżką, którą test przechodzi.
-- **Dane i sprzątanie:** test zakłada własny projekt z unikalną nazwą, a usuwa go w `afterEach` przez `POST /api/projects/[id]/delete` z nagłówkiem `Origin` i asercją na 302 — sprzątanie, które się nie uda, czerwieni przebieg.
-- **Selektory:** role i dostępne nazwy po polsku (`getByRole`, `getByLabel`), po hydratacji wysp `waitForIslands` z `tests/e2e/hydration.ts`.
-- **Pokrycie dziś:** `seed.spec.ts` (#2, luka w katalogu), `layout-manual-edit.spec.ts` (#4, odrzucona edycja odrywająca MCB od grupy RCD i zapis tylko przyjętej). Brakuje: stan nieaktualnego doboru (#2), IDOR przez URL (#6), bramka w CI.
-- Kandydaci z S-08 (`quote-cost-estimate`, impl-review F7) — dziś sprawdzane tylko ręcznie, bo żaden zestaw nie pokrywa HTTP: `POST /api/projects/[id]/quote` odmawia nadpisania czasu bez profilu wyceny i przy nieaktualnym doborze; zapisuje bazę estymacji policzoną na serwerze, nie z formularza; „Przywróć estymację” działa zawsze; drugi elektryk dostaje `not_found`.
+- **Where:** `tests/e2e/<flow>.spec.ts`. Run with `npm run test:e2e` (the whole suite) or `npx playwright test tests/e2e/<name>.spec.ts`. Requires a local Supabase and `E2E_USERNAME` / `E2E_PASSWORD` in `.env`; the config builds the app and starts `astro preview`. Configuration: `context/foundation/test-stack.md`.
+- **Pattern:** `tests/e2e/seed.spec.ts` — risk #2, a catalog gap (no B40 in the local seed) shown on the project page as an error, never as a substitute. Every new test copies its layout.
+- **Header:** a `// risk: test-plan.md #<n> — …` comment with the risk number from §2 and the path the test walks.
+- **Data and cleanup:** the test creates its own project with a unique name and deletes it in `afterEach` via `POST /api/projects/[id]/delete` with an `Origin` header and an assertion of 302 — a cleanup that fails turns the run red.
+- **Selectors:** roles and accessible names in Polish (`getByRole`, `getByLabel`), and after island hydration `waitForIslands` from `tests/e2e/hydration.ts`.
+- **Coverage today:** `seed.spec.ts` (#2, catalog gap), `layout-manual-edit.spec.ts` (#4, a rejected edit that detaches an MCB from its RCD group, and saving only the accepted one). Missing: the stale-match state (#2), IDOR via URL (#6), the CI gate.
+- Candidates from S-08 (`quote-cost-estimate`, impl-review F7) — checked only manually today, because no suite covers HTTP: `POST /api/projects/[id]/quote` refuses to override the time without a pricing profile and with a stale match; it saves the estimate base computed on the server, not from the form; "Przywróć estymację" always works; a second electrician gets `not_found`.
 
 ### 6.4 Adding a test for a new table or endpoint
 
-- TBD — see §3 Phase 2 and Phase 3 (wzorzec: każda nowa tabela = test RLS; każdy nowy endpoint z id = test IDOR).
+- TBD — see §3 Phase 2 and Phase 3 (pattern: every new table = an RLS test; every new endpoint with an id = an IDOR test).
 
 ### 6.5 Adding a test for layout or quote
 
-- **Układ — gdzie:** `src/lib/layout-editing.property.test.ts` (obok modelu edycji `layout-editing.ts`; propozycję i walidację pokrywa `cabinet-layout.test.ts`). Uruchomienie: `npm run test:unit`.
-- **Układ — niezmiennik:** po propozycji i po każdym przyjętym ruchu `validateLayout` zwraca `[]` (każdy aparat umieszczony raz, bez nakładania, w obrębie szyny i wnętrza, grupa RCD w jednym kawałku, RCBO sam w grupie). Ruch odrzucony zwraca niepustą listę problemów i nie zmienia szkicu. Predykatem jest `validateLayout` — to jedyna definicja poprawności układu, test nie pisze własnej.
-- **Układ — nazewnictwo:** `every accepted move on <szafka> passes validateLayout; every refused one changes nothing`, jeden test na geometrię szafki.
-- **Układ — strażnik rozkładu:** test nie jest pusty tylko wtedy, gdy ruchy przyjęte, odrzucone i ruchy całych bloków występują w liczbie ponad progiem (`expect(accepted).toBeGreaterThan(…)`); przy nowej geometrii sprawdź te progi.
-- **Układ — jak dodać regułę:** dopisz kod problemu do `validateLayout` i jego przypadek do `describe("validateLayout")` w `cabinet-layout.test.ts`, a odrzucony ruch z tym kodem — do `describe("moves")` w `layout-editing.test.ts`; property test przejmie regułę bez zmian.
-- **Wycena:** TBD — see §3 Phase 4 (wzorzec: wycena z przykładu policzonego ręcznie).
+- **Layout — where:** `src/lib/layout-editing.property.test.ts` (next to the edit model `layout-editing.ts`; the proposal and validation are covered by `cabinet-layout.test.ts`). Run with `npm run test:unit`.
+- **Layout — invariant:** after a proposal and after every accepted move `validateLayout` returns `[]` (every device placed once, without overlap, within the rail and the interior, an RCD group in one piece, an RCBO alone in its group). A refused move returns a non-empty list of problems and does not change the draft. The predicate is `validateLayout` — it is the single definition of layout correctness, the test does not write its own.
+- **Layout — naming:** `every accepted move on <cabinet> passes validateLayout; every refused one changes nothing`, one test per cabinet geometry.
+- **Layout — distribution guard:** the test is non-vacuous only if accepted moves, refused moves and whole-block moves each occur in numbers above a threshold (`expect(accepted).toBeGreaterThan(…)`); with a new geometry, check those thresholds.
+- **Layout — how to add a rule:** add the problem code to `validateLayout` and its case to `describe("validateLayout")` in `cabinet-layout.test.ts`, and a refused move with that code to `describe("moves")` in `layout-editing.test.ts`; the property test picks up the rule unchanged.
+- **Quote:** TBD — see §3 Phase 4 (pattern: a quote from a hand-computed example).
 
 ### 6.6 Per-rollout-phase notes
 
-**Phase 3 — Critical-path e2e (in progress, 2026-10-20).** Dostarczono: bootstrap Playwright (`playwright.config.ts`, projekt `setup` z `storageState`, `tests/e2e/auth.setup.ts`), seed `tests/e2e/seed.spec.ts` dla luki w katalogu (#2) i skrypt `npm run test:e2e`. Zostaje: stan nieaktualnego doboru po zmianie przyłącza (#2), IDOR przez URL (#6) i job e2e w CI.
+**Phase 3 — Critical-path e2e (in progress, 2026-10-20).** Delivered: the Playwright bootstrap (`playwright.config.ts`, a `setup` project with `storageState`, `tests/e2e/auth.setup.ts`), the seed `tests/e2e/seed.spec.ts` for the catalog gap (#2) and the `npm run test:e2e` script. Remaining: the stale-match state after a supply change (#2), IDOR via URL (#6) and an e2e job in CI.
 
-**Phase 4 — Layout and quote invariants (in progress, 2026-10-20).** Dostarczono dla układu (#4): niezmienniki ruchów w `src/lib/layout-editing.property.test.ts` i jeden e2e edycji `tests/e2e/layout-manual-edit.spec.ts` (odrzucony ruch MCB poza grupę RCD, zapisany i odrysowany tylko ruch przyjęty). Zostaje: wycena z przykładów policzonych ręcznie (#5) jako wzorzec §6.5 i przegląd wizualny wydruku.
+**Phase 4 — Layout and quote invariants (in progress, 2026-10-20).** Delivered for layout (#4): move invariants in `src/lib/layout-editing.property.test.ts` and one editing e2e `tests/e2e/layout-manual-edit.spec.ts` (a rejected move of an MCB out of its RCD group, only the accepted move saved and redrawn). Remaining: a quote from hand-computed examples (#5) as the §6.5 pattern, and the visual review of the printout.
 
-**Phase 1 — Matching and validation oracle (complete, 2026-09-30).** Dostarczono: tabele graniczne doboru aparatów (`device-matching.test.ts`), test property-based doboru (`device-matching.property.test.ts`, `fast-check`), tabele równości obciążalności, przypięcie mapowania sposobu ułożenia na metodę referencyjną (`supply-warnings.test.ts`, `circuit-warnings.test.ts`) oraz przypadki „TN-S / TN-C-S / TT nie blokuje” (`device-matching.test.ts`). Znalezisko: spadek napięcia dla 1F, Cu 10 mm², 16,1 m, 20 A to dokładnie 0,5 %, ale w IEEE-754 wychodziło 0,5000000000000001 i `supplyWarnings` ostrzegało fałszywie. Poprawka: spadek jest zaokrąglany do 9 miejsc po przecinku przed porównaniem i wyświetleniem. Wniosek: testy graniczne na wartościach obliczanych zmiennoprzecinkowo muszą zawierać przypadek dokładnie na progu. Po domknięciu S-04 RCD grupy jest dobierany do ΣIn × (1 + zapas grupy), a nie do największego In — tabele graniczne i predykat testu property-based zostały przepięte na tę regułę, więc wpis o tym zniknął z §7.
+**Phase 1 — Matching and validation oracle (complete, 2026-09-30).** Delivered: boundary tables for device matching (`device-matching.test.ts`), a property-based matching test (`device-matching.property.test.ts`, `fast-check`), ampacity equality tables, pinning of the installation-method mapping to the reference method (`supply-warnings.test.ts`, `circuit-warnings.test.ts`) and the "TN-S / TN-C-S / TT does not block" cases (`device-matching.test.ts`). Finding: the voltage drop for 1F, Cu 10 mm², 16.1 m, 20 A is exactly 0.5 %, but in IEEE-754 it came out as 0.5000000000000001 and `supplyWarnings` warned falsely. Fix: the drop is rounded to 9 decimal places before comparison and display. Conclusion: boundary tests on floating-point-computed values must include a case exactly on the threshold. After S-04 closed, a group's RCD is matched to ΣIn × (1 + group margin), not to the largest In — the boundary tables and the property-based test's predicate were re-pointed to that rule, so the entry about it disappeared from §7.
 
 ## 7. What We Deliberately Don't Test
 
-- **Wygląd panelu admina** — jedynym użytkownikiem jest autor, toporny UI jest akceptowalny. Poprawność _danych_ katalogu nadal jest testowana (#7). Re-evaluate, gdy pojawi się drugi admin. (Source: Phase 2 interview Q5.)
-- **UI dotykowe i mobilne** — poza zakresem MVP. (Source: PRD `## Non-Goals`.)
-- **Zdolność zwarciowa (Icn) aparatów** — nigdy nie jest porównywana, bo aplikacja nie ma wejścia z poziomem zwarcia, więc żaden test nie udaje, że to pokrywa. Re-evaluate, gdy pojawi się pole poziomu zwarcia w przyłączu. (Source: research `testing-matching-oracle`, Open Question 1.)
-- **Pełne obliczenia normowe** — testujemy tylko uproszczone kontrole i przepisane tabele, nie zgodność z normą w całości. (Source: PRD `## Non-Goals`.)
+- **The look of the admin panel** — the only user is the author, a crude UI is acceptable. The correctness of the catalog _data_ is still tested (#7). Re-evaluate when a second admin appears. (Source: Phase 2 interview Q5.)
+- **Touch and mobile UI** — outside MVP scope. (Source: PRD `## Non-Goals`.)
+- **Short-circuit capacity (Icn) of devices** — never compared, because the app has no short-circuit-level input, so no test pretends to cover it. Re-evaluate when a short-circuit-level field appears on the supply. (Source: research `testing-matching-oracle`, Open Question 1.)
+- **Full standard calculations** — we test only the simplified checks and the transcribed tables, not full compliance with the standard. (Source: PRD `## Non-Goals`.)
 
 ## 8. Freshness Ledger
 

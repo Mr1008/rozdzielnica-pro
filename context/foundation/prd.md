@@ -17,141 +17,141 @@ timeline_budget:
 
 ## Vision & Problem Statement
 
-Elektryk instalator, po spotkaniu z klientem i analizie zastanej instalacji, zna już liczbę obwodów, planowane obciążenia i ustalenia z klientem — ale przekłada to na układ aparatów w rozdzielnicy ręcznie, "na oko". Prowadzi to do rozwiązań nieekonomicznych (długie trasy przewodów, nieporządek w oprzewodowaniu), potencjalnie niezgodnych z dobrymi praktykami montażu, wymaga improwizacji na miejscu u klienta i utrudnia szybkie, adekwatne wyliczenie wyceny robocizny.
+An installer electrician, after meeting the client and analysing the existing installation, already knows the number of circuits (obwody), the planned loads and what was agreed with the client — but translates that into a device layout in the switchboard (rozdzielnica) by hand, "by eye". This leads to uneconomical solutions (long cable runs, messy wiring), layouts that may not follow good installation practice, improvisation on site at the client's, and makes it hard to quickly work out an adequate labour quote.
 
-Połączenie danych katalogowych aparatów (wymiary, cena) z geometrią konkretnej szafki rozdzielnicy i prostymi regułami heurystycznymi pozwala automatycznie zaproponować układ, który jest jednocześnie wygodny w montażu, zgodny ze standardami i ekonomiczny w przewodowaniu — bez budowania ciężkiego, profesjonalnego narzędzia CAD elektrycznego. Istniejące rozwiązania tej klasy są zbyt złożone dla prostych instalacji domowych; celem jest prosty, celowo ograniczony branżowo asystent planowania i wyceny, budowany też jako projekt rozwojowy dla autora.
+Combining manufacturer catalog data for devices (dimensions, price) with the geometry of a specific switchboard cabinet and simple heuristic rules makes it possible to propose a layout automatically that is at once convenient to install, standards-compliant and economical in wiring — without building a heavyweight, professional electrical CAD tool. Existing solutions of this class are too complex for simple home installations; the goal is a simple, deliberately industry-limited planning and quoting assistant, also built as a learning project for its author.
 
 ## User & Persona
 
-**Elektryk instalator** wykonujący proste instalacje elektryczne w domach jednorodzinnych. Na start MVP: sam autor projektu, jako pojedynczy nazwany użytkownik (elektryk w trakcie zdobywania dalszych uprawnień), z możliwością rozszerzenia na innych instalatorów w przyszłości.
+An **installer electrician** (elektryk instalator) carrying out simple electrical installations in single-family houses. At the start of the MVP: the project's author alone, as a single named user (an electrician in the process of gaining further qualifications), with the option of extending to other installers in the future.
 
-Sięga po narzędzie **po spotkaniu z klientem i analizie zastanej instalacji/projektu**, gdy zna już liczbę obwodów i planowane obciążenia — żeby zaplanować konkretny układ rozdzielnicy z wyprzedzeniem (bez improwizacji na miejscu montażu) i przygotować szybką, adekwatną wycenę robocizny.
+They reach for the tool **after meeting the client and analysing the existing installation/design**, when they already know the number of circuits and the planned loads — to plan a concrete switchboard layout ahead of time (without improvising on the installation site) and to prepare a quick, adequate labour quote.
 
 ## Success Criteria
 
 ### Primary
 
-- Elektryk może dojść od założenia projektu do wygenerowanej wyceny robocizny dla realnej, prostej instalacji — otrzymując po drodze konkretny projekt/układ szafki (nie tylko liczbę) — bez ręcznego liczenia w arkuszu kalkulacyjnym.
+- The electrician can get from creating a project to a generated labour quote for a real, simple installation — receiving a concrete cabinet design/layout along the way (not just a number) — without manual calculation in a spreadsheet.
 
 ### Secondary
 
-- Zaproponowany układ aparatów wymaga tylko punktowych ręcznych poprawek, nie budowy od zera.
+- The proposed device layout needs only spot manual corrections, not building from scratch.
 
 ### Guardrails
 
-- Wycena i dobór aparatów muszą być zawsze spójne z podanymi parametrami obwodów — system nigdy nie proponuje aparatu niezgodnego z parametrami obwodu (np. za mały prąd znamionowy); błędna sugestia jest gorsza niż brak sugestii. Gdy żaden aparat w katalogu nie spełnia parametrów obwodu, system zgłasza błąd z prośbą o kontakt z administratorem, zamiast schodzić na aparat niezgodny.
+- The quote and the device selection must always be consistent with the given circuit parameters — the system never proposes a device that fails the circuit's parameters (e.g. too low a rated current); a wrong suggestion is worse than no suggestion. When no device in the catalog satisfies a circuit's parameters, the system reports an error asking the user to contact the administrator, instead of falling back to a non-compliant device.
 
 ## User Stories
 
-### US-01: Elektryk planuje rozdzielnicę i otrzymuje wycenę
+### US-01: The electrician plans a switchboard and gets a quote
 
-- **Given** zalogowany elektryk oraz katalog aparatów i katalog szafek prowadzone przez admina
-- **When** zakłada nowy projekt, wybiera szafkę z katalogu, podaje parametry OSD/WLZ oraz obwody doprowadzone do szafki wraz z ich przypisaniem do grup RCD
-- **Then** otrzymuje zaproponowany zestaw aparatów (najtańszy spośród spełniających parametry obwodów) i propozycję ich układu w szafce, którą może poprawić, a następnie generuje wycenę do wydruku zawierającą układ szafki, koszt materiału i koszt robocizny wyliczony wg jego stawki godzinowej
+- **Given** a signed-in electrician and a device catalog and cabinet catalog maintained by the admin
+- **When** they create a new project, pick a cabinet from the catalog, enter the OSD/WLZ parameters and the circuits brought to the cabinet together with their assignment to RCD groups
+- **Then** they receive a proposed set of devices (the cheapest among those satisfying the circuit parameters) and a proposed layout of them in the cabinet, which they can correct, and then generate a printable quote containing the cabinet layout, the material cost and the labour cost calculated at their hourly rate
 
 #### Acceptance Criteria
 
-- Sugerowane aparaty zawsze spełniają podane parametry obwodów (aparat o zbyt niskich parametrach nie zostaje nigdy zaproponowany)
-- Gdy dla któregoś obwodu żaden aparat w katalogu nie spełnia parametrów, elektryk widzi błąd z prośbą o kontakt z administratorem, a nie propozycję niezgodnego aparatu
-- Zaproponowany układ jest edytowalny przed wygenerowaniem wyceny
-- Estymowany czas robocizny jest widoczny i możliwy do nadpisania przed sfinalizowaniem wyceny
-- Wyeksportowana/wydrukowana wycena zawiera rozbicie kosztów (materiał + robocizna) oraz czytelną wizualizację układu szafki
+- Suggested devices always satisfy the given circuit parameters (a device with too low parameters is never proposed)
+- When no device in the catalog satisfies the parameters of some circuit, the electrician sees an error asking them to contact the administrator, not a proposal of a non-compliant device
+- The proposed layout is editable before the quote is generated
+- The estimated labour time is visible and can be overridden before the quote is finalised
+- The exported/printed quote contains a cost breakdown (material + labour) and a clear visualisation of the cabinet layout
 
 ## Functional Requirements
 
-### Admin — katalog
+### Admin — catalog
 
-- FR-001: Admin może dodawać i edytować wspierane aparaty wraz z danymi producenta (wymiary, cena katalogowa, parametry elektryczne potrzebne do dopasowania do obwodu). Priority: must-have
-  > Socratic: Rozważony kontrargument: brak — to fundament, na którym opiera się reszta systemu (bez katalogu nie ma doboru aparatów ani układu). Rozstrzygnięcie: zachowane bez zmian.
-- FR-002: Admin może dodawać i edytować szafki rozdzielnic wraz z ich wymiarami i układem szyn montażowych, tworząc katalog szafek. Priority: must-have
-  > Socratic: Rozważony kontrargument: 2-3 szafki startowe mogą być zbyt podobne, by pokazać różnice w układzie. Rozstrzygnięcie: zachowane, z wyraźną notatką co do treści — 2-3 szafki startowe muszą się istotnie różnić (rozmiar / liczba szyn), żeby heurystyka układu widocznie się do nich dostosowywała.
+- FR-001: The admin can add and edit supported devices together with manufacturer data (dimensions, catalog price, electrical parameters needed to match a device to a circuit). Priority: must-have
+  > Socratic: Counter-argument considered: none — this is the foundation the rest of the system rests on (without a catalog there is no device selection or layout). Resolution: kept unchanged.
+- FR-002: The admin can add and edit switchboard cabinets together with their dimensions and mounting rail layout, building a cabinet catalog. Priority: must-have
+  > Socratic: Counter-argument considered: 2-3 starter cabinets may be too similar to show differences in the layout. Resolution: kept, with an explicit note on content — the 2-3 starter cabinets must differ substantially (size / number of rails) so that the layout heuristic visibly adapts to them.
 
-### Elektryk — projekt instalacji
+### Electrician (`elektryk`) — installation project
 
-- FR-003: Elektryk może założyć nowy projekt. Priority: must-have
-  > Socratic: Rozważony kontrargument: brak — trywialny, ale niezbędny kontener na kroki 4-8. Rozstrzygnięcie: zachowane bez zmian.
-- FR-004: Elektryk może wybrać do projektu szafkę z katalogu szafek prowadzonego przez admina. Priority: must-have
-  > Socratic: Rozważony kontrargument: ograniczenie do szafek z katalogu (brak szafki własnej/niestandardowej) zawęża realne zastosowanie poza demo. Rozstrzygnięcie: zachowane na MVP — świadome zawężenie zakresu; nazwa ujednolicona z "przykładowych szafek" na "katalog szafek", żeby mechanizm (FR-002) i jego konsument (FR-004) mówiły tym samym językiem.
-- FR-005: Elektryk może podać dla projektu parametry przyłączeniowe OSD (zabezpieczenie przedlicznikowe, system instalacji: TN-C / TN-S / TN-C-S / TT, liczba faz) oraz parametry WLZ (długość, przekrój i materiał, sposób ułożenia: natynkowo / w rurce / w gruncie itp.), na potrzeby prostej walidacji i doboru zabezpieczeń głównych. Priority: must-have
-  > Socratic: Rozważony kontrargument: brak — te dane są bezpośrednim wejściem do poprawnego doboru zabezpieczeń głównych (FR-007) i walidacji; bez nich dalsze sugestie byłyby bezpodstawne. Rozstrzygnięcie: zachowane, z listą pól zapisaną wprost za użytkownikiem.
-- FR-006: Elektryk może podać liczbę i parametry obwodów doprowadzonych do szafki oraz wskazać, które obwody dzielą wspólną grupę różnicowoprądową (RCD). Priority: must-have
-  > Socratic: Rozważony kontrargument: brak — bezpośrednie wejście do FR-007. Rozstrzygnięcie: zachowane bez zmian; szablony/kopiowanie obwodów między projektami odłożone na późniejszą wersję.
-- FR-007: System sugeruje aparaty spełniające podane parametry obwodów; spośród pasujących domyślnym kryterium wyboru i sortowania jest najniższa cena katalogowa. Priority: must-have
-  > Socratic: Rozważony kontrargument: sama "najniższa cena" to zbyt wąskie kryterium — elektryk może chcieć preferowanego producenta zamiast mieszanki marek w jednej szafce. Rozstrzygnięcie: na MVP zachowana najniższa cena spośród poprawnych dopasowań; filtr preferowanego producenta odnotowany jako możliwe rozszerzenie w kolejnej wersji, nie wymagany w MVP.
-- FR-008: System proponuje automatyczny układ dobranych aparatów w wybranej szafce, stosując proste reguły heurystyczne (nie pełny algorytm optymalizacyjny). Priority: must-have
-  > Socratic: Rozważony kontrargument: zła heurystyka jest gorsza niż brak sugestii, jeśli elektryk musi ją całkowicie przełożyć. Rozstrzygnięcie: zachowane, ale oznaczone jako ryzyko do rozstrzygnięcia konkretnie (nie pozostawione ogólnikiem) — dokładne reguły heurystyki są zdefiniowane w `## Business Logic`, właśnie dlatego, że "zgodność ze standardami" musi zostać sprowadzona do krótkiej, jawnej listy reguł, żeby dało się to zbudować w MVP.
-- FR-009: Elektryk może ręcznie zmodyfikować zaproponowany układ. Priority: must-have
-  > Socratic: Rozważony kontrargument: brak — to bezpiecznik na wypadek niedoskonałej heurystyki (FR-008); bez niego zła sugestia blokuje cały projekt. Rozstrzygnięcie: zachowane bez zmian.
+- FR-003: The electrician can create a new project. Priority: must-have
+  > Socratic: Counter-argument considered: none — trivial, but a necessary container for steps 4-8. Resolution: kept unchanged.
+- FR-004: The electrician can pick a cabinet for the project from the cabinet catalog maintained by the admin. Priority: must-have
+  > Socratic: Counter-argument considered: limiting the choice to catalog cabinets (no custom/non-standard cabinet) narrows real-world use beyond the demo. Resolution: kept for the MVP — a deliberate scope narrowing; the name was unified from "example cabinets" to "cabinet catalog", so that the mechanism (FR-002) and its consumer (FR-004) use the same language.
+- FR-005: The electrician can enter, for the project, the OSD connection parameters (pre-meter protection, installation system: TN-C / TN-S / TN-C-S / TT, number of phases) and the WLZ parameters (length, cross-section and material, installation method: surface-mounted / in conduit / in the ground, etc.), for the purpose of simple validation and selection of the main protection devices. Priority: must-have
+  > Socratic: Counter-argument considered: none — this data is a direct input to correct selection of main protection (FR-007) and to validation; without it further suggestions would be unfounded. Resolution: kept, with the field list written out explicitly at the user's direction.
+- FR-006: The electrician can enter the number and parameters of the circuits brought to the cabinet and indicate which circuits share a common residual-current group (RCD, wyłącznik różnicowoprądowy). Priority: must-have
+  > Socratic: Counter-argument considered: none — a direct input to FR-007. Resolution: kept unchanged; templates/copying circuits between projects deferred to a later version.
+- FR-007: The system suggests devices that satisfy the given circuit parameters; among the matching ones, the default selection and sorting criterion is the lowest catalog price. Priority: must-have
+  > Socratic: Counter-argument considered: "lowest price" alone is too narrow a criterion — the electrician may want a preferred manufacturer instead of a mix of brands in one cabinet. Resolution: for the MVP the lowest price among correct matches is kept; a preferred-manufacturer filter is noted as a possible extension in a later version, not required in the MVP.
+- FR-008: The system proposes an automatic layout of the selected devices in the chosen cabinet, applying simple heuristic rules (not a full optimisation algorithm). Priority: must-have
+  > Socratic: Counter-argument considered: a bad heuristic is worse than no suggestion if the electrician has to redo it completely. Resolution: kept, but flagged as a risk to be settled concretely (not left vague) — the exact heuristic rules are defined in `## Business Logic`, precisely because "standards compliance" must be reduced to a short, explicit list of rules so that it can be built in the MVP.
+- FR-009: The electrician can manually modify the proposed layout. Priority: must-have
+  > Socratic: Counter-argument considered: none — this is the safety net for an imperfect heuristic (FR-008); without it a bad suggestion blocks the whole project. Resolution: kept unchanged.
 
-### Elektryk — wycena
+### Electrician (`elektryk`) — quote
 
-- FR-010: Elektryk może skonfigurować w swoim profilu parametry wyceny: stawkę godzinową, średni czas montażu przypadający na jeden aparat (jedna uśredniona wartość statystyczna dla wszystkich aparatów, nie osobny czas per model) oraz stały narzut czasowy na projekt. Priority: must-have
-  > Socratic: Rozważony kontrargument: brak. Rozstrzygnięcie: zachowane bez zmian; jedna stawka wystarcza na MVP. Uzupełnione przy walidacji PRD — parametry czasowe estymacji są atrybutem profilu elektryka, a nie polem w katalogu aparatów ani globalną stałą systemu, więc każdy elektryk kalibruje wycenę własnym tempem pracy.
-- FR-011: System estymuje czas i koszt robocizny dla wyceny na podstawie projektu (liczba dobranych aparatów przemnożona przez średni czas montażu na aparat z profilu elektryka, plus stały narzut na projekt); estymacja jest punktem wyjścia, który elektryk może nadpisać przed sfinalizowaniem wyceny — nigdy nie jest prezentowana jako wartość ostateczna i nieedytowalna. Priority: must-have
-  > Socratic: Rozważony kontrargument: estymacja robocizny "wzięta z powietrza" jest gorsza niż brak estymacji — podkopuje zaufanie do narzędzia. Rozstrzygnięcie: zachowane, z wyraźnie zapisanym w samym FR zachowaniem nadpisywania; konkretna podstawa estymacji (co ją napędza) jest zdefiniowana w `## Business Logic`.
-- FR-012: Elektryk może wyeksportować/wydrukować dokument wyceny, który zawiera czytelną wizualizację projektu układu szafki, a nie tylko cenę. Priority: must-have
-  > Socratic: Rozważony kontrargument: bez czytelnej wizualizacji układu wydruk jest tylko listą pozycji i traci wartość względem zwykłej faktury. Rozstrzygnięcie: zachowane bez zmian — wizualizacja jest wymaganą częścią eksportowanego dokumentu, nie opcjonalnym dodatkiem.
-- FR-013: System zestawia koszt materiału na podstawie cen katalogowych dobranych aparatów i pokazuje go w wycenie obok kosztu robocizny. Priority: must-have
+- FR-010: The electrician can configure quote parameters in their profile: the hourly rate, the average mounting time per device (a single averaged statistical value for all devices, not a separate time per model) and a fixed time overhead per project. Priority: must-have
+  > Socratic: Counter-argument considered: none. Resolution: kept unchanged; a single rate is enough for the MVP. Added during PRD validation — the time parameters of the estimate are an attribute of the electrician's profile, not a field in the device catalog nor a global system constant, so each electrician calibrates the quote to their own working pace.
+- FR-011: The system estimates labour time and cost for the quote based on the project (the number of selected devices multiplied by the average mounting time per device from the electrician's profile, plus the fixed per-project overhead); the estimate is a starting point that the electrician can override before the quote is finalised — it is never presented as a final, non-editable value. Priority: must-have
+  > Socratic: Counter-argument considered: a labour estimate "pulled out of thin air" is worse than no estimate — it undermines trust in the tool. Resolution: kept, with the override behaviour written explicitly into the FR itself; the concrete basis of the estimate (what drives it) is defined in `## Business Logic`.
+- FR-012: The electrician can export/print a quote document that contains a clear visualisation of the cabinet layout design, not just the price. Priority: must-have
+  > Socratic: Counter-argument considered: without a clear layout visualisation the printout is only a list of line items and loses value compared with an ordinary invoice. Resolution: kept unchanged — the visualisation is a required part of the exported document, not an optional extra.
+- FR-013: The system compiles the material cost from the catalog prices of the selected devices and shows it in the quote next to the labour cost. Priority: must-have
 
 ## Non-Functional Requirements
 
-- Sugerowany zestaw aparatów, propozycja układu i wycena pojawiają się bez zauważalnego oczekiwania dla katalogu tej skali (rzędu pojedynczych sekund, nie dziesiątek sekund).
-- Projekty i dane klientów należące do danego elektryka są widoczne wyłącznie dla niego — żaden inny użytkownik nie ma wglądu w cudze projekty.
-- Cały interfejs użytkownika jest po polsku — łącznie z komunikatami błędów, walidacjami i wydrukiem wyceny — ponieważ na start aplikacja celuje w polskich klientów i posługuje się polskim nazewnictwem branżowym (obwód, rozdzielnica, wyłącznik różnicowoprądowy, szyna PE/N).
-- Warstwa tekstów jest przygotowana pod lokalizację: teksty widoczne dla użytkownika nie są wpisane na stałe w komponenty, lecz pochodzą z wydzielonego źródła tłumaczeń, tak żeby dodanie kolejnego języka nie wymagało przepisywania widoków. Samo tłumaczenie na inny język **nie jest celem MVP** — celem jest brak blokady na nie.
-- Daty, liczby i kwoty (PLN) są formatowane według lokalizacji użytkownika, a nie sztywnym formatem — spójnie z zasadą przechowywania i przetwarzania dat w UTC oraz prezentowania ich w czasie lokalnym dopiero na końcu.
+- The suggested device set, the layout proposal and the quote appear without noticeable waiting for a catalog of this scale (on the order of single seconds, not tens of seconds).
+- Projects and client data belonging to a given electrician are visible only to them — no other user can see someone else's projects.
+- The whole user interface is in Polish — including error messages, validations and the printed quote — because at the start the application targets Polish clients and uses Polish industry terminology (obwód, rozdzielnica, wyłącznik różnicowoprądowy, szyna PE/N).
+- The text layer is prepared for localisation: user-visible texts are not hard-coded in components but come from a separate translation source, so that adding another language does not require rewriting the views. Translation into another language itself is **not a goal of the MVP** — the goal is not to block it.
+- Dates, numbers and amounts (PLN) are formatted according to the user's locale, not with a fixed format — consistent with the rule of storing and processing dates in UTC and presenting them in local time only at the end.
 
 ## Business Logic
 
-**System dobiera i rozmieszcza aparaty tak, by spełnić parametry obwodów przy minimalnej długości przewodów.**
+**The system selects and places devices so as to satisfy the circuit parameters with the minimum cable length.**
 
-Reguła konsumuje dane podane przez elektryka: parametry OSD/WLZ, listę obwodów wraz z ich pogrupowaniem w grupy różnicowoprądowe (RCD) — elektryk przy podawaniu obwodów wskazuje, które obwody dzielą wspólny RCD — oraz wybraną z katalogu szafkę (jej układ szyn/torów montażowych).
+The rule consumes the data entered by the electrician: the OSD/WLZ parameters, the list of circuits together with their grouping into residual-current groups (RCD) — when entering circuits the electrician indicates which circuits share a common RCD — and the cabinet chosen from the catalog (its layout of mounting rails/tracks).
 
-Wynikiem jest zestaw sugerowanych aparatów (spełniających parametry obwodów, o najniższej cenie spośród pasujących) oraz propozycja ich fizycznego rozmieszczenia w szafce. Rozmieszczenie realizuje trzy reguły stosowane łącznie: **(1) grupowanie** — wyłączniki nadprądowe danej grupy sąsiadują z jej wyłącznikiem RCD, a jeśli grupa RCD obejmuje tylko jeden obwód, system sugeruje pojedynczy wyłącznik RCBO (kombinowany RCD + nadprądowy) zamiast dwóch osobnych aparatów; **(2) bliskość wyprowadzeń** — grupa jest umieszczana możliwie blisko tej strony szafki, którą wchodzą do niej przewody jej obwodów (góra, lewo, prawo, dół); **(3) bliskość elementów wspólnych** — rozmieszczenie uwzględnia odległość do szyn PE i N. Te trzy reguły razem są tym, czym MVP przybliża "minimalną długość przewodów"; pozostają heurystyką stosowaną wprost, nie optymalizacją globalną. Gdy dla któregoś obwodu żaden aparat w katalogu nie spełnia podanych parametrów, reguła nie schodzi na aparat niezgodny — system zgłasza błąd z prośbą o kontakt z administratorem, bo brakujący aparat jest luką w katalogu, którą uzupełnia admin (FR-001).
+The result is a set of suggested devices (satisfying the circuit parameters, with the lowest price among the matching ones) and a proposal for their physical placement in the cabinet. The placement applies three rules together: **(1) grouping** — the overcurrent circuit breakers (MCBs) of a given group sit next to its RCD, and if an RCD group covers only one circuit, the system suggests a single RCBO (combined RCD + overcurrent breaker) instead of two separate devices; **(2) proximity of cable entries** — the group is placed as close as possible to the side of the cabinet from which its circuits' cables enter (top, left, right, bottom); **(3) proximity of shared elements** — the placement accounts for the distance to the PE and N bars (szyny PE i N). Together these three rules are what the MVP uses to approximate "minimum cable length"; they remain a heuristic applied directly, not a global optimisation. When no device in the catalog satisfies the given parameters of some circuit, the rule does not fall back to a non-compliant device — the system reports an error asking the user to contact the administrator, because the missing device is a gap in the catalog that the admin fills in (FR-001).
 
-Na tej samej podstawie powstaje wycena: liczba dobranych aparatów przemnożona przez średni czas montażu na aparat — parametr z profilu elektryka, obok stawki godzinowej, jedna uśredniona wartość dla wszystkich aparatów — powiększona o stały narzut na projekt (przygotowanie szafki, podłączenie WLZ) daje szacowany czas pracy; ten czas przemnożony przez stawkę godzinową daje koszt robocizny, a ceny katalogowe dobranych aparatów — koszt materiału. Elektryk spotyka te reguły na ekranie planowania projektu: widzi zaproponowany zestaw aparatów i wizualny układ w szafce, może poprawić układ (FR-009) oraz nadpisać estymowany czas (FR-011), zanim wygeneruje wycenę.
+The quote is built on the same basis: the number of selected devices multiplied by the average mounting time per device — a parameter from the electrician's profile, next to the hourly rate, a single averaged value for all devices — increased by a fixed per-project overhead (preparing the cabinet, connecting the WLZ) gives the estimated working time; that time multiplied by the hourly rate gives the labour cost, and the catalog prices of the selected devices give the material cost. The electrician meets these rules on the project planning screen: they see the proposed device set and the visual layout in the cabinet, can correct the layout (FR-009) and override the estimated time (FR-011) before generating the quote.
 
 ## Access Control
 
-Logowanie przez email + hasło. W MVP bez weryfikacji adresu email.
+Sign-in with email + password. No email address verification in the MVP.
 
-Dwie role:
+Two roles:
 
-| Rola         | Uprawnienia                                                                                                                                                                                                                                  |
-| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **admin**    | Zarządza katalogiem wspieranych aparatów (dane producentów: wymiary, cena katalogowa itp.) oraz katalogiem szafek rozdzielnic. Nie ma wglądu w projekty ani dane klientów elektryków.                                                        |
-| **elektryk** | Zakłada własne projekty instalacji, wybiera szafkę, otrzymuje propozycję układu aparatów, generuje wycenę; konfiguruje w profilu stawkę godzinową, średni czas montażu na aparat i stały narzut na projekt. Widzi wyłącznie własne projekty. |
+| Role         | Permissions                                                                                                                                                                                                                                                         |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **admin**    | Manages the catalog of supported devices (manufacturer data: dimensions, catalog price, etc.) and the catalog of switchboard cabinets. Has no access to the electricians' projects or client data.                                                                  |
+| **elektryk** | Creates their own installation projects, picks a cabinet, receives a device layout proposal, generates a quote; configures in their profile the hourly rate, the average mounting time per device and the fixed per-project overhead. Sees only their own projects. |
 
-Konta elektryków mogą powstać na dwa sposoby: samodzielna rejestracja lub założenie konta przez admina — oba tryby dopuszczone w MVP.
+Electrician accounts can be created in two ways: self-registration or account creation by the admin — both modes are allowed in the MVP.
 
-Niezalogowany użytkownik trafiający na chronioną trasę jest przekierowywany do logowania.
+A signed-out user reaching a protected route is redirected to sign-in.
 
 ## Non-Goals
 
-- **Bez pełnego algorytmu optymalizacyjnego układu** — MVP używa prostej heurystyki (grupowanie RCD, bliskość wyprowadzeń przewodów, bliskość szyn PE/N — patrz `## Business Logic`), nie solvera ani optymalizacji kombinatorycznej.
-- **Bez typów aparatów spoza listy wspieranej w MVP** — MVP obsługuje wyłącznie: rozłączniki izolacyjne ("FR" — bez wkładek bezpiecznikowych; doprecyzowane 2026-09-23 przy planowaniu S-01), wyłączniki różnicowoprądowe (RCD), wyłączniki różnicowoprądowe z członem nadprądowym (RCBO), wyłączniki nadprądowe o charakterystyce B, szyny PE i szyny N, a od 2026-10-09 także listwy zasilające (grzebieniowe) 1F/3F do zasilania grup RCD. Pozostałe typy — w tym bloki rozdzielcze (rozważane przy regułach bliskości, ale nieujęte w MVP) oraz wyłączniki nadprądowe o charakterystykach innych niż B — dochodzą dopiero po MVP, o ile pójdzie łatwo i zostanie czas.
-- **Bez masowego/automatycznego importu katalogu producentów** — admin dodaje aparaty i szafki ręcznie w MVP; integracja z realnymi bazami producentów to nie jest cel MVP.
-- **Bez integracji płatności / faktur** — wycena to dokument informacyjny do wydruku/eksportu, nie faktura powiązana z systemem płatności.
-- **Bez wsparcia dla ekranów dotykowych / urządzeń mobilnych** — MVP zakłada pracę na komputerze (mysz + klawiatura); brak dedykowanego UI dotykowego.
-- **Bez pełnego, teoretycznego opomiarowania zgodnego z normami** — MVP robi proste walidacje na podstawie podanych danych (patrz FR-005, FR-007), nie pełne obliczenia inżynierskie/certyfikacyjne zgodności z normą.
-- **Bez instalacji wielkoformatowych/komercyjnych** — MVP celuje wyłącznie w domki jednorodzinne i mieszkania, nie obiekty przemysłowe/komercyjne.
-- **Bez wielu rozdzielnic w jednym projekcie** — jeden projekt odpowiada jednej szafce; łączone/wielorozdzielnicowe instalacje są poza zakresem MVP.
+- **No full layout optimisation algorithm** — the MVP uses a simple heuristic (RCD grouping, proximity of cable entries, proximity of PE/N bars — see `## Business Logic`), not a solver or combinatorial optimisation.
+- **No device types outside the list supported in the MVP** — the MVP supports only: switch-disconnectors ("FR" — without fuse links; clarified 2026-09-23 while planning S-01), residual-current devices (RCD), residual-current devices with overcurrent protection (RCBO), type-B overcurrent circuit breakers, PE bars and N bars, and since 2026-10-09 also 1F/3F comb busbars (listwy zasilające) for feeding RCD groups. Other types — including distribution blocks (considered for the proximity rules, but not included in the MVP) and overcurrent circuit breakers with characteristics other than B — come only after the MVP, if it goes easily and time remains.
+- **No bulk/automatic import of the manufacturer catalog** — the admin adds devices and cabinets manually in the MVP; integration with real manufacturer databases is not a goal of the MVP.
+- **No payment / invoice integration** — the quote is an informational document for printing/export, not an invoice tied to a payment system.
+- **No support for touch screens / mobile devices** — the MVP assumes work on a computer (mouse + keyboard); there is no dedicated touch UI.
+- **No full, theoretical standards-compliant metering** — the MVP does simple validations based on the data entered (see FR-005, FR-007), not full engineering/certification calculations of compliance with the standard.
+- **No large-scale/commercial installations** — the MVP targets only single-family houses and flats, not industrial/commercial buildings.
+- **No multiple switchboards in one project** — one project corresponds to one cabinet; linked/multi-switchboard installations are out of the MVP's scope.
 
-Uwaga (nie non-goal, doprecyzowanie zakresu): instalacje jednofazowe (1F) i trójfazowe (3F) mają być obsługiwane w MVP — to nie jest wykluczone (patrz FR-005: liczba faz jako pole OSD).
+Note (not a non-goal, a scope clarification): single-phase (1F) and three-phase (3F) installations are to be supported in the MVP — this is not excluded (see FR-005: number of phases as an OSD field).
 
 ## Open Questions
 
-1. **Kryteria akceptacji dla ścieżki admina** — FR-001 i FR-002 nie mają żadnej historyjki użytkownika ani kryteriów akceptacji; cała rola admina jest nieopisana od strony zachowania. Owner: user. Block: nie (ale utrudnia napisanie testu dla tej ścieżki).
-2. ~~Jak rozstrzygać konflikt reguł rozmieszczenia?~~ — rozstrzygnięte 2026-10-06, patrz niżej. (Numer zostaje, żeby odwołania z roadmapy nie rozjechały się.)
-3. **FR-013 nie przeszedł rundy Sokratesa** — dodany po rundzie wyzwań, przy walidacji PRD; nie skonfrontowany z kontrargumentem jak pozostałe FR-y. Owner: user. Block: nie.
-4. **Który termin zgłoszenia ostatecznie obowiązuje: 4 listopada 2026 czy 6 grudnia 2026?** — Cel to 4 listopada, ale bez presji; przy przekroczeniu 3-tygodniowego szacunku MVP akceptowalne jest przesunięcie na 6 grudnia bez cięcia zakresu. Dlatego frontmatter zapisuje `hard_deadline: null`. Owner: user. Block: nie.
+1. **Acceptance criteria for the admin path** — FR-001 and FR-002 have no user story or acceptance criteria; the whole admin role is undescribed in terms of behaviour. Owner: user. Block: no (but it makes writing a test for this path harder).
+2. ~~How to resolve a conflict between placement rules?~~ — resolved 2026-10-06, see below. (The number stays so that references from the roadmap do not drift.)
+3. **FR-013 did not go through the Socratic round** — added after the challenge round, during PRD validation; not confronted with a counter-argument like the other FRs. Owner: user. Block: no.
+4. **Which submission deadline ultimately applies: 4 November 2026 or 6 December 2026?** — The target is 4 November, but without pressure; if the 3-week MVP estimate is exceeded, a move to 6 December is acceptable without cutting scope. That is why the frontmatter records `hard_deadline: null`. Owner: user. Block: no.
 
-**Rozstrzygnięte przy walidacji:**
+**Resolved during validation:**
 
-- _(2026-10-09)_ Zakres typów aparatów w MVP rozszerzony o listwy zasilające (grzebieniowe) 1F/3F do zasilania grup RCD (roadmapa S-12, GitHub #17) — zawężenie z 2026-09-16 pozostaje w mocy dla pozostałych typów; patrz `## Non-Goals`.
-- _(2026-10-06)_ Pierwszeństwo reguł rozmieszczenia, gdy wskazują różne miejsca dla tej samej grupy: (1) grupowanie > (2) bliskość wyprowadzeń przewodów > (3) bliskość szyn PE/N. Zapisane w nagłówku `src/lib/cabinet-layout.ts`; patrz `## Business Logic`.
-- _(2026-09-15)_ Źródło czasu montażu aparatu — uśredniony, statystyczny parametr profilu elektryka (obok stawki godzinowej), nie pole w katalogu aparatów i nie stała globalna systemu; patrz FR-010 i `## Business Logic`.
-- _(2026-09-16)_ Brak pasującego aparatu w katalogu — system zgłasza błąd z prośbą o kontakt z administratorem, zamiast schodzić na aparat niezgodny; patrz guardrail w `## Success Criteria`, `## Business Logic` i kryteria akceptacji US-01.
-- _(2026-09-16)_ Grupowanie RCD nie wystarcza jako realizacja "minimalnej długości przewodów" — heurystyka obejmuje dodatkowo bliskość wyprowadzeń przewodów do szafki (góra/lewo/prawo/dół) oraz bliskość szyn PE i N; patrz `## Business Logic`.
-- _(2026-09-16)_ Zakres typów aparatów w MVP zawężony do: rozłączniki izolacyjne ("FR", bez wkładek bezpiecznikowych — doprecyzowane 2026-09-23 przy planowaniu S-01), RCD, RCBO, nadprądowe o charakterystyce B, szyny PE, szyny N; patrz `## Non-Goals`.
-- _(2026-09-16)_ Rzędy wielkości obciążenia i danych — `qps: low`, `data_volume: small`: jeden elektryk, praca projektowa (kilka-kilkanaście projektów miesięcznie), katalog aparatów i szafek prowadzony ręcznie przez admina. Skala mieści się z dużym zapasem w darmowych limitach wybranego stacku; patrz frontmatter `target_scale` i `context/foundation/tech-stack.md`.
+- _(2026-10-09)_ The MVP device-type scope extended with 1F/3F comb busbars (listwy zasilające) for feeding RCD groups (roadmap S-12, GitHub #17) — the 2026-09-16 narrowing remains in force for the other types; see `## Non-Goals`.
+- _(2026-10-06)_ Precedence of the placement rules when they point to different places for the same group: (1) grouping > (2) proximity of cable entries > (3) proximity of PE/N bars. Recorded in the header of `src/lib/cabinet-layout.ts`; see `## Business Logic`.
+- _(2026-09-15)_ Source of device mounting time — an averaged, statistical parameter of the electrician's profile (next to the hourly rate), not a field in the device catalog and not a global system constant; see FR-010 and `## Business Logic`.
+- _(2026-09-16)_ No matching device in the catalog — the system reports an error asking the user to contact the administrator, instead of falling back to a non-compliant device; see the guardrail in `## Success Criteria`, `## Business Logic` and the acceptance criteria of US-01.
+- _(2026-09-16)_ RCD grouping is not enough to realise "minimum cable length" — the heuristic additionally covers proximity of cable entries to the cabinet (top/left/right/bottom) and proximity of the PE and N bars; see `## Business Logic`.
+- _(2026-09-16)_ MVP device-type scope narrowed to: switch-disconnectors ("FR", without fuse links — clarified 2026-09-23 while planning S-01), RCD, RCBO, type-B overcurrent breakers, PE bars, N bars; see `## Non-Goals`.
+- _(2026-09-16)_ Orders of magnitude of load and data — `qps: low`, `data_volume: small`: one electrician, project work (a few to a dozen or so projects per month), device and cabinet catalog maintained manually by the admin. The scale fits with a wide margin within the free limits of the chosen stack; see the frontmatter `target_scale` and `context/foundation/tech-stack.md`.
