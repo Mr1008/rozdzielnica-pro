@@ -414,7 +414,7 @@ None. No schema change.
 
 #### Automated
 
-- [x] 4.1 `npm run lint`, `npx astro check`, `npm run test:unit` and `npm run test:integration` pass locally
+- [x] 4.1 `npm run lint`, `npx astro check`, `npm run test:unit` and `npm run test:integration` pass locally — 2e53b93
 - [x] 4.2 `.github/workflows/ci.yml` parses as YAML, and the `smoke` job lists the `test:integration` step before the build
 
 #### Manual
