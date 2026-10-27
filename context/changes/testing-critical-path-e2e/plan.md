@@ -456,17 +456,17 @@ CI runs Playwright with 1 worker and 2 retries.
 
 #### Automated
 
-- [x] 1.1 `npm run test:e2e` green with `.env`'s E2E credentials (seed + layout-manual-edit)
-- [x] 1.2 `npm run test:e2e` green with `E2E_USERNAME`/`E2E_PASSWORD` unset in the shell and `.env` (provisioned A)
-- [x] 1.3 `npm run lint` and `npx astro check` pass
+- [x] 1.1 `npm run test:e2e` green with `.env`'s E2E credentials (seed + layout-manual-edit) — ed9b1f2
+- [x] 1.2 `npm run test:e2e` green with `E2E_USERNAME`/`E2E_PASSWORD` unset in the shell and `.env` (provisioned A) — ed9b1f2
+- [x] 1.3 `npm run lint` and `npx astro check` pass — ed9b1f2
 
 ### Phase 2: Risk #6 — IDOR via URL and form
 
 #### Automated
 
-- [ ] 2.1 `npx playwright test tests/e2e/idor.spec.ts` green
-- [ ] 2.2 Deliberate break: remove the 0-row check in `index.ts` → red; revert
-- [ ] 2.3 `npm run lint` and `npx astro check` pass
+- [x] 2.1 `npx playwright test tests/e2e/idor.spec.ts` green
+- [x] 2.2 Deliberate break: remove the 0-row check in `index.ts` → red; revert
+- [x] 2.3 `npm run lint` and `npx astro check` pass
 
 ### Phase 3: Risk #2 — match state and circuit round-trip on the project page
 
