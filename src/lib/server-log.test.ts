@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { logServerError, serverErrorRecord } from "./server-log";
+import { logServerError, logServerInfo, logServerWarn, serverErrorRecord } from "./server-log";
 
 describe("serverErrorRecord", () => {
   it("keeps the code, hint and message of a PostgREST error", () => {
@@ -108,5 +108,40 @@ describe("logServerError", () => {
     }).not.toThrow();
     expect(spy).toHaveBeenCalledTimes(1);
     expect(spy.mock.calls[0]?.[0]).toMatchObject({ event: "print view failed", code: "none" });
+  });
+});
+
+describe("logServerWarn / logServerInfo", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("writes one flat record at warn level", () => {
+    const spy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    logServerWarn("project.invalid", { userId: "u1", count: 2, none: null, skipped: undefined });
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy.mock.calls[0]?.[0]).toEqual({
+      event: "project.invalid",
+      level: "warn",
+      userId: "u1",
+      count: 2,
+      none: null,
+    });
+  });
+
+  it("writes one flat record at info level", () => {
+    const spy = vi.spyOn(console, "info").mockImplementation(() => undefined);
+    logServerInfo("match.done");
+    expect(spy.mock.calls[0]?.[0]).toEqual({ event: "match.done", level: "info" });
+  });
+
+  it("does not let fields overwrite event or level, and never throws", () => {
+    const spy = vi.spyOn(console, "warn").mockImplementation(() => {
+      throw new Error("sink");
+    });
+    expect(() => {
+      logServerWarn("e", { level: "spoofed" });
+    }).not.toThrow();
+    expect(spy).toHaveBeenCalledTimes(1);
   });
 });

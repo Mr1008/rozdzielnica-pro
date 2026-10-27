@@ -38,3 +38,62 @@ export function authErrorMessage(code: string | null | undefined): string | null
   if (!code) return null;
   return MESSAGES[code] ?? t.authErrors.unknown;
 }
+
+/** Supabase Auth codes that mean "the user did something wrong" — derived from `MESSAGES`, so the two cannot drift. */
+const USER_ERROR_CODES: ReadonlySet<string> = new Set(
+  Object.keys(MESSAGES).filter((code) => code !== NOT_CONFIGURED && code !== NO_ROLE),
+);
+
+function readString(source: Record<string, unknown>, key: string): string | undefined {
+  const value = source[key];
+  return typeof value === "string" ? value : undefined;
+}
+
+function readStatus(source: Record<string, unknown>): number | undefined {
+  const value = source.status;
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+/**
+ * True when Supabase Auth itself is failing (5xx, unreachable, a hook error, an unmapped code), false
+ * when the user did something wrong (a mapped code) or simply has no session. Routes log only the
+ * former; the middleware uses it to tell an outage from a missing session. Never throws.
+ */
+export function isAuthInfraError(error: unknown): boolean {
+  try {
+    const source: Record<string, unknown> =
+      typeof error === "object" && error !== null ? (error as Record<string, unknown>) : {};
+    if (readString(source, "name") === "AuthSessionMissingError") return false;
+    const status = readStatus(source);
+    if (status !== undefined && status >= 500) return true;
+    const code = readString(source, "code");
+    // `AuthRetryableFetchError` (status 0/absent), `unexpected_failure`, `hook_*` and every other
+    // unmapped or absent code fall through to infrastructure.
+    return code === undefined || !USER_ERROR_CODES.has(code);
+  } catch {
+    return true;
+  }
+}
+
+/** The only fields of an auth error that may be logged — never the message or the email it quotes. */
+export interface AuthErrorRecord {
+  code: string;
+  name: string;
+  status: number | null;
+  [key: string]: string | number | null | undefined;
+}
+
+/** Reduces an auth error to `{ code, name, status }`; safe to pass to `logServerError`. */
+export function authErrorRecord(error: unknown): AuthErrorRecord {
+  try {
+    const source: Record<string, unknown> =
+      typeof error === "object" && error !== null ? (error as Record<string, unknown>) : {};
+    return {
+      code: readString(source, "code") ?? "none",
+      name: readString(source, "name") ?? "UnknownError",
+      status: readStatus(source) ?? null,
+    };
+  } catch {
+    return { code: "none", name: "UnknownError", status: null };
+  }
+}

@@ -73,3 +73,31 @@ export function logServerError(event: string, error: unknown, context?: ServerLo
   // eslint-disable-next-line no-console
   console.error(record);
 }
+
+function logLevel(level: "warn" | "info", event: string, fields?: ServerLogContext): void {
+  let record: Record<string, string | number | null | undefined>;
+  try {
+    record = { event, level };
+    for (const [key, value] of Object.entries(fields ?? {})) {
+      if (value !== undefined && !(key in record)) record[key] = typeof value === "string" ? truncate(value) : value;
+    }
+  } catch {
+    record = { event, level };
+  }
+  try {
+    // eslint-disable-next-line no-console
+    console[level](record);
+  } catch {
+    // Logging must never turn a handled path into a failure.
+  }
+}
+
+/** Records an expected-but-interesting event (a validation refusal, a match outcome) at warn level. Never throws. */
+export function logServerWarn(event: string, fields?: ServerLogContext): void {
+  logLevel("warn", event, fields);
+}
+
+/** Records a routine event at info level. Never throws. */
+export function logServerInfo(event: string, fields?: ServerLogContext): void {
+  logLevel("info", event, fields);
+}
