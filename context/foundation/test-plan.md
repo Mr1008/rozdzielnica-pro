@@ -65,12 +65,12 @@ not to tests.
 
 ## 3. Phased Rollout
 
-| #   | Phase name                     | Goal (one line)                                                                                                         | Risks covered | Test types                                    | Status      | Change folder                                       |
-| --- | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------- | ------------- | --------------------------------------------- | ----------- | --------------------------------------------------- |
-| 1   | Matching and validation oracle | Prove the matching guardrail and the blocks on data from the requirements and the standard, not from the code           | #1, #3        | unit (table-driven, boundary, property-based) | complete    | `context/changes/testing-matching-oracle/`          |
-| 2   | Data integrity and isolation   | CHECK↔parser parity, snapshot immutability, RLS on every table; `test:integration` in CI                                | #6, #7        | integration + CI gate                         | complete    | `context/changes/testing-data-integrity-isolation/` |
-| 3   | Critical-path e2e              | Playwright bootstrap: project → supply → circuits → matching, catalog gap, stale state, IDOR via URL (after S-04 p3–p4) | #2, #6        | e2e + CI gate                                 | not started | —                                                   |
-| 4   | Layout and quote invariants    | Layout and edit invariants, quote from hand-computed examples, visual review of the printout (after S-05, S-06, S-08)   | #4, #5        | unit + e2e + multimodal visual review         | not started | —                                                   |
+| #   | Phase name                     | Goal (one line)                                                                                                         | Risks covered | Test types                                    | Status        | Change folder                                       |
+| --- | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------- | ------------- | --------------------------------------------- | ------------- | --------------------------------------------------- |
+| 1   | Matching and validation oracle | Prove the matching guardrail and the blocks on data from the requirements and the standard, not from the code           | #1, #3        | unit (table-driven, boundary, property-based) | complete      | `context/changes/testing-matching-oracle/`          |
+| 2   | Data integrity and isolation   | CHECK↔parser parity, snapshot immutability, RLS on every table; `test:integration` in CI                                | #6, #7        | integration + CI gate                         | complete      | `context/changes/testing-data-integrity-isolation/` |
+| 3   | Critical-path e2e              | Playwright bootstrap: project → supply → circuits → matching, catalog gap, stale state, IDOR via URL (after S-04 p3–p4) | #2, #6        | e2e + CI gate                                 | change opened | `context/changes/testing-critical-path-e2e/`        |
+| 4   | Layout and quote invariants    | Layout and edit invariants, quote from hand-computed examples, visual review of the printout (after S-05, S-06, S-08)   | #4, #5        | unit + e2e + multimodal visual review         | not started   | —                                                   |
 
 ## 4. Stack
 
