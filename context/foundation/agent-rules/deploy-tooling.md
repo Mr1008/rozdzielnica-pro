@@ -46,7 +46,10 @@
 ## CI and deploy
 
 CI (on `master`): `.github/workflows/ci.yml` job `ci` = lint + `astro check` + `test:unit` + build;
-job `smoke` spins up a local Supabase and runs the smoke script against the production preview.
+job `smoke` spins up a local Supabase, runs `npm run test:integration` against it (before the build,
+so its users never interleave with the smoke signups), then runs the smoke script against the
+production preview. `tests/integration/support.ts` reads the stack through `npx supabase`, so the
+`supabase` devDependency in `package-lock.json` must stay at the `setup-cli` version.
 Both pass with no repository secrets configured. `.github/workflows/deploy.yml` runs when CI for a
 push to `master` finishes green: job `migrate` (`supabase db push`) then job `deploy`
 (`npm run build` + `npx wrangler deploy`). It **does** need secrets — `SUPABASE_ACCESS_TOKEN`,

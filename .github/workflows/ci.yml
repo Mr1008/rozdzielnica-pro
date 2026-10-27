@@ -46,6 +46,8 @@ jobs:
           source supabase.env
           printf 'SUPABASE_URL=%s\nSUPABASE_KEY=%s\n' "$API_URL" "$ANON_KEY" > .env
           cp .env .dev.vars
+      # RLS, CHECK-parser parity and snapshot tests (test-plan.md risks #6, #7) against the same stack.
+      - run: npm run test:integration
       - run: npm run build
       - name: Run smoke test against production preview
         run: |

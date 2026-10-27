@@ -407,15 +407,15 @@ None. No schema change.
 #### Automated
 
 - [x] 3.1 `npm run test:integration` passes, including the new device-edit snapshot case
-- [x] 3.2 Deliberate break: asserting the edited price instead of the snapshotted one fails (reverted)
-- [x] 3.3 `npm run lint` and `npx astro check` pass
+- [x] 3.2 Deliberate break: asserting the edited price instead of the snapshotted one fails (reverted) — 94233de
+- [x] 3.3 `npm run lint` and `npx astro check` pass — 94233de
 
 ### Phase 4: CI gate and documentation
 
 #### Automated
 
-- [ ] 4.1 `npm run lint`, `npx astro check`, `npm run test:unit` and `npm run test:integration` pass locally
-- [ ] 4.2 `.github/workflows/ci.yml` parses as YAML, and the `smoke` job lists the `test:integration` step before the build
+- [x] 4.1 `npm run lint`, `npx astro check`, `npm run test:unit` and `npm run test:integration` pass locally
+- [x] 4.2 `.github/workflows/ci.yml` parses as YAML, and the `smoke` job lists the `test:integration` step before the build
 
 #### Manual
 
