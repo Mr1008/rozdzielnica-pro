@@ -620,6 +620,70 @@ describe("row level security and the device snapshot on circuits, groups and pro
       expect(await readAll(projectId)).toEqual(before);
     });
 
+    it("survives the admin editing and archiving the device, and the project still reads it", async () => {
+      const testDevice = await seedDevice({ name: "Aparat do archiwizacji" });
+      const projectId = await insertProject(clientA, electricianA.id, SUPPLY);
+      await saveOrThrow(clientA, projectId, {
+        groups: [],
+        circuits: [],
+        devices: [{ device_id: testDevice, role: "mcb", rcd_group_id: null, circuit_id: null, notes: [] }],
+      });
+
+      const readOwn = async () => {
+        const [rows, project] = await Promise.all([
+          clientA.from("project_devices").select("*").eq("project_id", projectId),
+          clientA
+            .from("projects")
+            .select(
+              "cabinet_id, cabinet_geometry, cabinet_name, cabinet_manufacturer, cabinet_model, cabinet_price_grosze",
+            )
+            .eq("id", projectId)
+            .single(),
+        ]);
+        expect(rows.error).toBeNull();
+        expect(project.error).toBeNull();
+        return { rows: rows.data, project: project.data };
+      };
+      const before = await readOwn();
+      expect(before.rows).toHaveLength(1);
+      expect(before.rows?.[0]?.price_grosze).toBe(1000);
+
+      // As the app does it: the signed-in admin edits the catalog row, then archives it.
+      const edited = await adminClient
+        .from("devices")
+        .update({ price_grosze: 99900, name: "Aparat po zmianie", breaking_capacity_ka: 10 })
+        .eq("id", testDevice)
+        .select("id");
+      expect(edited.error).toBeNull();
+      expect(edited.data).toHaveLength(1);
+      const archived = await adminClient
+        .from("devices")
+        .update({ archived_at: new Date().toISOString() })
+        .eq("id", testDevice)
+        .select("id");
+      expect(archived.error).toBeNull();
+      expect(archived.data).toHaveLength(1);
+
+      // The catalog row really changed, so the unchanged snapshot is not a vacuous pass.
+      const catalog = await service
+        .from("devices")
+        .select("price_grosze, name, breaking_capacity_ka, archived_at")
+        .eq("id", testDevice)
+        .single();
+      expect(catalog.data).toMatchObject({ price_grosze: 99900, name: "Aparat po zmianie", breaking_capacity_ka: 10 });
+      expect(catalog.data?.archived_at).not.toBeNull();
+
+      const after = await readOwn();
+      expect(after.rows).toEqual(before.rows);
+      expect(after.rows?.[0]).toMatchObject({
+        price_grosze: 1000,
+        name: "Aparat do archiwizacji",
+        breaking_capacity_ka: 6,
+      });
+      expect(after.project).toEqual(before.project);
+      expect((await readAll(projectId)).projectDevices).toEqual(before.rows);
+    });
+
     it("refuses a device that does not exist with P0002", async () => {
       const projectId = await insertProject(clientA, electricianA.id);
       const { error } = await clientA

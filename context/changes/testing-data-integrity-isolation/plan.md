@@ -398,17 +398,17 @@ None. No schema change.
 
 #### Automated
 
-- [x] 2.1 `npm run test:integration` passes, including `check-parser-parity.test.ts` with all 7 pairs
-- [x] 2.2 Deliberate break: flipping one fixture's verdict (or one parser bound) makes the suite fail on that row (reverted)
-- [x] 2.3 `npm run lint` and `npx astro check` pass
+- [x] 2.1 `npm run test:integration` passes, including `check-parser-parity.test.ts` with all 7 pairs — c9cf030
+- [x] 2.2 Deliberate break: flipping one fixture's verdict (or one parser bound) makes the suite fail on that row (reverted) — c9cf030
+- [x] 2.3 `npm run lint` and `npx astro check` pass — c9cf030
 
 ### Phase 3: Device snapshot immutability (#7)
 
 #### Automated
 
-- [ ] 3.1 `npm run test:integration` passes, including the new device-edit snapshot case
-- [ ] 3.2 Deliberate break: asserting the edited price instead of the snapshotted one fails (reverted)
-- [ ] 3.3 `npm run lint` and `npx astro check` pass
+- [x] 3.1 `npm run test:integration` passes, including the new device-edit snapshot case
+- [x] 3.2 Deliberate break: asserting the edited price instead of the snapshotted one fails (reverted)
+- [x] 3.3 `npm run lint` and `npx astro check` pass
 
 ### Phase 4: CI gate and documentation
 
