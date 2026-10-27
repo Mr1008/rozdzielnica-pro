@@ -6,6 +6,7 @@ export type ClientErrorSource = (typeof CLIENT_ERROR_SOURCES)[number];
 export const MAX_CLIENT_MESSAGE_LENGTH = 200;
 export const MAX_CLIENT_STACK_LENGTH = 2048;
 export const MAX_CLIENT_PATH_LENGTH = 200;
+export const MAX_CLIENT_COMPONENT_LENGTH = 100;
 
 /** A bounded browser error report: the shape the reporter sends and the endpoint logs. */
 export interface ClientErrorReport {
@@ -14,6 +15,8 @@ export interface ClientErrorReport {
   stack: string;
   path: string;
   projectId?: string;
+  /** The React island a boundary caught the error in. */
+  component?: string;
 }
 
 export type ParsedClientErrorReport = { ok: true; report: ClientErrorReport } | { ok: false };
@@ -37,6 +40,7 @@ export function parseClientErrorReport(body: unknown): ParsedClientErrorReport {
   if (!isSource(input.source) || typeof input.message !== "string") return { ok: false };
   if (input.stack !== undefined && typeof input.stack !== "string") return { ok: false };
   if (input.path !== undefined && typeof input.path !== "string") return { ok: false };
+  if (input.component !== undefined && typeof input.component !== "string") return { ok: false };
 
   const report: ClientErrorReport = {
     source: input.source,
@@ -45,6 +49,7 @@ export function parseClientErrorReport(body: unknown): ParsedClientErrorReport {
     path: cap(input.path ?? "", MAX_CLIENT_PATH_LENGTH),
   };
   if (isUuid(input.projectId)) report.projectId = input.projectId;
+  if (input.component) report.component = cap(input.component, MAX_CLIENT_COMPONENT_LENGTH);
   return { ok: true, report };
 }
 
@@ -52,7 +57,7 @@ export function parseClientErrorReport(body: unknown): ParsedClientErrorReport {
 export function buildClientErrorReport(
   source: ClientErrorSource,
   error: unknown,
-  extra: { path?: string; projectId?: string | null } = {},
+  extra: { path?: string; projectId?: string | null; component?: string } = {},
 ): ClientErrorReport {
   const isError = error instanceof Error;
   const rawMessage = isError ? error.message : typeof error === "string" ? error : "";
@@ -63,5 +68,6 @@ export function buildClientErrorReport(
     path: cap(extra.path ?? "", MAX_CLIENT_PATH_LENGTH),
   };
   if (isUuid(extra.projectId)) report.projectId = extra.projectId;
+  if (extra.component) report.component = cap(extra.component, MAX_CLIENT_COMPONENT_LENGTH);
   return report;
 }

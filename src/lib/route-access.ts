@@ -27,6 +27,8 @@ export const PROTECTED_ROUTES: readonly ProtectedRoute[] = [
   // The electrician's project endpoints (create, details, cabinet, supply, delete). `/dashboard` does not
   // cover them either; RLS on `projects` (owner only, `elektryk` claim on writes) is the real boundary.
   { prefix: "/api/projects", roles: ["elektryk"] },
+  // Browser error beacons from any signed-in page. Anonymous reports are redirected and never logged.
+  { prefix: "/api/client-errors", roles: ["elektryk", "admin"] },
 ];
 
 /**

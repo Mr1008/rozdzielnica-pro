@@ -608,9 +608,9 @@ push to `master`; they are reverted by reverting the commit.
 
 #### Automated
 
-- [x] 2.1 Route-access, auth-errors tests pass: `npm run test:unit`
-- [x] 2.2 Lint and type check pass: `npm run lint && npx astro check`
-- [x] 2.3 Build passes: `npm run build`
+- [x] 2.1 Route-access, auth-errors tests pass: `npm run test:unit` — 1f4cf44
+- [x] 2.2 Lint and type check pass: `npm run lint && npx astro check` — 1f4cf44
+- [x] 2.3 Build passes: `npm run build` — 1f4cf44
 
 #### Manual
 
@@ -623,9 +623,9 @@ push to `master`; they are reverted by reverting the commit.
 
 #### Automated
 
-- [ ] 3.1 Unit tests pass (route-access entry, payload parser reuse): `npm run test:unit`
-- [ ] 3.2 Lint and type check pass: `npm run lint && npx astro check`
-- [ ] 3.3 Build passes: `npm run build`
+- [x] 3.1 Unit tests pass (route-access entry, payload parser reuse): `npm run test:unit`
+- [x] 3.2 Lint and type check pass: `npm run lint && npx astro check`
+- [x] 3.3 Build passes: `npm run build`
 
 #### Manual
 

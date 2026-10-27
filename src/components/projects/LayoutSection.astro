@@ -157,6 +157,7 @@ const slackPercent = Math.round(WIRE_SLACK_RATIO * 100);
             draftKey={`layout-draft:${draftScope ?? projectId}`}
             restoreDraft={restoreDraft}
             initialDraft={editor.initialDraft}
+            projectId={projectId}
             client:only="react"
           >
             <div slot="fallback" class="flex flex-col gap-3">
@@ -180,6 +181,7 @@ const slackPercent = Math.round(WIRE_SLACK_RATIO * 100);
           variant={wiringVariant}
           slackPercent={slackPercent}
           drawingWrapperClassName="mx-auto w-full max-w-3xl"
+          projectId={projectId}
           client:idle
         />
       )}

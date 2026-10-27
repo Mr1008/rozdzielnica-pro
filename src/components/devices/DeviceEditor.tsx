@@ -50,6 +50,7 @@ import {
 } from "@/lib/device-spec";
 import { numberFromField } from "@/lib/draft-fields";
 import { t } from "@/lib/i18n";
+import { IslandErrorBoundary } from "@/components/IslandErrorBoundary";
 
 interface DeviceEditorProps {
   /** The row being edited; omitted for a new device. */
@@ -106,7 +107,7 @@ function IssueList({ id, messages }: { id: string; messages: readonly string[] }
  * submitted values is shown in Polish next to its field and blocks the submit — the server parses
  * the same values again.
  */
-export default function DeviceEditor({ initial, action, error }: DeviceEditorProps) {
+function DeviceEditorBody({ initial, action, error }: DeviceEditorProps) {
   const storageKey = draftStorageKey(initial?.id);
   // Mounted `client:only`, so this first render already runs in the browser and can read the draft
   // a server-side rejection left behind — no SSR pass that would render the unrestored form first.
@@ -565,5 +566,13 @@ export default function DeviceEditor({ initial, action, error }: DeviceEditorPro
         </div>
       </div>
     </form>
+  );
+}
+
+export default function DeviceEditor(props: DeviceEditorProps) {
+  return (
+    <IslandErrorBoundary component="DeviceEditor">
+      <DeviceEditorBody {...props} />
+    </IslandErrorBoundary>
   );
 }

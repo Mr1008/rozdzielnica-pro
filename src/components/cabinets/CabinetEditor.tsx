@@ -39,6 +39,7 @@ import {
 } from "@/lib/cabinet-geometry";
 import { t } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
+import { IslandErrorBoundary } from "@/components/IslandErrorBoundary";
 
 interface CabinetEditorProps {
   /** The row being edited; omitted for a new cabinet. */
@@ -171,7 +172,7 @@ function ElementCard({ legend, active, invalid, issues, onFocus, onRemove, child
  * `parseCabinetGeometry` is shown next to its element and blocks the submit — the server parses the
  * same document again.
  */
-export default function CabinetEditor({ initial, action, error }: CabinetEditorProps) {
+function CabinetEditorBody({ initial, action, error }: CabinetEditorProps) {
   const storageKey = draftStorageKey(initial?.id);
   // Mounted `client:only`, so this first render already runs in the browser and can read the draft
   // a server-side rejection left behind — no SSR pass that would render the unrestored form first.
@@ -724,5 +725,13 @@ export default function CabinetEditor({ initial, action, error }: CabinetEditorP
         </div>
       </aside>
     </form>
+  );
+}
+
+export default function CabinetEditor(props: CabinetEditorProps) {
+  return (
+    <IslandErrorBoundary component="CabinetEditor">
+      <CabinetEditorBody {...props} />
+    </IslandErrorBoundary>
   );
 }

@@ -59,6 +59,7 @@ import {
   type EntrySide,
 } from "@/lib/circuit-params";
 import { t } from "@/lib/i18n";
+import { IslandErrorBoundary } from "@/components/IslandErrorBoundary";
 
 export interface CircuitEditorProps {
   /** The endpoint the native form posts to (`projectCircuitsApiPath(id)`). */
@@ -168,7 +169,7 @@ function collisionDetectionFor(draft: CircuitDraftState): CollisionDetection {
  * and "Grupa" select are two ways of calling the same ones. A native `<form method="POST">` carries
  * one hidden JSON field, which `parseCircuitsPayload` judges here exactly as the endpoint does.
  */
-export default function CircuitEditor({
+function CircuitEditorBody({
   action,
   initial,
   cabinetEntrySides,
@@ -549,5 +550,13 @@ export default function CircuitEditor({
         </Button>
       </div>
     </form>
+  );
+}
+
+export default function CircuitEditor(props: CircuitEditorProps): JSX.Element {
+  return (
+    <IslandErrorBoundary component="CircuitEditor">
+      <CircuitEditorBody {...props} />
+    </IslandErrorBoundary>
   );
 }

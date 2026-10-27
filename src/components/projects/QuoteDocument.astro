@@ -31,10 +31,12 @@ interface Props {
   timeZone: string;
   geometry: CabinetGeometry;
   drawing: LayoutDrawing;
+  /** Sent with a wiring failure report. */
+  projectId?: string;
   class?: string;
 }
 
-const { view, project, issuedAt, timeZone, geometry, drawing, class: className } = Astro.props;
+const { view, project, issuedAt, timeZone, geometry, drawing, projectId, class: className } = Astro.props;
 const { quote, lines, letterhead } = view;
 const p = t.quotePrint;
 const money = (grosze: number) => formatMoney(grosze / 100);
@@ -197,6 +199,7 @@ const strongClass = "font-semibold";
       devices={drawing.devices}
       wiring={drawing.wiring}
       variant="schematic"
+      projectId={projectId}
       drawingClassName="mx-auto max-h-[190mm] w-full"
       client:load
     />

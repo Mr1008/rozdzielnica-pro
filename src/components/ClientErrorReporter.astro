@@ -1,0 +1,12 @@
+---
+/**
+ * Installs the browser error listeners (`window` `error`, `unhandledrejection`) that report to
+ * `POST /api/client-errors`. Render it only in layouts of signed-in pages: the endpoint is gated.
+ */
+---
+
+<script>
+  import { installClientErrorHandlers } from "@/lib/client-error-reporter";
+
+  installClientErrorHandlers();
+</script>

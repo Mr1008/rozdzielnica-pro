@@ -64,6 +64,8 @@ import {
 } from "@/lib/layout-editing";
 import { cn } from "@/lib/utils";
 import type { WiringData } from "@/lib/wiring-island";
+import { WiringFailed } from "@/components/projects/WiringFailed";
+import { IslandErrorBoundary } from "@/components/IslandErrorBoundary";
 
 export interface LayoutEditorProps {
   geometry: CabinetGeometry;
@@ -94,6 +96,8 @@ export interface LayoutEditorProps {
   restoreDraft: boolean;
   /** A draft to start from instead of the saved layout — the kitchen sink's unsaved state. */
   initialDraft?: Placement[];
+  /** Sent with a wiring failure report. */
+  projectId?: string;
 }
 
 const e = t.layout.editor;
@@ -179,7 +183,7 @@ function drawnMembers(drawn: ReadonlyMap<string, DrawnDevice>, unit: EditUnit): 
  * Wires and lengths belong to the saved layout, so they are hidden while there are unsaved changes (and
  * while a unit is in the air) and come back after the save, routed here in the browser from `wiring`.
  */
-export default function LayoutEditor({
+function LayoutEditorBody({
   geometry,
   devices,
   groups,
@@ -194,6 +198,7 @@ export default function LayoutEditor({
   draftKey,
   restoreDraft,
   initialDraft,
+  projectId,
 }: LayoutEditorProps): JSX.Element {
   const ids = useId();
   const instructionsId = `${ids}-instructions`;
@@ -294,7 +299,7 @@ export default function LayoutEditor({
     () => buildDrawnDevices(devices, saved.placements, geometry, groups),
     [devices, saved, geometry, groups],
   );
-  const savedWiring = useWiringDrawing(wiring, savedDrawn, wiringVariant);
+  const { drawn: savedWiring, failed: wiringFailed } = useWiringDrawing(wiring, savedDrawn, wiringVariant, projectId);
   const wires = savedWiring?.wires ?? [];
   const cables = savedWiring?.cables ?? [];
   const ties = savedWiring?.ties ?? [];
@@ -813,7 +818,8 @@ export default function LayoutEditor({
         wiring={wiringVariant}
       />
 
-      {!wiresHidden && wiring !== null && savedWiring === null && (
+      {!wiresHidden && wiringFailed && <WiringFailed />}
+      {!wiresHidden && wiring !== null && savedWiring === null && !wiringFailed && (
         <p role="status" className="text-muted-foreground text-xs">
           {t.layout.section.wiresLoading}
         </p>
@@ -835,5 +841,13 @@ export default function LayoutEditor({
         lengths.length > 0 && <WireLengthsTable lengths={lengths} slackPercent={slackPercent} />
       )}
     </div>
+  );
+}
+
+export default function LayoutEditor(props: LayoutEditorProps): JSX.Element {
+  return (
+    <IslandErrorBoundary component="LayoutEditor">
+      <LayoutEditorBody {...props} />
+    </IslandErrorBoundary>
   );
 }

@@ -116,6 +116,19 @@ describe("resolveRouteAccess", () => {
     });
   });
 
+  it("lets both roles post client error reports and redirects anonymous callers", () => {
+    const pathname = "/api/client-errors";
+    for (const role of USER_ROLES) {
+      expect(resolveRouteAccess({ pathname, isSignedIn: true, role, authUnavailable: false })).toEqual({
+        allowed: true,
+      });
+    }
+    expect(resolveRouteAccess({ pathname, isSignedIn: false, role: null, authUnavailable: false })).toEqual({
+      allowed: false,
+      redirectTo: SIGN_IN_PATH,
+    });
+  });
+
   it("gates the project API for the elektryk role only", () => {
     for (const pathname of ["/api/projects", "/api/projects/00000000-0000-0000-0000-000000000001/delete"]) {
       expect(resolveRouteAccess({ pathname, isSignedIn: true, role: "elektryk", authUnavailable: false })).toEqual({

@@ -1,5 +1,7 @@
 ---
+import ClientErrorReporter from "@/components/ClientErrorReporter.astro";
 import PrintBlocked from "@/components/projects/PrintBlocked.astro";
+import PrintWiringFailed from "@/components/projects/PrintWiringFailed.astro";
 import PrintNotices from "@/components/projects/PrintNotices.astro";
 import QuoteDocument from "@/components/projects/QuoteDocument.astro";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -137,6 +139,7 @@ const title = project ? t.quotePrint.pageTitle(project.name) : t.quotePrint.titl
 ---
 
 <Layout title={title}>
+  <ClientErrorReporter />
   <main class="min-h-screen bg-muted px-4 py-6 print:min-h-0 print:bg-background print:p-0">
     <div class="mx-auto flex w-fit max-w-full flex-col gap-4">
       <div class="flex flex-col gap-4 print:hidden">
@@ -173,6 +176,7 @@ const title = project ? t.quotePrint.pageTitle(project.name) : t.quotePrint.titl
         )}
         {view?.state === "blocked" && project && <PrintBlocked reasons={view.reasons} projectId={project.id} />}
         {view?.state === "ready" && <PrintNotices notices={view.notices} />}
+        {view?.state === "ready" && <PrintWiringFailed />}
       </div>
 
       {project && view?.state === "ready" && context?.geometry && drawing && (
@@ -183,6 +187,7 @@ const title = project ? t.quotePrint.pageTitle(project.name) : t.quotePrint.titl
           timeZone={Astro.locals.timeZone}
           geometry={context.geometry}
           drawing={drawing}
+          projectId={project.id}
         />
       )}
     </div>
@@ -201,6 +206,15 @@ const title = project ? t.quotePrint.pageTitle(project.name) : t.quotePrint.titl
       window.print();
     });
   }
-  if (document.querySelector("[data-wiring-pending]") === null) enable();
-  else window.addEventListener("wiring-ready", enable, { once: true });
+  // A routing failure keeps it disabled for good and says why; the button is never enabled without wires.
+  const explanation = document.querySelector<HTMLElement>("[data-wiring-failed-explanation]");
+  const explainFailure = () => {
+    if (explanation) explanation.hidden = false;
+  };
+  if (document.querySelector("[data-wiring-failed]") !== null) explainFailure();
+  else if (document.querySelector("[data-wiring-pending]") === null) enable();
+  else {
+    window.addEventListener("wiring-ready", enable, { once: true });
+    window.addEventListener("wiring-failed", explainFailure, { once: true });
+  }
 </script>

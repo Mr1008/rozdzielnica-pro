@@ -4,6 +4,7 @@ import Banner from "@/components/Banner.astro";
 import ErrorPage from "@/components/ErrorPage.astro";
 import DraftingSheet from "@/components/brand/DraftingSheet.astro";
 import Logo from "@/components/brand/Logo.astro";
+import { IslandErrorFallback } from "@/components/IslandErrorBoundary";
 import { CabinetDrawing } from "@/components/cabinets/CabinetDrawing";
 import CircuitEditor from "@/components/circuits/CircuitEditor";
 import BusinessProfileCard from "@/components/forms/BusinessProfileCard.astro";
@@ -11,6 +12,8 @@ import { ToggleField } from "@/components/forms/fields";
 import LayoutSection from "@/components/projects/LayoutSection.astro";
 import MatchResult from "@/components/projects/MatchResult.astro";
 import PrintBlocked from "@/components/projects/PrintBlocked.astro";
+import PrintWiringFailed from "@/components/projects/PrintWiringFailed.astro";
+import { WiringFailed } from "@/components/projects/WiringFailed";
 import PrintNotices from "@/components/projects/PrintNotices.astro";
 import QuoteDocument from "@/components/projects/QuoteDocument.astro";
 import QuoteSection from "@/components/projects/QuoteSection.astro";
@@ -618,6 +621,20 @@ const subTitleClass = "text-sm font-medium text-muted-foreground";
         <div class="grid gap-4 md:grid-cols-2">
           <ErrorPage embedded title={t.errors.serverErrorTitle} description={t.errors.serverErrorDescription} />
           <ErrorPage embedded title={t.errors.unavailableTitle} description={t.errors.unavailableDescription} />
+        </div>
+        <div class="grid gap-4 md:grid-cols-2">
+          <figure class="flex flex-col gap-2">
+            <figcaption class:list={subTitleClass}>{k.errorStates.island}</figcaption>
+            <IslandErrorFallback />
+          </figure>
+          <figure class="flex flex-col gap-2">
+            <figcaption class:list={subTitleClass}>{k.errorStates.wiring}</figcaption>
+            <WiringFailed />
+          </figure>
+          <figure class="flex flex-col gap-2">
+            <figcaption class:list={subTitleClass}>{k.errorStates.printWiring}</figcaption>
+            <PrintWiringFailed visible />
+          </figure>
         </div>
       </section>
 

@@ -98,6 +98,12 @@ export const pl = {
     unavailableTitle: "Usługa chwilowo niedostępna",
     unavailableDescription: "Nie możemy teraz sprawdzić Twojego logowania. Spróbuj ponownie za kilka minut.",
     homeLink: "Wróć na stronę główną",
+    /** The fallback of `IslandErrorBoundary`, shown where an interactive part of a page failed to render. */
+    island: {
+      title: "Ta część strony nie zadziałała",
+      description: "Wystąpił błąd, więc nie możemy jej pokazać. Odśwież stronę. Jeśli problem wraca, daj nam znać.",
+      reload: "Odśwież stronę",
+    },
   },
 
   confirmEmail: {
@@ -644,6 +650,9 @@ export const pl = {
     toolbar: {
       back: "Wróć do projektu",
       print: "Drukuj / zapisz jako PDF",
+      /** Why the print button stays disabled when the wires could not be drawn (`PrintWiringFailed`). */
+      wiringFailed:
+        "Nie można wydrukować wyceny, bo nie udało się narysować przewodów na rysunku szafki. Odśwież stronę, aby spróbować ponownie.",
     },
     issuedOn: "Data wystawienia",
     nip: (nip: string) => `NIP ${nip}`,
@@ -1231,6 +1240,8 @@ export const pl = {
       },
       /** Where the wires go while the browser routes them (`WiringDrawing`). */
       wiresLoading: "Wczytywanie przewodów…",
+      /** Where the wires go when the browser failed to route them (`WiringFailed`). */
+      wiresFailed: "Nie udało się narysować przewodów. Odśwież stronę. Jeśli problem wraca, daj nam znać.",
       /** The "Widok: realistyczny / schematyczny" switch over the drawing (`WiringViewSwitch`). */
       view: {
         label: "Widok",
@@ -1492,6 +1503,12 @@ export const pl = {
       quoteTitle: "Sekcja „Wycena”",
       printTitle: "Dokument wyceny (dwie strony A4)",
       /** Captions for the printout states; each is computed by the real `computePrintView`. */
+      /** Captions of the browser failure states in the feedback section. */
+      errorStates: {
+        island: "Wyspa, która nie wyrenderowała się (granica błędów)",
+        wiring: "Przewody, których nie udało się narysować",
+        printWiring: "Strona wydruku: powód wyłączonego przycisku, gdy nie narysowano przewodów",
+      },
       printStates: {
         full: "Gotowy dokument z pełnym nagłówkiem firmy",
         fallback: "Bez danych firmy — nagłówek z imienia i emaila, uwagi widoczne tylko na ekranie",
