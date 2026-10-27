@@ -1,25 +1,19 @@
-// Seed — the pattern every generated E2E test copies.
+// Seed — the pattern every generated E2E test copies. Shared steps (project bootstrap, asserted
+// cleanup, provisioned users) live in tests/e2e/support.ts.
 // Risk #2 (context/foundation/test-plan.md): the domain is right but the electrician sees something
 // else — here, a catalog gap must reach the project page as an error, never as a substitute device.
 // The local seed catalog (supabase/seed.sql) deliberately has no B40 MCB.
 import { test, expect } from "@playwright/test";
 
-import { waitForIslands } from "./hydration";
+import { createProjectWithSupply, deleteProject } from "./support";
 
 let projectId: string | undefined;
 
 // Cleanup — in afterEach, so it runs even when the test goes red mid-flow, and asserted, so a cleanup
-// that fails turns the run red. The delete endpoint is a form POST behind Astro's origin check: send
-// the Origin a browser would, never relax the check.
+// that fails turns the run red.
 test.afterEach(async ({ page, baseURL }) => {
   if (projectId === undefined) return; // the project was never created
-  const res = await page.request.post(`/api/projects/${projectId}/delete`, {
-    form: { confirm_delete: "on" },
-    headers: { Origin: new URL(baseURL ?? page.url()).origin },
-    maxRedirects: 0,
-  });
-  expect(res.status()).toBe(302);
-  expect(res.headers().location).toContain("deleted=1");
+  await deleteProject(page.request, baseURL, projectId);
   projectId = undefined;
 });
 
@@ -27,28 +21,11 @@ test("catalog gap shows on the project page as an error, never as a substitute d
   const projectName = `E2E luka katalogu ${Date.now()}`;
   test.info().annotations.push({ type: "test-data", description: projectName });
 
-  // Setup: a project with a configured supply. The new-project form is plain HTML (no island).
-  await page.goto("/dashboard/projects/new");
-  await page.getByLabel("Nazwa projektu").fill(projectName);
-  await page.getByRole("radio", { name: "Szafka natynkowa średnia, 3 rzędy" }).check();
-  await page.getByRole("button", { name: "Załóż projekt" }).click();
-  await page.waitForURL(/\/dashboard\/projects\/[0-9a-f-]{36}/);
-  projectId = new URL(page.url()).pathname.split("/").at(-1);
-  await expect(page.getByRole("heading", { level: 1, name: projectName })).toBeVisible();
+  // Setup: a project with a configured supply.
+  ({ id: projectId } = await createProjectWithSupply(page, projectName));
 
-  await page.getByLabel("Zabezpieczenie przedlicznikowe").selectOption("63 A");
-  await page.getByLabel("Układ sieci").selectOption("TN-S");
-  await page.getByLabel("Liczba faz").selectOption("1 faza");
-  await page.getByLabel("Długość WLZ (m)").fill("10");
-  await page.getByLabel("Przekrój żył WLZ").selectOption("16 mm²");
-  await page.getByLabel("Materiał żył").selectOption("Miedź (Cu)");
-  await page.getByLabel("Sposób ułożenia").selectOption("Natynkowo");
-  await page.getByRole("button", { name: "Zapisz przyłącze" }).click();
-  await page.waitForURL(/saved=supply/);
-
-  // Action: one 40 A circuit. The circuit editor is a client-only React island — wait for it to
-  // hydrate before the first input, because saving circuits is not something to retry blindly.
-  await waitForIslands(page);
+  // Action: one 40 A circuit. The circuit editor is a client-only React island — the helper waited
+  // for it to hydrate, because saving circuits is not something to retry blindly.
   await page.getByRole("button", { name: "Dodaj obwód: Bez grupy" }).click();
   const circuit = page.getByRole("listitem", { name: "Obwód „Obwód 1”" });
   await circuit.getByLabel("Prąd znamionowy In").selectOption("40 A");
