@@ -3,7 +3,7 @@ project: "RozdzielnicaPro"
 version: 1
 status: draft
 created: 2026-09-21
-updated: 2026-10-09
+updated: 2026-10-27
 prd_version: 2
 main_goal: low-complexity
 top_blocker: decisions
@@ -80,7 +80,7 @@ Foundations poniżej zakładają, że to istnieje, i **nie** budują tego od now
 - **Data:** absent — jest sam `supabase/config.toml`, brak katalogu migracji, brak tabel poza `auth.users`, brak `src/types.ts` i brak `zod` w `package.json`.
 - **Auth:** present — Supabase SSR (`src/lib/supabase.ts`), użytkownik w `context.locals.user`, `PROTECTED_ROUTES` w `src/middleware.ts`, rejestracja/logowanie/wylogowanie, polskie komunikaty przez `src/lib/auth-errors.ts`. **Brak ról i brak profilu użytkownika.**
 - **Deploy / infra:** present — Worker `rozdzielnica-pro` wdrożony, auto-deploy z `master` (Cloudflare Workers Builds), CI `.github/workflows/ci.yml` (lint + `astro check` + build + smoke).
-- **Observability:** absent — brak loggera, error trackingu i metryk; w praktyce zostaje `wrangler tail`. PRD tego nie wymaga, więc nie powstaje pod to fundament.
+- **Observability:** present (change `observability`, 2026-10-27) — structured server logs (`src/lib/server-log.ts`), browser error reports via `POST /api/client-errors`, info/warn events per save, deploy version tags, source-mapped stacks and automatic Workers traces, all in Cloudflare Workers Observability; no third-party tracker.
 
 ## Foundations
 
@@ -305,7 +305,7 @@ Foundations poniżej zakładają, że to istnieje, i **nie** budują tego od now
 - **Szafka własna/niestandardowa spoza katalogu** — Why parked: świadome zawężenie zapisane przy FR-004; elektryk wybiera wyłącznie z katalogu admina. Śledzone w GitHub [#26](https://github.com/Mr1008/rozdzielnica-pro/issues/26).
 - **Filtr preferowanego producenta przy doborze** — Why parked: odnotowany przy FR-007 jako rozszerzenie po MVP; kryterium MVP to najniższa cena spośród poprawnych dopasowań. Śledzone w GitHub [#27](https://github.com/Mr1008/rozdzielnica-pro/issues/27).
 - **Szablony obwodów / kopiowanie obwodów między projektami** — Why parked: odłożone przy FR-006 na późniejszą wersję. Śledzone w GitHub [#28](https://github.com/Mr1008/rozdzielnica-pro/issues/28).
-- **Observability (logger, error tracking, metryki)** — Why parked: baseline pokazuje brak, ale PRD tego nie wymaga; przy jednym użytkowniku `wrangler tail` wystarcza, a cel `low-complexity` nie uzasadnia fundamentu pod monitoring. Śledzone w GitHub [#29](https://github.com/Mr1008/rozdzielnica-pro/issues/29).
+- **Observability (logger, error tracking, metryki)** — Why parked: not a PRD requirement, so it stays outside the milestone; it was picked up anyway as change `observability` (planned and implemented 2026-10-27: closes the remaining findings of the 2026-10-21 observability audit on Workers Logs, with no third-party tracker). Close this entry once that change is archived. Śledzone w GitHub [#29](https://github.com/Mr1008/rozdzielnica-pro/issues/29).
 - **Włączenie potwierdzania adresu email** (`enable_confirmations = true`) — Why parked: świadomie
   odłożone na **sam koniec MVP**, żeby przez cały czas budowy testowanie było łatwiejsze. Docelowo
   do zrobienia: jest darmowe na Supabase, a widok `/auth/confirm-email` już istnieje, więc włączenie

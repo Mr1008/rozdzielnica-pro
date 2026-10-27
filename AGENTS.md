@@ -55,6 +55,11 @@ These are correctness requirements, not preferences.
   Polish via `authErrorMessage` in `src/lib/auth-errors.ts`; an unmapped code still reaches the URL
   so it stays diagnosable, while the user sees a generic message. Follow that shape for any new
   third-party failure.
+- **Every failure gets a log record, through one module.** Server code logs with `logServerError` /
+  `logServerWarn` / `logServerInfo` from `src/lib/server-log.ts` (one flat record with `projectId` /
+  `userId`, never `details`, never an email) — not a bare `console.*`. Browser code reports with
+  `reportClientError` (`src/lib/client-error-reporter.ts`) to the signed-in `POST /api/client-errors`.
+  Workers Logs is the only sink; there is no third-party tracker.
 - **`createClient()` returns `null` when Supabase env vars are unset** — they are declared
   `optional: true` in `astro.config.mjs`, so the app boots and builds without them. Every call site
   must handle the null branch (see `src/middleware.ts` and `src/pages/api/auth/signin.ts`). Do not

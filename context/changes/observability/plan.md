@@ -653,10 +653,10 @@ push to `master`; they are reverted by reverting the commit.
 
 #### Automated
 
-- [x] 5.1 quote-print and cabinet-layout tests pass: `npm run test:unit`
-- [x] 5.2 Lint, type check and build pass: `npm run lint && npx astro check && npm run build`
-- [x] 5.3 Build emits server source maps and no client ones: `dist/server` has `.map` files, `dist/client` has none
-- [x] 5.4 `npx wrangler deploy --dry-run` accepts the config with `upload_source_maps`
+- [x] 5.1 quote-print and cabinet-layout tests pass: `npm run test:unit` — 480c96a
+- [x] 5.2 Lint, type check and build pass: `npm run lint && npx astro check && npm run build` — 480c96a
+- [x] 5.3 Build emits server source maps and no client ones: `dist/server` has `.map` files, `dist/client` has none — 480c96a
+- [x] 5.4 `npx wrangler deploy --dry-run` accepts the config with `upload_source_maps` — 480c96a
 
 #### Manual
 
@@ -669,9 +669,9 @@ push to `master`; they are reverted by reverting the commit.
 
 #### Automated
 
-- [ ] 6.1 Probe suite C1 and C5 runs pass: `bash probe/suite.sh` in the probe worktree
-- [ ] 6.2 Full local gate passes: `npm run lint && npx astro check && npm run test:unit && npm run build`
-- [ ] 6.3 Roadmap sync plan shows only the intended issue change: `node scripts/roadmap-to-github.mjs`
+- [x] 6.1 Probe suite C1 and C5 runs pass: `bash probe/suite.sh` in the probe worktree
+- [x] 6.2 Full local gate passes: `npm run lint && npx astro check && npm run test:unit && npm run build`
+- [x] 6.3 Roadmap sync plan shows only the intended issue change: `node scripts/roadmap-to-github.mjs`
 
 #### Manual
 
