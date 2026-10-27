@@ -6,7 +6,7 @@
 >
 > Refresh: re-run `/10x-test-plan --refresh` when stale (see §8).
 >
-> Last updated: 2026-09-30
+> Last updated: 2026-10-27
 
 ## 1. Strategy
 
@@ -67,8 +67,8 @@ wdrożenia, nie do testów.
 | --- | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- | ------------- | --------------------------------------------- | ----------- | ------------------------------------------ |
 | 1   | Matching and validation oracle | Udowodnić guardrail doboru i blokady na danych z wymagań i normy, nie z kodu                                                  | #1, #3        | unit (table-driven, boundary, property-based) | complete    | `context/changes/testing-matching-oracle/` |
 | 2   | Data integrity and isolation   | Parytet CHECK↔parser, niezmienność snapshotów, RLS każdej tabeli; `test:integration` w CI                                     | #6, #7        | integration + CI gate                         | not started | —                                          |
-| 3   | Critical-path e2e              | Bootstrap Playwright: projekt → przyłącze → obwody → dobór, luka w katalogu, stan nieaktualny, IDOR przez URL (po S-04 p3–p4) | #2, #6        | e2e + CI gate                                 | not started | —                                          |
-| 4   | Layout and quote invariants    | Niezmienniki układu i edycji, wycena z przykładów ręcznych, przegląd wizualny wydruku (po S-05, S-06, S-08)                   | #4, #5        | unit + e2e + multimodal visual review         | not started | —                                          |
+| 3   | Critical-path e2e              | Bootstrap Playwright: projekt → przyłącze → obwody → dobór, luka w katalogu, stan nieaktualny, IDOR przez URL (po S-04 p3–p4) | #2, #6        | e2e + CI gate                                 | in progress | —                                          |
+| 4   | Layout and quote invariants    | Niezmienniki układu i edycji, wycena z przykładów ręcznych, przegląd wizualny wydruku (po S-05, S-06, S-08)                   | #4, #5        | unit + e2e + multimodal visual review         | in progress | —                                          |
 
 ## 4. Stack
 
@@ -77,7 +77,7 @@ wdrożenia, nie do testów.
 | unit                  | Vitest (`vitest.config.ts`)                                | ^5.0.1               | `src/**/*.test.ts`, bez infrastruktury, w CI                                                                                                      |
 | integration (RLS, DB) | Vitest (`vitest.integration.config.ts`) + lokalny Supabase | ^5.0.1 / CLI ^2.23.4 | `tests/integration/**`; dziś tylko lokalnie — do CI w §3 Phase 2                                                                                  |
 | property-based        | fast-check — checked: 2026-09-30                           | ^4.10.2              | `src/lib/*.property.test.ts`, w `test:unit` i w CI                                                                                                |
-| e2e                   | none yet — see Phase 3                                     | —                    | kandydat: Playwright; job `smoke` w CI już stawia Supabase                                                                                        |
+| e2e                   | Playwright Test (`playwright.config.ts`)                   | ^1.64.1              | `tests/e2e/**`, `npm run test:e2e`; tylko lokalnie (build + preview, lokalny Supabase) — do CI w §3 Phase 3; szczegóły w `test-stack.md`          |
 | HTTP smoke            | `scripts/smoke.mjs`                                        | —                    | tylko auth i bramki ról                                                                                                                           |
 | (optional) AI-native  | multimodal review wydruku wyceny — checked: 2026-09-29     | n/a                  | Tylko 1–2 ekrany (rysunek szafki, wydruk). When NOT to use: gdy deterministyczny test niezmienników układu albo porównanie DOM już łapie regresję |
 
@@ -95,7 +95,7 @@ wdrożenia, nie do testów.
 | lint + `astro check`     | local (pre-commit lint) + CI `ci` | required                  | typy, formatowanie, rozjazd enumów TS↔baza |
 | `test:unit`              | local + CI `ci`                   | required                  | regresje logiki domenowej                  |
 | `test:integration`       | local + CI                        | required after §3 Phase 2 | RLS, parytet CHECK↔parser, snapshoty       |
-| e2e on critical flows    | CI                                | required after §3 Phase 3 | zepsute krytyczne przepływy elektryka      |
+| e2e on critical flows    | local (`test:e2e`), later CI      | required after §3 Phase 3 | zepsute krytyczne przepływy elektryka      |
 | smoke (`smoke.mjs`)      | CI `smoke`                        | required                  | build, adapter Cloudflare, auth przez HTTP |
 | multimodal visual review | on demand                         | optional after §3 Phase 4 | nieczytelny rysunek szafki lub wydruk      |
 
@@ -125,7 +125,12 @@ wdrożenia, nie do testów.
 
 ### 6.3 Adding an e2e test for an electrician flow
 
-- TBD — see §3 Phase 3 (wzorzec: błąd luki w katalogu widoczny na stronie projektu, bez zamiennika).
+- **Gdzie:** `tests/e2e/<flow>.spec.ts`. Uruchomienie: `npm run test:e2e` (cały zestaw) albo `npx playwright test tests/e2e/<name>.spec.ts`. Wymaga lokalnego Supabase oraz `E2E_USERNAME` / `E2E_PASSWORD` w `.env`; config buduje aplikację i stawia `astro preview`. Konfiguracja: `context/foundation/test-stack.md`.
+- **Wzorzec:** `tests/e2e/seed.spec.ts` — ryzyko #2, luka w katalogu (brak B40 w lokalnym seedzie) widoczna na stronie projektu jako błąd, nigdy jako zamiennik. Każdy nowy test kopiuje jego układ.
+- **Nagłówek:** komentarz `// risk: test-plan.md #<n> — …` z numerem ryzyka z §2 i ścieżką, którą test przechodzi.
+- **Dane i sprzątanie:** test zakłada własny projekt z unikalną nazwą, a usuwa go w `afterEach` przez `POST /api/projects/[id]/delete` z nagłówkiem `Origin` i asercją na 302 — sprzątanie, które się nie uda, czerwieni przebieg.
+- **Selektory:** role i dostępne nazwy po polsku (`getByRole`, `getByLabel`), po hydratacji wysp `waitForIslands` z `tests/e2e/hydration.ts`.
+- **Pokrycie dziś:** `seed.spec.ts` (#2, luka w katalogu), `layout-manual-edit.spec.ts` (#4, odrzucona edycja odrywająca MCB od grupy RCD i zapis tylko przyjętej). Brakuje: stan nieaktualnego doboru (#2), IDOR przez URL (#6), bramka w CI.
 - Kandydaci z S-08 (`quote-cost-estimate`, impl-review F7) — dziś sprawdzane tylko ręcznie, bo żaden zestaw nie pokrywa HTTP: `POST /api/projects/[id]/quote` odmawia nadpisania czasu bez profilu wyceny i przy nieaktualnym doborze; zapisuje bazę estymacji policzoną na serwerze, nie z formularza; „Przywróć estymację” działa zawsze; drugi elektryk dostaje `not_found`.
 
 ### 6.4 Adding a test for a new table or endpoint
@@ -142,6 +147,10 @@ wdrożenia, nie do testów.
 - **Wycena:** TBD — see §3 Phase 4 (wzorzec: wycena z przykładu policzonego ręcznie).
 
 ### 6.6 Per-rollout-phase notes
+
+**Phase 3 — Critical-path e2e (in progress, 2026-10-20).** Dostarczono: bootstrap Playwright (`playwright.config.ts`, projekt `setup` z `storageState`, `tests/e2e/auth.setup.ts`), seed `tests/e2e/seed.spec.ts` dla luki w katalogu (#2) i skrypt `npm run test:e2e`. Zostaje: stan nieaktualnego doboru po zmianie przyłącza (#2), IDOR przez URL (#6) i job e2e w CI.
+
+**Phase 4 — Layout and quote invariants (in progress, 2026-10-20).** Dostarczono dla układu (#4): niezmienniki ruchów w `src/lib/layout-editing.property.test.ts` i jeden e2e edycji `tests/e2e/layout-manual-edit.spec.ts` (odrzucony ruch MCB poza grupę RCD, zapisany i odrysowany tylko ruch przyjęty). Zostaje: wycena z przykładów policzonych ręcznie (#5) jako wzorzec §6.5 i przegląd wizualny wydruku.
 
 **Phase 1 — Matching and validation oracle (complete, 2026-09-30).** Dostarczono: tabele graniczne doboru aparatów (`device-matching.test.ts`), test property-based doboru (`device-matching.property.test.ts`, `fast-check`), tabele równości obciążalności, przypięcie mapowania sposobu ułożenia na metodę referencyjną (`supply-warnings.test.ts`, `circuit-warnings.test.ts`) oraz przypadki „TN-S / TN-C-S / TT nie blokuje” (`device-matching.test.ts`). Znalezisko: spadek napięcia dla 1F, Cu 10 mm², 16,1 m, 20 A to dokładnie 0,5 %, ale w IEEE-754 wychodziło 0,5000000000000001 i `supplyWarnings` ostrzegało fałszywie. Poprawka: spadek jest zaokrąglany do 9 miejsc po przecinku przed porównaniem i wyświetleniem. Wniosek: testy graniczne na wartościach obliczanych zmiennoprzecinkowo muszą zawierać przypadek dokładnie na progu. Po domknięciu S-04 RCD grupy jest dobierany do ΣIn × (1 + zapas grupy), a nie do największego In — tabele graniczne i predykat testu property-based zostały przepięte na tę regułę, więc wpis o tym zniknął z §7.
 

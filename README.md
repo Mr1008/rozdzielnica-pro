@@ -100,6 +100,7 @@ The app also boots and builds without Supabase variables (auth is then disabled)
 | `npm run test:unit`                  | Vitest over `src/**/*.test.ts` — no infrastructure needed                             |
 | `npm run test:integration`           | RLS assertions in `tests/integration/` against the running local Supabase             |
 | `npm test`                           | Both suites — fails if no local stack is running                                      |
+| `npm run test:e2e`                   | Playwright over `tests/e2e/` — builds, serves `:4321`, needs local Supabase + `E2E_*` |
 | `npm run smoke`                      | End-to-end auth flow over HTTP against a running server (`BASE_URL`, default `:4321`) |
 | `npm run db:types`                   | Regenerate `src/lib/database.types.ts` from the local stack after a migration         |
 | `npm run brand:assets`               | Re-render favicons and the OG image from `src/assets/brand/`                          |
