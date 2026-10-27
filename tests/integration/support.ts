@@ -35,6 +35,29 @@ function runSupabaseStatus(): string {
   }
 }
 
+const queryResultSchema = z.object({ rows: z.array(z.unknown()) });
+
+/**
+ * Reads the Postgres catalog of the local stack without a driver or a schema change. The SQL is
+ * passed through the shell, so it must not contain double quotes.
+ */
+export function queryDatabase(sql: string): unknown[] {
+  if (sql.includes('"')) {
+    throw new Error("queryDatabase: the SQL must not contain double quotes.");
+  }
+  let output: string;
+  try {
+    output = execSync(`npx supabase db query --local -o json "${sql.replace(/\s+/g, " ").trim()}"`, {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+  } catch {
+    throw new Error("The local Supabase stack is not reachable. Start it with `npx supabase start`.");
+  }
+  const parsed: unknown = JSON.parse(output);
+  return queryResultSchema.parse(parsed).rows;
+}
+
 /**
  * Never read the stack's credentials from a committed file: `.env` and `.dev.vars` are gitignored
  * and CI has neither. `supabase status -o env` is the one source that is correct everywhere.

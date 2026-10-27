@@ -389,10 +389,10 @@ None. No schema change.
 
 #### Automated
 
-- [ ] 1.1 `npm run test:integration` passes, including `rls-coverage.test.ts` and the new B-against-A cases
-- [ ] 1.2 `npm run test:unit` passes, including `src/lib/rls-premise.test.ts`
-- [ ] 1.3 Deliberate break: removing a table from the classification map makes `rls-coverage.test.ts` fail (reverted)
-- [ ] 1.4 `npm run lint` and `npx astro check` pass
+- [x] 1.1 `npm run test:integration` passes, including `rls-coverage.test.ts` and the new B-against-A cases
+- [x] 1.2 `npm run test:unit` passes, including `src/lib/rls-premise.test.ts`
+- [x] 1.3 Deliberate break: removing a table from the classification map makes `rls-coverage.test.ts` fail (reverted)
+- [x] 1.4 `npm run lint` and `npx astro check` pass
 
 ### Phase 2: CHECK↔parser parity (#7)
 
