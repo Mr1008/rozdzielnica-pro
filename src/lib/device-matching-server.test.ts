@@ -1,9 +1,12 @@
-import { describe, expect, it } from "vitest";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { describe, expect, it, vi } from "vitest";
+import type { Database } from "./database.types";
 import type { CircuitInput, CircuitsPayload, RcdGroupInput } from "./circuit-params";
 import type { DeviceSpecWithId, MatchResult, Selection } from "./device-matching";
 import {
   circuitsRpcErrorCode,
   computeMatchView,
+  loadMatchBase,
   maxRailMm,
   saveCircuitsArgs,
   snapshotSelections,
@@ -422,5 +425,45 @@ describe("circuitsRpcErrorCode", () => {
     expect(circuitsRpcErrorCode({ code: "23514", message: "x" })).toBe(PROJECT_ERROR.invalidInput);
     expect(circuitsRpcErrorCode({ code: "23505" })).toBe("23505");
     expect(circuitsRpcErrorCode({})).toBe(PROJECT_ERROR.unknown);
+  });
+});
+
+describe("loadMatchBase cabinet snapshot", () => {
+  const PROJECT_ROW = {
+    premeter_protection_a: null,
+    earthing_system: null,
+    phase_count: null,
+    wlz_length_m: null,
+    wlz_cross_section_mm2: null,
+    wlz_material: null,
+    wlz_installation: null,
+  };
+  const fakeSupabase = (cabinetGeometry: unknown) =>
+    ({
+      from: (table: string) =>
+        table === "devices"
+          ? { select: () => ({ is: () => Promise.resolve({ data: [], error: null }) }) }
+          : {
+              select: () => ({
+                eq: () => ({
+                  maybeSingle: () =>
+                    Promise.resolve({ data: { ...PROJECT_ROW, cabinet_geometry: cabinetGeometry }, error: null }),
+                }),
+              }),
+            },
+    }) as unknown as SupabaseClient<Database>;
+
+  it("reads no cabinet (null snapshot) as null geometry", async () => {
+    const result = await loadMatchBase(fakeSupabase(null), PROJECT_ID);
+    expect(result.ok && result.base.geometry).toBeNull();
+    expect(result.ok).toBe(true);
+  });
+
+  it("fails the load for a snapshot that does not parse, and logs it", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const result = await loadMatchBase(fakeSupabase({ version: 1, nonsense: true }), PROJECT_ID);
+    expect(result).toEqual({ ok: false, code: "unknown" });
+    expect(error).toHaveBeenCalledTimes(1);
+    error.mockRestore();
   });
 });

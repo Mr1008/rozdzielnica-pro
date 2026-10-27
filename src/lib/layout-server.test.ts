@@ -221,6 +221,7 @@ describe("chooseSelectionLayout", () => {
       layout: fixedManual.map((p) => ({ railIndex: p.railIndex, xMm: p.xMm })),
       editedManually: true,
       reset: false,
+      resetReason: null,
     });
   });
 
@@ -236,6 +237,7 @@ describe("chooseSelectionLayout", () => {
       layout: proposeSelectionLayout(matched, CATALOG, payload, SEED_B),
       editedManually: false,
       reset: false,
+      resetReason: null,
     });
   });
 
@@ -256,6 +258,7 @@ describe("chooseSelectionLayout", () => {
       layout: proposeSelectionLayout(result, CATALOG, grown, SEED_B),
       editedManually: false,
       reset: true,
+      resetReason: "device_set_changed",
     });
     expect(choice.layout).toHaveLength(5);
   });
@@ -270,7 +273,12 @@ describe("chooseSelectionLayout", () => {
         payload,
         SEED_B,
       ),
-    ).toEqual({ layout: undefined, editedManually: false, reset: false });
+    ).toEqual({
+      layout: undefined,
+      editedManually: false,
+      reset: false,
+      resetReason: null,
+    });
   });
 });
 
@@ -395,7 +403,7 @@ describe("render path CPU budget", () => {
   });
 });
 
-describe("previousLayoutFromReads (circuit save carry-over input, review F1)", () => {
+describe("previousLayoutFromReads (circuit save carry-over input)", () => {
   const device = {
     id: "d1",
     position: 0,
@@ -413,26 +421,21 @@ describe("previousLayoutFromReads (circuit save carry-over input, review F1)", (
 
   it("returns the stored snapshot, placements and marker when both reads succeed", () => {
     expect(previousLayoutFromReads({ data: [device], error: null }, { data: [row], error: null })).toEqual({
-      snapshot: [device],
-      placements: [{ projectDeviceId: "d1", railIndex: 0, xMm: 8.75 }],
-      editedManually: true,
+      ok: true,
+      previous: {
+        snapshot: [device],
+        placements: [{ projectDeviceId: "d1", railIndex: 0, xMm: 8.75 }],
+        editedManually: true,
+      },
     });
   });
 
-  it("knows no manual layout when the placements read fails, so nothing blocks the save", () => {
-    expect(previousLayoutFromReads({ data: [device], error: null }, failed)).toEqual({
-      snapshot: [],
-      placements: [],
-      editedManually: false,
-    });
+  it("refuses the save when the placements read fails", () => {
+    expect(previousLayoutFromReads({ data: [device], error: null }, failed)).toEqual({ ok: false });
   });
 
-  it("keeps the marker with no devices when only the snapshot read fails, so the save reports a reset", () => {
-    expect(previousLayoutFromReads(failed, { data: [row], error: null })).toEqual({
-      snapshot: [],
-      placements: [{ projectDeviceId: "d1", railIndex: 0, xMm: 8.75 }],
-      editedManually: true,
-    });
+  it("refuses the save when the snapshot read fails", () => {
+    expect(previousLayoutFromReads(failed, { data: [row], error: null })).toEqual({ ok: false });
   });
 });
 

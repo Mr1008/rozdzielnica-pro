@@ -10,7 +10,7 @@ import {
 } from "@/lib/circuit-params";
 import type { Database, Json, Tables } from "@/lib/database.types";
 import {
-  activeCatalog,
+  activeCatalogWithDrops,
   matchDevices,
   sameSelection,
   SELECTION_ROLES,
@@ -21,7 +21,7 @@ import {
   type SelectionRole,
 } from "@/lib/device-matching";
 import { PROJECT_ERROR, projectErrorFromPostgrest } from "@/lib/project-errors";
-import { logServerError, type ServerLogContext } from "@/lib/server-log";
+import { logServerError, logServerWarn, type ServerLogContext } from "@/lib/server-log";
 import { supplyFromRow, type SupplyParams, type SupplyRow } from "@/lib/supply-params";
 
 /**
@@ -37,10 +37,12 @@ export type SnapshotRow = Tables<"project_devices">;
 /** What matching a submitted set needs: the supply, the cabinet snapshot and the catalog. */
 export interface MatchBase {
   supply: SupplyParams | null;
-  /** The project's parsed `cabinet_geometry` snapshot, or null if it does not parse. */
+  /** The project's parsed `cabinet_geometry` snapshot, or null when no cabinet is chosen. */
   geometry: CabinetGeometry | null;
   /** The active, well-formed catalog. */
   catalog: DeviceSpecWithId[];
+  /** How many active catalog rows were dropped because their spec did not parse (logged by `parseCatalog`). */
+  droppedCount?: number;
 }
 
 /** The base plus the project's stored groups, circuits and device snapshot. */
@@ -70,36 +72,35 @@ function logLoadFailure(what: string, error: unknown, projectId: string, extra: 
   logServerError("match context load failed", error, { ...extra, projectId, what });
 }
 
-function hasId(row: unknown): row is { id: unknown } {
-  return typeof row === "object" && row !== null && "id" in row;
-}
-
 /**
- * The active catalog, parsed. A row `activeCatalog` drops is logged by id only: a malformed catalog
- * device otherwise surfaces as an unexplained catalog gap, and `wrangler tail` is the only trace.
+ * The active catalog, parsed. A row dropped for a parse failure stays a catalog gap, but is logged with
+ * the reasons: a malformed catalog device otherwise surfaces as an unexplained gap. One warn record,
+ * the first ten `id:kind:code` entries (the whole list could reach the 1000-row cap).
  */
-function parseCatalog(rows: readonly unknown[]): DeviceSpecWithId[] {
-  const catalog = activeCatalog(rows);
-  if (catalog.length < rows.length) {
-    const kept = new Set(catalog.map((device) => device.id));
-    const dropped = rows.flatMap((row) => (hasId(row) && !kept.has(row.id as string) ? [String(row.id)] : []));
-    // The first ids are enough to find the rows; the whole list could reach the 1000-row cap.
-    logServerError(
-      "match catalog devices dropped",
-      { code: "parse" },
-      {
-        dropped: dropped.slice(0, 10).join(","),
-        count: dropped.length,
-      },
-    );
+function parseCatalog(
+  rows: readonly unknown[],
+  projectId: string,
+): { catalog: DeviceSpecWithId[]; droppedCount: number } {
+  const { catalog, dropped } = activeCatalogWithDrops(rows);
+  if (dropped.length > 0) {
+    logServerWarn("match catalog devices dropped", {
+      projectId,
+      count: dropped.length,
+      dropped: dropped
+        .slice(0, 10)
+        .map((row) => `${row.id}:${row.kind}:${row.issueCodes.at(0) ?? "none"}`)
+        .join(","),
+    });
   }
-  return catalog;
+  return { catalog, droppedCount: dropped.length };
 }
 
 /**
  * The supply, cabinet snapshot and active catalog for one project, read as the signed-in user (RLS
  * decides visibility: a project that is not the caller's reads as `not_found`). Pass `project` when
- * the row is already loaded, to skip re-reading it. Any PostgREST error is `unknown`.
+ * the row is already loaded, to skip re-reading it. Any PostgREST error is `unknown`, and so is a
+ * non-null cabinet snapshot that does not parse: matching without it would drop the bar and busbar
+ * requirements, so it never runs. A null snapshot is "no cabinet chosen" (geometry null).
  */
 export async function loadMatchBase(
   supabase: SupabaseClient<Database>,
@@ -123,15 +124,23 @@ export async function loadMatchBase(
   }
   if (projectRow.data === null) return { ok: false, code: "not_found" };
 
-  const geometry = parseCabinetGeometry(projectRow.data.cabinet_geometry);
-  return {
-    ok: true,
-    base: {
-      supply: supplyFromRow(projectRow.data),
-      geometry: geometry.ok ? geometry.geometry : null,
-      catalog: parseCatalog(devices.data ?? []),
-    },
-  };
+  let geometry: CabinetGeometry | null = null;
+  if (projectRow.data.cabinet_geometry !== null) {
+    const parsedGeometry = parseCabinetGeometry(projectRow.data.cabinet_geometry);
+    if (!parsedGeometry.ok) {
+      logLoadFailure("cabinet snapshot does not parse", { code: "parse" }, projectId, {
+        issueCount: parsedGeometry.issues.length,
+        issueCodes: parsedGeometry.issues
+          .slice(0, 5)
+          .map((issue) => issue.code)
+          .join(","),
+      });
+      return { ok: false, code: "unknown" };
+    }
+    geometry = parsedGeometry.geometry;
+  }
+  const { catalog, droppedCount } = parseCatalog(devices.data ?? [], projectId);
+  return { ok: true, base: { supply: supplyFromRow(projectRow.data), geometry, catalog, droppedCount } };
 }
 
 /** Everything the page and the re-match need: the base plus the stored rows. */
@@ -163,7 +172,11 @@ export async function loadMatchContext(
   const parsed = parseCircuitsPayload({ groups: groups.data ?? [], circuits: circuits.data ?? [] });
   if (!parsed.ok) {
     logLoadFailure("stored circuits do not parse", { code: "parse" }, projectId, {
-      issueCode: parsed.issues.at(0)?.code,
+      issueCount: parsed.issues.length,
+      issues: parsed.issues
+        .slice(0, 3)
+        .map((issue) => `${issue.id ?? "none"}:${issue.field ?? "none"}:${issue.code}`)
+        .join(","),
     });
     return { ok: false, code: "unknown" };
   }
@@ -232,8 +245,8 @@ export interface MatchView {
 /**
  * The bar kinds built into a project's cabinet snapshot, for `MatchInput.cabinetBarKinds`: a kind
  * missing here is matched from the catalog. A snapshot that does not parse (unreachable: only the
- * cabinet trigger writes it, from a parsed geometry) gives `null` — no bar is required, rather than
- * one invented for a cabinet nobody can see.
+ * cabinet trigger writes it, from a parsed geometry) never reaches matching — `loadMatchBase` fails
+ * the load instead — so `null` here means only "no cabinet chosen": no bar is required.
  */
 export function cabinetBarKinds(geometry: CabinetGeometry | null): BarKind[] | null {
   return geometry === null ? null : builtInBarKinds(geometry);
@@ -241,7 +254,7 @@ export function cabinetBarKinds(geometry: CabinetGeometry | null): BarKind[] | n
 
 /**
  * The longest DIN rail of a project's cabinet snapshot, for `MatchInput.maxRailMm`: the widest group
- * a busbar may serve. A snapshot that does not parse gives `null` — no busbar is selected.
+ * a busbar may serve. `null` means no cabinet is chosen (an unparseable snapshot fails `loadMatchBase` before this) — no busbar is selected.
  */
 export function maxRailMm(geometry: CabinetGeometry | null): number | null {
   return geometry === null ? null : Math.max(...geometry.rails.map((rail) => rail.lengthMm));

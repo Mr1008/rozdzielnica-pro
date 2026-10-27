@@ -4,6 +4,7 @@ import { geometry, SEED_A, SEED_B, TERMINALS } from "./cabinet-layout.fixtures";
 import { polesCarryN, type PoleConfig } from "./device-spec";
 import {
   carryOverPlacements,
+  carryOverPlacementsWithReason,
   editUnits,
   history,
   keyboardStep,
@@ -471,6 +472,21 @@ describe("carryOverPlacements", () => {
       placements: [...START.placements, { projectDeviceId: "mcb-a2", railIndex: 2, xMm: 0 }],
     };
     expect(carryOverPlacements(oldTwin, reindexed(DEVICES), SEED_B, GROUPS)).toBeNull();
+  });
+
+  it("names the reason a carry-over fails", () => {
+    const added = reindexed([...DEVICES, device("mcb-c", "mcb", "1P", 17.5, 6, "G1", "c")]);
+    expect(carryOverPlacementsWithReason(old, added, SEED_B, GROUPS)).toEqual({
+      ok: false,
+      reason: "device_set_changed",
+    });
+    const twin = device("mcb-a2", "mcb", "1P", 17.5, 6, "G1", "a");
+    expect(carryOverPlacementsWithReason(old, reindexed([...DEVICES, twin]), SEED_B, GROUPS)).toEqual({
+      ok: false,
+      reason: "ambiguous_key",
+    });
+    const wider = reindexed(DEVICES.map((d) => (d.id === "mcb-a" ? { ...d, width_mm: 35 } : d)));
+    expect(carryOverPlacementsWithReason(old, wider, SEED_B, GROUPS)).toEqual({ ok: false, reason: "invalid" });
   });
 });
 

@@ -434,6 +434,9 @@ function keyed(devices: readonly LayoutDevice[]): Map<string, LayoutDevice> | nu
   return map;
 }
 
+/** Why a manual layout could not be carried over: the device set changed, a key repeats, or the result fails validation. */
+export type CarryOverFailureReason = "device_set_changed" | "ambiguous_key" | "invalid";
+
 /**
  * A manual layout carried onto a new device set, or null when it no longer applies as a whole. Old
  * and new devices pair by `(role, rcd_group_id, circuit_id)`; the result is keyed by the `next` ids,
@@ -443,24 +446,24 @@ function keyed(devices: readonly LayoutDevice[]): Map<string, LayoutDevice> | nu
  * then stores a fresh proposal. Busbar rows are ignored on both sides: they have no placement, so they
  * neither need a counterpart nor get a carried placement.
  */
-export function carryOverPlacements(
+export function carryOverPlacementsWithReason(
   old: { devices: readonly LayoutDevice[]; placements: readonly Placement[] },
   nextDevices: readonly LayoutDevice[],
   geometry: CabinetGeometry,
   groups: readonly Pick<LayoutGroup, "id">[],
-): Placement[] | null {
+): { ok: true; placements: Placement[] } | { ok: false; reason: CarryOverFailureReason } {
   const placeable = (devices: readonly LayoutDevice[]) => devices.filter((device) => !isBusbarRole(device.role));
   const oldDevices = placeable(old.devices);
   const next = placeable(nextDevices);
   const oldByKey = keyed(oldDevices);
   const nextByKey = keyed(next);
-  if (oldByKey === null || nextByKey === null) return null;
+  if (oldByKey === null || nextByKey === null) return { ok: false, reason: "ambiguous_key" };
 
   const oldById = new Map(oldDevices.map((device) => [device.id, device]));
   const placementByOldId = new Map<string, Placement>();
   for (const placement of old.placements) {
     const device = oldById.get(placement.projectDeviceId);
-    if (device === undefined || !nextByKey.has(carryKey(device))) return null;
+    if (device === undefined || !nextByKey.has(carryKey(device))) return { ok: false, reason: "device_set_changed" };
     placementByOldId.set(device.id, placement);
   }
 
@@ -468,9 +471,22 @@ export function carryOverPlacements(
   for (const device of [...next].sort((a, b) => a.position - b.position)) {
     const counterpart = oldByKey.get(carryKey(device));
     const placement = counterpart === undefined ? undefined : placementByOldId.get(counterpart.id);
-    if (placement === undefined) return null;
+    if (placement === undefined) return { ok: false, reason: "device_set_changed" };
     carried.push({ projectDeviceId: device.id, railIndex: placement.railIndex, xMm: placement.xMm });
   }
 
-  return validateLayout(next, carried, geometry, groups).length === 0 ? carried : null;
+  return validateLayout(next, carried, geometry, groups).length === 0
+    ? { ok: true, placements: carried }
+    : { ok: false, reason: "invalid" };
+}
+
+/** `carryOverPlacementsWithReason` without the reason: the placements, or null when they no longer apply. */
+export function carryOverPlacements(
+  old: { devices: readonly LayoutDevice[]; placements: readonly Placement[] },
+  nextDevices: readonly LayoutDevice[],
+  geometry: CabinetGeometry,
+  groups: readonly Pick<LayoutGroup, "id">[],
+): Placement[] | null {
+  const result = carryOverPlacementsWithReason(old, nextDevices, geometry, groups);
+  return result.ok ? result.placements : null;
 }

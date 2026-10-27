@@ -7,7 +7,7 @@ import { layoutRpcErrorCode, loadLayoutContext, saveLayoutArgs } from "@/lib/lay
 import { projectFormErrorPath, projectPath, projectsErrorPath } from "@/lib/project";
 import { PROJECT_ERROR } from "@/lib/project-errors";
 import { SIGN_IN_PATH } from "@/lib/route-access";
-import { logServerError } from "@/lib/server-log";
+import { logServerError, logServerWarn } from "@/lib/server-log";
 import { createClient } from "@/lib/supabase";
 
 /** The layout section of the project page, where every redirect from here lands. */
@@ -47,7 +47,15 @@ export const POST: APIRoute = async (context) => {
   // submits only drafts it built, so a rejection here means a tampered or scripted POST.
   const form = await context.request.formData().catch(() => new FormData());
   const parsed = parsePlacementsPayload(readPayload(form));
-  if (!parsed.ok) return back(PROJECT_ERROR.invalidInput);
+  if (!parsed.ok) {
+    logServerWarn("projects.placements refused", {
+      projectId: id,
+      userId: context.locals.user.id,
+      issueCount: 1,
+      issueCodes: PROJECT_ERROR.invalidInput,
+    });
+    return back(PROJECT_ERROR.invalidInput);
+  }
 
   const supabase = createClient(context.request.headers, context.cookies);
   if (!supabase) return back(PROJECT_ERROR.notConfigured);
@@ -61,7 +69,17 @@ export const POST: APIRoute = async (context) => {
   if (match.geometry === null) return back(PROJECT_ERROR.unknown);
 
   // Coverage, rails, overlaps, bars and group contiguity — the same check as every render.
-  if (validateLayout(match.snapshot, parsed.placements, match.geometry, match.groups).length > 0) {
+  const layoutIssues = validateLayout(match.snapshot, parsed.placements, match.geometry, match.groups);
+  if (layoutIssues.length > 0) {
+    logServerWarn("projects.placements refused", {
+      projectId: id,
+      userId: context.locals.user.id,
+      issueCount: layoutIssues.length,
+      issueCodes: layoutIssues
+        .slice(0, 5)
+        .map((issue) => issue.code)
+        .join(","),
+    });
     return back(PROJECT_ERROR.layoutInvalid);
   }
 

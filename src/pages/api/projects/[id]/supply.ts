@@ -3,7 +3,7 @@ import { isUuid } from "@/lib/catalog";
 import { projectFormErrorPath, projectPath, projectsErrorPath } from "@/lib/project";
 import { PROJECT_ERROR, projectErrorFromPostgrest } from "@/lib/project-errors";
 import { SIGN_IN_PATH } from "@/lib/route-access";
-import { logServerError } from "@/lib/server-log";
+import { logServerError, logServerWarn } from "@/lib/server-log";
 import { createClient } from "@/lib/supabase";
 import { parseSupplyForm } from "@/lib/supply-params";
 
@@ -27,7 +27,15 @@ export const POST: APIRoute = async (context) => {
   // A body that is not form data parses as an empty form, and so as `invalid_input`.
   const form = await context.request.formData().catch(() => new FormData());
   const parsed = parseSupplyForm(form);
-  if (!parsed.ok) return back(parsed.code);
+  if (!parsed.ok) {
+    logServerWarn("projects.supply refused", {
+      projectId: id,
+      userId: context.locals.user.id,
+      issueCount: 1,
+      issueCodes: parsed.code,
+    });
+    return back(parsed.code);
+  }
 
   const supabase = createClient(context.request.headers, context.cookies);
   if (!supabase) return back(PROJECT_ERROR.notConfigured);

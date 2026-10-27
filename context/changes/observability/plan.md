@@ -623,9 +623,9 @@ push to `master`; they are reverted by reverting the commit.
 
 #### Automated
 
-- [x] 3.1 Unit tests pass (route-access entry, payload parser reuse): `npm run test:unit`
-- [x] 3.2 Lint and type check pass: `npm run lint && npx astro check`
-- [x] 3.3 Build passes: `npm run build`
+- [x] 3.1 Unit tests pass (route-access entry, payload parser reuse): `npm run test:unit` — b2fecb4
+- [x] 3.2 Lint and type check pass: `npm run lint && npx astro check` — b2fecb4
+- [x] 3.3 Build passes: `npm run build` — b2fecb4
 
 #### Manual
 
@@ -639,9 +639,9 @@ push to `master`; they are reverted by reverting the commit.
 
 #### Automated
 
-- [ ] 4.1 Unit tests for layout-server, device-matching, device-matching-server, layout-editing pass: `npm run test:unit`
-- [ ] 4.2 RLS integration suite still passes against the local stack: `npm run test:integration`
-- [ ] 4.3 Lint and type check pass: `npm run lint && npx astro check`
+- [x] 4.1 Unit tests for layout-server, device-matching, device-matching-server, layout-editing pass: `npm run test:unit`
+- [x] 4.2 RLS integration suite still passes against the local stack: `npm run test:integration`
+- [x] 4.3 Lint and type check pass: `npm run lint && npx astro check`
 
 #### Manual
 

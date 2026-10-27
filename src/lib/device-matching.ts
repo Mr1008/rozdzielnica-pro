@@ -162,22 +162,48 @@ export function rcdTypeRank(type: RcdType): number {
   return RCD_TYPE_RANK[type];
 }
 
+/** A catalog row `activeCatalogWithDrops` left out because its spec did not parse. */
+export interface DroppedCatalogRow {
+  id: string;
+  kind: string;
+  /** `field:code` for each spec issue, e.g. `rated_current_a:invalid`. */
+  issueCodes: string[];
+}
+
 /**
  * The active, well-formed catalog: rows with a non-null `archived_at`, a missing or non-UUID `id`,
- * or a spec that fails `parseDeviceSpec` are dropped — never repaired or guessed.
+ * or a spec that fails `parseDeviceSpec` are dropped — never repaired or guessed. `dropped` lists the
+ * rows dropped for a parse failure (archived rows are not a failure) with the reasons, for logging; a
+ * row without a usable id cannot be listed.
  */
-export function activeCatalog(rows: readonly unknown[]): DeviceSpecWithId[] {
-  const result: DeviceSpecWithId[] = [];
+export function activeCatalogWithDrops(rows: readonly unknown[]): {
+  catalog: DeviceSpecWithId[];
+  dropped: DroppedCatalogRow[];
+} {
+  const catalog: DeviceSpecWithId[] = [];
+  const dropped: DroppedCatalogRow[] = [];
   for (const row of rows) {
     if (typeof row !== "object" || row === null || Array.isArray(row)) continue;
     const record = row as Record<string, unknown>;
     if (record.archived_at !== null && record.archived_at !== undefined) continue;
     if (!isUuid(record.id)) continue;
     const parsed = parseDeviceSpec(record);
-    if (!parsed.ok) continue;
-    result.push({ ...parsed.spec, id: record.id });
+    if (!parsed.ok) {
+      dropped.push({
+        id: record.id,
+        kind: typeof record.kind === "string" ? record.kind : "unknown",
+        issueCodes: parsed.issues.map((issue) => `${issue.field}:${issue.code}`),
+      });
+      continue;
+    }
+    catalog.push({ ...parsed.spec, id: record.id });
   }
-  return result;
+  return { catalog, dropped };
+}
+
+/** The active, well-formed catalog — `activeCatalogWithDrops` without the reasons. */
+export function activeCatalog(rows: readonly unknown[]): DeviceSpecWithId[] {
+  return activeCatalogWithDrops(rows).catalog;
 }
 
 /** Code-unit comparison: locale-independent, so the order is the same on every runtime. */

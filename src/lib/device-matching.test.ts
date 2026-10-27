@@ -8,6 +8,7 @@ import {
 } from "./circuit-params";
 import {
   activeCatalog,
+  activeCatalogWithDrops,
   blockReasonMessage,
   catalogGapMessage,
   matchDevices,
@@ -1025,6 +1026,40 @@ describe("activeCatalog", () => {
     expect(catalog.map((d) => d.id)).toEqual([ID4]);
     const selections = matched(matchDevices(ungrouped(TN_S_1F, [circuit("c1", 16)]), [fr("fr", 40, "2P"), ...catalog]));
     expect(deviceFor(selections, "mcb", {})).toBe(ID4);
+  });
+});
+
+describe("activeCatalogWithDrops", () => {
+  const ID1 = "11111111-1111-4111-8111-111111111111";
+  const ID2 = "22222222-2222-4222-8222-222222222222";
+  const row = (id: string, extra: Record<string, unknown> = {}) => ({
+    id,
+    archived_at: null,
+    kind: "mcb_b",
+    name: "B16",
+    manufacturer: "Alfa",
+    model: id,
+    price_grosze: 1000,
+    ...common,
+    poles: "1P",
+    rated_current_a: 16,
+    residual_current_ma: null,
+    rcd_type: null,
+    breaking_capacity_ka: 6,
+    terminal_groups: null,
+    ...extra,
+  });
+
+  it("reports the id, kind and issue codes of a parse-dropped row, but not an archived one", () => {
+    const { catalog, dropped } = activeCatalogWithDrops([
+      row(ID1, { rated_current_a: 16.5 }),
+      row(ID2, { archived_at: "2026-09-01T00:00:00Z" }),
+    ]);
+    expect(catalog).toEqual([]);
+    expect(dropped).toHaveLength(1);
+    expect(dropped[0]).toMatchObject({ id: ID1, kind: "mcb_b" });
+    expect(dropped[0].issueCodes.length).toBeGreaterThan(0);
+    expect(dropped[0].issueCodes[0]).toMatch(/^rated_current_a:/);
   });
 });
 

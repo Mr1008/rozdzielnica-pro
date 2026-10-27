@@ -20,7 +20,7 @@ import {
   type ProjectMatchRow,
   type SelectionPlacements,
 } from "@/lib/device-matching-server";
-import { carryOverPlacements } from "@/lib/layout-editing";
+import { carryOverPlacementsWithReason, type CarryOverFailureReason } from "@/lib/layout-editing";
 import { PROJECT_ERROR, projectErrorFromPostgrest } from "@/lib/project-errors";
 import { logServerError } from "@/lib/server-log";
 import { toWiringData, type WiringData } from "@/lib/wiring-island";
@@ -188,6 +188,8 @@ export interface SelectionLayoutChoice {
   editedManually: boolean;
   /** A manual layout was stored before and did not survive: the redirect adds `layout_reset=1`. */
   reset: boolean;
+  /** Why the manual layout did not survive; null unless a carry-over was attempted or impossible. */
+  resetReason: CarryOverFailureReason | "no_match" | null;
 }
 
 /**
@@ -205,25 +207,35 @@ export function chooseSelectionLayout(
   payload: CircuitsPayload,
   geometry: CabinetGeometry | null,
 ): SelectionLayoutChoice {
+  let resetReason: SelectionLayoutChoice["resetReason"] = null;
   if (previous.editedManually && geometry !== null) {
     const devices = selectionLayoutDevices(result, catalog);
-    const carried =
-      devices === undefined
-        ? null
-        : carryOverPlacements(
-            { devices: previous.snapshot, placements: previous.placements },
-            devices,
-            geometry,
-            payload.groups,
-          );
-    if (devices !== undefined && carried !== null) {
-      return { layout: selectionPlacements(devices, carried), editedManually: true, reset: false };
+    if (devices === undefined) {
+      resetReason = "no_match";
+    } else {
+      const carried = carryOverPlacementsWithReason(
+        { devices: previous.snapshot, placements: previous.placements },
+        devices,
+        geometry,
+        payload.groups,
+      );
+      if (carried.ok) {
+        return {
+          layout: selectionPlacements(devices, carried.placements),
+          editedManually: true,
+          reset: false,
+          resetReason: null,
+        };
+      }
+      resetReason = carried.reason;
     }
   }
+  const reset = previous.editedManually && result.status === "matched";
   return {
     layout: proposeSelectionLayout(result, catalog, payload, geometry),
     editedManually: false,
-    reset: previous.editedManually && result.status === "matched",
+    reset,
+    resetReason: reset ? resetReason : null,
   };
 }
 
@@ -358,31 +370,37 @@ interface Read<T> {
 }
 
 /**
- * The previous layout from its two reads, never failing: carry-over is optional, so a read error must
- * not block the circuit save. A failed placements read means no manual layout is known — a fresh
- * proposal, as for a proposed layout. A failed snapshot read keeps the marker with no devices, so
- * `carryOverPlacements` refuses and the redirect still tells the electrician (`layout_reset=1`).
+ * The previous layout from its two reads. `save_project_circuits` deletes the old snapshot and its
+ * placements, so a failed read of either must refuse the save (`ok: false`): treating it as "no manual
+ * layout" would silently destroy one the electrician placed by hand.
  */
-export function previousLayoutFromReads(snapshot: Read<LayoutDevice>, placements: Read<PlacementRow>): PreviousLayout {
-  if (placements.error !== null || placements.data === null) {
-    return { snapshot: [], placements: [], editedManually: false };
+export function previousLayoutFromReads(
+  snapshot: Read<LayoutDevice>,
+  placements: Read<PlacementRow>,
+): { ok: true; previous: PreviousLayout } | { ok: false } {
+  if (snapshot.error !== null || snapshot.data === null || placements.error !== null || placements.data === null) {
+    return { ok: false };
   }
   return {
-    snapshot: snapshot.error === null ? (snapshot.data ?? []) : [],
-    placements: placementsFromRows(placements.data),
-    editedManually: placements.data.some((row) => row.edited_manually),
+    ok: true,
+    previous: {
+      snapshot: snapshot.data,
+      placements: placementsFromRows(placements.data),
+      editedManually: placements.data.some((row) => row.edited_manually),
+    },
   };
 }
 
 /**
  * The stored snapshot and placements, for the circuit save's carry-over. Unlike `loadLayoutContext` it
  * never re-parses the stored groups and circuits — the save replaces them — so stored data that no
- * longer parses cannot block the save that would overwrite it. Errors are logged by code only.
+ * longer parses cannot block the save that would overwrite it. A failed read is `ok: false` and the
+ * caller refuses the save. Errors are logged by code only.
  */
 export async function loadPreviousLayout(
   supabase: SupabaseClient<Database>,
   projectId: string,
-): Promise<PreviousLayout> {
+): Promise<{ ok: true; previous: PreviousLayout } | { ok: false }> {
   const [snapshot, placements] = await Promise.all([
     supabase.from("project_devices").select("*").eq("project_id", projectId).order("position"),
     supabase

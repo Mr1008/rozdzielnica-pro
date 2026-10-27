@@ -6,7 +6,7 @@ import { chooseSelectionLayout, loadLayoutContext } from "@/lib/layout-server";
 import { projectFormErrorPath, projectPath, projectsErrorPath } from "@/lib/project";
 import { PROJECT_ERROR } from "@/lib/project-errors";
 import { SIGN_IN_PATH } from "@/lib/route-access";
-import { logServerError } from "@/lib/server-log";
+import { logServerError, logServerInfo } from "@/lib/server-log";
 import { createClient } from "@/lib/supabase";
 
 /** The circuits section of the project page, where every redirect from here lands. */
@@ -63,6 +63,15 @@ export const POST: APIRoute = async (context) => {
     return code === PROJECT_ERROR.notFound ? notFound() : back(code);
   }
 
+  logServerInfo("projects.rematch.saved", {
+    projectId: id,
+    userId: context.locals.user.id,
+    status: result.status,
+    gapCount: result.status === "gaps" ? result.gaps.length : 0,
+    droppedCount: loaded.context.droppedCount ?? 0,
+    layoutReset: choice.reset ? 1 : 0,
+    resetReason: choice.resetReason,
+  });
   const reset = choice.reset ? "&layout_reset=1" : "";
   return context.redirect(`${projectPath(id)}?saved=rematch${reset}${SECTION_HASH}`);
 };

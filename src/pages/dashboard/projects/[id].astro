@@ -33,7 +33,7 @@ import {
 } from "@/lib/project";
 import { projectErrorMessage } from "@/lib/project-errors";
 import { computeQuoteView, type QuoteView } from "@/lib/quote";
-import { logServerError } from "@/lib/server-log";
+import { logServerError, logServerWarn } from "@/lib/server-log";
 import { createClient } from "@/lib/supabase";
 import { WIRING_VIEW_PARAM, wiringViewFromParam, wiringViewHrefs } from "@/lib/wiring-view";
 import { supplyFormDefaults, supplyFromRow } from "@/lib/supply-params";
@@ -135,6 +135,9 @@ const warningMessages = supply ? supplyWarnings(supply).map(supplyWarningMessage
 // Circuits, groups, the active catalog and the stored device snapshot. A failure here shows an alert in
 // the section and leaves the rest of the page up.
 const matchLoad = project && supabase ? await loadLayoutContext(supabase, project.id, project) : null;
+// A failed load (already logged with the project id) is a 500 for status-based views; the alert stays.
+// `not_found` is only a race with a deletion here — the project row was just read — so it stays a 200.
+if (matchLoad && !matchLoad.ok && matchLoad.code === "unknown") Astro.response.status = 500;
 const matchContext = matchLoad?.ok ? matchLoad.context : null;
 const matchView = matchContext ? computeMatchView(matchContext) : null;
 // The layout state is read only through `computeLayoutView`, never from the raw placement rows.
@@ -142,6 +145,18 @@ const layoutView =
   matchLoad?.ok && matchView
     ? computeLayoutView(matchView, matchLoad.context, matchLoad.placements, matchLoad.editedManually)
     : null;
+// Stored placements that no longer validate are shown as outdated; keep the reason in the log.
+if (layoutView?.state === "outdated" && matchLoad?.ok && matchLoad.placements.length > 0) {
+  logServerWarn("project layout outdated", {
+    projectId: id,
+    userId: Astro.locals.user?.id,
+    issueCount: layoutView.issues.length,
+    issueCodes: layoutView.issues
+      .slice(0, 5)
+      .map((issue) => issue.code)
+      .join(","),
+  });
+}
 // Wires are display-only and drawn only over a `placed` layout; the aside thumbnail stays without them.
 // They are routed in the browser from `wiring` (S-11 Phase 5): the server never runs the router here.
 const drawing = matchContext && matchView ? buildLayoutDrawing(layoutView, matchView, matchContext) : null;

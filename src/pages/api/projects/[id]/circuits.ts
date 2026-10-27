@@ -13,7 +13,7 @@ import { chooseSelectionLayout, loadPreviousLayout } from "@/lib/layout-server";
 import { projectFormErrorPath, projectPath, projectsErrorPath } from "@/lib/project";
 import { PROJECT_ERROR } from "@/lib/project-errors";
 import { SIGN_IN_PATH } from "@/lib/route-access";
-import { logServerError } from "@/lib/server-log";
+import { logServerError, logServerInfo, logServerWarn } from "@/lib/server-log";
 import { createClient } from "@/lib/supabase";
 
 /** The circuits section of the project page, where every redirect from here lands. */
@@ -54,16 +54,31 @@ export const POST: APIRoute = async (context) => {
   // has already shown per-field issues, so a rejection here means a tampered or scripted POST.
   const form = await context.request.formData().catch(() => new FormData());
   const parsed = parseCircuitsPayload(readPayload(form));
-  if (!parsed.ok) return back(PROJECT_ERROR.circuitsInvalid);
+  if (!parsed.ok) {
+    logServerWarn("projects.circuits refused", {
+      projectId: id,
+      userId: context.locals.user.id,
+      issueCount: parsed.issues.length,
+      // Codes only, never the submitted values.
+      issueCodes: parsed.issues
+        .slice(0, 5)
+        .map((issue) => issue.code)
+        .join(","),
+    });
+    return back(PROJECT_ERROR.circuitsInvalid);
+  }
 
   const supabase = createClient(context.request.headers, context.cookies);
   if (!supabase) return back(PROJECT_ERROR.notConfigured);
 
   // The match runs on the submitted groups and circuits. The stored snapshot and placements are read
-  // here, before the RPC deletes them, only so a manual layout can be carried over — and never block
-  // the save: the stored groups and circuits are not re-parsed, since this save replaces them.
-  const [base, previous] = await Promise.all([loadMatchBase(supabase, id), loadPreviousLayout(supabase, id)]);
+  // here, before the RPC deletes them, so a manual layout can be carried over. A failed read refuses
+  // the save (the RPC would destroy a layout we could not read); stored groups and circuits are not
+  // re-parsed, since this save replaces them.
+  const [base, previousLoad] = await Promise.all([loadMatchBase(supabase, id), loadPreviousLayout(supabase, id)]);
   if (!base.ok) return base.code === "not_found" ? notFound() : back(PROJECT_ERROR.unknown);
+  if (!previousLoad.ok) return back(PROJECT_ERROR.unknown);
+  const { previous } = previousLoad;
   const { supply, geometry, catalog } = base.base;
 
   const result = matchDevices(
@@ -90,6 +105,15 @@ export const POST: APIRoute = async (context) => {
     return code === PROJECT_ERROR.notFound ? notFound() : back(code);
   }
 
+  logServerInfo("projects.circuits.saved", {
+    projectId: id,
+    userId: context.locals.user.id,
+    status: result.status,
+    gapCount: result.status === "gaps" ? result.gaps.length : 0,
+    droppedCount: base.base.droppedCount ?? 0,
+    layoutReset: choice.reset ? 1 : 0,
+    resetReason: choice.resetReason,
+  });
   const reset = choice.reset ? "&layout_reset=1" : "";
   return context.redirect(`${projectPath(id)}?saved=circuits${reset}${SECTION_HASH}`);
 };
