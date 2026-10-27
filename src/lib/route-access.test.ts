@@ -5,39 +5,59 @@ import {
   PROTECTED_ROUTES,
   ROLE_HOME,
   SIGN_IN_PATH,
+  UNAVAILABLE_PATH,
   resolveRouteAccess,
   signInLanding,
 } from "./route-access";
 
 describe("resolveRouteAccess", () => {
   it("allows an unprotected path to anyone", () => {
-    expect(resolveRouteAccess({ pathname: "/", isSignedIn: false, role: null })).toEqual({ allowed: true });
-    expect(resolveRouteAccess({ pathname: "/auth/signin", isSignedIn: false, role: null })).toEqual({ allowed: true });
+    expect(resolveRouteAccess({ pathname: "/", isSignedIn: false, role: null, authUnavailable: false })).toEqual({
+      allowed: true,
+    });
+    expect(
+      resolveRouteAccess({ pathname: "/auth/signin", isSignedIn: false, role: null, authUnavailable: false }),
+    ).toEqual({ allowed: true });
   });
 
   it("sends an anonymous visitor to sign in", () => {
-    expect(resolveRouteAccess({ pathname: "/dashboard", isSignedIn: false, role: null })).toEqual({
+    expect(
+      resolveRouteAccess({ pathname: "/dashboard", isSignedIn: false, role: null, authUnavailable: false }),
+    ).toEqual({
       allowed: false,
       redirectTo: SIGN_IN_PATH,
     });
-    expect(resolveRouteAccess({ pathname: "/admin", isSignedIn: false, role: null })).toEqual({
+    expect(resolveRouteAccess({ pathname: "/admin", isSignedIn: false, role: null, authUnavailable: false })).toEqual({
       allowed: false,
       redirectTo: SIGN_IN_PATH,
     });
   });
 
   it("allows the role the route names", () => {
-    expect(resolveRouteAccess({ pathname: "/dashboard", isSignedIn: true, role: "elektryk" })).toEqual({
+    expect(
+      resolveRouteAccess({ pathname: "/dashboard", isSignedIn: true, role: "elektryk", authUnavailable: false }),
+    ).toEqual({
       allowed: true,
     });
-    expect(resolveRouteAccess({ pathname: "/admin", isSignedIn: true, role: "admin" })).toEqual({ allowed: true });
+    expect(resolveRouteAccess({ pathname: "/admin", isSignedIn: true, role: "admin", authUnavailable: false })).toEqual(
+      { allowed: true },
+    );
   });
 
   it("keeps covering nested paths under a protected prefix", () => {
-    expect(resolveRouteAccess({ pathname: "/dashboard/projects/7", isSignedIn: true, role: "elektryk" })).toEqual({
+    expect(
+      resolveRouteAccess({
+        pathname: "/dashboard/projects/7",
+        isSignedIn: true,
+        role: "elektryk",
+        authUnavailable: false,
+      }),
+    ).toEqual({
       allowed: true,
     });
-    expect(resolveRouteAccess({ pathname: "/admin/devices", isSignedIn: true, role: "elektryk" })).toEqual({
+    expect(
+      resolveRouteAccess({ pathname: "/admin/devices", isSignedIn: true, role: "elektryk", authUnavailable: false }),
+    ).toEqual({
       allowed: false,
       redirectTo: ROLE_HOME.elektryk,
     });
@@ -50,13 +70,17 @@ describe("resolveRouteAccess", () => {
    */
   it("does not match a same-prefix sibling path", () => {
     for (const pathname of ["/administrator", "/dashboardowy-eksport", "/admin-status"]) {
-      expect(resolveRouteAccess({ pathname, isSignedIn: false, role: null })).toEqual({ allowed: true });
+      expect(resolveRouteAccess({ pathname, isSignedIn: false, role: null, authUnavailable: false })).toEqual({
+        allowed: true,
+      });
     }
   });
 
   it("still matches a protected prefix exactly, with or without a trailing slash", () => {
-    expect(resolveRouteAccess({ pathname: "/admin", isSignedIn: true, role: "admin" })).toEqual({ allowed: true });
-    expect(resolveRouteAccess({ pathname: "/admin/", isSignedIn: false, role: null })).toEqual({
+    expect(resolveRouteAccess({ pathname: "/admin", isSignedIn: true, role: "admin", authUnavailable: false })).toEqual(
+      { allowed: true },
+    );
+    expect(resolveRouteAccess({ pathname: "/admin/", isSignedIn: false, role: null, authUnavailable: false })).toEqual({
       allowed: false,
       redirectTo: SIGN_IN_PATH,
     });
@@ -64,12 +88,14 @@ describe("resolveRouteAccess", () => {
 
   it("gates the admin API for the admin role only", () => {
     const pathname = "/api/admin/cabinets/00000000-0000-0000-0000-000000000001/archive";
-    expect(resolveRouteAccess({ pathname, isSignedIn: true, role: "admin" })).toEqual({ allowed: true });
-    expect(resolveRouteAccess({ pathname, isSignedIn: true, role: "elektryk" })).toEqual({
+    expect(resolveRouteAccess({ pathname, isSignedIn: true, role: "admin", authUnavailable: false })).toEqual({
+      allowed: true,
+    });
+    expect(resolveRouteAccess({ pathname, isSignedIn: true, role: "elektryk", authUnavailable: false })).toEqual({
       allowed: false,
       redirectTo: ROLE_HOME.elektryk,
     });
-    expect(resolveRouteAccess({ pathname, isSignedIn: false, role: null })).toEqual({
+    expect(resolveRouteAccess({ pathname, isSignedIn: false, role: null, authUnavailable: false })).toEqual({
       allowed: false,
       redirectTo: SIGN_IN_PATH,
     });
@@ -77,12 +103,14 @@ describe("resolveRouteAccess", () => {
 
   it("gates the profile API for the elektryk role only", () => {
     const pathname = "/api/profile/pricing";
-    expect(resolveRouteAccess({ pathname, isSignedIn: true, role: "elektryk" })).toEqual({ allowed: true });
-    expect(resolveRouteAccess({ pathname, isSignedIn: true, role: "admin" })).toEqual({
+    expect(resolveRouteAccess({ pathname, isSignedIn: true, role: "elektryk", authUnavailable: false })).toEqual({
+      allowed: true,
+    });
+    expect(resolveRouteAccess({ pathname, isSignedIn: true, role: "admin", authUnavailable: false })).toEqual({
       allowed: false,
       redirectTo: ROLE_HOME.admin,
     });
-    expect(resolveRouteAccess({ pathname, isSignedIn: false, role: null })).toEqual({
+    expect(resolveRouteAccess({ pathname, isSignedIn: false, role: null, authUnavailable: false })).toEqual({
       allowed: false,
       redirectTo: SIGN_IN_PATH,
     });
@@ -90,12 +118,14 @@ describe("resolveRouteAccess", () => {
 
   it("gates the project API for the elektryk role only", () => {
     for (const pathname of ["/api/projects", "/api/projects/00000000-0000-0000-0000-000000000001/delete"]) {
-      expect(resolveRouteAccess({ pathname, isSignedIn: true, role: "elektryk" })).toEqual({ allowed: true });
-      expect(resolveRouteAccess({ pathname, isSignedIn: true, role: "admin" })).toEqual({
+      expect(resolveRouteAccess({ pathname, isSignedIn: true, role: "elektryk", authUnavailable: false })).toEqual({
+        allowed: true,
+      });
+      expect(resolveRouteAccess({ pathname, isSignedIn: true, role: "admin", authUnavailable: false })).toEqual({
         allowed: false,
         redirectTo: ROLE_HOME.admin,
       });
-      expect(resolveRouteAccess({ pathname, isSignedIn: false, role: null })).toEqual({
+      expect(resolveRouteAccess({ pathname, isSignedIn: false, role: null, authUnavailable: false })).toEqual({
         allowed: false,
         redirectTo: SIGN_IN_PATH,
       });
@@ -103,17 +133,23 @@ describe("resolveRouteAccess", () => {
   });
 
   it("leaves the auth API open, since it sits outside /api/admin", () => {
-    expect(resolveRouteAccess({ pathname: "/api/auth/signin", isSignedIn: false, role: null })).toEqual({
+    expect(
+      resolveRouteAccess({ pathname: "/api/auth/signin", isSignedIn: false, role: null, authUnavailable: false }),
+    ).toEqual({
       allowed: true,
     });
   });
 
   it("bounces the wrong role to its own home", () => {
-    expect(resolveRouteAccess({ pathname: "/dashboard", isSignedIn: true, role: "admin" })).toEqual({
+    expect(
+      resolveRouteAccess({ pathname: "/dashboard", isSignedIn: true, role: "admin", authUnavailable: false }),
+    ).toEqual({
       allowed: false,
       redirectTo: ROLE_HOME.admin,
     });
-    expect(resolveRouteAccess({ pathname: "/admin", isSignedIn: true, role: "elektryk" })).toEqual({
+    expect(
+      resolveRouteAccess({ pathname: "/admin", isSignedIn: true, role: "elektryk", authUnavailable: false }),
+    ).toEqual({
       allowed: false,
       redirectTo: ROLE_HOME.elektryk,
     });
@@ -121,7 +157,7 @@ describe("resolveRouteAccess", () => {
 
   it("refuses a signed-in user carrying no recognised role", () => {
     for (const { prefix } of PROTECTED_ROUTES) {
-      expect(resolveRouteAccess({ pathname: prefix, isSignedIn: true, role: null })).toEqual({
+      expect(resolveRouteAccess({ pathname: prefix, isSignedIn: true, role: null, authUnavailable: false })).toEqual({
         allowed: false,
         redirectTo: NO_ROLE_PATH,
       });
@@ -135,13 +171,51 @@ describe("resolveRouteAccess", () => {
    */
   it("never redirects a role somewhere that role is refused", () => {
     for (const role of USER_ROLES) {
-      expect(resolveRouteAccess({ pathname: ROLE_HOME[role], isSignedIn: true, role })).toEqual({ allowed: true });
+      expect(resolveRouteAccess({ pathname: ROLE_HOME[role], isSignedIn: true, role, authUnavailable: false })).toEqual(
+        { allowed: true },
+      );
     }
   });
 
   it("points the roleless redirect at an ungated path", () => {
     const pathname = new URL(NO_ROLE_PATH, "http://localhost").pathname;
-    expect(resolveRouteAccess({ pathname, isSignedIn: true, role: null })).toEqual({ allowed: true });
+    expect(resolveRouteAccess({ pathname, isSignedIn: true, role: null, authUnavailable: false })).toEqual({
+      allowed: true,
+    });
+  });
+});
+
+describe("resolveRouteAccess while Auth is unavailable", () => {
+  it("refuses every gated route with the unavailable verdict", () => {
+    for (const { prefix } of PROTECTED_ROUTES) {
+      for (const [isSignedIn, role] of [
+        [false, null],
+        [true, "elektryk"],
+        [true, "admin"],
+        [true, null],
+      ] as const) {
+        expect(resolveRouteAccess({ pathname: prefix, isSignedIn, role, authUnavailable: true })).toEqual({
+          allowed: false,
+          unavailable: true,
+        });
+      }
+    }
+  });
+
+  it("allows an ungated route", () => {
+    for (const pathname of ["/", "/auth/signin", "/api/auth/signin"]) {
+      expect(resolveRouteAccess({ pathname, isSignedIn: false, role: null, authUnavailable: true })).toEqual({
+        allowed: true,
+      });
+    }
+  });
+
+  it("never gates the unavailable page itself", () => {
+    expect(
+      resolveRouteAccess({ pathname: UNAVAILABLE_PATH, isSignedIn: false, role: null, authUnavailable: true }),
+    ).toEqual({
+      allowed: true,
+    });
   });
 });
 

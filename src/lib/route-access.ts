@@ -51,12 +51,23 @@ export const SIGN_IN_PATH = "/auth/signin";
  */
 export const NO_ROLE_PATH = `/?error=${NO_ROLE}`;
 
-export type RouteAccess = { readonly allowed: true } | { readonly allowed: false; readonly redirectTo: string };
+/**
+ * The 503 page shown for a gated route while Supabase Auth is failing. It must stay ungated: the
+ * middleware renders it with `next(UNAVAILABLE_PATH)`, which does not re-run the middleware.
+ */
+export const UNAVAILABLE_PATH = "/unavailable";
+
+export type RouteAccess =
+  | { readonly allowed: true }
+  | { readonly allowed: false; readonly redirectTo: string }
+  | { readonly allowed: false; readonly unavailable: true };
 
 export interface RouteRequest {
   readonly pathname: string;
   readonly isSignedIn: boolean;
   readonly role: UserRole | null;
+  /** Supabase Auth itself is failing, so "no session" cannot be told from "signed in". */
+  readonly authUnavailable: boolean;
 }
 
 const ALLOWED: RouteAccess = { allowed: true };
@@ -76,9 +87,12 @@ function matchesPrefix(pathname: string, prefix: string): boolean {
 /**
  * Fails closed: anything other than "signed in, with a role the route names" is a redirect.
  */
-export function resolveRouteAccess({ pathname, isSignedIn, role }: RouteRequest): RouteAccess {
+export function resolveRouteAccess({ pathname, isSignedIn, role, authUnavailable }: RouteRequest): RouteAccess {
   const route = PROTECTED_ROUTES.find((candidate) => matchesPrefix(pathname, candidate.prefix));
   if (!route) return ALLOWED;
+
+  // An outage is not a missing session: answer 503 instead of bouncing a signed-in user to sign-in.
+  if (authUnavailable) return { allowed: false, unavailable: true };
 
   if (!isSignedIn) return { allowed: false, redirectTo: SIGN_IN_PATH };
   if (role === null) return { allowed: false, redirectTo: NO_ROLE_PATH };

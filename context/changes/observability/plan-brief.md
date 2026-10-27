@@ -45,7 +45,7 @@ tagged with source-mapped stacks.
 **In scope:** warn/info logging; auth error classification; middleware 503 verdict + page; auth
 route logging; `500.astro`; `POST /api/client-errors` + reporter + island boundaries + wiring failure
 state; C4 block, H1/M1/M2/M3/M7 reasons, H3 status; save/re-match/refusal events; print and layout
-guards; deploy tag + source maps; probe re-run; AGENTS.md line; roadmap + GitHub sync.
+guards; deploy tag + source maps; automatic Workers traces; probe re-run; AGENTS.md line; roadmap + GitHub sync.
 
 **Out of scope:** third-party tracker, Analytics Engine, alert rules; the hook `raise warning`
 migration; beacon on public pages; rate limiting; L3, L4, L7, L9, L10, M4.

@@ -469,6 +469,17 @@ routes and page catch around `chooseSelectionLayout` / `computeLayoutView` and l
 `"upload_source_maps": true` in `wrangler.jsonc`; server-only source maps from the Astro/Vite build.
 `dist/client` must contain no `.map` files.
 
+#### 4. Automatic traces
+
+**File**: `wrangler.jsonc`
+
+**Intent**: Turn on Cloudflare's automatic Workers tracing so each request shows its outgoing
+Supabase REST/Auth calls as timed spans in the dashboard (added 2026-10-27 at the user's request;
+included in the free tier per the user).
+
+**Contract**: `observability.traces.enabled: true` with `head_sampling_rate: 1` (one user — sample
+everything), beside the existing `observability.enabled`. No SDK, no code change.
+
 ### Success Criteria:
 
 #### Automated Verification:
@@ -483,6 +494,7 @@ routes and page catch around `chooseSelectionLayout` / `computeLayoutView` and l
 - A forced throw inside the print pipeline shows the Polish load-failed state and logs branch, projectId, userId and a stack
 - A catalog device without `n_terminal_side` makes a circuit save show the unknown banner and logs the device id
 - After the first deploy from `master`, Workers Logs shows the version tag and a source-mapped stack for a forced error
+- After the first deploy from `master`, the dashboard's Observability view shows traces with Supabase subrequest spans
 
 **Implementation Note**: After completing this phase and all automated verification passes, pause here for manual confirmation from the human that the manual testing was successful before proceeding to the next phase.
 
@@ -588,17 +600,17 @@ push to `master`; they are reverted by reverting the commit.
 
 #### Automated
 
-- [x] 1.1 Unit tests for the three helpers pass: `npm run test:unit`
-- [x] 1.2 Lint passes: `npm run lint`
-- [x] 1.3 Type check passes: `npx astro check`
+- [x] 1.1 Unit tests for the three helpers pass: `npm run test:unit` — 5352df8
+- [x] 1.2 Lint passes: `npm run lint` — 5352df8
+- [x] 1.3 Type check passes: `npx astro check` — 5352df8
 
 ### Phase 2: Auth, middleware and error pages
 
 #### Automated
 
-- [ ] 2.1 Route-access, auth-errors tests pass: `npm run test:unit`
-- [ ] 2.2 Lint and type check pass: `npm run lint && npx astro check`
-- [ ] 2.3 Build passes: `npm run build`
+- [x] 2.1 Route-access, auth-errors tests pass: `npm run test:unit`
+- [x] 2.2 Lint and type check pass: `npm run lint && npx astro check`
+- [x] 2.3 Build passes: `npm run build`
 
 #### Manual
 
@@ -651,6 +663,7 @@ push to `master`; they are reverted by reverting the commit.
 - [ ] 5.5 A forced throw inside the print pipeline shows the Polish load-failed state and logs branch, projectId, userId and a stack
 - [ ] 5.6 A catalog device without `n_terminal_side` makes a circuit save show the unknown banner and logs the device id
 - [ ] 5.7 After the first deploy from `master`, Workers Logs shows the version tag and a source-mapped stack for a forced error
+- [ ] 5.8 After the first deploy from `master`, the dashboard's Observability view shows traces with Supabase subrequest spans
 
 ### Phase 6: Proof and docs
 

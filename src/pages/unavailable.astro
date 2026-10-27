@@ -1,0 +1,9 @@
+---
+import ErrorPage from "@/components/ErrorPage.astro";
+import { t } from "@/lib/i18n";
+
+// Rendered by the middleware via `next("/unavailable")` while Supabase Auth is failing.
+Astro.response.status = 503;
+---
+
+<ErrorPage title={t.errors.unavailableTitle} description={t.errors.unavailableDescription} />

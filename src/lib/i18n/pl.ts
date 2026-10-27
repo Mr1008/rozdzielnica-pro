@@ -91,6 +91,15 @@ export const pl = {
     unknown: "Coś poszło nie tak. Spróbuj ponownie",
   },
 
+  /** The 500 and 503 pages (`src/pages/500.astro`, `src/pages/unavailable.astro`). */
+  errors: {
+    serverErrorTitle: "Coś poszło nie tak",
+    serverErrorDescription: "Po naszej stronie wystąpił błąd. Spróbuj ponownie za chwilę.",
+    unavailableTitle: "Usługa chwilowo niedostępna",
+    unavailableDescription: "Nie możemy teraz sprawdzić Twojego logowania. Spróbuj ponownie za kilka minut.",
+    homeLink: "Wróć na stronę główną",
+  },
+
   confirmEmail: {
     confirmedHeading: "Konto założone",
     confirmedDescription: "Twoje konto zostało utworzone. Możesz się teraz zalogować.",

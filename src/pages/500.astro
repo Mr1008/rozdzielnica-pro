@@ -1,0 +1,8 @@
+---
+import ErrorPage from "@/components/ErrorPage.astro";
+import { t } from "@/lib/i18n";
+
+// Astro already logs the stack of the error that led here; this page adds no second log.
+---
+
+<ErrorPage title={t.errors.serverErrorTitle} description={t.errors.serverErrorDescription} />
