@@ -472,17 +472,17 @@ CI runs Playwright with 1 worker and 2 retries.
 
 #### Automated
 
-- [x] 3.1 `npx playwright test tests/e2e/circuits-match-state.spec.ts` green
-- [x] 3.2 Deliberate break: empty snapshot reads as `current` → red at step 3; revert
-- [x] 3.3 `npm run lint` and `npx astro check` pass
+- [x] 3.1 `npx playwright test tests/e2e/circuits-match-state.spec.ts` green — 778c32d
+- [x] 3.2 Deliberate break: empty snapshot reads as `current` → red at step 3; revert — 778c32d
+- [x] 3.3 `npm run lint` and `npx astro check` pass — 778c32d
 
 ### Phase 4: Quote override endpoint (§6.3 candidates)
 
 #### Automated
 
-- [ ] 4.1 `npx playwright test tests/e2e/quote-override.spec.ts` green
-- [ ] 4.2 Deliberate break: base taken from the form → red; revert
-- [ ] 4.3 `npm run lint` and `npx astro check` pass
+- [x] 4.1 `npx playwright test tests/e2e/quote-override.spec.ts` green
+- [x] 4.2 Deliberate break: base taken from the form → red; revert
+- [x] 4.3 `npm run lint` and `npx astro check` pass
 
 ### Phase 5: CI gate and documents
 
