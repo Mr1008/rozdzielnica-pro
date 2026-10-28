@@ -54,7 +54,7 @@
   - Tradeoff: Touches the 2D drawing module again. The 2D drawing tests must stay byte-identical.
   - Confidence: HIGH — both sides already take the same inputs (segment lengths, bend radius, straight start and end).
   - Blind spot: The 2D code measures run length in Manhattan distance and 3D in Euclidean distance. Both are equal on orthogonal runs, but the helper has to take lengths rather than points.
-- **Decision**: PENDING
+- **Decision**: FIXED in 0f9869f — `cornerRadiiMm(runLengthsMm, bendMm, straight)` in `cabinet-drawing.ts`, called by `wirePathPieces` and `smoothConductor3D`, with its own test; the existing 2D drawing tests pass unchanged.
 
 ### F2 — Nothing automated guards the bundle and type invariants
 
@@ -64,7 +64,7 @@
 - **Location**: eslint.config.js (no rule); src/lib/wiring-view.test.ts
 - **Detail**: "three.js imported only by `Cabinet3D*.tsx`" and "absent from the default view's chunks" are protected only by a prose rule in `layout-wiring.md` and by manual rows 3.6 and 4.9. A single `import … from "three"` in a pure `src/lib` module, or a static import of `Cabinet3DScene` in place of `lazy()`, would pass lint, the unit tests, the build and the E2E smoke test. Likewise, no test fails if someone adds `"3d"` to `WIRING_VARIANTS`.
 - **Fix**: Add an ESLint `no-restricted-imports` rule that bans `three`, `three/*` and `@react-three/*` everywhere except `src/components/projects/Cabinet3D*.tsx`. Add one assertion to `wiring-view.test.ts` that `WIRING_VARIANTS` does not contain `"3d"`.
-- **Decision**: PENDING
+- **Decision**: FIXED in 0f9869f — `no-restricted-imports` in `eslint.config.js` bans `three`, `three/*` and `@react-three/*` outside `src/components/projects/Cabinet3D*.tsx` (a deliberate `import … from "three"` in `wiring-view.ts` failed lint, then was reverted); `wiring-view.test.ts` asserts `WIRING_VARIANTS` has no `"3d"`.
 
 ### F3 — No handling of a lost WebGL context
 
@@ -74,7 +74,7 @@
 - **Location**: src/components/projects/Cabinet3DScene.tsx:378 (`onCreated`)
 - **Detail**: `SceneErrorBoundary` catches render errors and errors while creating the context. A `webglcontextlost` event after mount (a GPU reset or driver hiccup, or too many contexts open in other tabs) leaves a blank canvas without the Polish Alert. That is the "silently broken 3D tab" the plan set out to avoid.
 - **Fix**: In `onCreated`, listen for `webglcontextlost` on `gl.domElement` and switch the preview to `Cabinet3DUnavailable`.
-- **Decision**: PENDING
+- **Decision**: FIXED in 0f9869f — `onCreated` listens for `webglcontextlost` and the scene rethrows during render, so `SceneErrorBoundary` shows `Cabinet3DUnavailable`.
 
 ### F4 — A token that fails to resolve silently becomes black
 
@@ -84,7 +84,7 @@
 - **Location**: src/components/projects/Cabinet3DKit.tsx:56-67
 - **Detail**: `makeTokenReader` sets `ctx.fillStyle` to `getPropertyValue('--token')`. A misspelled or missing token gives an empty string, which the canvas ignores. The cleared pixel then reads `(0,0,0)`, so the material is black with no error. The same happens when the 2D context is null. A typo in a token name, or a token renamed in `global.css`, would ship as a black part, and no test covers it, because Vitest has no DOM.
 - **Fix**: Throw when the property value is empty or the context is null, so the error boundary shows the Alert. A wrong token then fails loudly in the E2E console check.
-- **Decision**: PENDING
+- **Decision**: FIXED in 0f9869f — `makeTokenReader` throws on an undefined token or a null 2D context.
 
 ### F5 — Phase 4's instancing contract was only partly met, and the plan was not amended
 
@@ -94,7 +94,7 @@
 - **Location**: src/components/projects/Cabinet3DScene.tsx:68, :235, :260-296
 - **Detail**: The plan says screws, ties and ferrules are "instanced where there are many repeats". Only ferrules use `InstancedMesh`. Screws are merged into each element's per-material mesh (`mergeParts`), and ties are four boxes each, merged into one mesh. The measured 60 fps on the largest layout shows the goal was met. Similarly, criterion 2.3 ("no change to `cabinet-drawing.ts`") was later superseded by Phase 4's reuse of the helpers. That is reasonable, but the plan does not say so.
 - **Fix**: Add a one-line note to the plan's Phase 4 that merged meshes replaced instancing for screws and ties, and that `cabinet-drawing.ts` received behaviour-preserving extractions.
-- **Decision**: PENDING
+- **Decision**: FIXED in 0f9869f — an "As built" note in the plan's Phase 4.
 
 ### F6 — Dead exports and a stale comment
 
@@ -104,7 +104,7 @@
 - **Location**: src/components/cabinets/CabinetDrawing.tsx:84, :96; src/lib/wiring-view.ts:29; src/components/projects/LayoutSection.astro:48
 - **Detail**: Phase 3 exported `BAR_CLASSES` and `DEVICE_CLASSES` so the 3D view could take its colours from them. After the Eaton-housing change in `0a568da`, nothing imports them. `wiringViewFromParam` survives only in its own test, since both call sites moved to `drawingViewFromParam`. The `LayoutSection.astro:48` comment still cites `wiringViewFromParam`.
 - **Fix**: Un-export the two class maps, delete `wiringViewFromParam` and its test, and point the comment at `wiringVariantOf`.
-- **Decision**: PENDING
+- **Decision**: FIXED in 0f9869f — `BAR_CLASSES` / `DEVICE_CLASSES` un-exported, `wiringViewFromParam` and its test deleted, the `LayoutSection.astro` comment points at `wiringVariantOf`.
 
 ### F7 — The R3F peer range caps React below the caret range in `package.json`
 
@@ -114,7 +114,7 @@
 - **Location**: package.json:41 (`@react-three/fiber ^9.8.2`), with `react` / `react-dom` at `^19.2.6`
 - **Detail**: `@react-three/fiber` 9.8.2 declares `react >=19 <19.4`, but the caret on React lets `npm update` move to 19.4, which breaks the peer range (and `npm ci` once the lockfile is refreshed). The plan brief lists this as a risk, but neither the repo nor the area rule records it anywhere a future dependency bump would see it.
 - **Fix**: Add a deploy-tooling or `layout-wiring.md` note that a React minor bump must move `@react-three/fiber` with it. Or pin React to `~19.2.6` until R3F widens its range.
-- **Decision**: PENDING
+- **Decision**: FIXED in 0f9869f — a note in `context/foundation/agent-rules/deploy-tooling.md`; React not pinned.
 
 ### F8 — Disposing in an effect cleanup next to `useMemo` breaks on a remount
 
@@ -124,7 +124,7 @@
 - **Location**: src/components/projects/Cabinet3DKit.tsx:401-404; Cabinet3DScene.tsx:68-72, :198-199, :246, :289-294
 - **Detail**: Geometries, materials and textures are created in `useMemo` and disposed in a `useEffect` cleanup. Under React StrictMode's dev double-effect (or any future effect replay), the cleanup disposes resources that the memo then hands back. three.js usually re-uploads them, so this is latent rather than broken today. Astro islands do not enable StrictMode.
 - **Fix**: If StrictMode is ever turned on, create the owned objects inside the effect (or a ref-guarded lazy init) rather than in `useMemo`.
-- **Decision**: PENDING
+- **Decision**: SKIPPED — Jakub's decision (2026-10-28).
 
 ### F9 — The kitchen-sink page pulls in the preview island module to render only the Alert
 
@@ -134,4 +134,4 @@
 - **Location**: src/pages/dev/kitchen-sink.astro:10
 - **Detail**: `Cabinet3DUnavailable` is a named export of `Cabinet3DPreview.tsx`, so the dev page's server render imports the island module along with `cabinet-wiring` and `wiring-3d`. It does not import three.js, because the scene is lazy, and it is server-rendered only. This is harmless, but it couples the static Alert to the island.
 - **Fix**: Move `Cabinet3DUnavailable` into its own `Cabinet3DUnavailable.tsx`. Leave it as is if the coupling does not matter.
-- **Decision**: PENDING
+- **Decision**: SKIPPED — Jakub's decision (2026-10-28).
