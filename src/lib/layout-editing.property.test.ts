@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { CabinetGeometry } from "./cabinet-geometry";
 import { proposeLayout, validateLayout, type LayoutDevice, type LayoutInput } from "./cabinet-layout";
 import { SEED_A, SEED_B, SEED_C } from "./cabinet-layout.fixtures";
+import { KARWASZ_CABINETS, karwaszGeometry } from "./karwasz-cabinets";
 import type { EntrySide } from "./circuit-params";
 import { polesCarryN, type PoleConfig } from "./device-spec";
 import {
@@ -118,50 +119,73 @@ const moveArb = fc.oneof(
   }),
 );
 
+/** Runs random edit sequences on `geo`, asserting the invariants; returns how often each verdict occurred. */
+function runEdits(geo: CabinetGeometry, numRuns: number) {
+  let accepted = 0;
+  let acceptedBlocks = 0;
+  let refused = 0;
+  fc.assert(
+    fc.property(scenarioArb, fc.array(moveArb, { minLength: 1, maxLength: 25 }), (scenario, moves) => {
+      const input = buildInput(scenario, geo);
+      const proposal = proposeLayout(input);
+      if (!proposal.ok) return;
+      const context: EditContext = { devices: input.devices, geometry: geo, groups: input.groups };
+      const units = editUnits(input.devices, input.groups);
+      const ids = input.devices.map((device) => device.id);
+      let draft: LayoutDraft = { placements: proposal.placements };
+
+      for (const move of moves) {
+        const unit = units[move.unit % units.length];
+        const target =
+          move.type === "drop"
+            ? { railIndex: move.railIndex, xMm: move.halfModules * 8.75 }
+            : keyboardStep(context, draft, unit, move.direction);
+        if (target === null) continue;
+        const before = structuredClone(draft);
+        const result = moveUnit(context, draft, unit, target);
+        expect(draft).toEqual(before);
+        if (result.ok) {
+          accepted += 1;
+          if (unit.kind === "block") acceptedBlocks += 1;
+          expect(result.draft.placements.map((p) => p.projectDeviceId)).toEqual(ids);
+          expect(validateLayout(input.devices, result.draft.placements, geo, input.groups)).toEqual([]);
+          draft = result.draft;
+        } else {
+          refused += 1;
+          expect(result.issues.length).toBeGreaterThan(0);
+        }
+      }
+    }),
+    { numRuns },
+  );
+  return { accepted, acceptedBlocks, refused };
+}
+
 describe("manual edits keep the layout valid", () => {
   for (const [name, geo] of GEOMETRIES) {
     it(`every accepted move on ${name} passes validateLayout; every refused one changes nothing`, () => {
-      let accepted = 0;
-      let acceptedBlocks = 0;
-      let refused = 0;
-      fc.assert(
-        fc.property(scenarioArb, fc.array(moveArb, { minLength: 1, maxLength: 25 }), (scenario, moves) => {
-          const input = buildInput(scenario, geo);
-          const proposal = proposeLayout(input);
-          if (!proposal.ok) return;
-          const context: EditContext = { devices: input.devices, geometry: geo, groups: input.groups };
-          const units = editUnits(input.devices, input.groups);
-          const ids = input.devices.map((device) => device.id);
-          let draft: LayoutDraft = { placements: proposal.placements };
-
-          for (const move of moves) {
-            const unit = units[move.unit % units.length];
-            const target =
-              move.type === "drop"
-                ? { railIndex: move.railIndex, xMm: move.halfModules * 8.75 }
-                : keyboardStep(context, draft, unit, move.direction);
-            if (target === null) continue;
-            const before = structuredClone(draft);
-            const result = moveUnit(context, draft, unit, target);
-            expect(draft).toEqual(before);
-            if (result.ok) {
-              accepted += 1;
-              if (unit.kind === "block") acceptedBlocks += 1;
-              expect(result.draft.placements.map((p) => p.projectDeviceId)).toEqual(ids);
-              expect(validateLayout(input.devices, result.draft.placements, geo, input.groups)).toEqual([]);
-              draft = result.draft;
-            } else {
-              refused += 1;
-              expect(result.issues.length).toBeGreaterThan(0);
-            }
-          }
-        }),
-        { numRuns: 300 },
-      );
+      const { accepted, acceptedBlocks, refused } = runEdits(geo, 300);
       // Not vacuous: both verdicts occur, and blocks really move.
       expect(accepted).toBeGreaterThan(50);
       expect(acceptedBlocks).toBeGreaterThan(5);
       expect(refused).toBeGreaterThan(50);
+    });
+  }
+});
+
+/*
+ * The production cabinets (`karwasz-cabinets.ts`), as in `cabinet-layout.property.test.ts`. The
+ * 6-module models are left out: this generator always adds an RCD group, which a 6-module rail rarely
+ * holds, so at 100 runs they produced 0–4 accepted moves (measured 2026-10-28) — a vacuous test. Their
+ * proposals are still covered there. The rest measured at least 49 accepted, 49 refused and 7 block moves.
+ */
+describe("manual edits keep the layout valid — production Karwasz cabinets", () => {
+  for (const cabinet of KARWASZ_CABINETS.filter((c) => c.rails.modules > 6)) {
+    it(`every accepted move on ${cabinet.model} passes validateLayout; every refused one changes nothing`, () => {
+      const { accepted, acceptedBlocks, refused } = runEdits(karwaszGeometry(cabinet), 100);
+      expect(accepted).toBeGreaterThan(20);
+      expect(acceptedBlocks).toBeGreaterThan(2);
+      expect(refused).toBeGreaterThan(20);
     });
   }
 });

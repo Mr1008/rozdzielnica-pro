@@ -72,6 +72,25 @@ describe("row level security on public.profiles", () => {
     expect(data).toEqual([]);
   });
 
+  it("updates and deletes zero rows of another electrician's profile", async () => {
+    const before = await service.from("profiles").select("*").eq("id", electricianB.id).single();
+
+    const updated = await clientA
+      .from("profiles")
+      .update({ full_name: "Przejęty profil" })
+      .eq("id", electricianB.id)
+      .select("id");
+    expect(updated.error).toBeNull();
+    expect(updated.data).toEqual([]);
+
+    const deleted = await clientA.from("profiles").delete().eq("id", electricianB.id).select("id");
+    expect(deleted.error).toBeNull();
+    expect(deleted.data).toEqual([]);
+
+    const after = await service.from("profiles").select("*").eq("id", electricianB.id).single();
+    expect(after.data).toEqual(before.data);
+  });
+
   it("refuses to let an electrician change their own role", async () => {
     const { error } = await clientA.from("profiles").update({ role: "admin" }).eq("id", electricianA.id);
 

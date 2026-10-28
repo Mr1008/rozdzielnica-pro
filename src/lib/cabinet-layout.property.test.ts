@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { CabinetGeometry } from "./cabinet-geometry";
 import { proposeLayout, validateLayout, type LayoutDevice, type LayoutInput } from "./cabinet-layout";
 import { geometry, SEED_A, SEED_B, SEED_C } from "./cabinet-layout.fixtures";
+import { KARWASZ_CABINETS, karwaszGeometry } from "./karwasz-cabinets";
 import { ENTRY_SIDES } from "./cabinet-geometry";
 import type { EntrySide } from "./circuit-params";
 import { N_TERMINAL_SIDES, polesCarryN, type NTerminalSide, type PoleConfig } from "./device-spec";
@@ -187,31 +188,61 @@ function buildInput(scenario: Scenario, geo: CabinetGeometry): LayoutInput {
   return { devices, groups, circuits, geometry: geo };
 }
 
+/** Checks one proposal; returns whether it placed (`ok`). */
+function checkProposal(scenario: Scenario, geo: CabinetGeometry): boolean {
+  const input = buildInput(scenario, geo);
+  const result = proposeLayout(input);
+  expect(proposeLayout(input)).toEqual(result);
+  if (!result.ok) {
+    expect(result.reason.code).toBe("does_not_fit");
+    return false;
+  }
+  // Busbar rows are never placed; every other device exactly once.
+  expect(result.placements.map((p) => p.projectDeviceId)).toEqual(
+    input.devices.filter((d) => d.role !== "busbar").map((d) => d.id),
+  );
+  for (const p of result.placements) expect(Math.round(p.xMm * 100) / 100).toBe(p.xMm);
+  expect(validateLayout(input.devices, result.placements, geo, input.groups)).toEqual([]);
+  return true;
+}
+
 describe("proposeLayout properties", () => {
   for (const [name, geo] of GEOMETRIES) {
     it(`every proposal on ${name} is valid and deterministic`, () => {
       let placed = 0;
       fc.assert(
         fc.property(scenarioArb, (scenario) => {
-          const input = buildInput(scenario, geo);
-          const result = proposeLayout(input);
-          expect(proposeLayout(input)).toEqual(result);
-          if (!result.ok) {
-            expect(result.reason.code).toBe("does_not_fit");
-            return;
-          }
-          placed += 1;
-          // Busbar rows are never placed; every other device exactly once.
-          expect(result.placements.map((p) => p.projectDeviceId)).toEqual(
-            input.devices.filter((d) => d.role !== "busbar").map((d) => d.id),
-          );
-          for (const p of result.placements) expect(Math.round(p.xMm * 100) / 100).toBe(p.xMm);
-          expect(validateLayout(input.devices, result.placements, geo, input.groups)).toEqual([]);
+          if (checkProposal(scenario, geo)) placed += 1;
         }),
         { numRuns: 400 },
       );
       // Not vacuous: about 1 in 5 sets fits even the one-rail cabinet (a), nearly all fit (c).
       expect(placed).toBeGreaterThan(20);
+    });
+  }
+});
+
+/*
+ * The production cabinets (`karwasz-cabinets.ts`): the geometries electricians actually pick, built by
+ * rules the seed fixtures do not use — centred rails 125 mm apart, built-in N and PE bars side by side,
+ * stacked or overlapping in depth, and the UNI SYSTEM models with no bars at all.
+ *
+ * Non-vacuity, measured 2026-10-28 at 100 runs: the one-rail cabinets (6, 12, 20 modules) place 4–35 sets,
+ * the multi-rail ones 28–100. One-rail cabinets get 300 runs so "at least one" cannot miss by chance.
+ */
+describe("proposeLayout properties — production Karwasz cabinets", () => {
+  for (const cabinet of KARWASZ_CABINETS) {
+    it(`every proposal on ${cabinet.model} is valid and deterministic`, () => {
+      const geo = karwaszGeometry(cabinet);
+      const oneRail = cabinet.rails.count === 1;
+      let placed = 0;
+      fc.assert(
+        fc.property(scenarioArb, (scenario) => {
+          if (checkProposal(scenario, geo)) placed += 1;
+        }),
+        { numRuns: oneRail ? 300 : 100 },
+      );
+      expect(placed).toBeGreaterThan(oneRail ? 0 : 10);
     });
   }
 });

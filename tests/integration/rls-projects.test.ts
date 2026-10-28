@@ -229,6 +229,15 @@ describe("row level security and the cabinet snapshot on public.projects", () =>
   });
 
   describe("as another electrician", () => {
+    it("is refused an insert of a project for A with 42501, and A sees no new project", async () => {
+      const name = `Podrzucony projekt ${randomUUID()}`;
+      const { error } = await clientB.from("projects").insert({ user_id: electricianA.id, name, cabinet_id: cabinetA });
+      expect(error?.code).toBe("42501");
+
+      const { data } = await service.from("projects").select("id").eq("user_id", electricianA.id).eq("name", name);
+      expect(data).toEqual([]);
+    });
+
     it("reads zero of A's rows", async () => {
       const { data, error } = await clientB.from("projects").select("id").eq("user_id", electricianA.id);
 

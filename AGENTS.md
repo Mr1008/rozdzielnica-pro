@@ -31,9 +31,11 @@ These are correctness requirements, not preferences.
 
 - **The test suite is unit + RLS-integration only — it covers no HTTP.** `npm run test:unit`
   (Vitest, `src/**/*.test.ts`) needs no infrastructure and runs in CI; `npm run test:integration`
-  (`tests/integration/**`) asserts the RLS policies against a **live local Supabase** and is
-  local-only. `npm test` runs both, so it fails on any machine with no stack running — never wire it
-  into a git hook or a database-less CI job; use `test:unit` there. Neither suite exercises the
+  (`tests/integration/**`) asserts the RLS policies and CHECK↔parser parity against a **live local
+  Supabase**, so CI runs it only in the `smoke` job, which starts one. `npm test` runs both, so it
+  fails on any machine with no stack running — never wire it into a git hook or a database-less CI
+  job; use `test:unit` there. A new public table fails `tests/integration/rls-coverage.test.ts` until
+  it is classified there and has its RLS suite. Neither suite exercises the
   Cloudflare adapter or the real auth flow: `scripts/smoke.mjs` remains the separate,
   dependency-free script that does. Never report a bare "tests pass" — say which of lint /
   `astro check` / `test:unit` / `test:integration` / build / smoke you actually ran.
@@ -162,7 +164,7 @@ The full script list is in `README.md` `## Scripts`. What it does not say:
 - `npx astro check` type-checks `.astro` files; CI runs it, `npm run lint` does not.
 - After a migration, `npm run db:types` regenerates the committed `src/lib/database.types.ts`.
 - CI's `ci` job locally: `npm run lint && npx astro check && npm run test:unit && npm run build`.
-  `npm run test:integration` is not in CI — run it by hand against a local stack.
+  `npm run test:integration` runs in the `smoke` job instead; locally, run it against a started stack.
 
 ## Environment
 
