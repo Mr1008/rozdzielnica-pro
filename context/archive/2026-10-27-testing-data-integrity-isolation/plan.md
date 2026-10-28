@@ -389,34 +389,34 @@ None. No schema change.
 
 #### Automated
 
-- [x] 1.1 `npm run test:integration` passes, including `rls-coverage.test.ts` and the new B-against-A cases — 330f146
-- [x] 1.2 `npm run test:unit` passes, including `src/lib/rls-premise.test.ts` — 330f146
-- [x] 1.3 Deliberate break: removing a table from the classification map makes `rls-coverage.test.ts` fail (reverted) — 330f146
-- [x] 1.4 `npm run lint` and `npx astro check` pass — 330f146
+- [x] 1.1 `npm run test:integration` passes, including `rls-coverage.test.ts` and the new B-against-A cases — f71c3d5
+- [x] 1.2 `npm run test:unit` passes, including `src/lib/rls-premise.test.ts` — f71c3d5
+- [x] 1.3 Deliberate break: removing a table from the classification map makes `rls-coverage.test.ts` fail (reverted) — f71c3d5
+- [x] 1.4 `npm run lint` and `npx astro check` pass — f71c3d5
 
 ### Phase 2: CHECK↔parser parity (#7)
 
 #### Automated
 
-- [x] 2.1 `npm run test:integration` passes, including `check-parser-parity.test.ts` with all 7 pairs — c9cf030
-- [x] 2.2 Deliberate break: flipping one fixture's verdict (or one parser bound) makes the suite fail on that row (reverted) — c9cf030
-- [x] 2.3 `npm run lint` and `npx astro check` pass — c9cf030
+- [x] 2.1 `npm run test:integration` passes, including `check-parser-parity.test.ts` with all 7 pairs — 51ebbc9
+- [x] 2.2 Deliberate break: flipping one fixture's verdict (or one parser bound) makes the suite fail on that row (reverted) — 51ebbc9
+- [x] 2.3 `npm run lint` and `npx astro check` pass — 51ebbc9
 
 ### Phase 3: Device snapshot immutability (#7)
 
 #### Automated
 
-- [x] 3.1 `npm run test:integration` passes, including the new device-edit snapshot case — 94233de
-- [x] 3.2 Deliberate break: asserting the edited price instead of the snapshotted one fails (reverted) — 94233de
-- [x] 3.3 `npm run lint` and `npx astro check` pass — 94233de
+- [x] 3.1 `npm run test:integration` passes, including the new device-edit snapshot case — cec096c
+- [x] 3.2 Deliberate break: asserting the edited price instead of the snapshotted one fails (reverted) — cec096c
+- [x] 3.3 `npm run lint` and `npx astro check` pass — cec096c
 
 ### Phase 4: CI gate and documentation
 
 #### Automated
 
-- [x] 4.1 `npm run lint`, `npx astro check`, `npm run test:unit` and `npm run test:integration` pass locally — 2e53b93
-- [x] 4.2 `.github/workflows/ci.yml` parses as YAML, and the `smoke` job lists the `test:integration` step before the build — 2e53b93
+- [x] 4.1 `npm run lint`, `npx astro check`, `npm run test:unit` and `npm run test:integration` pass locally — 7fb0500
+- [x] 4.2 `.github/workflows/ci.yml` parses as YAML, and the `smoke` job lists the `test:integration` step before the build — 7fb0500
 
 #### Manual
 
-- [ ] 4.3 After the next push to `master`, CI job `smoke` runs `test:integration` green on GitHub Actions
+- [x] 4.3 After the next push to `master`, CI job `smoke` runs `test:integration` green on GitHub Actions — fc002b9

@@ -1,10 +1,10 @@
 ---
 change_id: testing-data-integrity-isolation
 title: Test rollout phase 2 — data integrity and isolation (risks #6, #7)
-status: implemented
+status: archived
 created: 2026-10-27
-updated: 2026-10-27
-archived_at: null
+updated: 2026-10-28
+archived_at: 2026-10-28T09:10:32Z
 ---
 
 ## Notes
