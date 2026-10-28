@@ -254,17 +254,17 @@ The Karwasz runs multiply property-test time; bound the runs per geometry and me
 
 #### Automated
 
-- [x] 1.1 `npx vitest run src/lib/quote.examples.test.ts` passes
-- [x] 1.2 Deliberate break — `deviceCount` computed as distinct `device_id`s, or busbar rows priced per row, turns the suite red (reverted)
-- [x] 1.3 `npm run lint` and `npm run test:unit` pass
+- [x] 1.1 `npx vitest run src/lib/quote.examples.test.ts` passes — 4052220
+- [x] 1.2 Deliberate break — `deviceCount` computed as distinct `device_id`s, or busbar rows priced per row, turns the suite red (reverted) — 4052220
+- [x] 1.3 `npm run lint` and `npm run test:unit` pass — 4052220
 
 ### Phase 2: Quote property test
 
 #### Automated
 
-- [ ] 2.1 `npx vitest run src/lib/quote.property.test.ts` passes
-- [ ] 2.2 Deliberate break — `+ 30` changed to `+ 29` in `labourCostGrosze` turns it red (reverted)
-- [ ] 2.3 `npm run lint` and `npm run test:unit` pass
+- [x] 2.1 `npx vitest run src/lib/quote.property.test.ts` passes
+- [x] 2.2 Deliberate break — `+ 30` changed to `+ 29` in `labourCostGrosze` turns it red (reverted)
+- [x] 2.3 `npm run lint` and `npm run test:unit` pass
 
 ### Phase 3: Production cabinets in the layout property tests
 
