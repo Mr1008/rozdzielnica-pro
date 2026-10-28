@@ -277,8 +277,8 @@ The Karwasz runs multiply property-test time; bound the runs per geometry and me
 
 #### Automated
 
-- [x] 4.1 `npm run lint` and `npm run test:unit` pass
+- [x] 4.1 `npm run lint` and `npm run test:unit` pass — 9f0f876
 
 #### Manual
 
-- [x] 4.2 Multimodal review of the printout and the cabinet drawing on `/dev/kitchen-sink` (1–2 screens): labels readable, no device or label overlap, material table on one page; result dated in §6.6
+- [x] 4.2 Multimodal review of the printout and the cabinet drawing on `/dev/kitchen-sink` (1–2 screens): labels readable, no device or label overlap, material table on one page; result dated in §6.6 — 9f0f876
