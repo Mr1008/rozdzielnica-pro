@@ -467,6 +467,11 @@ swaps the geometry inside those components.
 `cabinet-3d.ts`), and every wire stays on its lifted route (`wiring-3d.ts`). So the front view still
 matches the 2D drawing, terminals stay at `terminalZ`, and routes and lengths are untouched.
 
+**As built (noted 2026-10-28, impl review F5):** only ferrules use `InstancedMesh`; screws are merged
+into each element's per-material mesh and ties into one mesh, which met the 60 fps goal. Reusing the 2D
+realistic rules superseded criterion 2.3: `cabinet-drawing.ts` got behaviour-preserving extractions
+(`runSagMm`, `realisticSagLimits`, `cornerRadiiMm`, …) with its 2D output unchanged.
+
 ### Changes Required:
 
 #### 1. Model shapes (pure)

@@ -4,9 +4,9 @@ import {
   WIRING_VIEW_PARAM,
   drawingViewFromParam,
   wiringVariantOf,
-  wiringViewFromParam,
   wiringViewHrefs,
 } from "./wiring-view";
+import { WIRING_VARIANTS } from "./cabinet-drawing";
 
 describe("drawingViewFromParam", () => {
   it("reads `schematic` and `3d` as their views", () => {
@@ -21,19 +21,11 @@ describe("drawingViewFromParam", () => {
   });
 });
 
-describe("wiringViewFromParam", () => {
-  it("reads `schematic` as the schematic variant", () => {
-    expect(wiringViewFromParam("schematic")).toBe("schematic");
-  });
-
-  it("reads `3d`, an absent or any other value as the realistic variant", () => {
-    for (const value of [null, "", "realistic", "3d", "Schematic", "1"]) {
-      expect(wiringViewFromParam(value)).toBe("realistic");
-    }
-  });
-});
-
 describe("wiringVariantOf", () => {
+  it("never makes `3d` a 2D wiring variant: the drawing and the printout must not see it", () => {
+    expect(WIRING_VARIANTS).not.toContain("3d");
+  });
+
   it("draws the 3D view's 2D fallback realistic and keeps the 2D views as they are", () => {
     expect(wiringVariantOf("3d")).toBe("realistic");
     expect(wiringVariantOf("realistic")).toBe("realistic");

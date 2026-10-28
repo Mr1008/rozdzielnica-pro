@@ -45,7 +45,7 @@ interface Props {
   devices: readonly DrawnDevice[];
   /** The router's input for a placed layout, from `buildLayoutDrawing`; null draws no wires. */
   wiring?: WiringData | null;
-  /** The look of the wires, from the page's `?wiring=` (`wiringViewFromParam`). Default realistic. */
+  /** The look of the wires, from the page's `?wiring=` (`wiringVariantOf`). Default realistic. */
   wiringVariant?: WiringVariant;
   /** The view the switch marks as current, from the page's `?wiring=` (`drawingViewFromParam`). */
   drawingView?: DrawingView;

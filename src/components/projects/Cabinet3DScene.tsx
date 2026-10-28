@@ -1,5 +1,5 @@
 /* eslint-disable react/no-unknown-property -- R3F elements take three.js props, not DOM attributes. */
-import { useEffect, useLayoutEffect, useMemo, useRef, type JSX } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type JSX } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import {
@@ -349,6 +349,9 @@ interface Props {
 
 export default function Cabinet3DScene({ scene, devices, wiring }: Props): JSX.Element {
   const kit = useBuildSceneKit();
+  // A context lost after mount (GPU reset, too many contexts) would leave a blank canvas; rethrown during
+  // render, it reaches `SceneErrorBoundary`, which shows `Cabinet3DUnavailable`.
+  const [contextLost, setContextLost] = useState(false);
   const deviceById = useMemo(() => new Map(devices.map((device) => [device.id, device])), [devices]);
 
   // Fit the camera to the interior: from the front, a little from above and the side.
@@ -367,6 +370,7 @@ export default function Cabinet3DScene({ scene, devices, wiring }: Props): JSX.E
     ],
   };
 
+  if (contextLost) throw new Error("Cabinet3D: WebGL context lost");
   return (
     <Canvas
       role="img"
@@ -377,6 +381,9 @@ export default function Cabinet3DScene({ scene, devices, wiring }: Props): JSX.E
       shadows="percentage"
       onCreated={({ gl }) => {
         gl.shadowMap.autoUpdate = false;
+        gl.domElement.addEventListener("webglcontextlost", () => {
+          setContextLost(true);
+        });
       }}
     >
       <SceneKitProvider value={kit}>

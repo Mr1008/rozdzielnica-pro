@@ -90,6 +90,26 @@ const testsConfig = defineConfig({
   },
 });
 
+// three.js is ~600 KB and must load only with the lazy 3D preview (GitHub #14): only its own components
+// may import it, so a pure `src/lib` module or another island cannot pull it into the default view.
+const THREE_IMPORTS = ["three", "three/*", "@react-three/*"];
+const threeConfig = defineConfig(
+  {
+    files: ["**/*.{js,jsx,ts,tsx,astro}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            { group: THREE_IMPORTS, message: "three.js is imported only by src/components/projects/Cabinet3D*.tsx." },
+          ],
+        },
+      ],
+    },
+  },
+  { files: ["src/components/projects/Cabinet3D*.tsx"], rules: { "no-restricted-imports": "off" } },
+);
+
 // `.claude/` holds agent tooling vendored from the 10xDevs CLI, not product code. Its `*.mjs`
 // helpers sit outside tsconfig.json, so the type-aware project service cannot parse them and
 // every one of them errors. They are not ours to lint.
@@ -110,5 +130,6 @@ export default defineConfig(
   astroConfig,
   scriptsConfig,
   testsConfig,
+  threeConfig,
   eslintPluginPrettier,
 );

@@ -46,25 +46,28 @@ export function tokenOfClass(classes: string): string {
   return first.replace(/^(fill|stroke)-/, "");
 }
 
-/** Reads `--<token>` from the document and converts it to a linear three.js colour. */
+/**
+ * Reads `--<token>` from the document and converts it to a linear three.js colour. A missing token or
+ * canvas throws rather than drawing the part black, so the scene's error boundary shows the Alert.
+ */
 function makeTokenReader(): (token: string) => Color {
   const style = getComputedStyle(document.documentElement);
   const canvas = document.createElement("canvas");
   canvas.width = 1;
   canvas.height = 1;
   const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  if (!ctx) throw new Error("Cabinet3D: no 2D canvas context to resolve colour tokens");
   const cache = new Map<string, Color>();
   return (token) => {
     const cached = cache.get(token);
     if (cached) return cached;
-    const color = new Color();
-    if (ctx) {
-      ctx.clearRect(0, 0, 1, 1);
-      ctx.fillStyle = style.getPropertyValue(`--${token}`).trim();
-      ctx.fillRect(0, 0, 1, 1);
-      const [r = 0, g = 0, b = 0] = ctx.getImageData(0, 0, 1, 1).data;
-      color.setRGB(r / 255, g / 255, b / 255, SRGBColorSpace);
-    }
+    const value = style.getPropertyValue(`--${token}`).trim();
+    if (!value) throw new Error(`Cabinet3D: colour token --${token} is not defined`);
+    ctx.clearRect(0, 0, 1, 1);
+    ctx.fillStyle = value;
+    ctx.fillRect(0, 0, 1, 1);
+    const [r = 0, g = 0, b = 0] = ctx.getImageData(0, 0, 1, 1).data;
+    const color = new Color().setRGB(r / 255, g / 255, b / 255, SRGBColorSpace);
     cache.set(token, color);
     return color;
   };

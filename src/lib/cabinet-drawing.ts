@@ -368,6 +368,29 @@ export interface StraightEnds {
 
 const NO_STRAIGHT_ENDS: StraightEnds = { startMm: 0, endMm: 0 };
 
+/**
+ * Per point of a route whose consecutive runs are `runLengthsMm` long: how far the bend at that corner
+ * reaches back along each adjacent run — at most `bendMm` and half of either run, and never into a
+ * straight end. The ends themselves get 0. Takes lengths, not points, so the 2D drawing (Manhattan) and
+ * the 3D preview (Euclidean) share the one rule.
+ */
+export function cornerRadiiMm(
+  runLengthsMm: readonly number[],
+  bendMm: number,
+  straight: StraightEnds = NO_STRAIGHT_ENDS,
+): number[] {
+  const last = runLengthsMm.length;
+  return Array.from({ length: last + 1 }, (_, i) => {
+    if (i === 0 || i === last) return 0;
+    const before = runLengthsMm[i - 1];
+    const after = runLengthsMm[i];
+    let r = Math.min(bendMm, before / 2, after / 2);
+    if (i === 1) r = Math.min(r, Math.max(0, before - straight.startMm));
+    if (i === last - 1) r = Math.min(r, Math.max(0, after - straight.endMm));
+    return r;
+  });
+}
+
 /** Per segment of `points`: its run (straight or sagging) and the bend at its far corner. */
 function wirePathPieces(
   points: readonly Point[],
@@ -375,18 +398,8 @@ function wirePathPieces(
   bendMm: number,
   straight: StraightEnds = NO_STRAIGHT_ENDS,
 ): PathPiece[] {
-  // Per corner: how far the bend reaches back along each adjacent run (at most half of either run, and
-  // never into a straight end).
-  const last = points.length - 1;
-  const radius = points.map((point, i) => {
-    if (i === 0 || i === last) return 0;
-    const before = Math.abs(point.x - points[i - 1].x) + Math.abs(point.y - points[i - 1].y);
-    const after = Math.abs(points[i + 1].x - point.x) + Math.abs(points[i + 1].y - point.y);
-    let r = Math.min(bendMm, before / 2, after / 2);
-    if (i === 1) r = Math.min(r, Math.max(0, before - straight.startMm));
-    if (i === last - 1) r = Math.min(r, Math.max(0, after - straight.endMm));
-    return r;
-  });
+  const runs = points.slice(1).map((point, i) => Math.abs(point.x - points[i].x) + Math.abs(point.y - points[i].y));
+  const radius = cornerRadiiMm(runs, bendMm, straight);
 
   const pieces: PathPiece[] = [];
   let start = points[0];

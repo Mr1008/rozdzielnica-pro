@@ -25,11 +25,6 @@ export function wiringVariantOf(view: DrawingView): WiringVariant {
   return view === "3d" ? "realistic" : view;
 }
 
-/** The 2D variant the parameter asks for; `3d` reads as realistic. */
-export function wiringViewFromParam(value: string | null): WiringVariant {
-  return wiringVariantOf(drawingViewFromParam(value));
-}
-
 /**
  * The links of the switch: the page at `pathname`, with the parameter only for the non-default views,
  * and the section's `anchor` kept so the page lands back on the drawing.

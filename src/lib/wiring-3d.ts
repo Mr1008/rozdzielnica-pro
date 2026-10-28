@@ -15,6 +15,7 @@ import {
   buildCableTies,
   buildDrawnCables,
   BUSBAR_TOOTH_MM,
+  cornerRadiiMm,
   FERRULE_EXTRA_MM,
   isWireCrossSection,
   realisticSagLimits,
@@ -420,15 +421,8 @@ export function smoothConductor3D(
   const straightStart = conductor.fromEntry ? 0 : ferruleMm;
   const straightEnd = conductor.toEntry ? 0 : ferruleMm;
 
-  const radius = points.map((point, i) => {
-    if (i === 0 || i === last) return 0;
-    const before = length3(points[i - 1], point);
-    const after = length3(point, points[i + 1]);
-    let r = Math.min(bendMm, before / 2, after / 2);
-    if (i === 1) r = Math.min(r, Math.max(0, before - straightStart));
-    if (i === last - 1) r = Math.min(r, Math.max(0, after - straightEnd));
-    return r;
-  });
+  const runs = points.slice(1).map((point, i) => length3(points[i], point));
+  const radius = cornerRadiiMm(runs, bendMm, { startMm: straightStart, endMm: straightEnd });
 
   const out: Point3Mm[] = [{ ...points[0] }];
   const push = (p: Point3Mm) => {
