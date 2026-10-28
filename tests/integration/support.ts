@@ -35,11 +35,12 @@ function runSupabaseStatus(): string {
   }
 }
 
-const queryResultSchema = z.object({ rows: z.array(z.unknown()) });
+const queryResultSchema = z.array(z.unknown());
 
 /**
  * Reads the Postgres catalog of the local stack without a driver or a schema change. The SQL is
- * passed through the shell, so it must not contain double quotes.
+ * passed through the shell, so it must not contain double quotes. `--agent no`: under an AI agent
+ * the CLI wraps the rows in `{ boundary, rows, warning }`, elsewhere (CI) it prints the bare array.
  */
 export function queryDatabase(sql: string): unknown[] {
   if (sql.includes('"')) {
@@ -47,7 +48,7 @@ export function queryDatabase(sql: string): unknown[] {
   }
   let output: string;
   try {
-    output = execSync(`npx supabase db query --local -o json "${sql.replace(/\s+/g, " ").trim()}"`, {
+    output = execSync(`npx supabase db query --local -o json --agent no "${sql.replace(/\s+/g, " ").trim()}"`, {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
     });
@@ -55,7 +56,7 @@ export function queryDatabase(sql: string): unknown[] {
     throw new Error("The local Supabase stack is not reachable. Start it with `npx supabase start`.");
   }
   const parsed: unknown = JSON.parse(output);
-  return queryResultSchema.parse(parsed).rows;
+  return queryResultSchema.parse(parsed);
 }
 
 /**
