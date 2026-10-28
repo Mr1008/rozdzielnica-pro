@@ -1,9 +1,10 @@
 ---
 change_id: cabinet-3d-preview
 title: Mouse-driven 3D preview of the placed cabinet layout, wires included
-status: impl_reviewed
+status: archived
 created: 2026-10-27
 updated: 2026-10-28
+archived_at: 2026-10-28T14:46:19Z
 ---
 
 ## Notes
