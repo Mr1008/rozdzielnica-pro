@@ -1,5 +1,5 @@
 /* eslint-disable react/no-unknown-property -- R3F elements take three.js props, not DOM attributes. */
-import { useEffect, useMemo, useRef, type JSX } from "react";
+import { createContext, use, useEffect, useMemo, useRef, type JSX } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Edges, OrbitControls } from "@react-three/drei";
 import {
@@ -12,15 +12,14 @@ import {
   SRGBColorSpace,
   TubeGeometry,
   Vector3,
-  type BufferGeometry,
   type Mesh,
 } from "three";
 import { BAR_CLASSES, DEVICE_CLASSES } from "@/components/cabinets/CabinetDrawing";
 import type { Box3Mm, CabinetScene } from "@/lib/cabinet-3d";
-import { REALISTIC_WIRE_STYLES, type WireStripe } from "@/lib/cabinet-drawing";
+import { REALISTIC_WIRE_STYLES, type DrawnRole, type WireStripe } from "@/lib/cabinet-drawing";
 import type { ConductorRole } from "@/lib/cabinet-wiring";
 import { t } from "@/lib/i18n";
-import type { Point3Mm, Wiring3D } from "@/lib/wiring-3d";
+import type { Busbar3D, Conductor3D, Point3Mm, Wiring3D } from "@/lib/wiring-3d";
 
 /**
  * The three.js side of the 3D preview (GitHub #14). It draws the boxes and polylines of `cabinet-3d.ts`
@@ -31,6 +30,10 @@ import type { Point3Mm, Wiring3D } from "@/lib/wiring-3d";
  * because the tokens are `oklch()` and three.js's CSS parser is not relied on for that. The token of a
  * role comes from the 2D drawing's own class maps (`DEVICE_CLASSES`, `BAR_CLASSES`,
  * `REALISTIC_WIRE_STYLES`), so there is no second mapping to drift.
+ *
+ * One component per element kind — `Cabinet`, `Rail`, `Device`, `BuiltinBar`, `Busbar`, `Wire` — each
+ * taking only its pure-model box or points, so a detailed model can replace a kind's box without
+ * touching the scene. They share the colours, materials and the unit box through `SceneKit`.
  */
 
 /** A token class (`fill-drawing-frame stroke-…`, `stroke-wire-l1`) → its custom property's name. */
@@ -127,24 +130,103 @@ function boxScale(box: Box3Mm): [number, number, number] {
   return [box.w, box.h, box.d];
 }
 
-interface ShellProps {
-  scene: CabinetScene;
-  geometry: BoxGeometry;
-  plate: MeshStandardMaterial;
-  wall: MeshStandardMaterial;
+type BarKind = CabinetScene["bars"][number]["kind"];
+
+/** What every element component shares: token colours, one material per colour, one unit box. */
+interface SceneKit {
+  read: (token: string) => Color;
+  unitBox: BoxGeometry;
+  materials: {
+    plate: MeshStandardMaterial;
+    wall: MeshStandardMaterial;
+    rail: MeshStandardMaterial;
+    devices: Record<DrawnRole, MeshStandardMaterial>;
+    bars: Record<BarKind, MeshStandardMaterial>;
+    busbarBody: MeshStandardMaterial;
+    busbarTooth: MeshStandardMaterial;
+    core: MeshStandardMaterial;
+    sheath: MeshStandardMaterial;
+  };
+  edgeColor: Color;
+}
+
+const SceneKitContext = createContext<SceneKit | null>(null);
+
+function useSceneKit(): SceneKit {
+  const kit = use(SceneKitContext);
+  if (kit === null) throw new Error("a 3D element rendered outside Cabinet3DScene");
+  return kit;
+}
+
+/** Builds the shared kit once and disposes of it with the scene. */
+function useBuildSceneKit(): SceneKit {
+  const kit = useMemo<SceneKit>(() => {
+    const read = makeTokenReader();
+    const material = (token: string, extra: { roughness?: number; metalness?: number } = {}) =>
+      new MeshStandardMaterial({ color: read(token), roughness: 0.7, ...extra });
+    return {
+      read,
+      unitBox: new BoxGeometry(1, 1, 1),
+      materials: {
+        plate: material("drawing-paper"),
+        wall: material("drawing-rail-stroke"),
+        rail: material("drawing-rail", { metalness: 0.3, roughness: 0.5 }),
+        devices: Object.fromEntries(
+          Object.entries(DEVICE_CLASSES).map(([role, classes]) => [role, material(tokenOfClass(classes.body))]),
+        ) as Record<DrawnRole, MeshStandardMaterial>,
+        bars: {
+          PE: material(tokenOfClass(BAR_CLASSES.PE.body), { metalness: 0.4 }),
+          N: material(tokenOfClass(BAR_CLASSES.N.body), { metalness: 0.4 }),
+        },
+        busbarBody: material("busbar-insulation"),
+        busbarTooth: material("busbar-copper", { metalness: 0.6, roughness: 0.4 }),
+        core: new MeshStandardMaterial({ vertexColors: true, roughness: 0.55 }),
+        sheath: material("wire-sheath"),
+      },
+      edgeColor: read("drawing-frame"),
+    };
+  }, []);
+  useEffect(
+    () => () => {
+      kit.unitBox.dispose();
+      const { devices, bars, ...single } = kit.materials;
+      for (const material of [...Object.values(single), ...Object.values(devices), ...Object.values(bars)]) {
+        material.dispose();
+      }
+    },
+    [kit],
+  );
+  return kit;
+}
+
+interface BoxMeshProps {
+  box: Box3Mm;
+  material: MeshStandardMaterial;
+  /** Outline it in the frame colour, like the 2D drawing's stroke. */
+  edges?: boolean;
+}
+
+/** A box-shaped stand-in: the unit box scaled to `box`. */
+function BoxMesh({ box, material, edges = false }: BoxMeshProps): JSX.Element {
+  const { unitBox, edgeColor } = useSceneKit();
+  return (
+    <mesh geometry={unitBox} material={material} position={boxPosition(box)} scale={boxScale(box)}>
+      {edges && <Edges color={edgeColor} />}
+    </mesh>
+  );
 }
 
 /**
  * The back plate and the four walls, as a cutaway: each frame, a wall (or the plate) the camera is
- * outside of is hidden, so from any angle the interior stays in view. `scene.walls` is left, right, top,
+ * outside of is hidden, so from any angle the interior stays in view. `walls` is left, right, top,
  * bottom (`buildCabinetScene`).
  */
-function CabinetShell({ scene, geometry, plate, wall }: ShellProps): JSX.Element {
+function Cabinet({ interior, backPlate, walls }: Pick<CabinetScene, "interior" | "backPlate" | "walls">): JSX.Element {
+  const { unitBox, materials } = useSceneKit();
   const refs = useRef<(Mesh | null)[]>([]);
-  const { w, h } = scene.interior;
   useFrame(({ camera }) => {
     const { x, y, z } = camera.position;
-    const outside = [z < 0, x < 0, x > w, y > 0, y < -h];
+    const outside = [z < 0, x < 0, x > interior.w, y > 0, y < -interior.h];
     outside.forEach((hidden, i) => {
       const mesh = refs.current[i];
       if (mesh) mesh.visible = !hidden;
@@ -152,18 +234,74 @@ function CabinetShell({ scene, geometry, plate, wall }: ShellProps): JSX.Element
   });
   return (
     <>
-      {[scene.backPlate, ...scene.walls].map((b, i) => (
+      {[backPlate, ...walls].map((b, i) => (
         <mesh
           key={i === 0 ? "plate" : `wall-${String(i)}`}
           ref={(mesh) => {
             refs.current[i] = mesh;
           }}
-          geometry={geometry}
-          material={i === 0 ? plate : wall}
+          geometry={unitBox}
+          material={i === 0 ? materials.plate : materials.wall}
           position={boxPosition(b)}
           scale={boxScale(b)}
         />
       ))}
+    </>
+  );
+}
+
+/** A DIN rail. */
+function Rail({ box }: { box: Box3Mm }): JSX.Element {
+  return <BoxMesh box={box} material={useSceneKit().materials.rail} edges />;
+}
+
+/** A placed device, catalog PE/N bars included; its look follows its role. */
+function Device({ role, box }: { role: DrawnRole; box: Box3Mm }): JSX.Element {
+  return <BoxMesh box={box} material={useSceneKit().materials.devices[role]} edges />;
+}
+
+/** One of the cabinet's built-in PE/N bars. */
+function BuiltinBar({ kind, box }: { kind: BarKind; box: Box3Mm }): JSX.Element {
+  return <BoxMesh box={box} material={useSceneKit().materials.bars[kind]} edges />;
+}
+
+/** A comb busbar: its insulated body and a copper tooth per terminal. */
+function Busbar({ body, teeth }: Pick<Busbar3D, "body" | "teeth">): JSX.Element {
+  const { materials } = useSceneKit();
+  return (
+    <group>
+      <BoxMesh box={body} material={materials.busbarBody} />
+      {teeth.map((tooth, i) => (
+        <BoxMesh key={i} box={tooth} material={materials.busbarTooth} />
+      ))}
+    </group>
+  );
+}
+
+/** A conductor: its core as a tube in its insulation colours, plus a thicker sheath stub for a cable. */
+function Wire({
+  role,
+  diameterMm,
+  points,
+  sheath,
+}: Pick<Conductor3D, "role" | "diameterMm" | "points" | "sheath">): JSX.Element {
+  const { read, materials } = useSceneKit();
+  const geometries = useMemo(() => {
+    const core = tube(points, diameterMm);
+    if (core) paintCore(core, role, diameterMm, read);
+    return { core, sheath: sheath && tube(sheath, diameterMm * SHEATH_DIAMETER_RATIO) };
+  }, [points, sheath, role, diameterMm, read]);
+  useEffect(
+    () => () => {
+      geometries.core?.dispose();
+      geometries.sheath?.dispose();
+    },
+    [geometries],
+  );
+  return (
+    <>
+      {geometries.core && <mesh geometry={geometries.core} material={materials.core} />}
+      {geometries.sheath && <mesh geometry={geometries.sheath} material={materials.sheath} />}
     </>
   );
 }
@@ -175,68 +313,7 @@ interface Props {
 }
 
 export default function Cabinet3DScene({ scene, wiring }: Props): JSX.Element {
-  const read = useMemo(() => makeTokenReader(), []);
-  const unitBox = useMemo(() => new BoxGeometry(1, 1, 1), []);
-  const materials = useMemo(() => {
-    const material = (token: string, extra: { roughness?: number; metalness?: number } = {}) =>
-      new MeshStandardMaterial({ color: read(token), roughness: 0.7, ...extra });
-    return {
-      plate: material("drawing-paper"),
-      wall: material("drawing-rail-stroke"),
-      rail: material("drawing-rail", { metalness: 0.3, roughness: 0.5 }),
-      devices: Object.fromEntries(
-        Object.entries(DEVICE_CLASSES).map(([role, classes]) => [role, material(tokenOfClass(classes.body))]),
-      ) as Record<keyof typeof DEVICE_CLASSES, MeshStandardMaterial>,
-      bars: {
-        PE: material(tokenOfClass(BAR_CLASSES.PE.body), { metalness: 0.4 }),
-        N: material(tokenOfClass(BAR_CLASSES.N.body), { metalness: 0.4 }),
-      },
-      busbarBody: material("busbar-insulation"),
-      busbarTooth: material("busbar-copper", { metalness: 0.6, roughness: 0.4 }),
-      core: new MeshStandardMaterial({ vertexColors: true, roughness: 0.55 }),
-      sheath: material("wire-sheath"),
-    };
-  }, [read]);
-  const edgeColor = read("drawing-frame");
-
-  const tubes = useMemo(() => {
-    if (wiring === null) return { cores: [], sheaths: [] };
-    const cores: { key: string; geometry: BufferGeometry }[] = [];
-    const sheaths: { key: string; geometry: BufferGeometry }[] = [];
-    for (const conductor of wiring.conductors) {
-      const core = tube(conductor.points, conductor.diameterMm);
-      if (core) {
-        paintCore(core, conductor.role, conductor.diameterMm, read);
-        cores.push({ key: conductor.key, geometry: core });
-      }
-      const sheath = conductor.sheath && tube(conductor.sheath, conductor.diameterMm * SHEATH_DIAMETER_RATIO);
-      if (sheath) sheaths.push({ key: conductor.key, geometry: sheath });
-    }
-    return { cores, sheaths };
-  }, [wiring, read]);
-
-  useEffect(
-    () => () => {
-      for (const { geometry } of [...tubes.cores, ...tubes.sheaths]) geometry.dispose();
-    },
-    [tubes],
-  );
-  useEffect(
-    () => () => {
-      unitBox.dispose();
-      materials.plate.dispose();
-      materials.wall.dispose();
-      materials.rail.dispose();
-      for (const material of Object.values(materials.devices)) material.dispose();
-      materials.bars.PE.dispose();
-      materials.bars.N.dispose();
-      materials.busbarBody.dispose();
-      materials.busbarTooth.dispose();
-      materials.core.dispose();
-      materials.sheath.dispose();
-    },
-    [unitBox, materials],
-  );
+  const kit = useBuildSceneKit();
 
   // Fit the camera to the interior: from the front, a little from above and the side.
   const { interior } = scene;
@@ -254,12 +331,6 @@ export default function Cabinet3DScene({ scene, wiring }: Props): JSX.Element {
     ],
   };
 
-  const box = (key: string, b: Box3Mm, material: MeshStandardMaterial, edges = false) => (
-    <mesh key={key} geometry={unitBox} material={material} position={boxPosition(b)} scale={boxScale(b)}>
-      {edges && <Edges color={edgeColor} />}
-    </mesh>
-  );
-
   return (
     <Canvas
       role="img"
@@ -268,28 +339,36 @@ export default function Cabinet3DScene({ scene, wiring }: Props): JSX.Element {
       dpr={[1, 2]}
       frameloop="demand"
     >
-      <ambientLight intensity={1.4} />
-      <directionalLight
-        intensity={2}
-        position={[centre[0] + interior.w, centre[1] + interior.h, centre[2] + distance]}
-      />
-      <CabinetShell scene={scene} geometry={unitBox} plate={materials.plate} wall={materials.wall} />
-      {scene.rails.map((rail, i) => box(`rail-${String(i)}`, rail, materials.rail, true))}
-      {scene.bars.map((bar, i) => box(`bar-${String(i)}`, bar.box, materials.bars[bar.kind], true))}
-      {scene.devices.map((device) => box(device.id, device.box, materials.devices[device.role], true))}
-      {wiring?.busbars.map((busbar) => (
-        <group key={busbar.key}>
-          {box("body", busbar.body, materials.busbarBody)}
-          {busbar.teeth.map((tooth, i) => box(`tooth-${String(i)}`, tooth, materials.busbarTooth))}
-        </group>
-      ))}
-      {tubes.cores.map(({ key, geometry }) => (
-        <mesh key={key} geometry={geometry} material={materials.core} />
-      ))}
-      {tubes.sheaths.map(({ key, geometry }) => (
-        <mesh key={`sheath-${key}`} geometry={geometry} material={materials.sheath} />
-      ))}
-      <OrbitControls makeDefault enableDamping target={centre} />
+      <SceneKitContext value={kit}>
+        <ambientLight intensity={1.4} />
+        <directionalLight
+          intensity={2}
+          position={[centre[0] + interior.w, centre[1] + interior.h, centre[2] + distance]}
+        />
+        <Cabinet interior={scene.interior} backPlate={scene.backPlate} walls={scene.walls} />
+        {scene.rails.map((rail, i) => (
+          <Rail key={`rail-${String(i)}`} box={rail} />
+        ))}
+        {scene.bars.map((bar, i) => (
+          <BuiltinBar key={`bar-${String(i)}`} kind={bar.kind} box={bar.box} />
+        ))}
+        {scene.devices.map((device) => (
+          <Device key={device.id} role={device.role} box={device.box} />
+        ))}
+        {wiring?.busbars.map((busbar) => (
+          <Busbar key={busbar.key} body={busbar.body} teeth={busbar.teeth} />
+        ))}
+        {wiring?.conductors.map((conductor) => (
+          <Wire
+            key={conductor.key}
+            role={conductor.role}
+            diameterMm={conductor.diameterMm}
+            points={conductor.points}
+            sheath={conductor.sheath}
+          />
+        ))}
+        <OrbitControls makeDefault enableDamping target={centre} />
+      </SceneKitContext>
     </Canvas>
   );
 }
