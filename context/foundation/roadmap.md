@@ -3,7 +3,7 @@ project: "RozdzielnicaPro"
 version: 1
 status: draft
 created: 2026-09-21
-updated: 2026-10-27
+updated: 2026-10-28
 prd_version: 2
 main_goal: low-complexity
 top_blocker: decisions
@@ -305,7 +305,6 @@ Foundations poniżej zakładają, że to istnieje, i **nie** budują tego od now
 - **Szafka własna/niestandardowa spoza katalogu** — Why parked: świadome zawężenie zapisane przy FR-004; elektryk wybiera wyłącznie z katalogu admina. Śledzone w GitHub [#26](https://github.com/Mr1008/rozdzielnica-pro/issues/26).
 - **Filtr preferowanego producenta przy doborze** — Why parked: odnotowany przy FR-007 jako rozszerzenie po MVP; kryterium MVP to najniższa cena spośród poprawnych dopasowań. Śledzone w GitHub [#27](https://github.com/Mr1008/rozdzielnica-pro/issues/27).
 - **Szablony obwodów / kopiowanie obwodów między projektami** — Why parked: odłożone przy FR-006 na późniejszą wersję. Śledzone w GitHub [#28](https://github.com/Mr1008/rozdzielnica-pro/issues/28).
-- **Observability (logger, error tracking, metryki)** — Why parked: not a PRD requirement, so it stays outside the milestone; it was picked up anyway as change `observability` (planned and implemented 2026-10-27: closes the remaining findings of the 2026-10-21 observability audit on Workers Logs, with no third-party tracker). Close this entry once that change is archived. Śledzone w GitHub [#29](https://github.com/Mr1008/rozdzielnica-pro/issues/29).
 - **Trójwymiarowy podgląd szafki** (obrót, przybliżanie i przesuwanie myszą) — Why parked: pomysł
   użytkownika z 2026-09-23, niski priorytet, na sam koniec MVP, jeśli zostanie czas. Żaden FR tego
   nie wymaga — wystarcza rysunek 2D z przodu (S-05, S-06, S-09). Uwaga wykonawcza: geometria szafki
