@@ -254,31 +254,31 @@ The Karwasz runs multiply property-test time; bound the runs per geometry and me
 
 #### Automated
 
-- [x] 1.1 `npx vitest run src/lib/quote.examples.test.ts` passes — 4052220
-- [x] 1.2 Deliberate break — `deviceCount` computed as distinct `device_id`s, or busbar rows priced per row, turns the suite red (reverted) — 4052220
-- [x] 1.3 `npm run lint` and `npm run test:unit` pass — 4052220
+- [x] 1.1 `npx vitest run src/lib/quote.examples.test.ts` passes — 807ce99
+- [x] 1.2 Deliberate break — `deviceCount` computed as distinct `device_id`s, or busbar rows priced per row, turns the suite red (reverted) — 807ce99
+- [x] 1.3 `npm run lint` and `npm run test:unit` pass — 807ce99
 
 ### Phase 2: Quote property test
 
 #### Automated
 
-- [x] 2.1 `npx vitest run src/lib/quote.property.test.ts` passes — 46e1190
-- [x] 2.2 Deliberate break — `+ 30` changed to `+ 29` in `labourCostGrosze` turns it red (reverted) — 46e1190
-- [x] 2.3 `npm run lint` and `npm run test:unit` pass — 46e1190
+- [x] 2.1 `npx vitest run src/lib/quote.property.test.ts` passes — 39f1a66
+- [x] 2.2 Deliberate break — `+ 30` changed to `+ 29` in `labourCostGrosze` turns it red (reverted) — 39f1a66
+- [x] 2.3 `npm run lint` and `npm run test:unit` pass — 39f1a66
 
 ### Phase 3: Production cabinets in the layout property tests
 
 #### Automated
 
-- [x] 3.1 Both property files pass; the added runtime stays under ~30 s on this machine (measured, noted in the commit body) — bdadff5
-- [x] 3.2 `npm run lint` and `npm run test:unit` pass — bdadff5
+- [x] 3.1 Both property files pass; the added runtime stays under ~30 s on this machine (measured, noted in the commit body) — 651438c
+- [x] 3.2 `npm run lint` and `npm run test:unit` pass — 651438c
 
 ### Phase 4: Test-plan close-out and visual review
 
 #### Automated
 
-- [x] 4.1 `npm run lint` and `npm run test:unit` pass — 9f0f876
+- [x] 4.1 `npm run lint` and `npm run test:unit` pass — adcfccf
 
 #### Manual
 
-- [x] 4.2 Multimodal review of the printout and the cabinet drawing on `/dev/kitchen-sink` (1–2 screens): labels readable, no device or label overlap, material table on one page; result dated in §6.6 — 9f0f876
+- [x] 4.2 Multimodal review of the printout and the cabinet drawing on `/dev/kitchen-sink` (1–2 screens): labels readable, no device or label overlap, material table on one page; result dated in §6.6 — adcfccf
