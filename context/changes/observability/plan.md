@@ -614,10 +614,10 @@ push to `master`; they are reverted by reverting the commit.
 
 #### Manual
 
-- [ ] 2.4 With the local stack's auth container stopped, `/dashboard` answers 503 with the Polish page and Workers Logs (dev console) shows one classified record; `/` still renders signed out
-- [ ] 2.5 With the stack up and no session, `/dashboard` still redirects to `/auth/signin` and nothing is logged
-- [ ] 2.6 A forced throw in a page frontmatter shows the Polish 500 page
-- [ ] 2.7 Wrong password on sign-in logs nothing; the banner is unchanged
+- [x] 2.4 With the local stack's auth container stopped, `/dashboard` answers 503 with the Polish page and Workers Logs (dev console) shows one classified record; `/` still renders signed out
+- [x] 2.5 With the stack up and no session, `/dashboard` still redirects to `/auth/signin` and nothing is logged
+- [x] 2.6 A forced throw in a page frontmatter shows the Polish 500 page
+- [x] 2.7 Wrong password on sign-in logs nothing; the banner is unchanged
 
 ### Phase 3: Browser error path
 
@@ -629,11 +629,11 @@ push to `master`; they are reverted by reverting the commit.
 
 #### Manual
 
-- [ ] 3.4 A forced throw in `buildWiringDrawing` on the project page shows the Polish alert, and a `client.wiring` record with userId and projectId appears in the dev server log
-- [ ] 3.5 The same forced throw on the print page shows the explanation and "Drukuj" stays disabled
-- [ ] 3.6 A forced render error in an island shows the boundary fallback and is reported once
-- [ ] 3.7 An anonymous POST to `/api/client-errors` is redirected and logs nothing
-- [ ] 3.8 The kitchen-sink shows the boundary fallback, the wiring failure alert and the print explanation
+- [x] 3.4 A forced throw in `buildWiringDrawing` on the project page shows the Polish alert, and a `client.wiring` record with userId and projectId appears in the dev server log
+- [x] 3.5 The same forced throw on the print page shows the explanation and "Drukuj" stays disabled
+- [x] 3.6 A forced render error in an island shows the boundary fallback and is reported once
+- [x] 3.7 An anonymous POST to `/api/client-errors` is redirected and logs nothing
+- [x] 3.8 The kitchen-sink shows the boundary fallback, the wiring failure alert and the print explanation
 
 ### Phase 4: Loud fallbacks and metrics
 
@@ -645,9 +645,9 @@ push to `master`; they are reverted by reverting the commit.
 
 #### Manual
 
-- [ ] 4.4 With a probe trigger failing the placements read, a circuit save on a project with a manual layout shows the generic banner and the manual layout is unchanged afterwards
-- [ ] 4.5 A normal circuit save writes one `projects.circuits.saved` info record with the expected counts
-- [ ] 4.6 A tampered circuits POST (invalid payload) writes one warn record with issue codes and no values
+- [x] 4.4 With a probe trigger failing the placements read, a circuit save on a project with a manual layout shows the generic banner and the manual layout is unchanged afterwards
+- [x] 4.5 A normal circuit save writes one `projects.circuits.saved` info record with the expected counts
+- [x] 4.6 A tampered circuits POST (invalid payload) writes one warn record with issue codes and no values
 
 ### Phase 5: Server boundaries and deploy identity
 
@@ -660,7 +660,7 @@ push to `master`; they are reverted by reverting the commit.
 
 #### Manual
 
-- [ ] 5.5 A forced throw inside the print pipeline shows the Polish load-failed state and logs branch, projectId, userId and a stack
+- [x] 5.5 A forced throw inside the print pipeline shows the Polish load-failed state and logs branch, projectId, userId and a stack
 - [ ] 5.6 A catalog device without `n_terminal_side` makes a circuit save show the unknown banner and logs the device id
 - [ ] 5.7 After the first deploy from `master`, Workers Logs shows the version tag and a source-mapped stack for a forced error
 - [ ] 5.8 After the first deploy from `master`, the dashboard's Observability view shows traces with Supabase subrequest spans
@@ -675,5 +675,5 @@ push to `master`; they are reverted by reverting the commit.
 
 #### Manual
 
-- [ ] 6.4 `probe-before-after.md` reads as evidence: C1 and C5 changed from missed to logged
-- [ ] 6.5 Issue #29 on GitHub reflects the updated roadmap entry
+- [x] 6.4 `probe-before-after.md` reads as evidence: C1 and C5 changed from missed to logged
+- [x] 6.5 Issue #29 on GitHub reflects the updated roadmap entry
