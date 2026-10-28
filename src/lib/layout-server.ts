@@ -2,11 +2,14 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildDrawnDevices, type DrawnDevice } from "@/lib/cabinet-drawing";
 import type { CabinetGeometry } from "@/lib/cabinet-geometry";
 import {
+  MissingNTerminalSideError,
   proposeLayout,
   validateLayout,
   type LayoutDevice,
   type LayoutFailure,
+  type LayoutInput,
   type LayoutIssue,
+  type LayoutResult,
   type Placement,
 } from "@/lib/cabinet-layout";
 import { routeConductors, type Conductor } from "@/lib/cabinet-wiring";
@@ -22,7 +25,7 @@ import {
 } from "@/lib/device-matching-server";
 import { carryOverPlacementsWithReason, type CarryOverFailureReason } from "@/lib/layout-editing";
 import { PROJECT_ERROR, projectErrorFromPostgrest } from "@/lib/project-errors";
-import { logServerError } from "@/lib/server-log";
+import { logServerError, type ServerLogContext } from "@/lib/server-log";
 import { toWiringData, type WiringData } from "@/lib/wiring-island";
 
 /**
@@ -55,6 +58,29 @@ export function placementsFromRows(
  */
 export type LayoutViewState = "placed" | "missing" | "does_not_fit" | "outdated";
 
+/**
+ * `proposeLayout`, with a `MissingNTerminalSideError` re-thrown carrying the catalog device behind the
+ * layout's own key (a snapshot row id, or a selection index on the proposal path), so the log names
+ * the catalog row the admin has to fix.
+ */
+function proposeNamingCatalog(
+  input: LayoutInput,
+  catalogIdOf: (layoutDeviceId: string) => string | null,
+): LayoutResult {
+  try {
+    return proposeLayout(input);
+  } catch (error) {
+    if (!(error instanceof MissingNTerminalSideError)) throw error;
+    throw new MissingNTerminalSideError(error.deviceId, catalogIdOf(String(error.deviceId)), { cause: error });
+  }
+}
+
+/** The log fields for a failed layout step: the catalog `deviceId` and the layout's own key, when known. */
+export function layoutFailureLogFields(error: unknown): ServerLogContext {
+  if (!(error instanceof MissingNTerminalSideError)) return {};
+  return { deviceId: error.catalogDeviceId, layoutDeviceId: String(error.deviceId) };
+}
+
 export type LayoutView =
   | { state: "placed"; placements: Placement[]; editedManually: boolean }
   | { state: "missing"; proposal: Placement[] }
@@ -86,12 +112,10 @@ export function computeLayoutView(
     if (issues.length === 0) return { state: "placed", placements: [...placements], editedManually };
   }
 
-  const proposal = proposeLayout({
-    devices,
-    groups: context.groups,
-    circuits: context.circuits,
-    geometry: context.geometry,
-  });
+  const proposal = proposeNamingCatalog(
+    { devices, groups: context.groups, circuits: context.circuits, geometry: context.geometry },
+    (rowId) => devices.find((row) => row.id === rowId)?.device_id ?? null,
+  );
   if (!proposal.ok) return { state: "does_not_fit", failure: proposal.reason };
   if (placements.length > 0) return { state: "outdated", issues, proposal: proposal.placements };
   return { state: "missing", proposal: proposal.placements };
@@ -175,7 +199,12 @@ export function proposeSelectionLayout(
   const devices = selectionLayoutDevices(result, catalog);
   if (devices === undefined) return undefined;
 
-  const layout = proposeLayout({ devices, groups: payload.groups, circuits: payload.circuits, geometry });
+  // `selectionLayoutDevices` keys the devices by their index in `result.selections`.
+  const selections = result.status === "matched" ? result.selections : [];
+  const layout = proposeNamingCatalog(
+    { devices, groups: payload.groups, circuits: payload.circuits, geometry },
+    (index) => selections[Number(index)]?.deviceId ?? null,
+  );
   if (!layout.ok) return undefined;
   return selectionPlacements(devices, layout.placements);
 }

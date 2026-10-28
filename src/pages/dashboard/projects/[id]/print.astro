@@ -10,10 +10,10 @@ import Layout from "@/layouts/Layout.astro";
 import { isUuid } from "@/lib/catalog";
 import { computeMatchView, type MatchView } from "@/lib/device-matching-server";
 import { t } from "@/lib/i18n";
-import { MissingNTerminalSideError } from "@/lib/cabinet-layout";
 import {
   buildLayoutDrawing,
   computeLayoutView,
+  layoutFailureLogFields,
   loadLayoutContext,
   type LayoutDrawing,
   type LayoutView,
@@ -140,7 +140,7 @@ function guard<T>(name: string, compute: () => T, fallback: T): T {
       branch: name,
       userId: Astro.locals.user?.id,
       projectId: id,
-      deviceId: error instanceof MissingNTerminalSideError ? String(error.deviceId) : undefined,
+      ...layoutFailureLogFields(error),
       rows: error instanceof PrintInvariantError ? JSON.stringify(error.rows) : undefined,
     });
     return fallback;

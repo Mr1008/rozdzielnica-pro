@@ -661,7 +661,7 @@ push to `master`; they are reverted by reverting the commit.
 #### Manual
 
 - [x] 5.5 A forced throw inside the print pipeline shows the Polish load-failed state and logs branch, projectId, userId and a stack
-- [ ] 5.6 A catalog device without `n_terminal_side` makes a circuit save show the unknown banner and logs the device id
+- [x] 5.6 A catalog device without `n_terminal_side` makes a circuit save show the unknown banner and logs the device id
 - [ ] 5.7 After the first deploy from `master`, Workers Logs shows the version tag and a source-mapped stack for a forced error
 - [ ] 5.8 After the first deploy from `master`, the dashboard's Observability view shows traces with Supabase subrequest spans
 

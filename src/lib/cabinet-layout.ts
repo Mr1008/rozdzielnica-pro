@@ -228,11 +228,15 @@ const PHASE_POLES: Record<PoleConfig, readonly TerminalPole[]> = {
  * class so the callers can log the offending `deviceId` and show a Polish state instead of a blank 500.
  */
 export class MissingNTerminalSideError extends Error {
+  /** The layout's own key for the device: a snapshot row id, or a selection index on the proposal path. */
   readonly deviceId: string | number;
-  constructor(deviceId: string | number) {
-    super(`device ${String(deviceId)} carries N but has no n_terminal_side`);
+  /** The catalog device behind it, filled in by the caller that knows the mapping (`layout-server.ts`). */
+  readonly catalogDeviceId: string | null;
+  constructor(deviceId: string | number, catalogDeviceId: string | null = null, options?: ErrorOptions) {
+    super(`device ${String(deviceId)} carries N but has no n_terminal_side`, options);
     this.name = "MissingNTerminalSideError";
     this.deviceId = deviceId;
+    this.catalogDeviceId = catalogDeviceId;
   }
 }
 

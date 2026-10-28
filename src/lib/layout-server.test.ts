@@ -1,7 +1,7 @@
 import { performance } from "node:perf_hooks";
 import { describe, expect, it } from "vitest";
 import { buildDrawnWires } from "./cabinet-drawing";
-import { proposeLayout, validateLayout, type Placement } from "./cabinet-layout";
+import { MissingNTerminalSideError, proposeLayout, validateLayout, type Placement } from "./cabinet-layout";
 import { wireLengthsBySection } from "./cabinet-wiring";
 import { SEED_A, SEED_B, SEED_C } from "./cabinet-layout.fixtures";
 import type { CircuitsPayload } from "./circuit-params";
@@ -11,6 +11,7 @@ import {
   chooseSelectionLayout,
   computeLayoutView,
   computeWiring,
+  layoutFailureLogFields,
   layoutRpcErrorCode,
   placementsFromRows,
   previousLayoutFromReads,
@@ -42,6 +43,16 @@ function proposal(snapshot: SnapshotRow[], payload: CircuitsPayload, geometry = 
 const SMALL = project(1, 2);
 const SMALL_CONTEXT = { geometry: SEED_B, groups: SMALL.groups, circuits: SMALL.circuits };
 
+/** What `run` throws, or undefined. */
+function catchError(run: () => unknown): unknown {
+  try {
+    run();
+  } catch (error) {
+    return error;
+  }
+  return undefined;
+}
+
 // ---------------------------------------------------------------------------------------------
 // computeLayoutView
 // ---------------------------------------------------------------------------------------------
@@ -51,6 +62,19 @@ describe("computeLayoutView", () => {
     const placements = proposal(SMALL.snapshot, SMALL);
     expect(computeLayoutView(matchView(state, SMALL.snapshot), SMALL_CONTEXT, placements)).toBeNull();
     expect(computeLayoutView(matchView(state, SMALL.snapshot), SMALL_CONTEXT, [])).toBeNull();
+  });
+
+  it("names the catalog device behind a snapshot row that carries N without a side", () => {
+    const rcd = SMALL.snapshot.find((row) => row.role === "rcd");
+    if (rcd === undefined) throw new Error("fixture has no RCD");
+    const snapshot = SMALL.snapshot.map((row) => (row === rcd ? { ...row, n_terminal_side: null } : row));
+    const thrown = catchError(() => computeLayoutView(matchView("current", snapshot), SMALL_CONTEXT, []));
+    expect(thrown).toBeInstanceOf(MissingNTerminalSideError);
+    expect(layoutFailureLogFields(thrown)).toEqual({ deviceId: rcd.device_id, layoutDeviceId: rcd.id });
+  });
+
+  it("logs nothing extra for any other layout failure", () => {
+    expect(layoutFailureLogFields(new Error("other"))).toEqual({});
   });
 
   it("is null when the cabinet snapshot does not parse", () => {
@@ -182,6 +206,15 @@ describe("proposeSelectionLayout", () => {
   it("stores nothing without a cabinet snapshot or with a device missing from the catalog", () => {
     expect(proposeSelectionLayout(matched, CATALOG, payload, null)).toBeUndefined();
     expect(proposeSelectionLayout(matched, CATALOG.slice(1), payload, SEED_B)).toBeUndefined();
+  });
+
+  it("names the catalog device, not the selection index, when a device carries N without a side", () => {
+    const broken = CATALOG.map((device) => (device.id === RCD_ID ? { ...device, n_terminal_side: null } : device));
+    const thrown = catchError(() => proposeSelectionLayout(matched, broken, payload, SEED_B));
+    expect(thrown).toBeInstanceOf(MissingNTerminalSideError);
+    const error = thrown as MissingNTerminalSideError;
+    expect(error.catalogDeviceId).toBe(RCD_ID);
+    expect(layoutFailureLogFields(error)).toEqual({ deviceId: RCD_ID, layoutDeviceId: "1" });
   });
 
   it("stores nothing when the layout does not fit — the devices are still saved", () => {

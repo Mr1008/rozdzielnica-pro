@@ -21,8 +21,13 @@ import { payloadToDraft } from "@/lib/circuit-draft";
 import { computeMatchView, type MatchView } from "@/lib/device-matching-server";
 import { formatMoney, t } from "@/lib/i18n";
 import { layoutIssueNames, toEditorDevices, type LayoutEditorData } from "@/lib/layout-editor-data";
-import { MissingNTerminalSideError } from "@/lib/cabinet-layout";
-import { buildLayoutDrawing, computeLayoutView, loadLayoutContext, type LayoutView } from "@/lib/layout-server";
+import {
+  buildLayoutDrawing,
+  computeLayoutView,
+  layoutFailureLogFields,
+  loadLayoutContext,
+  type LayoutView,
+} from "@/lib/layout-server";
 import {
   PROJECTS_PATH,
   PROJECT_FIELDS,
@@ -153,7 +158,7 @@ function guardLayout<T>(compute: () => T, fallback: T): T {
     logServerError("project layout failed", error, {
       userId: Astro.locals.user?.id,
       projectId: id,
-      deviceId: error instanceof MissingNTerminalSideError ? String(error.deviceId) : undefined,
+      ...layoutFailureLogFields(error),
     });
     Astro.response.status = 500;
     return fallback;

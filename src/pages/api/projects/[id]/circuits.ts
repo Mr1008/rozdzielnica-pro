@@ -9,8 +9,7 @@ import {
   maxRailMm,
   saveCircuitsArgs,
 } from "@/lib/device-matching-server";
-import { MissingNTerminalSideError } from "@/lib/cabinet-layout";
-import { chooseSelectionLayout, loadPreviousLayout } from "@/lib/layout-server";
+import { chooseSelectionLayout, layoutFailureLogFields, loadPreviousLayout } from "@/lib/layout-server";
 import { projectFormErrorPath, projectPath, projectsErrorPath } from "@/lib/project";
 import { PROJECT_ERROR } from "@/lib/project-errors";
 import { SIGN_IN_PATH } from "@/lib/route-access";
@@ -102,7 +101,7 @@ export const POST: APIRoute = async (context) => {
     logServerError("projects.circuits.layout failed", error, {
       userId: context.locals.user.id,
       projectId: id,
-      deviceId: error instanceof MissingNTerminalSideError ? String(error.deviceId) : undefined,
+      ...layoutFailureLogFields(error),
     });
     return back(PROJECT_ERROR.unknown);
   }
