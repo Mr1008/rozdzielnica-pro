@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import AppLayout from "@/layouts/AppLayout.astro";
+import { toScene3DDevices, type Cabinet3DData } from "@/lib/cabinet-3d";
 import { ENTRY_SIDES, parseCabinetGeometry } from "@/lib/cabinet-geometry";
 import { isUuid, sortForCatalogList } from "@/lib/catalog";
 import { payloadToDraft } from "@/lib/circuit-draft";
@@ -41,7 +42,7 @@ import { projectErrorMessage } from "@/lib/project-errors";
 import { computeQuoteView, type QuoteView } from "@/lib/quote";
 import { logServerError, logServerWarn } from "@/lib/server-log";
 import { createClient } from "@/lib/supabase";
-import { WIRING_VIEW_PARAM, wiringViewFromParam, wiringViewHrefs } from "@/lib/wiring-view";
+import { WIRING_VIEW_PARAM, drawingViewFromParam, wiringVariantOf, wiringViewHrefs } from "@/lib/wiring-view";
 import { supplyFormDefaults, supplyFromRow } from "@/lib/supply-params";
 import { supplyWarningMessage, supplyWarnings } from "@/lib/supply-warnings";
 import { CircleAlertIcon, CircleCheckIcon, TriangleAlertIcon } from "lucide-react";
@@ -73,9 +74,10 @@ const saved =
                   : null;
 // A circuit save or re-match replaced a manual layout that no longer applied to the new device set.
 const layoutReset = error === null && Astro.url.searchParams.get("layout_reset") === "1";
-// The "Układ w szafce" drawing's look (S-11): `?wiring=schematic`, otherwise realistic. Saves redirect
-// without it; the printout stays schematic regardless.
-const wiringVariant = wiringViewFromParam(Astro.url.searchParams.get(WIRING_VIEW_PARAM));
+// The "Układ w szafce" view (S-11, GitHub #14): `?wiring=schematic`, `?wiring=3d`, otherwise realistic.
+// Saves redirect without it; the printout stays schematic regardless. Every 2D use reads `wiringVariant`.
+const drawingView = drawingViewFromParam(Astro.url.searchParams.get(WIRING_VIEW_PARAM));
+const wiringVariant = wiringVariantOf(drawingView);
 const wiringViewLinks = wiringViewHrefs(Astro.url.pathname, "layout");
 
 const supabase = createClient(Astro.request.headers, Astro.cookies);
@@ -191,6 +193,15 @@ const drawing =
     : null;
 const placedDevices = drawing?.devices ?? [];
 const placedWiring = drawing?.wiring ?? null;
+// The 3D island's payload, built only in that view and only over a `placed` layout.
+const cabinet3d: Cabinet3DData | null =
+  drawingView === "3d" && layoutView?.state === "placed" && drawing && matchContext?.geometry && matchView
+    ? {
+        geometry: matchContext.geometry,
+        devices: toScene3DDevices(drawing.devices, matchView.snapshot),
+        wiring: drawing.wiring,
+      }
+    : null;
 // What the layout editor island is mounted with: the snapshot the placed layout covers, never a live query.
 const layoutEditor: LayoutEditorData | null =
   layoutView?.state === "placed" && matchContext && matchView
@@ -570,7 +581,9 @@ const headingClass = "scroll-mt-6 text-lg leading-none font-semibold";
                   devices={placedDevices}
                   wiring={placedWiring}
                   wiringVariant={wiringVariant}
+                  drawingView={drawingView}
                   viewHrefs={wiringViewLinks}
+                  cabinet3d={cabinet3d}
                   geometry={matchContext.geometry}
                   projectId={project.id}
                   matchAnchor={circuitsSectionId}

@@ -20,6 +20,7 @@ import {
   buildDrawnWires,
   clampRect,
   clipRect,
+  cornerRadiiMm,
   deviceLabelLines,
   elementRect,
   ferruleStyle,
@@ -375,6 +376,22 @@ describe("sagDepthMm", () => {
     expect(sagDepthMm(50)).toBeCloseTo(50 * Math.sqrt(0.01125), 9);
     expect(sagDepthMm(100)).toBe(MAX_SAG_MM);
     expect(sagDepthMm(1000)).toBe(MAX_SAG_MM);
+  });
+});
+
+describe("cornerRadiiMm", () => {
+  it("gives the ends no bend and caps each corner at the bend radius and half of either run", () => {
+    expect(cornerRadiiMm([100, 100, 100], 8)).toEqual([0, 8, 8, 0]);
+    expect(cornerRadiiMm([100, 6, 100], 8)).toEqual([0, 3, 3, 0]);
+  });
+
+  it("keeps the straight ends free of the first and last bend", () => {
+    expect(cornerRadiiMm([12, 100, 15], 8, { startMm: 10, endMm: 10 })).toEqual([0, 2, 5, 0]);
+    expect(cornerRadiiMm([5, 100], 8, { startMm: 10, endMm: 0 })).toEqual([0, 0, 0]);
+  });
+
+  it("has no corner on a single run", () => {
+    expect(cornerRadiiMm([40], 8)).toEqual([0, 0]);
   });
 });
 

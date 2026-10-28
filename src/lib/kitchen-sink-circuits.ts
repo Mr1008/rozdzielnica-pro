@@ -7,6 +7,7 @@ import {
   type DrawnWire,
   type WiringVariant,
 } from "@/lib/cabinet-drawing";
+import { toScene3DDevices, type Cabinet3DData } from "@/lib/cabinet-3d";
 import type { CabinetGeometry } from "@/lib/cabinet-geometry";
 import type { Placement } from "@/lib/cabinet-layout";
 import { SEED_A, SEED_B, SEED_C, geometry as parseFixtureGeometry } from "@/lib/cabinet-layout.fixtures";
@@ -573,6 +574,8 @@ export interface LayoutFixture {
   geometry: CabinetGeometry;
   /** What the editor island is mounted with; null unless the layout is `placed`. */
   editor: LayoutEditorData | null;
+  /** The 3D island's payload, as the page builds it for `?wiring=3d`; null unless asked for and `placed`. */
+  cabinet3d: Cabinet3DData | null;
 }
 
 /** What a layout fixture adds on top of its stored layout (S-06). */
@@ -583,6 +586,8 @@ interface LayoutFixtureOptions {
   moved?: boolean;
   /** The look of the wires; default realistic. */
   wiringVariant?: WiringVariant;
+  /** The section shows the 3D view (GitHub #14) instead of the editor. */
+  view3d?: boolean;
 }
 
 /** One 100 mm rail: far too short for the filled circuits' devices. */
@@ -679,6 +684,10 @@ function layoutFixture(
               : undefined,
           }
         : null,
+    cabinet3d:
+      options.view3d === true && view?.state === "placed"
+        ? { geometry, devices: toScene3DDevices(devices, matchView.snapshot), wiring }
+        : null,
   };
 }
 
@@ -757,6 +766,7 @@ export function kitchenSinkLayoutStates(): LayoutFixture[] {
       undefined,
       { wiringVariant: "schematic" },
     ),
+    layoutFixture("placed-busbars-3d", l.placed3d, SEED_B, "proposal", BUSBAR_OVERRIDES, undefined, { view3d: true }),
     layoutFixture("placed-manual", l.editorManual, SEED_B, "proposal", {}, undefined, { editedManually: true }),
     layoutFixture("placed-dirty", l.editorDirty, SEED_B, "proposal", {}, undefined, { moved: true }),
     layoutFixture("missing", l.missing, SEED_B, "none"),

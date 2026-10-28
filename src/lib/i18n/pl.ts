@@ -1239,15 +1239,26 @@ export const pl = {
       wiresLoading: "Wczytywanie przewodów…",
       /** Where the wires go when the browser failed to route them (`WiringFailed`). */
       wiresFailed: "Nie udało się narysować przewodów. Odśwież stronę. Jeśli problem wraca, daj nam znać.",
-      /** The "Widok: realistyczny / schematyczny" switch over the drawing (`WiringViewSwitch`). */
+      /** The "Widok: realistyczny / schematyczny / 3D" switch over the drawing (`WiringViewSwitch`). */
       view: {
         label: "Widok",
         navLabel: "Widok rysunku przewodów",
-        /** Keyed by `WiringVariant`. */
+        /** Keyed by `DrawingView`. */
         options: {
           realistic: "realistyczny",
           schematic: "schematyczny",
+          "3d": "3D",
         },
+      },
+      /** The 3D view of a placed layout (`Cabinet3DPreview`, GitHub #14). */
+      preview3d: {
+        canvasLabel: "Trójwymiarowy podgląd rozdzielnicy z aparatami, szynami i przewodami",
+        loading: "Ładowanie podglądu 3D…",
+        controlsHint: "Przeciągnij, aby obrócić · kółko: przybliżenie · prawy przycisk: przesuwanie",
+        unavailableTitle: "Podgląd 3D jest niedostępny",
+        unavailableBody:
+          "Ta przeglądarka nie obsługuje grafiki WebGL albo ma ją wyłączoną, więc nie może wyświetlić rozdzielnicy w 3D. Układ i przewody są dostępne w widoku dwuwymiarowym.",
+        backTo2d: "Przejdź do widoku realistycznego",
       },
       lengthsTitle: "Długości przewodów",
       lengthsColumns: {
@@ -1544,6 +1555,9 @@ export const pl = {
         placedBusbarsThreePhase:
           "Rozmieszczony z listwą zasilającą 3F, widok realistyczny — grupa z RCD 4P, MCB 1P na fazach L1, L2 i L3 oraz MCB 3P",
         placedBusbarsThreePhaseSchematic: "Rozmieszczony z listwą zasilającą 3F, widok schematyczny",
+        placed3d:
+          "Rozmieszczony z listwami zasilającymi 1F, widok 3D (przełącznik w pozycji „3D”) — obracanie, przybliżanie i przesuwanie myszą",
+        unavailable3d: "Widok 3D niedostępny (brak WebGL) — komunikat z linkiem do widoku realistycznego",
         missing: "Nie zaproponowany",
         doesNotFit: "Nie mieści się",
         outdated: "Nieaktualny (zapisane aparaty nachodzą na siebie)",

@@ -49,3 +49,12 @@
   `src/lib/cabinet-layout.ts` header, not a score. `routeWiring` (`src/lib/cabinet-wiring.ts`) replaces the
   phase jumpers of a busbar group with the drawn busbar; N jumpers stay. The matcher gets busbars only
   when `MatchInput.maxRailMm` is given (`maxRailMm` in `device-matching-server.ts`).
+- **The 3D preview (`?wiring=3d`, GitHub #14) is display-only, client-only and drawn from a `placed`
+  layout.** `src/lib/wiring-3d.ts` lifts the router's output into depth and never changes a route or a
+  length — a 3D path longer than `lengthMm` is accepted. Its realistic wires reuse the 2D realistic rules
+  (`bendRadiusMm`, `realisticSagLimits` / `sagLimits`, `FERRULE`, `buildCableTies` from
+  `cabinet-drawing.ts` / `wire-dimensions.ts`); never fork a 3D-only bend, sag, ferrule or tie rule. The
+  depth constants in `src/lib/cabinet-3d.ts` and the shape constants in `src/lib/cabinet-3d-models.ts` are
+  display assumptions, not catalog data, and every model part stays inside its pure-model box (asserted
+  in `cabinet-3d-models.test.ts`), so the front view keeps matching the 2D drawing. three.js is imported
+  only by `src/components/projects/Cabinet3D*.tsx`; the printout stays 2D.

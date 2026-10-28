@@ -74,3 +74,17 @@ describe("kitchen sink — busbar states", () => {
     expect(doc?.drawing?.wiring).not.toBeNull();
   });
 });
+
+/** The 3D state must carry what the page hands the island for `?wiring=3d` (GitHub #14). */
+describe("kitchen sink — 3D state", () => {
+  const states = kitchenSinkLayoutStates();
+
+  it("gives only the 3D state a payload: every placed device, with its wiring", () => {
+    const with3d = states.filter((state) => state.cabinet3d !== null);
+    expect(with3d.map((state) => state.key)).toEqual(["placed-busbars-3d"]);
+    const [state] = with3d;
+    expect(state.cabinet3d?.devices.map((device) => device.id)).toEqual(state.devices.map((device) => device.id));
+    expect(state.cabinet3d?.wiring).toBe(state.wiring);
+    expect(state.busbars.length).toBeGreaterThan(0);
+  });
+});

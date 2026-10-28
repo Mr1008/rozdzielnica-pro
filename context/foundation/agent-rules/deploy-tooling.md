@@ -33,6 +33,10 @@
 - **Do not unwrap `fixupPluginRules(pluginReact)` in `eslint.config.js`, or drop the `overrides`
   block in `package.json`.** Both exist because `eslint-plugin-react` / `eslint-plugin-jsx-a11y` do
   not yet support ESLint 10. Removing either breaks `npm run lint`.
+- **A React minor bump must move `@react-three/fiber` with it.** R3F 9 declares a peer range of
+  `react >=19 <19.4`, while `package.json` carets React at `^19.2.6`, so `npm update` can lift React out
+  of R3F's range and break `npm ci`. Bump both together, to an R3F release whose range covers the new
+  React.
 
 - **`supabase/catalog/eaton-legrand.sql` is generated and production-only.** It is the output of
   `src/lib/catalog-seed.ts`, pinned by a file snapshot in `catalog-seed.test.ts`: change the generator

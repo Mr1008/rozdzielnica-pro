@@ -19,6 +19,7 @@ import {
   type DrawnWire,
   type ElementRef,
   type WiringVariant,
+  FERRULE_EXTRA_MM,
 } from "@/lib/cabinet-drawing";
 import { BAR_LABEL_EXTENT, barLabelFontMm, barLabelSizeMm, barTerminalPoints, type Point } from "@/lib/cabinet-layout";
 import { barRect, barsBehindAnother, railRect, type CabinetGeometry, type Rect } from "@/lib/cabinet-geometry";
@@ -210,8 +211,6 @@ function WireShape({ wire, screwRadius }: { wire: DrawnWire; screwRadius: Readon
 const OUTLINE_EXTRA_MM = 0.3;
 /** The insulation highlight's width, as a share of the body's. */
 const SHEEN_SHARE = 0.25;
-/** A ferrule's collar is this much wider than the core it is crimped on, and its outline wider again. */
-const FERRULE_EXTRA_MM = 0.4;
 const FERRULE_OUTLINE_EXTRA_MM = 0.7;
 /** A cable tie's outline, in millimetres. */
 const TIE_OUTLINE_MM = 0.2;
