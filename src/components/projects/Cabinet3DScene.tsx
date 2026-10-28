@@ -1,6 +1,6 @@
 /* eslint-disable react/no-unknown-property -- R3F elements take three.js props, not DOM attributes. */
-import { useEffect, useMemo, type JSX } from "react";
-import { Canvas } from "@react-three/fiber";
+import { useEffect, useMemo, useRef, type JSX } from "react";
+import { Canvas, useFrame } from "@react-three/fiber";
 import { Edges, OrbitControls } from "@react-three/drei";
 import {
   BoxGeometry,
@@ -13,6 +13,7 @@ import {
   TubeGeometry,
   Vector3,
   type BufferGeometry,
+  type Mesh,
 } from "three";
 import { BAR_CLASSES, DEVICE_CLASSES } from "@/components/cabinets/CabinetDrawing";
 import type { Box3Mm, CabinetScene } from "@/lib/cabinet-3d";
@@ -126,6 +127,47 @@ function boxScale(box: Box3Mm): [number, number, number] {
   return [box.w, box.h, box.d];
 }
 
+interface ShellProps {
+  scene: CabinetScene;
+  geometry: BoxGeometry;
+  plate: MeshStandardMaterial;
+  wall: MeshStandardMaterial;
+}
+
+/**
+ * The back plate and the four walls, as a cutaway: each frame, a wall (or the plate) the camera is
+ * outside of is hidden, so from any angle the interior stays in view. `scene.walls` is left, right, top,
+ * bottom (`buildCabinetScene`).
+ */
+function CabinetShell({ scene, geometry, plate, wall }: ShellProps): JSX.Element {
+  const refs = useRef<(Mesh | null)[]>([]);
+  const { w, h } = scene.interior;
+  useFrame(({ camera }) => {
+    const { x, y, z } = camera.position;
+    const outside = [z < 0, x < 0, x > w, y > 0, y < -h];
+    outside.forEach((hidden, i) => {
+      const mesh = refs.current[i];
+      if (mesh) mesh.visible = !hidden;
+    });
+  });
+  return (
+    <>
+      {[scene.backPlate, ...scene.walls].map((b, i) => (
+        <mesh
+          key={i === 0 ? "plate" : `wall-${String(i)}`}
+          ref={(mesh) => {
+            refs.current[i] = mesh;
+          }}
+          geometry={geometry}
+          material={i === 0 ? plate : wall}
+          position={boxPosition(b)}
+          scale={boxScale(b)}
+        />
+      ))}
+    </>
+  );
+}
+
 interface Props {
   scene: CabinetScene;
   /** The lifted wires; null while they are routed, and the boxes are drawn alone. */
@@ -231,8 +273,7 @@ export default function Cabinet3DScene({ scene, wiring }: Props): JSX.Element {
         intensity={2}
         position={[centre[0] + interior.w, centre[1] + interior.h, centre[2] + distance]}
       />
-      {box("plate", scene.backPlate, materials.plate)}
-      {scene.walls.map((wall, i) => box(`wall-${String(i)}`, wall, materials.wall))}
+      <CabinetShell scene={scene} geometry={unitBox} plate={materials.plate} wall={materials.wall} />
       {scene.rails.map((rail, i) => box(`rail-${String(i)}`, rail, materials.rail, true))}
       {scene.bars.map((bar, i) => box(`bar-${String(i)}`, bar.box, materials.bars[bar.kind], true))}
       {scene.devices.map((device) => box(device.id, device.box, materials.devices[device.role], true))}

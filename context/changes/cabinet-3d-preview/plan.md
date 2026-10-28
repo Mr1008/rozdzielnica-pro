@@ -607,17 +607,17 @@ None. There is no schema or data change, and the deploy is backward-compatible.
 
 #### Automated
 
-- [x] 3.1 `npm run test:unit` passes, including the `wiring-view` tests for `3d`
-- [x] 3.2 `npm run lint` passes
-- [x] 3.3 `npm run build` succeeds
+- [x] 3.1 `npm run test:unit` passes, including the `wiring-view` tests for `3d` — 3b68e16
+- [x] 3.2 `npm run lint` passes — 3b68e16
+- [x] 3.3 `npm run build` succeeds — 3b68e16
 
 #### Manual
 
-- [ ] 3.4 "Widok" shows three links and "3D" renders cabinet, devices, bars, busbars and coloured wires matching the 2D front view
-- [ ] 3.5 Rotate, zoom and pan work; side view shows terminal drops, packs and runs behind devices
-- [ ] 3.6 Default view loads no three.js chunk on the built preview; the 3D view does
-- [ ] 3.7 Without WebGL the 3D view shows the Polish Alert with a working link back
-- [ ] 3.8 Realistic and schematic views, the editor, wire lengths and the printout are unchanged
+- [x] 3.4 "Widok" shows three links and "3D" renders cabinet, devices, bars, busbars and coloured wires matching the 2D front view
+- [x] 3.5 Rotate, zoom and pan work; side view shows terminal drops, packs and runs behind devices
+- [x] 3.6 Default view loads no three.js chunk on the built preview; the 3D view does
+- [x] 3.7 Without WebGL the 3D view shows the Polish Alert with a working link back
+- [x] 3.8 Realistic and schematic views, the editor, wire lengths and the printout are unchanged
 
 ### Phase 4: Kitchen-sink, E2E smoke and docs
 
