@@ -270,15 +270,15 @@ The Karwasz runs multiply property-test time; bound the runs per geometry and me
 
 #### Automated
 
-- [x] 3.1 Both property files pass; the added runtime stays under ~30 s on this machine (measured, noted in the commit body)
-- [x] 3.2 `npm run lint` and `npm run test:unit` pass
+- [x] 3.1 Both property files pass; the added runtime stays under ~30 s on this machine (measured, noted in the commit body) — bdadff5
+- [x] 3.2 `npm run lint` and `npm run test:unit` pass — bdadff5
 
 ### Phase 4: Test-plan close-out and visual review
 
 #### Automated
 
-- [ ] 4.1 `npm run lint` and `npm run test:unit` pass
+- [x] 4.1 `npm run lint` and `npm run test:unit` pass
 
 #### Manual
 
-- [ ] 4.2 Multimodal review of the printout and the cabinet drawing on `/dev/kitchen-sink` (1–2 screens): labels readable, no device or label overlap, material table on one page; result dated in §6.6
+- [x] 4.2 Multimodal review of the printout and the cabinet drawing on `/dev/kitchen-sink` (1–2 screens): labels readable, no device or label overlap, material table on one page; result dated in §6.6

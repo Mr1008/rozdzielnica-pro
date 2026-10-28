@@ -6,7 +6,7 @@
 >
 > Refresh: re-run `/10x-test-plan --refresh` when stale (see §8).
 >
-> Last updated: 2026-10-27
+> Last updated: 2026-10-28
 
 ## 1. Strategy
 
@@ -65,12 +65,12 @@ not to tests.
 
 ## 3. Phased Rollout
 
-| #   | Phase name                     | Goal (one line)                                                                                                         | Risks covered | Test types                                    | Status        | Change folder                                       |
-| --- | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------- | ------------- | --------------------------------------------- | ------------- | --------------------------------------------------- |
-| 1   | Matching and validation oracle | Prove the matching guardrail and the blocks on data from the requirements and the standard, not from the code           | #1, #3        | unit (table-driven, boundary, property-based) | complete      | `context/changes/testing-matching-oracle/`          |
-| 2   | Data integrity and isolation   | CHECK↔parser parity, snapshot immutability, RLS on every table; `test:integration` in CI                                | #6, #7        | integration + CI gate                         | complete      | `context/changes/testing-data-integrity-isolation/` |
-| 3   | Critical-path e2e              | Playwright bootstrap: project → supply → circuits → matching, catalog gap, stale state, IDOR via URL (after S-04 p3–p4) | #2, #6        | e2e + CI gate                                 | complete      | `context/changes/testing-critical-path-e2e/`        |
-| 4   | Layout and quote invariants    | Layout and edit invariants, quote from hand-computed examples, visual review of the printout (after S-05, S-06, S-08)   | #4, #5        | unit + e2e + multimodal visual review         | change opened | `context/changes/testing-layout-quote-invariants/`  |
+| #   | Phase name                     | Goal (one line)                                                                                                         | Risks covered | Test types                                    | Status   | Change folder                                       |
+| --- | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------- | ------------- | --------------------------------------------- | -------- | --------------------------------------------------- |
+| 1   | Matching and validation oracle | Prove the matching guardrail and the blocks on data from the requirements and the standard, not from the code           | #1, #3        | unit (table-driven, boundary, property-based) | complete | `context/changes/testing-matching-oracle/`          |
+| 2   | Data integrity and isolation   | CHECK↔parser parity, snapshot immutability, RLS on every table; `test:integration` in CI                                | #6, #7        | integration + CI gate                         | complete | `context/changes/testing-data-integrity-isolation/` |
+| 3   | Critical-path e2e              | Playwright bootstrap: project → supply → circuits → matching, catalog gap, stale state, IDOR via URL (after S-04 p3–p4) | #2, #6        | e2e + CI gate                                 | complete | `context/changes/testing-critical-path-e2e/`        |
+| 4   | Layout and quote invariants    | Layout and edit invariants, quote from hand-computed examples, visual review of the printout (after S-05, S-06, S-08)   | #4, #5        | unit + e2e + multimodal visual review         | complete | `context/changes/testing-layout-quote-invariants/`  |
 
 ## 4. Stack
 
@@ -81,7 +81,7 @@ not to tests.
 | property-based        | fast-check — checked: 2026-09-30                              | ^4.10.2              | `src/lib/*.property.test.ts`, in `test:unit` and in CI                                                                                                       |
 | e2e                   | Playwright Test (`playwright.config.ts`)                      | ^1.64.1              | `tests/e2e/**`, `npm run test:e2e`; local + CI `smoke` (build + preview, local Supabase, provisioned users); details in `test-stack.md`                      |
 | HTTP smoke            | `scripts/smoke.mjs`                                           | —                    | auth and role gates only                                                                                                                                     |
-| (optional) AI-native  | multimodal review of the quote printout — checked: 2026-09-29 | n/a                  | Only 1–2 screens (cabinet drawing, printout). When NOT to use: when a deterministic layout-invariant test or a DOM comparison already catches the regression |
+| (optional) AI-native  | multimodal review of the quote printout — checked: 2026-10-28 | n/a                  | Only 1–2 screens (cabinet drawing, printout). When NOT to use: when a deterministic layout-invariant test or a DOM comparison already catches the regression |
 
 **Stack grounding tools (current session):**
 
@@ -150,18 +150,21 @@ not to tests.
 
 ### 6.5 Adding a test for layout or quote
 
-- **Layout — where:** `src/lib/layout-editing.property.test.ts` (next to the edit model `layout-editing.ts`; the proposal and validation are covered by `cabinet-layout.test.ts`). Run with `npm run test:unit`.
+- **Layout — where:** `src/lib/layout-editing.property.test.ts` (next to the edit model `layout-editing.ts`) and `src/lib/cabinet-layout.property.test.ts` (the proposal); the validator's own negative cases are in `cabinet-layout.test.ts`. Both property files run on the seed geometries and on every production Karwasz cabinet (`KARWASZ_CABINETS`, `karwasz-cabinets.ts`) — a new production cabinet is picked up unchanged. Run with `npm run test:unit`.
 - **Layout — invariant:** after a proposal and after every accepted move `validateLayout` returns `[]` (every device placed once, without overlap, within the rail and the interior, an RCD group in one piece, an RCBO alone in its group). A refused move returns a non-empty list of problems and does not change the draft. The predicate is `validateLayout` — it is the single definition of layout correctness, the test does not write its own.
 - **Layout — naming:** `every accepted move on <cabinet> passes validateLayout; every refused one changes nothing`, one test per cabinet geometry.
 - **Layout — distribution guard:** the test is non-vacuous only if accepted moves, refused moves and whole-block moves each occur in numbers above a threshold (`expect(accepted).toBeGreaterThan(…)`); with a new geometry, check those thresholds.
 - **Layout — how to add a rule:** add the problem code to `validateLayout` and its case to `describe("validateLayout")` in `cabinet-layout.test.ts`, and a refused move with that code to `describe("moves")` in `layout-editing.test.ts`; the property test picks up the rule unchanged.
-- **Quote:** TBD — see §3 Phase 4 (pattern: a quote from a hand-computed example).
+- **Quote — where:** `src/lib/quote.examples.test.ts` (worked examples through the matcher), `src/lib/quote.property.test.ts` (rounding and metamorphic relations), `src/lib/quote.test.ts` (the arithmetic, states and the override parser on hand-written rows). Run with `npm run test:unit`.
+- **Quote — oracle:** a bill of materials counted by hand. Each example writes a small fixture catalog (with a cheaper non-compliant decoy per role), runs the circuits through `matchDevices`, maps each selection to a quote row by catalog id (what the snapshot trigger copies) and calls `computeQuoteView`. Above the case, a comment lists every device an electrician mounts, its price, the sums, minutes = count × mount + overhead and labour = minutes × rate / 60 rounded half-up; the expectations are those literals. What counts (archived decisions): every snapshot row is a device — catalog PE/N bars and each comb busbar segment included — while a busbar piece is priced once per `(device_id, busbar_piece)`; built-in cabinet bars are not rows; the cabinet is its own material line. The rounding oracle is its definition, in BigInt: `m·r − 30 < 60·c ≤ m·r + 30`.
+- **Quote — naming:** `<letter>: <what the project proves> — <n> devices`, e.g. `B: the RCD + MCB fallback is two devices, not one — 7 devices`.
+- **Quote — how to add a case:** (1) write the project and its catalog; (2) count the bill by hand in the comment, with each sum; (3) assert the sorted `device_id` list and the view's numbers as literals; (4) break `quote.ts` (count distinct devices, or price every busbar segment) and see the case go red, then revert.
 
 ### 6.6 Per-rollout-phase notes
 
 **Phase 3 — Critical-path e2e (complete, 2026-10-27).** Delivered (the bootstrap and `seed.spec.ts` came first, 2026-10-20): shared helpers and provisioned users (`tests/e2e/support.ts`, `auth.setup.ts` provisions A when no credentials are set), `circuits-match-state.spec.ts` (#2), `idor.spec.ts` (#6), `quote-override.spec.ts` (the S-08 candidates) and `npm run test:e2e` in the CI `smoke` job with no secrets. Each new spec was checked against a deliberate break (the 0-row check in the details endpoint, an empty snapshot read as current, the override base taken from the form). Findings: no IDOR — every endpoint turns another electrician's id into `not_found`, and the four direct-update endpoints guard against a zero-row "success"; circuits never go stale from the browser (saving re-matches), the marker the electrician meets is `cleared` after a supply change; `circuits`, `placements` and `quote set` validate the body before ownership (not a leak, but an IDOR test needs a valid body).
 
-**Phase 4 — Layout and quote invariants (partially delivered outside the rollout, 2026-10-20; status stays `not started` until its change opens).** Delivered for layout (#4): move invariants in `src/lib/layout-editing.property.test.ts` and one editing e2e `tests/e2e/layout-manual-edit.spec.ts` (a rejected move of an MCB out of its RCD group, only the accepted move saved and redrawn). Remaining: a quote from hand-computed examples (#5) as the §6.5 pattern, and the visual review of the printout.
+**Phase 4 — Layout and quote invariants (complete, 2026-10-28).** Delivered: quote worked examples through the matcher (`src/lib/quote.examples.test.ts` — RCBO, the RCD + MCB fallback, catalog PE/N bars, comb busbars from one and from two pieces, no profile, an override current and outdated), a quote property test (`src/lib/quote.property.test.ts` — rounding by definition over the whole stored range, five metamorphic relations), and both layout property tests on the 33 production Karwasz cabinets (the edit test leaves out the three 6-module models: its generator always adds an RCD group, which they rarely hold — their proposals stay covered). Earlier, outside the rollout (2026-10-20): `layout-editing.property.test.ts` and `tests/e2e/layout-manual-edit.spec.ts`. Each new test was checked against a deliberate break (device count as distinct devices, busbar priced per segment, rounding off by one, a proposer overrunning the rail by one module). Findings: no quote or layout defect; `quote.test.ts` already had independent hand-worked literals — the gap was that its rows were hand-written, so "the device count is the list length" was assumed; the single-circuit group → RCBO rule belongs to the matcher (tested in `device-matching.test.ts`), and `validateLayout` rightly accepts the RCD + MCB fallback; removing the proposer's bar-avoidance check turns no test red, because in every generated geometry (seed, synthetic, Karwasz) the built-in bars lie outside the band devices occupy on their rails — re-evaluate if a cabinet puts a bar between rails. Visual review (multimodal, checked: 2026-10-28) of `/dev/kitchen-sink` "Wydruk wyceny": page 1 — letterhead, material lines, labour and total readable, and the printed sums agree with a hand computation (611,69 zł + 3 h 15 min × 120,50 zł/h = 391,63 zł → 1003,32 zł); page 2 — the drawing's device labels readable, no device or label overlap, each RCD group contiguous in its outline. Noted, not defects: the group tags ("RCD 1") are very small at screen scale; a project long enough to push the material table onto a second page is not among the fixtures, so that case stays unreviewed.
 
 **Phase 2 — Data integrity and isolation (complete, 2026-10-27).** Delivered: a schema-wide RLS guard (`tests/integration/rls-coverage.test.ts`: every public table has RLS, is classified and has a suite; no `anon` grants; `security definer` allowlist), the missing second-electrician cases (update/delete of another's `profiles` row, insert of a project for another electrician), a unit guard that `src/` never references the service-role key (`src/lib/rls-premise.test.ts`), CHECK↔parser parity on one shared fixture per pair for seven pairs (`tests/integration/check-parser-parity.test.ts`, 194 rows), device snapshot immutability after an admin edit and archive (`rls-circuits.test.ts`), and `npm run test:integration` in the CI `smoke` job. Findings: no real parser/CHECK disagreement; the asymmetries are all parser-stricter (NIP checksum, extra decimal places on lengths, cross-sections and device dimensions, terminal-group shape). Not covered by parity, by design: `busbar_piece` (no parser, DB-only cases stay in `rls-circuits.test.ts`), cabinet geometry (the CHECK is deliberately weak), enum columns (refused by type cast `22P02`, not a CHECK).
 
@@ -178,7 +181,7 @@ not to tests.
 
 - Strategy (§1–§5) last reviewed: 2026-09-29
 - Stack versions last verified: 2026-09-29
-- AI-native tool references last verified: 2026-09-29
+- AI-native tool references last verified: 2026-10-28
 
 Refresh (`/10x-test-plan --refresh`) when:
 
