@@ -771,10 +771,10 @@ None. There is no schema or data change, and the deploy is backward-compatible.
 
 #### Automated
 
-- [ ] 4.1 `npm run test:unit` passes, including `cabinet-3d-models.test.ts` and the extended `wiring-3d.test.ts`
-- [ ] 4.2 `npm run lint` passes
-- [ ] 4.3 `npm run build` succeeds
-- [ ] 4.4 No change to `cabinet-wiring.ts` or `wiring-island.ts` since 042fdb2
+- [x] 4.1 `npm run test:unit` passes, including `cabinet-3d-models.test.ts` and the extended `wiring-3d.test.ts`
+- [x] 4.2 `npm run lint` passes
+- [x] 4.3 `npm run build` succeeds
+- [x] 4.4 No change to `cabinet-wiring.ts` or `wiring-island.ts` since 042fdb2
 
 #### Manual
 

@@ -14,7 +14,10 @@ import {
   type Cabinet3DData,
 } from "./cabinet-3d";
 import { buildDrawnDevices, type DrawableDevice } from "./cabinet-drawing";
-import { RAIL_HEIGHT_MM } from "./cabinet-geometry";
+import { barRect, RAIL_HEIGHT_MM } from "./cabinet-geometry";
+import { barTerminalPoints, catalogBarAsCabinetBar } from "./cabinet-layout";
+import type { WiringData } from "./wiring-island";
+import type { PoleConfig } from "./device-spec";
 import { SEED_B } from "./cabinet-layout.fixtures";
 
 /** PRZ-M3: three rails, a vertical built-in PE bar (left) and N bar (right), both at `zMm` 20. */
@@ -40,7 +43,8 @@ const DEVICES = [
   device("mcb", { rcd_group_id: "g1" }),
 ];
 const DEPTH_MM: Record<string, number> = { main: 70, rcd: 74.5, mcb: 69 };
-const SNAPSHOT = DEVICES.map((entry) => ({ id: entry.id, depth_mm: DEPTH_MM[entry.id] }));
+const POLES: Record<string, PoleConfig> = { main: "3P", rcd: "2P", mcb: "1P" };
+const SNAPSHOT = DEVICES.map((entry) => ({ id: entry.id, depth_mm: DEPTH_MM[entry.id], poles: POLES[entry.id] }));
 
 const DRAWN = buildDrawnDevices(
   DEVICES,
@@ -63,14 +67,17 @@ function intersects(a: Box3Mm, b: Box3Mm): boolean {
 }
 
 describe("toScene3DDevices", () => {
-  it("keeps the drawn rectangle and adds the snapshot depth", () => {
+  it("keeps the drawn rectangle, lines and N side and adds the snapshot depth and poles", () => {
     expect(toScene3DDevices(DRAWN, SNAPSHOT)).toEqual(
       DRAWN.map((drawn) => ({
         id: drawn.id,
         role: drawn.role,
         railIndex: drawn.railIndex,
         rect: drawn.rect,
+        lines: drawn.lines,
+        nTerminalSide: drawn.nTerminalSide,
         depthMm: DEPTH_MM[drawn.id],
+        poles: POLES[drawn.id],
       })),
     );
   });
@@ -92,6 +99,7 @@ describe("buildCabinetScene", () => {
         id: DRAWN[index].id,
         role: DRAWN[index].role,
         box: { x: rect.x, y: rect.y, w: rect.w, h: rect.h, z: RAIL_FRONT_Z_MM, d: DEPTH_MM[entry.id] },
+        terminals: [],
       });
     });
   });
@@ -110,9 +118,13 @@ describe("buildCabinetScene", () => {
   });
 
   it("sets each built-in bar at its own zMm, a vertical one turned on its side", () => {
+    const terminals = GEOMETRY.bars.map((bar) =>
+      barTerminalPoints(bar, GEOMETRY.interior).map((terminal) => terminal.point),
+    );
+    expect(terminals[0]).toHaveLength(14);
     expect(scene.bars).toEqual([
-      { kind: "PE", box: { x: 10, y: 50, w: 15, h: 400, z: 20, d: BUILTIN_BAR_DEPTH_MM } },
-      { kind: "N", box: { x: 375, y: 50, w: 15, h: 400, z: 20, d: BUILTIN_BAR_DEPTH_MM } },
+      { kind: "PE", box: { x: 10, y: 50, w: 15, h: 400, z: 20, d: BUILTIN_BAR_DEPTH_MM }, terminals: terminals[0] },
+      { kind: "N", box: { x: 375, y: 50, w: 15, h: 400, z: 20, d: BUILTIN_BAR_DEPTH_MM }, terminals: terminals[1] },
     ]);
     expect(builtinBarTerminalZ(GEOMETRY.bars[0])).toBe(20 + BUILTIN_BAR_DEPTH_MM / 2);
   });
@@ -148,6 +160,24 @@ describe("buildCabinetScene", () => {
       expect(wall.z).toBe(0);
       expect(wall.d).toBe(depthMm);
     }
+  });
+
+  it("gives a catalog bar the router's terminal points, and none without wiring data", () => {
+    const groups = [{ count: 3, minMm2: 1.5, maxMm2: 16 }];
+    const drawn = { ...DRAWN[2], id: "bar", role: "pe_bar" as const };
+    const withBar = (wiring: WiringData | null) =>
+      buildCabinetScene({
+        geometry: GEOMETRY,
+        devices: [{ ...drawn, depthMm: 40, poles: null }],
+        wiring,
+      }).devices[0].terminals;
+    const wiring = { devices: [{ id: "bar", role: "pe_bar", terminal_groups: groups }] } as unknown as WiringData;
+    const bar = catalogBarAsCabinetBar({ role: "pe_bar", terminal_groups: groups }, drawn.rect);
+    if (bar === null) throw new Error("expected a bar");
+    expect(barRect(bar)).toEqual(drawn.rect);
+    expect(withBar(wiring)).toEqual(barTerminalPoints(bar, GEOMETRY.interior).map((terminal) => terminal.point));
+    expect(withBar(wiring)).toHaveLength(3);
+    expect(withBar(null)).toEqual([]);
   });
 
   it("does not clamp a device deeper than the cabinet", () => {

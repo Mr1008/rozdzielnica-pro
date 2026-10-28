@@ -1,5 +1,7 @@
 import type { DrawnDevice, DrawnRole } from "@/lib/cabinet-drawing";
 import { barRect, railRect, type CabinetGeometry, type Rect } from "@/lib/cabinet-geometry";
+import { barTerminalPoints, catalogBarAsCabinetBar, isCatalogBarRole, type Point } from "@/lib/cabinet-layout";
+import type { PoleConfig } from "@/lib/device-spec";
 import type { WiringData } from "@/lib/wiring-island";
 
 /**
@@ -40,8 +42,14 @@ export interface Box3Mm {
   d: number;
 }
 
-/** A placed device as the scene needs it: the drawing's front-view rectangle plus its snapshot depth. */
-export type Scene3DDevice = Pick<DrawnDevice, "id" | "role" | "railIndex" | "rect"> & { depthMm: number };
+/**
+ * A placed device as the scene needs it: the drawing's front-view rectangle, label lines and N side,
+ * plus its snapshot depth and poles (the realistic models put one terminal screw per pole).
+ */
+export type Scene3DDevice = Pick<DrawnDevice, "id" | "role" | "railIndex" | "rect" | "lines" | "nTerminalSide"> & {
+  depthMm: number;
+  poles: PoleConfig | null;
+};
 
 /** The island's whole prop payload. No prices or other snapshot columns. */
 export interface Cabinet3DData {
@@ -57,10 +65,15 @@ export interface CabinetScene {
   /** Left, right, top, bottom — outside the interior; the front is open. */
   walls: Box3Mm[];
   rails: Box3Mm[];
-  /** Catalog PE/N bars are here too, like any placed device. */
-  devices: { id: string; role: DrawnRole; box: Box3Mm }[];
-  /** The cabinet's built-in bars only. */
-  bars: { kind: CabinetGeometry["bars"][number]["kind"]; box: Box3Mm }[];
+  /**
+   * Catalog PE/N bars are here too, like any placed device. `terminals` is the front-view point of each
+   * clamping screw of a catalog bar — the router's own `barTerminalPoints` — and empty for every other
+   * device, and for a catalog bar when `data.wiring` is null (its terminal groups travel in the wiring
+   * data, so without it there is no screw to draw and nothing to wire).
+   */
+  devices: { id: string; role: DrawnRole; box: Box3Mm; terminals: Point[] }[];
+  /** The cabinet's built-in bars only; `terminals` are the router's `barTerminalPoints` of each. */
+  bars: { kind: CabinetGeometry["bars"][number]["kind"]; box: Box3Mm; terminals: Point[] }[];
 }
 
 /** The depth of a device's terminals: it sits on the rail's front face. */
@@ -74,18 +87,27 @@ export function builtinBarTerminalZ(bar: Pick<CabinetGeometry["bars"][number], "
 }
 
 /**
- * Joins each drawn device to its snapshot row's `depth_mm`. A drawn device with no row is a
- * programming error — the drawing is built from that same snapshot — so it throws.
+ * Joins each drawn device to its snapshot row's `depth_mm` and `poles`. A drawn device with no row is
+ * a programming error — the drawing is built from that same snapshot — so it throws.
  */
 export function toScene3DDevices(
-  drawn: readonly Pick<DrawnDevice, "id" | "role" | "railIndex" | "rect">[],
-  snapshot: readonly { id: string; depth_mm: number }[],
+  drawn: readonly Pick<DrawnDevice, "id" | "role" | "railIndex" | "rect" | "lines" | "nTerminalSide">[],
+  snapshot: readonly { id: string; depth_mm: number; poles: PoleConfig | null }[],
 ): Scene3DDevice[] {
-  const depthById = new Map(snapshot.map((row) => [row.id, row.depth_mm]));
+  const rowById = new Map(snapshot.map((row) => [row.id, row]));
   return drawn.map((device) => {
-    const depthMm = depthById.get(device.id);
-    if (depthMm === undefined) throw new Error(`no snapshot row for drawn device ${device.id}`);
-    return { id: device.id, role: device.role, railIndex: device.railIndex, rect: device.rect, depthMm };
+    const row = rowById.get(device.id);
+    if (row === undefined) throw new Error(`no snapshot row for drawn device ${device.id}`);
+    return {
+      id: device.id,
+      role: device.role,
+      railIndex: device.railIndex,
+      rect: device.rect,
+      lines: device.lines,
+      nTerminalSide: device.nTerminalSide,
+      depthMm: row.depth_mm,
+      poles: row.poles,
+    };
   });
 }
 
@@ -100,6 +122,14 @@ function box(rect: Rect, z: number, d: number): Box3Mm {
 export function buildCabinetScene(data: Cabinet3DData): CabinetScene {
   const { widthMm: w, heightMm: h, depthMm: d } = data.geometry.interior;
   const t = WALL_THICKNESS_MM;
+  const wiringDevices = new Map((data.wiring?.devices ?? []).map((device) => [device.id, device]));
+  // The same call `routeWiring` makes for a catalog bar: the bar seen over its device rectangle.
+  const catalogTerminals = (device: Scene3DDevice): Point[] => {
+    const wiringDevice = wiringDevices.get(device.id);
+    if (!isCatalogBarRole(device.role) || wiringDevice === undefined) return [];
+    const bar = catalogBarAsCabinetBar(wiringDevice, device.rect);
+    return bar === null ? [] : barTerminalPoints(bar, data.geometry.interior).map((terminal) => terminal.point);
+  };
   return {
     interior: { x: 0, y: 0, z: 0, w, h, d },
     backPlate: { x: -t, y: -t, z: -t, w: w + 2 * t, h: h + 2 * t, d: t },
@@ -114,7 +144,12 @@ export function buildCabinetScene(data: Cabinet3DData): CabinetScene {
       id: device.id,
       role: device.role,
       box: box(device.rect, RAIL_FRONT_Z_MM, device.depthMm),
+      terminals: catalogTerminals(device),
     })),
-    bars: data.geometry.bars.map((bar) => ({ kind: bar.kind, box: box(barRect(bar), bar.zMm, BUILTIN_BAR_DEPTH_MM) })),
+    bars: data.geometry.bars.map((bar) => ({
+      kind: bar.kind,
+      box: box(barRect(bar), bar.zMm, BUILTIN_BAR_DEPTH_MM),
+      terminals: barTerminalPoints(bar, data.geometry.interior).map((terminal) => terminal.point),
+    })),
   };
 }

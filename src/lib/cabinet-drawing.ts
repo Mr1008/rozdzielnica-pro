@@ -332,6 +332,14 @@ export function sagDepthMm(spanMm: number): number {
   return Math.min(MAX_SAG_MM, spanMm * Math.sqrt((3 * WIRE_SLACK_RATIO * SAG_SLACK_SHARE) / 8));
 }
 
+/** A sagging run's quadratic control point sits this many sag depths below the run's middle. */
+export const SAG_CONTROL_FACTOR = 2;
+
+/** The sag of one horizontal run of `spanMm`: `sagDepthMm`, capped by the run's `sagLimits` entry. */
+export function runSagMm(spanMm: number, limitMm: number): number {
+  return Math.min(sagDepthMm(spanMm), limitMm);
+}
+
 function fmt(value: number): string {
   return String(Math.round(value * 100) / 100);
 }
@@ -386,10 +394,10 @@ function wirePathPieces(
     const corner = points[i];
     const end = towards(corner, points[i - 1], radius[i]);
     const horizontal = Math.abs(end.y - start.y) < 1e-9;
-    const sag = horizontal ? Math.min(sagDepthMm(Math.abs(end.x - start.x)), sagLimits.at(i - 1) ?? Infinity) : 0;
+    const sag = horizontal ? runSagMm(Math.abs(end.x - start.x), sagLimits.at(i - 1) ?? Infinity) : 0;
     let body =
       sag > 0
-        ? ` Q${fmt((start.x + end.x) / 2)} ${fmt(start.y + 2 * sag)} ${fmt(end.x)} ${fmt(end.y)}`
+        ? ` Q${fmt((start.x + end.x) / 2)} ${fmt(start.y + SAG_CONTROL_FACTOR * sag)} ${fmt(end.x)} ${fmt(end.y)}`
         : ` L${fmt(end.x)} ${fmt(end.y)}`;
     const pieceStart = start;
     if (i < points.length - 1) {
@@ -512,7 +520,7 @@ const FERRULE_STROKE_CLASSES: Record<FerruleColourToken, string> = {
   "ferrule-red": "stroke-ferrule-red",
 };
 
-function isWireCrossSection(mm2: number): mm2 is WireCrossSectionMm2 {
+export function isWireCrossSection(mm2: number): mm2 is WireCrossSectionMm2 {
   return (WIRE_CROSS_SECTIONS_MM2 as readonly number[]).includes(mm2);
 }
 
@@ -656,6 +664,24 @@ function terminalEnds(conductor: Conductor): TerminalEnd[] {
 }
 
 /**
+ * Per conductor, per path segment: the sag limits of the realistic drawing — `sagLimits` for the
+ * realistic bodies, zeroed for every circuit and WLZ core, every run in a tied bundle and every run a
+ * cable tie holds, so only the loose parts of feeds sag. Shared with the 3D preview. Presentation only.
+ */
+export function realisticSagLimits(conductors: readonly Conductor[]): number[][] {
+  const limits = sagLimits(conductors, "realistic");
+  const held = tieLayout(conductors).held;
+  conductors.forEach((conductor, owner) => {
+    if (conductor.kind !== "feed") limits[owner].fill(0);
+    for (const tie of conductor.tied) limits[owner][tie.segment] = 0;
+    held.get(owner)?.forEach((segment) => {
+      limits[owner][segment] = 0;
+    });
+  });
+  return limits;
+}
+
+/**
  * The conductors as SVG paths, protective conductors first so the live ones (L, N) paint over them,
  * then in routing order. A path that runs behind a device (allowed: under the DIN rail) is drawn
  * over it like any other, so it stays traceable.
@@ -673,17 +699,7 @@ export function buildDrawnWires(
   names?: WireNames,
   variant: WiringVariant = "realistic",
 ): DrawnWire[] {
-  const limits = sagLimits(conductors, variant);
-  if (variant === "realistic") {
-    const held = tieLayout(conductors).held;
-    conductors.forEach((conductor, owner) => {
-      if (conductor.kind !== "feed") limits[owner].fill(0);
-      for (const tie of conductor.tied) limits[owner][tie.segment] = 0;
-      held.get(owner)?.forEach((segment) => {
-        limits[owner][segment] = 0;
-      });
-    });
-  }
+  const limits = variant === "realistic" ? realisticSagLimits(conductors) : sagLimits(conductors, variant);
   const layer = (role: ConductorRole) => (role === "PE" || role === "PEN" ? 0 : 1);
   return [...conductors]
     .map((conductor, index) => ({ conductor, index }))
@@ -968,6 +984,9 @@ function sheathDiameterMm(cores: readonly Conductor[]): number {
  * terminals. A couple of centimetres, as a carefully wired cabinet shows.
  */
 export const SHEATH_STUB_MM = 25;
+
+/** A ferrule's collar is this much wider than the core it is crimped on, and its outline wider again. */
+export const FERRULE_EXTRA_MM = 0.4;
 
 /**
  * The cables at the entries (plan Phase 5c): every conductor that starts at an entry belongs to one

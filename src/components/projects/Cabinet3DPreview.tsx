@@ -4,7 +4,8 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { buildCabinetScene, type Cabinet3DData, type CabinetScene } from "@/lib/cabinet-3d";
 import { routeWiring } from "@/lib/cabinet-wiring";
 import { t } from "@/lib/i18n";
-import { liftWiring, type Wiring3D } from "@/lib/wiring-3d";
+import { liftWiring, realisticWiring } from "@/lib/wiring-3d";
+import type { Wiring3DView } from "@/components/projects/Cabinet3DScene";
 
 // The only module that imports three.js; loaded on demand, so a browser without WebGL never fetches it.
 const Cabinet3DScene = lazy(() => import("@/components/projects/Cabinet3DScene"));
@@ -20,13 +21,15 @@ function hasWebGL(): boolean {
 }
 
 /** The routed wires lifted into depth. Deferred to an effect, like `useWiringDrawing`, so the first render matches. */
-function useWiring3D(data: Cabinet3DData, scene: CabinetScene): Wiring3D | null {
-  const [lifted, setLifted] = useState<{ data: Cabinet3DData; wiring: Wiring3D } | null>(null);
+function useWiring3D(data: Cabinet3DData, scene: CabinetScene): Wiring3DView | null {
+  const [lifted, setLifted] = useState<{ data: Cabinet3DData; wiring: Wiring3DView } | null>(null);
   useEffect(() => {
     const input = data.wiring;
     if (input === null) return;
     const timer = setTimeout(() => {
-      setLifted({ data, wiring: liftWiring(routeWiring(input), scene, data) });
+      const routed = routeWiring(input);
+      const lift = liftWiring(routed, scene, data);
+      setLifted({ data, wiring: { busbars: lift.busbars, ...realisticWiring(routed, lift) } });
     }, 0);
     return () => {
       clearTimeout(timer);
@@ -98,7 +101,7 @@ export default function Cabinet3DPreview({ data, fallbackHref }: Props): JSX.Ele
       <div className="bg-drawing-paper mx-auto aspect-[4/3] w-full max-w-3xl overflow-hidden rounded-md border">
         <SceneErrorBoundary fallback={unavailable}>
           <Suspense fallback={loading}>
-            <Cabinet3DScene scene={scene} wiring={wiring} />
+            <Cabinet3DScene scene={scene} devices={data.devices} wiring={wiring} />
           </Suspense>
         </SceneErrorBoundary>
       </div>

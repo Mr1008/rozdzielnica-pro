@@ -88,6 +88,13 @@
   --ferrule-yellow: oklch(86% 0.17 95);
   --ferrule-red: oklch(55% 0.2 27);
 
+  /* Hardware in the 3D preview: dark plastic (lever, openings, slots), test button, zinc screw heads, brass bars. */
+  --device-dark: oklch(24% 0.02 255);
+  --device-lever: oklch(30% 0.02 255);
+  --device-test-button: oklch(72% 0.15 85); /* amber-yellow */
+  --device-screw: oklch(78% 0.01 255); /* zinc */
+  --bar-brass: oklch(76% 0.12 85); /* brass */
+
   /*
    * Cabinet drawing — this project's values. Rail, entry and PE body differ in lightness as well as
    * hue (relative luminance 0.68 / 0.40 / 0.15), so they stay distinguishable in a greyscale print.
@@ -195,6 +202,11 @@
   --color-ferrule-grey: var(--ferrule-grey);
   --color-ferrule-yellow: var(--ferrule-yellow);
   --color-ferrule-red: var(--ferrule-red);
+  --color-device-dark: var(--device-dark);
+  --color-device-lever: var(--device-lever);
+  --color-device-test-button: var(--device-test-button);
+  --color-device-screw: var(--device-screw);
+  --color-bar-brass: var(--bar-brass);
 
   --color-drawing-paper: var(--drawing-paper);
   --color-drawing-rail: var(--drawing-rail);

@@ -15,7 +15,9 @@ import { routeWiring, type Conductor, type Endpoint, type Wiring } from "./cabin
 import { computeMatchView } from "./device-matching-server";
 import { buildLayoutDrawing, computeLayoutView } from "./layout-server";
 import { busbarFixture, realisticFixture, worstCaseFixture, type RenderFixture } from "./wiring-bench-fixtures";
-import { BUSBAR_DEPTH_MM, liftWiring, type Point3Mm } from "./wiring-3d";
+import { BUSBAR_DEPTH_MM, liftWiring, realisticWiring, smoothConductor3D, type Point3Mm } from "./wiring-3d";
+import { bendRadiusMm, buildCableTies, buildDrawnCables, MAX_SAG_MM } from "./cabinet-drawing";
+import { FERRULE } from "./wire-dimensions";
 
 /** The fixtures give every device 70 mm; vary it so each end depth is tied to its own device. */
 const DEPTH_BY_ROLE: Record<string, number> = { main_switch: 66, rcd: 76, mcb: 70 };
@@ -26,7 +28,11 @@ function lifted(fixture: RenderFixture, edit: (data: Cabinet3DData) => Cabinet3D
   const view = computeLayoutView(matchView, fixture.context, fixture.placements);
   const drawing = buildLayoutDrawing(view, matchView, fixture.context);
   if (fixture.context.geometry === null || drawing.wiring === null) throw new Error("fixture must be placed");
-  const snapshot = matchView.snapshot.map((row) => ({ id: row.id, depth_mm: DEPTH_BY_ROLE[row.role] ?? row.depth_mm }));
+  const snapshot = matchView.snapshot.map((row) => ({
+    id: row.id,
+    depth_mm: DEPTH_BY_ROLE[row.role] ?? row.depth_mm,
+    poles: row.poles,
+  }));
   const data = edit({
     geometry: fixture.context.geometry,
     devices: toScene3DDevices(drawing.devices, snapshot),
@@ -323,5 +329,179 @@ describe("liftWiring — an unrouted conductor", () => {
     const [first, ...rest] = wiring.conductors;
     const result = liftWiring({ ...wiring, conductors: [{ ...first, path: [] }, ...rest] }, scene, data);
     expect(result.conductors.map((c) => c.key)).toEqual(rest.filter((c) => c.path.length >= 2).map((c) => c.key));
+  });
+});
+
+/** Distance from `p` to the segment `a`-`b` in 3D. */
+function distanceToSegment(p: Point3Mm, a: Point3Mm, b: Point3Mm): number {
+  const [dx, dy, dz] = [b.x - a.x, b.y - a.y, b.z - a.z];
+  const lengthSq = dx * dx + dy * dy + dz * dz;
+  const along = lengthSq === 0 ? 0 : ((p.x - a.x) * dx + (p.y - a.y) * dy + (p.z - a.z) * dz) / lengthSq;
+  const t = Math.max(0, Math.min(1, along));
+  return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy), p.z - (a.z + t * dz));
+}
+
+/** The lifted segment nearest to `p`, with its distance. */
+function nearest(p: Point3Mm, points: readonly Point3Mm[]): { index: number; distance: number } {
+  let best = { index: 0, distance: Infinity };
+  for (let i = 1; i < points.length; i++) {
+    const distance = distanceToSegment(p, points[i - 1], points[i]);
+    if (distance < best.distance) best = { index: i - 1, distance };
+  }
+  return best;
+}
+
+describe.each(FIXTURES)("realisticWiring — %s", (_name, fixture) => {
+  const { wiring, result } = lifted(fixture);
+  const dressed = realisticWiring(wiring, result);
+  const lift = new Map(result.conductors.map((c) => [c.key, c]));
+  const conductors = new Map(wiring.conductors.map((c) => [c.key, c]));
+  const EPS = 1e-6;
+
+  it("gives one wire per lifted conductor, ends unchanged", () => {
+    expect(dressed.wires.map((w) => w.key)).toEqual(result.conductors.map((c) => c.key));
+    for (const wire of dressed.wires) {
+      const points = lift.get(wire.key)?.points ?? [];
+      expect(wire.smooth[0], wire.key).toEqual(points[0]);
+      expect(wire.smooth.at(-1), wire.key).toEqual(points.at(-1));
+    }
+  });
+
+  it("keeps the smoothed path within one bend radius of the lifted path, plus the sag for feeds", () => {
+    for (const wire of dressed.wires) {
+      const points = lift.get(wire.key)?.points ?? [];
+      const bend = bendRadiusMm(wire.diameterMm, "realistic");
+      const feed = conductors.get(wire.key)?.kind === "feed";
+      const zs = points.map((p) => p.z);
+      for (const p of wire.smooth) {
+        expect(nearest(p, points).distance, wire.key).toBeLessThanOrEqual(bend + (feed ? MAX_SAG_MM : 0) + EPS);
+        // Sag is only ever in y: depth stays within the lifted route's range.
+        expect(p.z, wire.key).toBeGreaterThanOrEqual(Math.min(...zs) - EPS);
+        expect(p.z, wire.key).toBeLessThanOrEqual(Math.max(...zs) + EPS);
+      }
+    }
+  });
+
+  it("sags only feeds, downward in y, and leaves circuit and WLZ runs taut", () => {
+    for (const wire of dressed.wires) {
+      const points = lift.get(wire.key)?.points ?? [];
+      const feed = conductors.get(wire.key)?.kind === "feed";
+      const bend = bendRadiusMm(wire.diameterMm, "realistic");
+      for (const p of wire.smooth) {
+        const { index } = nearest(p, points);
+        const [a, b] = [points[index], points[index + 1]];
+        if (a.y !== b.y || a.x === b.x) continue;
+        const inside = p.x > Math.min(a.x, b.x) + bend + EPS && p.x < Math.max(a.x, b.x) - bend - EPS;
+        if (!inside || Math.abs(p.z - a.z) > EPS) continue;
+        if (feed) {
+          expect(p.y - a.y, wire.key).toBeGreaterThanOrEqual(-EPS);
+          expect(p.y - a.y, wire.key).toBeLessThanOrEqual(MAX_SAG_MM + EPS);
+        } else {
+          expect(p.y, wire.key).toBeCloseTo(a.y, 9);
+        }
+      }
+    }
+  });
+
+  it("puts one ferrule on every terminal or bar end, never on an entry end", () => {
+    let ferrules = 0;
+    for (const wire of dressed.wires) {
+      const conductor = conductors.get(wire.key);
+      const points = lift.get(wire.key)?.points ?? [];
+      if (conductor === undefined) throw new Error(wire.key);
+      const ends = [
+        ...(conductor.from.type === "entry" ? [] : [points[0]]),
+        ...(conductor.to.type === "entry" ? [] : [points.at(-1)]),
+      ];
+      expect(
+        wire.ferrules.map((f) => f.at),
+        wire.key,
+      ).toEqual(ends);
+      const table = FERRULE[conductor.crossSectionMm2 as keyof typeof FERRULE];
+      for (const f of wire.ferrules) {
+        expect(f.lengthMm).toBe(table.lengthMm);
+        expect(f.colourToken).toBe(table.colourToken);
+        expect(f.diameterMm).toBeGreaterThan(wire.diameterMm);
+        expect(f.collar.diameterMm).toBeGreaterThan(f.diameterMm);
+        expect(Math.hypot(f.direction.x, f.direction.y, f.direction.z)).toBeCloseTo(1, 9);
+        expect(f.offsetMm).toBeLessThanOrEqual(0);
+      }
+      ferrules += wire.ferrules.length;
+    }
+    expect(ferrules).toBeGreaterThan(0);
+  });
+
+  it("places one tie per 2D cable tie, inside the cabinet", () => {
+    const ties = buildCableTies(wiring.conductors);
+    expect(dressed.ties.map((t) => t.key)).toEqual(ties.map((t) => t.key));
+    for (const tie of dressed.ties) {
+      expect(tie.depthMm).toBeGreaterThan(0);
+      expect(tie.centre.z).toBeGreaterThan(0);
+    }
+  });
+
+  it("draws every sheath at its 2D cable's diameter", () => {
+    const cables = new Map(buildDrawnCables(wiring.conductors).map((c) => [c.key, c.diameterMm]));
+    let sheathed = 0;
+    for (const wire of dressed.wires) {
+      const conductor = conductors.get(wire.key);
+      if (conductor === undefined) throw new Error(wire.key);
+      if (wire.sheath === null) continue;
+      sheathed++;
+      const key = conductor.kind === "wlz" ? "wlz" : `c:${conductor.circuitId ?? conductor.key}`;
+      expect(wire.sheath.diameterMm, wire.key).toBe(cables.get(key));
+      expect(wire.sheath.points).toEqual(lift.get(wire.key)?.sheath);
+    }
+    expect(sheathed).toBe(result.conductors.filter((c) => c.sheath !== null).length);
+  });
+
+  it("is deterministic", () => {
+    expect(realisticWiring(wiring, lifted(fixture).result)).toEqual(dressed);
+  });
+});
+
+describe("realisticWiring — feeds hang loose", () => {
+  it("sags a feed with a long free horizontal run in the realistic project", () => {
+    const { wiring, result } = lifted(realisticFixture());
+    const dressed = realisticWiring(wiring, result);
+    const sagging = dressed.wires.filter((wire) => {
+      const points = result.conductors.find((c) => c.key === wire.key)?.points ?? [];
+      return (
+        wiring.conductors.find((c) => c.key === wire.key)?.kind === "feed" &&
+        wire.smooth.some((p) => {
+          const { index } = nearest(p, points);
+          return points[index].y === points[index + 1].y && p.y - points[index].y > 0.5;
+        })
+      );
+    });
+    expect(sagging.length).toBeGreaterThan(0);
+  });
+});
+
+describe("realisticWiring — a side pack with an overflow layer", () => {
+  it("ties and dresses the overflowing bundle without throwing", () => {
+    const { wiring, result } = lifted(worstCaseFixture(), (data) =>
+      data.wiring === null
+        ? data
+        : {
+            ...data,
+            wiring: {
+              ...data.wiring,
+              circuits: data.wiring.circuits.map((c) => ({ ...c, cross_section_mm2: 16, entry_side: "left" })),
+            },
+          },
+    );
+    const dressed = realisticWiring(wiring, result);
+    expect(dressed.ties.length).toBe(buildCableTies(wiring.conductors).length);
+    expect(dressed.ties.length).toBeGreaterThan(0);
+  });
+});
+
+describe("smoothConductor3D", () => {
+  it("returns a copy of a conductor with no corners", () => {
+    const { result } = lifted(realisticFixture());
+    const [first] = result.conductors;
+    const straight = { ...first, points: [first.points[0], first.points[1]] };
+    expect(smoothConductor3D(straight, "realistic")).toEqual(straight.points);
   });
 });
