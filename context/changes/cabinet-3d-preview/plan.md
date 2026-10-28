@@ -588,20 +588,20 @@ None. There is no schema or data change, and the deploy is backward-compatible.
 
 #### Automated
 
-- [x] 1.1 `npm run test:unit` passes, including the new `cabinet-3d.test.ts`
-- [x] 1.2 `npm run lint` passes
+- [x] 1.1 `npm run test:unit` passes, including the new `cabinet-3d.test.ts` — 091f2a8
+- [x] 1.2 `npm run lint` passes — 091f2a8
 
 #### Manual
 
-- [ ] 1.3 The depth constants and their "display assumption" comments read sensibly against a real modular enclosure
+- [x] 1.3 The depth constants and their "display assumption" comments read sensibly against a real modular enclosure
 
 ### Phase 2: 3D wire and busbar lift
 
 #### Automated
 
-- [ ] 2.1 `npm run test:unit` passes, including `wiring-3d.test.ts`; router and drawing tests unchanged and green
-- [ ] 2.2 `npm run lint` passes
-- [ ] 2.3 No change to `cabinet-wiring.ts`, `cabinet-drawing.ts` or `wiring-island.ts`
+- [x] 2.1 `npm run test:unit` passes, including `wiring-3d.test.ts`; router and drawing tests unchanged and green
+- [x] 2.2 `npm run lint` passes
+- [x] 2.3 No change to `cabinet-wiring.ts`, `cabinet-drawing.ts` or `wiring-island.ts`
 
 ### Phase 3: 3D view on the project page
 
