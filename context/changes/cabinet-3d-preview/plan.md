@@ -779,7 +779,7 @@ None. There is no schema or data change, and the deploy is backward-compatible.
 #### Manual
 
 - [x] 4.5 MCB, RCD, RCBO and FR read as real modular devices up close
-- [ ] 4.6 Wires land on screws with ferrules, rounded bends, feeds sag, packs tied, sheaths to the stripping point
+- [x] 4.6 Wires land on screws with ferrules, rounded bends, feeds sag, packs tied, sheaths to the stripping point
 - [x] 4.7 PE/N bars and comb busbars look like real hardware
 - [x] 4.8 Front view still matches the realistic 2D drawing; rotation stays smooth on the largest layout
 - [x] 4.9 Default view still loads no three.js chunk; the WebGL-unavailable Alert still works
