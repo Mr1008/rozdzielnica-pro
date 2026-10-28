@@ -107,12 +107,9 @@ export const pl = {
   },
 
   confirmEmail: {
-    confirmedHeading: "Konto założone",
-    confirmedDescription: "Twoje konto zostało utworzone. Możesz się teraz zalogować.",
-    confirmedLink: "Przejdź do logowania",
-    pendingHeading: "Sprawdź skrzynkę",
-    pendingDescription: "Wysłaliśmy link potwierdzający na Twój adres email. Kliknij go, aby aktywować konto.",
-    pendingLink: "Wróć do logowania",
+    heading: "Konto założone",
+    description: "Twoje konto zostało utworzone. Możesz się teraz zalogować.",
+    link: "Przejdź do logowania",
   },
 
   /** The split auth shell (sign-in, sign-up, confirm-email): the hero side panel next to the form. */

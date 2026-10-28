@@ -306,12 +306,6 @@ Foundations poniżej zakładają, że to istnieje, i **nie** budują tego od now
 - **Filtr preferowanego producenta przy doborze** — Why parked: odnotowany przy FR-007 jako rozszerzenie po MVP; kryterium MVP to najniższa cena spośród poprawnych dopasowań. Śledzone w GitHub [#27](https://github.com/Mr1008/rozdzielnica-pro/issues/27).
 - **Szablony obwodów / kopiowanie obwodów między projektami** — Why parked: odłożone przy FR-006 na późniejszą wersję. Śledzone w GitHub [#28](https://github.com/Mr1008/rozdzielnica-pro/issues/28).
 - **Observability (logger, error tracking, metryki)** — Why parked: not a PRD requirement, so it stays outside the milestone; it was picked up anyway as change `observability` (planned and implemented 2026-10-27: closes the remaining findings of the 2026-10-21 observability audit on Workers Logs, with no third-party tracker). Close this entry once that change is archived. Śledzone w GitHub [#29](https://github.com/Mr1008/rozdzielnica-pro/issues/29).
-- **Włączenie potwierdzania adresu email** (`enable_confirmations = true`) — Why parked: świadomie
-  odłożone na **sam koniec MVP**, żeby przez cały czas budowy testowanie było łatwiejsze. Docelowo
-  do zrobienia: jest darmowe na Supabase, a widok `/auth/confirm-email` już istnieje, więc włączenie
-  wychodzi taniej niż utrzymywanie ścieżki bez potwierdzeń. Uwaga wykonawcza: `scripts/smoke.mjs`
-  rejestruje użytkownika i od razu go loguje, więc włączenie potwierdzeń wymaga przepisania skryptu
-  (logowanie jako zaseedowany admin albo potwierdzenie przez Mailpit). Patrz tripwire w `AGENTS.md`. Śledzone w GitHub [#30](https://github.com/Mr1008/rozdzielnica-pro/issues/30).
 - **Trójwymiarowy podgląd szafki** (obrót, przybliżanie i przesuwanie myszą) — Why parked: pomysł
   użytkownika z 2026-09-23, niski priorytet, na sam koniec MVP, jeśli zostanie czas. Żaden FR tego
   nie wymaga — wystarcza rysunek 2D z przodu (S-05, S-06, S-09). Uwaga wykonawcza: geometria szafki

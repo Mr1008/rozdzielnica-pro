@@ -6,8 +6,10 @@
   `enable_confirmations` on breaks it** — the script signs a user up and immediately signs them in,
   which a confirmation requirement refuses. Enabling confirmation therefore means reworking
   `smoke.mjs` first: sign in as the seeded admin (already `email_confirmed_at`-stamped) or confirm
-  the new account through the local Mailpit API. Deliberately parked until the end of the MVP — see
-  `## Parked` in `context/foundation/roadmap.md`.
+  the new account through the local Mailpit API. **Cancelled 2026-10-27** (GitHub #30, closed as not
+  planned): the free tier's built-in mailer delivers only to members of the Supabase organisation, so
+  real sign-ups would never get the email. Turning it on needs custom SMTP with a sender on a domain
+  we own, which does not exist yet. `/auth/confirm-email` therefore always says "account created".
 - **Never run `supabase config push`.** `supabase/config.toml` carries
   `site_url = "http://127.0.0.1:3000"`, which would break production auth redirects. Migrations reach
   the cloud project through `.github/workflows/deploy.yml`; config does not go up at all, and the
