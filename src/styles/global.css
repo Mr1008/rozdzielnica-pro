@@ -88,10 +88,17 @@
   --ferrule-yellow: oklch(86% 0.17 95);
   --ferrule-red: oklch(55% 0.2 27);
 
-  /* Hardware in the 3D preview: dark plastic (lever, openings, slots), test button, zinc screw heads, brass bars. */
+  /*
+   * Hardware in the 3D preview, modelled on Eaton xPole devices: near-white housings, a grey toggle in a
+   * dark slot, a grey "T" test button, a red contact-position window, dark screwdriver holes, zinc screw
+   * heads, brass bars and white comb busbars.
+   */
+  --device-housing: oklch(94% 0.004 165); /* Eaton xPole near-white grey */
   --device-dark: oklch(24% 0.02 255);
-  --device-lever: oklch(30% 0.02 255);
-  --device-test-button: oklch(72% 0.15 85); /* amber-yellow */
+  --device-lever: oklch(68% 0.006 255); /* grey toggle */
+  --device-test-button: oklch(66% 0.006 255); /* grey "T" */
+  --device-indicator: oklch(55% 0.2 27); /* red contact window */
+  --comb-busbar: oklch(97% 0.003 90); /* white */
   --device-screw: oklch(78% 0.01 255); /* zinc */
   --bar-brass: oklch(76% 0.12 85); /* brass */
 
@@ -202,9 +209,12 @@
   --color-ferrule-grey: var(--ferrule-grey);
   --color-ferrule-yellow: var(--ferrule-yellow);
   --color-ferrule-red: var(--ferrule-red);
+  --color-device-housing: var(--device-housing);
   --color-device-dark: var(--device-dark);
   --color-device-lever: var(--device-lever);
   --color-device-test-button: var(--device-test-button);
+  --color-device-indicator: var(--device-indicator);
+  --color-comb-busbar: var(--comb-busbar);
   --color-device-screw: var(--device-screw);
   --color-bar-brass: var(--bar-brass);
 

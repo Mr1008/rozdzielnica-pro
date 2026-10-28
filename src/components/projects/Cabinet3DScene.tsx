@@ -25,7 +25,6 @@ import {
 } from "@/components/projects/Cabinet3DKit";
 import type { Box3Mm, CabinetScene, Scene3DDevice } from "@/lib/cabinet-3d";
 import { barModel, busbarModel, cabinetModel, deviceModel, railModel, type ModelPart } from "@/lib/cabinet-3d-models";
-import type { DrawnRole } from "@/lib/cabinet-drawing";
 import type { Point } from "@/lib/cabinet-layout";
 import { builtinBarTerminalZ } from "@/lib/cabinet-3d";
 import { t } from "@/lib/i18n";
@@ -58,12 +57,10 @@ export interface Wiring3DView {
 /** An element's parts as merged meshes, one per material; disposed with the element. */
 function Parts({
   parts,
-  role,
   cast = true,
   receive = true,
 }: {
   parts: readonly ModelPart[];
-  role?: DrawnRole;
   cast?: boolean;
   receive?: boolean;
 }): JSX.Element {
@@ -81,7 +78,7 @@ function Parts({
         <mesh
           key={material}
           geometry={geometry}
-          material={kit.materialOf(material, role)}
+          material={kit.materialOf(material)}
           castShadow={cast}
           receiveShadow={receive}
         />
@@ -147,11 +144,11 @@ function Device({
   const { label } = model;
   return (
     <group>
-      <Parts parts={model.parts} role={device.role} />
+      <Parts parts={model.parts} />
       {label && label.lines.length > 0 && (
         <mesh
           position={[label.rect.x + label.rect.w / 2, -(label.rect.y + label.rect.h / 2), label.z + LABEL_LIFT_MM]}
-          material={kit.label(label.lines, label.rect, device.role)}
+          material={kit.label(label.lines, label.rect)}
         >
           <planeGeometry args={[label.rect.w, label.rect.h]} />
         </mesh>

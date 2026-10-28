@@ -143,6 +143,12 @@ describe("deviceModel", () => {
     expect(ofMaterial(rcbo, "testButton")).toHaveLength(1);
     expect(ofMaterial(rcd, "testButton")).toHaveLength(1);
     expect(handleWidth(fr)).toBeGreaterThan(handleWidth(mcb) * 2);
+    for (const list of [mcb, rcbo, rcd, fr]) {
+      const [indicator] = ofMaterial(list, "indicator");
+      const lever = partBounds(ofMaterial(list, "lever")[0]);
+      expect(ofMaterial(list, "indicator")).toHaveLength(1);
+      expect(partBounds(indicator).y).toBeGreaterThanOrEqual(lever.y + lever.h);
+    }
   });
 
   it("scales the window down for a device shorter than 45 mm and never overflows the box", () => {
@@ -169,6 +175,22 @@ describe("deviceModel", () => {
     const { label } = deviceModel(device, box);
     expect(label?.lines).toEqual(["B16", "1P"]);
     expect(label?.z).toBeCloseTo(box.z + box.d - LEVER_PROTRUSION_MM, 9);
+  });
+
+  it("keeps the label clear of the lever, its slot and the test button", () => {
+    for (const role of ["mcb", "rcd", "rcbo", "main_switch"] as const) {
+      const device = scene3DDevice({ role, poles: "1P+N", nTerminalSide: "left", rect: { x: 0, y: 0, w: 36, h: 85 } });
+      const box = boxOf(device);
+      const { parts, label } = deviceModel(device, box);
+      if (label === null) throw new Error("expected a label");
+      expect(label.rect.h).toBeGreaterThan(0);
+      const front = parts.filter((part) => partBounds(part).z + partBounds(part).d > label.z + 1e-9);
+      expect(front.length).toBeGreaterThan(0);
+      for (const part of front) {
+        const b = partBounds(part);
+        expect(b.y + b.h).toBeLessThanOrEqual(label.rect.y + 1e-9);
+      }
+    }
   });
 
   it("models a catalog bar on a rail foot, screws at the terminal points", () => {

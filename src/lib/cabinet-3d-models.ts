@@ -20,6 +20,9 @@ export type ModelMaterial =
   | "housingDark"
   | "lever"
   | "testButton"
+  | "indicator"
+  | "accessHole"
+  | "accessScrew"
   | "screw"
   | "terminalOpening"
   | "rail"
@@ -116,17 +119,32 @@ export const LEVER_RADIUS_MM = 1;
 /** Display assumption, not catalog data: the dark slot a lever sits in, standing this far off the window. */
 export const LEVER_SLOT_RAISE_MM = 0.4;
 
-/** Display assumption, not catalog data: an RCD / RCBO test button's diameter. */
-export const TEST_BUTTON_DIAMETER_MM = 4;
+/** Display assumption, not catalog data: an RCD / RCBO test button's diameter (Eaton's round "T"). */
+export const TEST_BUTTON_DIAMETER_MM = 8;
 
 /** Display assumption, not catalog data: how far the test button stands off the window. */
 export const TEST_BUTTON_PROTRUSION_MM = 1.5;
 
 /** Display assumption, not catalog data: where, as a share of the width, the lever sits beside a test button. */
-export const LEVER_WITH_BUTTON_SHARE = 0.35;
+export const LEVER_WITH_BUTTON_SHARE = 0.65;
 
-/** Display assumption, not catalog data: where, as a share of the width, the test button sits. */
-export const TEST_BUTTON_SHARE = 0.75;
+/** Display assumption, not catalog data: where, as a share of the width, the test button sits (left of the lever). */
+export const TEST_BUTTON_SHARE = 0.3;
+
+/** Display assumption, not catalog data: the lever's top, as a share of the window height (it sits high, as on Eaton). */
+export const LEVER_TOP_SHARE = 0.1;
+
+/**
+ * Display assumption, not catalog data: the red contact-position window below the lever (width, height,
+ * gap below the lever slot); an RCD / RCBO has a wider bar, this share of its width.
+ */
+export const INDICATOR_MM = { w: 3, h: 2, gap: 1.5, rcdWidthShare: 0.3 } as const;
+
+/** Display assumption, not catalog data: the screwdriver holes on the shoulder fronts, as a share of the screw radius. */
+export const ACCESS_HOLE_RADIUS_SHARE = 1.2;
+
+/** Display assumption, not catalog data: how far the contact-position window stands off the window face. */
+export const INDICATOR_PROTRUSION_MM = 0.3;
 
 /** Display assumption, not catalog data: a terminal screw head's radius. */
 export const SCREW_RADIUS_MM = 2.5;
@@ -273,7 +291,8 @@ export function deviceModel(device: Scene3DDevice, boxMm: Box3Mm, terminals: rea
     ),
   );
 
-  parts.push(...frontParts(device, { x, w, z: windowFrontZ, y: windowY, h: windowH, protrusion }));
+  const front = frontParts(device, { x, w, z: windowFrontZ, y: windowY, h: windowH, protrusion });
+  parts.push(...front.parts);
 
   const screws: Point3Mm[] = [];
   if (radius > 0) {
@@ -303,23 +322,62 @@ export function deviceModel(device: Scene3DDevice, boxMm: Box3Mm, terminals: rea
     }
   }
 
+  // Screwdriver holes on the shoulder fronts above and below the window, one per terminal, with the
+  // screw's head showing inside, as on Eaton's range. Flush decals on the shoulder face.
+  const shoulderH = (h - windowH) / 2;
+  const holeR = Math.min(radius * ACCESS_HOLE_RADIUS_SHARE, slot / 2 - TERMINAL_OPENING_MARGIN_MM, shoulderH / 2 - 0.5);
+  if (holeR > 0) {
+    const faceZ = z + shoulderD;
+    for (const [terminalsAtEdge, cy] of [
+      [points.top, y + shoulderH / 2],
+      [points.bottom, y + h - shoulderH / 2],
+    ] as const) {
+      for (const terminal of terminalsAtEdge) {
+        parts.push(
+          {
+            shape: "cylinder",
+            center: { x: terminal.x, y: cy, z: faceZ - 0.1 },
+            axis: "z",
+            radiusMm: holeR,
+            lengthMm: 0.2,
+            material: "accessHole",
+          },
+          {
+            shape: "cylinder",
+            center: { x: terminal.x, y: cy, z: faceZ - 0.05 },
+            axis: "z",
+            radiusMm: holeR * 0.6,
+            lengthMm: 0.1,
+            material: "accessScrew",
+          },
+        );
+      }
+    }
+  }
+
+  // The printed rating sits on the window below the lever slot and the indicator, never under the lever.
   const inset = Math.min(LABEL_INSET_MM, w * 0.05, windowH * 0.05);
+  const labelTop = front.slotBottomY + inset;
   return {
     parts,
     screws,
     label: {
-      rect: { x: x + inset, y: windowY + inset, w: w - 2 * inset, h: windowH - 2 * inset },
+      rect: { x: x + inset, y: labelTop, w: w - 2 * inset, h: Math.max(0, windowY + windowH - inset - labelTop) },
       z: windowFrontZ,
       lines: [...device.lines],
     },
   };
 }
 
-/** The levers, the lever slots and the test button on the window face (the window's front is at `z`). */
+/**
+ * The lever high on the window in its slot, the red contact-position window below it and, on an RCD /
+ * RCBO, the round test button left of the lever, on the window face (its front is at `z`), modelled
+ * on Eaton's xPole range. Also returns the y below which the label goes.
+ */
 function frontParts(
   device: Pick<Scene3DDevice, "role">,
   face: { x: number; w: number; z: number; y: number; h: number; protrusion: number },
-): ModelPart[] {
+): { parts: ModelPart[]; slotBottomY: number } {
   const { x, w, z, y, h, protrusion } = face;
   const parts: ModelPart[] = [];
   const hasButton = device.role === "rcd" || device.role === "rcbo";
@@ -329,7 +387,7 @@ function frontParts(
   const leverH = Math.min(LEVER_HEIGHT_MM, h * (isSwitch ? 0.6 : 0.5));
   const centreX = x + w * (hasButton ? LEVER_WITH_BUTTON_SHARE : 0.5);
   const leverX = Math.min(Math.max(centreX - leverW / 2, x), x + w - leverW);
-  const leverY = y + (h - leverH) / 2;
+  const leverY = y + Math.max(1.5, h * LEVER_TOP_SHARE);
   const raise = Math.min(LEVER_SLOT_RAISE_MM, protrusion);
   const margin = Math.max(0, Math.min(1, leverX - x, x + w - (leverX + leverW)));
 
@@ -339,19 +397,36 @@ function frontParts(
     radiusMm: Math.min(LEVER_RADIUS_MM, leverW / 2, protrusion / 2),
     material: "lever",
   });
+  const slotBottomY = Math.min(leverY + leverH + 1.5, y + h);
+  const indicatorW = hasButton ? w * INDICATOR_MM.rcdWidthShare : Math.min(INDICATOR_MM.w, leverW);
+  const indicatorY = slotBottomY + INDICATOR_MM.gap;
+  const indicatorH = Math.min(INDICATOR_MM.h, Math.max(0, y + h - indicatorY));
+  if (indicatorH > 0) {
+    parts.push(
+      box(
+        Math.min(Math.max(leverX + (leverW - indicatorW) / 2, x), x + w - indicatorW),
+        indicatorY,
+        z,
+        indicatorW,
+        indicatorH,
+        Math.min(INDICATOR_PROTRUSION_MM, protrusion),
+        "indicator",
+      ),
+    );
+  }
   if (hasButton) {
-    const radius = Math.min(TEST_BUTTON_DIAMETER_MM / 2, w * 0.1);
+    const radius = Math.min(TEST_BUTTON_DIAMETER_MM / 2, w * 0.15);
     const buttonX = Math.min(Math.max(x + w * TEST_BUTTON_SHARE, x + radius), x + w - radius);
     parts.push({
       shape: "cylinder",
-      center: { x: buttonX, y: y + h * 0.25, z: z + Math.min(TEST_BUTTON_PROTRUSION_MM, protrusion) / 2 },
+      center: { x: buttonX, y: leverY + leverH / 2, z: z + Math.min(TEST_BUTTON_PROTRUSION_MM, protrusion) / 2 },
       axis: "z",
       radiusMm: radius,
       lengthMm: Math.min(TEST_BUTTON_PROTRUSION_MM, protrusion),
       material: "testButton",
     });
   }
-  return parts;
+  return { parts, slotBottomY: indicatorH > 0 ? indicatorY + indicatorH : slotBottomY };
 }
 
 function catalogBarModel(device: Scene3DDevice, boxMm: Box3Mm, terminals: readonly Point[]): DeviceModel {

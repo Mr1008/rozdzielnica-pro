@@ -20,10 +20,9 @@ import {
   Vector3,
 } from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import { DEVICE_CLASSES } from "@/components/cabinets/CabinetDrawing";
 import type { Box3Mm } from "@/lib/cabinet-3d";
 import type { ModelMaterial, ModelPart } from "@/lib/cabinet-3d-models";
-import { REALISTIC_WIRE_STYLES, type DrawnRole, type WireStripe } from "@/lib/cabinet-drawing";
+import { REALISTIC_WIRE_STYLES, type WireStripe } from "@/lib/cabinet-drawing";
 import type { ConductorRole } from "@/lib/cabinet-wiring";
 import type { Point3Mm } from "@/lib/wiring-3d";
 
@@ -35,9 +34,10 @@ import type { Point3Mm } from "@/lib/wiring-3d";
  * needs a second mapping afterwards.
  *
  * Colours are the drawing's tokens, read at runtime and converted to sRGB through a one-pixel 2D canvas,
- * because the tokens are `oklch()` and three.js's CSS parser is not relied on for that. The token of a
- * role comes from the 2D drawing's own class maps (`DEVICE_CLASSES`, `BAR_CLASSES`,
- * `REALISTIC_WIRE_STYLES`), so there is no second mapping to drift.
+ * because the tokens are `oklch()` and three.js's CSS parser is not relied on for that. A wire role's
+ * colours come from the 2D drawing's own `REALISTIC_WIRE_STYLES`, so there is no second mapping to
+ * drift; the hardware has its own `--device-*`, `--bar-brass` and `--comb-busbar` tokens, modelled on
+ * one manufacturer's range (Eaton), not on the 2D drawing's role colours.
  */
 
 /** A token class (`fill-drawing-frame stroke-…`, `stroke-wire-l1`) → its custom property's name. */
@@ -245,8 +245,6 @@ export function paintCore(
 
 /** Display assumption: label texture resolution. */
 const LABEL_PX_PER_MM = 10;
-/** The share of the window's height, from its bottom, the text may use (the lever sits above it). */
-const LABEL_BAND_SHARE = 0.27;
 /** Display assumption: the largest label glyph height and the line spacing, in em. */
 const LABEL_MAX_FONT_MM = 3.5;
 const LABEL_LINE_EM = 1.15;
@@ -266,14 +264,14 @@ export interface SceneKit {
   read: (token: string) => Color;
   /** A unit-radius, unit-height, y-axis cylinder: ferrules instance it. */
   unitCylinder: CylinderGeometry;
-  /** The material of a model part; a `housing` part takes its device role's colour. */
-  materialOf: (name: ModelMaterial, role?: DrawnRole) => PhysicalOrStandard;
+  /** The material of a model part. */
+  materialOf: (name: ModelMaterial) => PhysicalOrStandard;
   core: MeshPhysicalMaterial;
   sheath: MeshStandardMaterial;
   tie: MeshStandardMaterial;
   ferrule: (token: string) => MeshStandardMaterial;
   /** The text of a device's label on a transparent plane texture, shared by equal labels. */
-  label: (lines: readonly string[], rect: LabelRect, role: DrawnRole) => MeshBasicMaterial;
+  label: (lines: readonly string[], rect: LabelRect) => MeshBasicMaterial;
   /** Sky and ground colours of the hemisphere light. */
   sky: Color;
   ground: Color;
@@ -307,24 +305,25 @@ function buildKit(): Built {
   // Coplanar decals (terminal openings, screw heads, slots) are pulled toward the camera instead of z-fighting.
   const decal = (factor: number) => ({ polygonOffset: true, polygonOffsetFactor: factor, polygonOffsetUnits: factor });
 
-  const housing = Object.fromEntries(
-    (Object.keys(DEVICE_CLASSES) as DrawnRole[]).map((role) => [
-      role,
-      standard(tokenOfClass(DEVICE_CLASSES[role].body), { roughness: 0.45 }),
-    ]),
-  ) as Record<DrawnRole, MeshStandardMaterial>;
+  // Every modular device shares one light-grey housing, as a single manufacturer's range does (Eaton).
+  const housing = standard("device-housing", { roughness: 0.45 });
+  // Metals keep a low metalness: the scene has no environment map, so a high one reflects nothing and
+  // brass, copper and zinc would render near-black instead of in their token colour.
   const named: Record<Exclude<ModelMaterial, "housing">, PhysicalOrStandard> = {
     housingDark: standard("device-dark", { roughness: 0.5 }),
     lever: standard("device-lever", { roughness: 0.35 }),
     testButton: standard("device-test-button", { roughness: 0.4 }),
-    screw: standard("device-screw", { metalness: 0.8, roughness: 0.35, ...decal(-2) }),
+    indicator: standard("device-indicator", { roughness: 0.3, ...decal(-1) }),
+    accessHole: standard("device-dark", { roughness: 0.8, ...decal(-1) }),
+    accessScrew: standard("device-screw", { metalness: 0.4, roughness: 0.35, ...decal(-2) }),
+    screw: standard("device-screw", { metalness: 0.4, roughness: 0.35, ...decal(-2) }),
     terminalOpening: standard("device-dark", { roughness: 0.8, ...decal(-1) }),
-    rail: standard("drawing-rail", { metalness: 0.7, roughness: 0.4 }),
+    rail: standard("drawing-rail", { metalness: 0.35, roughness: 0.45 }),
     railSlot: standard("device-dark", { roughness: 0.8, ...decal(-1) }),
-    brass: standard("bar-brass", { metalness: 0.85, roughness: 0.3 }),
+    brass: standard("bar-brass", { metalness: 0.35, roughness: 0.35 }),
     insulator: standard("busbar-insulation", { roughness: 0.5 }),
-    busbarInsulation: standard("busbar-insulation", { roughness: 0.45 }),
-    busbarCopper: standard("busbar-copper", { metalness: 0.9, roughness: 0.3 }),
+    busbarInsulation: standard("comb-busbar", { roughness: 0.45 }),
+    busbarCopper: standard("busbar-copper", { metalness: 0.35, roughness: 0.35 }),
     plate: standard("drawing-paper", { roughness: 0.8 }),
     wall: standard("drawing-rail-stroke", { roughness: 0.6 }),
   };
@@ -335,7 +334,7 @@ function buildKit(): Built {
   const kit: SceneKit = {
     read,
     unitCylinder: own(new CylinderGeometry(1, 1, 1, CYLINDER_SEGMENTS)),
-    materialOf: (name, role) => (name === "housing" ? housing[role ?? "mcb"] : named[name]),
+    materialOf: (name) => (name === "housing" ? housing : named[name]),
     core: own(
       new MeshPhysicalMaterial({ vertexColors: true, roughness: 0.4, clearcoat: 0.5, clearcoatRoughness: 0.3 }),
     ),
@@ -348,8 +347,8 @@ function buildKit(): Built {
       ferrules.set(token, material);
       return material;
     },
-    label: (lines, rect, role) => {
-      const key = `${role}|${rect.w.toFixed(2)}|${rect.h.toFixed(2)}|${lines.join("\n")}`;
+    label: (lines, rect) => {
+      const key = `${rect.w.toFixed(2)}|${rect.h.toFixed(2)}|${lines.join("\n")}`;
       const cached = labels.get(key);
       if (cached) return cached;
       const canvas = document.createElement("canvas");
@@ -357,16 +356,16 @@ function buildKit(): Built {
       canvas.height = Math.max(1, Math.round(rect.h * LABEL_PX_PER_MM));
       const ctx = canvas.getContext("2d");
       if (ctx && lines.length > 0) {
-        const bandPx = canvas.height * LABEL_BAND_SHARE;
-        const fontPx = Math.min(LABEL_MAX_FONT_MM * LABEL_PX_PER_MM, bandPx / (lines.length * LABEL_LINE_EM));
+        // The pure model's label rect is already the free strip below the lever.
+        const fontPx = Math.min(LABEL_MAX_FONT_MM * LABEL_PX_PER_MM, canvas.height / (lines.length * LABEL_LINE_EM));
         ctx.font = `600 ${String(fontPx)}px ${fontFamily}`;
         const widest = Math.max(...lines.map((line) => ctx.measureText(line).width), 1);
         const fitPx = Math.min(fontPx, (fontPx * canvas.width * 0.92) / widest);
         ctx.font = `600 ${String(fitPx)}px ${fontFamily}`;
-        ctx.fillStyle = read(tokenOfClass(DEVICE_CLASSES[role].label)).getStyle(SRGBColorSpace);
+        ctx.fillStyle = read("device-dark").getStyle(SRGBColorSpace);
         ctx.textAlign = "center";
         ctx.textBaseline = "top";
-        const top = canvas.height - bandPx;
+        const top = (canvas.height - lines.length * fitPx * LABEL_LINE_EM) / 2;
         lines.forEach((line, i) => {
           ctx.fillText(line, canvas.width / 2, top + i * fitPx * LABEL_LINE_EM, canvas.width * 0.96);
         });
