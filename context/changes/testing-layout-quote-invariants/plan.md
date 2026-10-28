@@ -262,16 +262,16 @@ The Karwasz runs multiply property-test time; bound the runs per geometry and me
 
 #### Automated
 
-- [x] 2.1 `npx vitest run src/lib/quote.property.test.ts` passes
-- [x] 2.2 Deliberate break — `+ 30` changed to `+ 29` in `labourCostGrosze` turns it red (reverted)
-- [x] 2.3 `npm run lint` and `npm run test:unit` pass
+- [x] 2.1 `npx vitest run src/lib/quote.property.test.ts` passes — 46e1190
+- [x] 2.2 Deliberate break — `+ 30` changed to `+ 29` in `labourCostGrosze` turns it red (reverted) — 46e1190
+- [x] 2.3 `npm run lint` and `npm run test:unit` pass — 46e1190
 
 ### Phase 3: Production cabinets in the layout property tests
 
 #### Automated
 
-- [ ] 3.1 Both property files pass; the added runtime stays under ~30 s on this machine (measured, noted in the commit body)
-- [ ] 3.2 `npm run lint` and `npm run test:unit` pass
+- [x] 3.1 Both property files pass; the added runtime stays under ~30 s on this machine (measured, noted in the commit body)
+- [x] 3.2 `npm run lint` and `npm run test:unit` pass
 
 ### Phase 4: Test-plan close-out and visual review
 
