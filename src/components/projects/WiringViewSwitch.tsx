@@ -1,18 +1,18 @@
 import type { JSX } from "react";
 import { buttonVariants } from "@/components/ui/button";
-import { WIRING_VARIANTS, type WiringVariant } from "@/lib/cabinet-drawing";
 import { t } from "@/lib/i18n";
+import { DRAWING_VIEWS, type DrawingView } from "@/lib/wiring-view";
 
 interface Props {
-  /** The variant the page renders. */
-  active: WiringVariant;
+  /** The view the page renders. */
+  active: DrawingView;
   /** Where each option leads, from `wiringViewHrefs`. */
-  hrefs: Record<WiringVariant, string>;
+  hrefs: Record<DrawingView, string>;
 }
 
 /**
- * "Widok: realistyczny / schematyczny" (S-11 Phase 7): two links, so the server renders only the chosen
- * variant. Rendered on the server; it needs no island.
+ * "Widok: realistyczny / schematyczny / 3D" (S-11 Phase 7, GitHub #14): one link per view, so the server
+ * renders only the chosen one. Rendered on the server; it needs no island.
  */
 export function WiringViewSwitch({ active, hrefs }: Props): JSX.Element {
   const v = t.layout.section.view;
@@ -21,16 +21,16 @@ export function WiringViewSwitch({ active, hrefs }: Props): JSX.Element {
       <span aria-hidden="true" className="text-muted-foreground text-xs">
         {v.label}:
       </span>
-      {WIRING_VARIANTS.map((variant) => {
-        const current = variant === active;
+      {DRAWING_VIEWS.map((view) => {
+        const current = view === active;
         return (
           <a
-            key={variant}
-            href={hrefs[variant]}
+            key={view}
+            href={hrefs[view]}
             aria-current={current ? "page" : undefined}
             className={buttonVariants({ size: "xs", variant: current ? "secondary" : "ghost" })}
           >
-            {v.options[variant]}
+            {v.options[view]}
           </a>
         );
       })}

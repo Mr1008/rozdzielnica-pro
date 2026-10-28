@@ -1219,15 +1219,26 @@ export const pl = {
       },
       /** Where the wires go while the browser routes them (`WiringDrawing`). */
       wiresLoading: "Wczytywanie przewodów…",
-      /** The "Widok: realistyczny / schematyczny" switch over the drawing (`WiringViewSwitch`). */
+      /** The "Widok: realistyczny / schematyczny / 3D" switch over the drawing (`WiringViewSwitch`). */
       view: {
         label: "Widok",
         navLabel: "Widok rysunku przewodów",
-        /** Keyed by `WiringVariant`. */
+        /** Keyed by `DrawingView`. */
         options: {
           realistic: "realistyczny",
           schematic: "schematyczny",
+          "3d": "3D",
         },
+      },
+      /** The 3D view of a placed layout (`Cabinet3DPreview`, GitHub #14). */
+      preview3d: {
+        canvasLabel: "Trójwymiarowy podgląd rozdzielnicy z aparatami, szynami i przewodami",
+        loading: "Ładowanie podglądu 3D…",
+        controlsHint: "Przeciągnij, aby obrócić · kółko: przybliżenie · prawy przycisk: przesuwanie",
+        unavailableTitle: "Podgląd 3D jest niedostępny",
+        unavailableBody:
+          "Ta przeglądarka nie obsługuje grafiki WebGL albo ma ją wyłączoną, więc nie może wyświetlić rozdzielnicy w 3D. Układ i przewody są dostępne w widoku dwuwymiarowym.",
+        backTo2d: "Przejdź do widoku realistycznego",
       },
       lengthsTitle: "Długości przewodów",
       lengthsColumns: {

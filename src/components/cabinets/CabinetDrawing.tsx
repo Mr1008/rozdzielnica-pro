@@ -80,7 +80,7 @@ type Interior = CabinetGeometry["interior"];
 const HAIRLINE = { vectorEffect: "non-scaling-stroke", strokeWidth: 1 } as const;
 
 /** Conductor colours per PN-EN 60445 (the `--wire-*` tokens): PE green with a yellow stripe, N blue. */
-const BAR_CLASSES: Record<Bar["kind"], { body: string; label: string }> = {
+export const BAR_CLASSES: Record<Bar["kind"], { body: string; label: string }> = {
   PE: { body: "fill-wire-pe stroke-drawing-frame", label: "fill-wire-pe-foreground" },
   N: { body: "fill-wire-n stroke-drawing-frame", label: "fill-wire-n-foreground" },
 };
@@ -92,7 +92,7 @@ const STRIPE_SHARE = 0.3;
  * Devices read apart without hue: the main switch is solid dark, an RCD / RCBO is mid-tone with a heavy
  * stroke, an MCB is paper with a hairline. The label's fill is the one that contrasts with its body.
  */
-const DEVICE_CLASSES: Record<DrawnRole, { body: string; label: string; strokeWidth: number }> = {
+export const DEVICE_CLASSES: Record<DrawnRole, { body: string; label: string; strokeWidth: number }> = {
   main_switch: { body: "fill-drawing-frame stroke-drawing-frame", label: "fill-drawing-paper", strokeWidth: 1 },
   rcd: { body: "fill-drawing-device-protect stroke-drawing-frame", label: "fill-drawing-frame", strokeWidth: 2.5 },
   rcbo: { body: "fill-drawing-device-protect stroke-drawing-frame", label: "fill-drawing-frame", strokeWidth: 2.5 },

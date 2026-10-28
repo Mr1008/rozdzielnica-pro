@@ -599,17 +599,17 @@ None. There is no schema or data change, and the deploy is backward-compatible.
 
 #### Automated
 
-- [x] 2.1 `npm run test:unit` passes, including `wiring-3d.test.ts`; router and drawing tests unchanged and green
-- [x] 2.2 `npm run lint` passes
-- [x] 2.3 No change to `cabinet-wiring.ts`, `cabinet-drawing.ts` or `wiring-island.ts`
+- [x] 2.1 `npm run test:unit` passes, including `wiring-3d.test.ts`; router and drawing tests unchanged and green — f5e8cbd
+- [x] 2.2 `npm run lint` passes — f5e8cbd
+- [x] 2.3 No change to `cabinet-wiring.ts`, `cabinet-drawing.ts` or `wiring-island.ts` — f5e8cbd
 
 ### Phase 3: 3D view on the project page
 
 #### Automated
 
-- [ ] 3.1 `npm run test:unit` passes, including the `wiring-view` tests for `3d`
-- [ ] 3.2 `npm run lint` passes
-- [ ] 3.3 `npm run build` succeeds
+- [x] 3.1 `npm run test:unit` passes, including the `wiring-view` tests for `3d`
+- [x] 3.2 `npm run lint` passes
+- [x] 3.3 `npm run build` succeeds
 
 #### Manual
 
