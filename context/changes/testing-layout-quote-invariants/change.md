@@ -1,7 +1,7 @@
 ---
 change_id: testing-layout-quote-invariants
 title: Test-plan phase 4 - layout and quote invariants (risks 4 and 5)
-status: preparing
+status: implementing
 created: 2026-10-28
 updated: 2026-10-28
 archived_at: null
