@@ -788,11 +788,11 @@ None. There is no schema or data change, and the deploy is backward-compatible.
 
 #### Automated
 
-- [x] 5.1 `npm run lint` passes
-- [x] 5.2 `npm run test:unit` passes
-- [x] 5.3 `npx astro check` passes (final gate)
-- [x] 5.4 `npm run build` succeeds
-- [x] 5.5 `npm run test:e2e -- cabinet-3d` passes against a local Supabase stack
+- [x] 5.1 `npm run lint` passes — 02db3cf
+- [x] 5.2 `npm run test:unit` passes — 02db3cf
+- [x] 5.3 `npx astro check` passes (final gate) — 02db3cf
+- [x] 5.4 `npm run build` succeeds — 02db3cf
+- [x] 5.5 `npm run test:e2e -- cabinet-3d` passes against a local Supabase stack — 02db3cf
 
 #### Manual
 
