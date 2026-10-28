@@ -456,44 +456,44 @@ CI runs Playwright with 1 worker and 2 retries.
 
 #### Automated
 
-- [x] 1.1 `npm run test:e2e` green with `.env`'s E2E credentials (seed + layout-manual-edit) — ed9b1f2
-- [x] 1.2 `npm run test:e2e` green with `E2E_USERNAME`/`E2E_PASSWORD` unset in the shell and `.env` (provisioned A) — ed9b1f2
-- [x] 1.3 `npm run lint` and `npx astro check` pass — ed9b1f2
+- [x] 1.1 `npm run test:e2e` green with `.env`'s E2E credentials (seed + layout-manual-edit) — b00f1c5
+- [x] 1.2 `npm run test:e2e` green with `E2E_USERNAME`/`E2E_PASSWORD` unset in the shell and `.env` (provisioned A) — b00f1c5
+- [x] 1.3 `npm run lint` and `npx astro check` pass — b00f1c5
 
 ### Phase 2: Risk #6 — IDOR via URL and form
 
 #### Automated
 
-- [x] 2.1 `npx playwright test tests/e2e/idor.spec.ts` green — dddb7c0
-- [x] 2.2 Deliberate break: remove the 0-row check in `index.ts` → red; revert — dddb7c0
-- [x] 2.3 `npm run lint` and `npx astro check` pass — dddb7c0
+- [x] 2.1 `npx playwright test tests/e2e/idor.spec.ts` green — cec355e
+- [x] 2.2 Deliberate break: remove the 0-row check in `index.ts` → red; revert — cec355e
+- [x] 2.3 `npm run lint` and `npx astro check` pass — cec355e
 
 ### Phase 3: Risk #2 — match state and circuit round-trip on the project page
 
 #### Automated
 
-- [x] 3.1 `npx playwright test tests/e2e/circuits-match-state.spec.ts` green — 778c32d
-- [x] 3.2 Deliberate break: empty snapshot reads as `current` → red at step 3; revert — 778c32d
-- [x] 3.3 `npm run lint` and `npx astro check` pass — 778c32d
+- [x] 3.1 `npx playwright test tests/e2e/circuits-match-state.spec.ts` green — 9a24e16
+- [x] 3.2 Deliberate break: empty snapshot reads as `current` → red at step 3; revert — 9a24e16
+- [x] 3.3 `npm run lint` and `npx astro check` pass — 9a24e16
 
 ### Phase 4: Quote override endpoint (§6.3 candidates)
 
 #### Automated
 
-- [x] 4.1 `npx playwright test tests/e2e/quote-override.spec.ts` green — 79ffed6
-- [x] 4.2 Deliberate break: base taken from the form → red; revert — 79ffed6
-- [x] 4.3 `npm run lint` and `npx astro check` pass — 79ffed6
+- [x] 4.1 `npx playwright test tests/e2e/quote-override.spec.ts` green — 85f8ef0
+- [x] 4.2 Deliberate break: base taken from the form → red; revert — 85f8ef0
+- [x] 4.3 `npm run lint` and `npx astro check` pass — 85f8ef0
 
 ### Phase 5: CI gate and documents
 
 #### Automated
 
-- [x] 5.1 `npm run lint`, `npx astro check`, `npm run test:unit` pass — 6e8171d
-- [x] 5.2 `npm run test:integration` passes against the local stack — 6e8171d
-- [x] 5.3 `npm run test:e2e` passes (all five specs) — 6e8171d
-- [x] 5.4 `ci.yml` parses — 6e8171d
+- [x] 5.1 `npm run lint`, `npx astro check`, `npm run test:unit` pass — b3193c6
+- [x] 5.2 `npm run test:integration` passes against the local stack — b3193c6
+- [x] 5.3 `npm run test:e2e` passes (all five specs) — b3193c6
+- [x] 5.4 `ci.yml` parses — b3193c6
 
 #### Manual
 
-- [ ] 5.5 The CI `smoke` job is green on the next push to `master`, including the e2e step
+- [x] 5.5 The CI `smoke` job is green on the next push to `master`, including the e2e step — fc002b9
 - [ ] 5.6 The §6.3 cookbook is enough to add a new e2e without reading this plan
