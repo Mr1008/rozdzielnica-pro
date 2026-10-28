@@ -28,17 +28,18 @@ only in that view. Routes, lengths, the quote and the printout are unchanged.
 
 ## Key Decisions Made
 
-| Decision      | Choice                                                   | Why (1 sentence)                                                                        |
-| ------------- | -------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| Scene content | Full scene including wires in 3D                         | The wiring look is the point of S-11; 3D without it would show less than 2D.            |
-| Wire depth    | Pure 3D lift after routing; router untouched             | One route and one length still feed 2D, the lengths table and print; zero risk to them. |
-| Length gap    | 3D path slightly longer than `lengthMm`, accepted        | Reconciling would change lengths for every project, for a display-only view.            |
-| Entry point   | Third "Widok" option `?wiring=3d`, replaces editor there | Fits the server-link switch; three.js loads only when chosen.                           |
-| Renderer      | @react-three/fiber + drei `OrbitControls`, `client:only` | Declarative React scene; rotate/zoom/pan built in; R3F 9 supports React 19.2.           |
-| Cabinet body  | Open box: back plate + four thin walls, no door          | Honest to the data (interior dims only); depth constants are named display assumptions. |
-| No WebGL      | Polish Alert + link to realistic view                    | Clear and cheap; no silent fallback that looks like a broken "3D" tab.                  |
-| Testing       | Unit tests for both pure modules + one Playwright smoke  | Logic pinned in Vitest (node env); E2E catches a broken lazy import or mount.           |
-| `3d` type     | New `DrawingView`, not a third `WiringVariant`           | `WiringVariant` drives the 2D drawing and printout, which must not see `3d`.            |
+| Decision             | Choice                                                                             | Why (1 sentence)                                                                               |
+| -------------------- | ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Scene content        | Full scene including wires in 3D                                                   | The wiring look is the point of S-11; 3D without it would show less than 2D.                   |
+| Wire depth           | Pure 3D lift after routing; router untouched                                       | One route and one length still feed 2D, the lengths table and print; zero risk to them.        |
+| Length gap           | 3D path slightly longer than `lengthMm`, accepted                                  | Reconciling would change lengths for every project, for a display-only view.                   |
+| Entry point          | Third "Widok" option `?wiring=3d`, replaces editor there                           | Fits the server-link switch; three.js loads only when chosen.                                  |
+| Renderer             | @react-three/fiber + drei `OrbitControls`, `client:only`                           | Declarative React scene; rotate/zoom/pan built in; R3F 9 supports React 19.2.                  |
+| Cabinet body         | Open box: back plate + four thin walls, no door                                    | Honest to the data (interior dims only); depth constants are named display assumptions.        |
+| No WebGL             | Polish Alert + link to realistic view                                              | Clear and cheap; no silent fallback that looks like a broken "3D" tab.                         |
+| Realism (2026-10-28) | Realistic models inside each pure-model box; 3D wires reuse the 2D realistic rules | Jakub asked for elements as realistic as possible; boxes keep the front view and routes exact. |
+| Testing              | Unit tests for both pure modules + one Playwright smoke                            | Logic pinned in Vitest (node env); E2E catches a broken lazy import or mount.                  |
+| `3d` type            | New `DrawingView`, not a third `WiringVariant`                                     | `WiringVariant` drives the 2D drawing and printout, which must not see `3d`.                   |
 
 ## Scope
 
@@ -57,7 +58,6 @@ only in that view. Routes, lengths, the quote and the printout are unchanged.
 - legend, labels or warnings in 3D;
 - door, frame or catalog depth data;
 - a landing-page 3D hero;
-- wire sag and ferrules in 3D;
 - touch;
 - depth-fit validation;
 - roadmap edits.
@@ -80,16 +80,17 @@ equals the 2D route exactly.
 
 ## Phases at a Glance
 
-| Phase                          | What it delivers                                               | Key risk                                                    |
-| ------------------------------ | -------------------------------------------------------------- | ----------------------------------------------------------- |
-| 1. 3D scene model              | `cabinet-3d.ts`: cabinet, rails, devices, bars as mm boxes     | Depth constants look wrong against real enclosures          |
-| 2. 3D wire & busbar lift       | `wiring-3d.ts`: every conductor as a 3D polyline, busbar boxes | Bundle spreading or behind-device detection looks odd in 3D |
-| 3. 3D view on the project page | `?wiring=3d`, R3F island, token colours, WebGL fallback        | three.js leaking into the default view's chunks             |
-| 4. Kitchen-sink, E2E, docs     | UI states, Playwright smoke, area rule, final gate             | Headless chromium WebGL may need SwiftShader flags          |
+| Phase                          | What it delivers                                                                            | Key risk                                                        |
+| ------------------------------ | ------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| 1. 3D scene model              | `cabinet-3d.ts`: cabinet, rails, devices, bars as mm boxes                                  | Depth constants look wrong against real enclosures              |
+| 2. 3D wire & busbar lift       | `wiring-3d.ts`: every conductor as a 3D polyline, busbar boxes                              | Bundle spreading or behind-device detection looks odd in 3D     |
+| 3. 3D view on the project page | `?wiring=3d`, R3F island, token colours, WebGL fallback                                     | three.js leaking into the default view's chunks                 |
+| 4. Realistic element models    | DIN device profiles, labels, rail, bars, busbar pins; wires with bends, sag, ferrules, ties | Frame rate on large layouts; models leaking outside their boxes |
+| 5. Kitchen-sink, E2E, docs     | UI states, Playwright smoke, area rule, final gate                                          | Headless chromium WebGL may need SwiftShader flags              |
 
 **Prerequisites:** a local Supabase stack, for the E2E test and the manual checks on a placed project.
 
-**Estimated effort:** about 2–3 sessions across 4 phases. Phase 2 and Phase 3 are the bulk.
+**Estimated effort:** about 3–4 sessions across 5 phases. Phase 2 and Phase 3 are the bulk.
 
 ## Open Risks & Assumptions
 

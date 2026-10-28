@@ -98,14 +98,16 @@ leads to `?wiring=3d#layout`, and the section then renders a 3D canvas instead o
 - **No 3D on the printout.** The printout stays 2D schematic.
 - **No editing in 3D.** The 3D view shows the saved `placed` layout. Unsaved editor drafts are not
   shown, and switching views reloads the page.
-- **Legend and warnings stay on the 2D views.** No legend, wire-length table, warnings or device
-  labels or text in the 3D scene.
+- **Legend and warnings stay on the 2D views.** No legend, wire-length table or warnings in the 3D
+  scene. The only text in the scene is each device's front label (Phase 4).
 - **No new cabinet data.** No catalog or schema change for wall thickness, doors or outer dimensions.
   The new depth constants are display assumptions.
 - **No 3D on the landing page.** The hero stays the static 2D `DraftingSheet`, so three.js never loads
   there.
-- **No realistic-wire extras in 3D.** No wire sag, bend radii or ferrules. Tubes are taut polylines
-  with rounded joints.
+- **No realism beyond the 2D realistic variant's rules.** 3D wires follow the same bend, sag, ferrule
+  and tie rules as the realistic 2D drawing (Phase 4), and never invent their own. (Amended 2026-10-28:
+  Jakub asked for elements modelled as realistically as possible. The earlier "no sag, bends or
+  ferrules" exclusion is replaced by Phase 4.)
 - **No touch support** (PRD non-goal, roadmap parked item #22).
 - **No depth validation.** Nothing checks whether devices fit the cabinet's depth; the scene shows the
   data as it is.
@@ -121,7 +123,10 @@ Pure first, rendering last.
   the router already records.
 - **Phase 3** is the only phase that touches React, three.js or the page. The island converts mm boxes
   and polylines into meshes. It holds no geometry logic beyond the axis flip.
-- **Phase 4** adds the kitchen-sink state, the E2E smoke test, the area rule and the final gate.
+- **Phase 4** (added 2026-10-28) replaces the boxes and taut tubes with realistic models: DIN device
+  profiles, rail profile, bars, comb busbar and wires with bends, sag, ferrules and ties. Each stays
+  inside its pure-model box or on its lifted route.
+- **Phase 5** adds the kitchen-sink state, the E2E smoke test, the area rule and the final gate.
 
 **Coordinates.** Both pure modules work in cabinet mm: x right and y down (as in
 `cabinet-geometry.ts`), with z measured from the back plate (0) toward the viewer. Only the island maps
@@ -449,7 +454,150 @@ for manual confirmation from the human before proceeding to the next phase.
 
 ---
 
-## Phase 4: Kitchen-sink, E2E smoke and docs
+## Phase 4: Realistic element models
+
+### Overview
+
+Added 2026-10-28 at Jakub's request: "model elements as realistic as possible". This phase replaces the
+boxes and taut tubes that Phase 3 drew with models that look like real switchboard hardware. Each
+element kind already has its own component in `Cabinet3DScene.tsx` (commit 042fdb2), and this phase
+swaps the geometry inside those components.
+
+**The invariant that does not move:** every model stays inside its pure-model box (`Box3Mm` from
+`cabinet-3d.ts`), and every wire stays on its lifted route (`wiring-3d.ts`). So the front view still
+matches the 2D drawing, terminals stay at `terminalZ`, and routes and lengths are untouched.
+
+### Changes Required:
+
+#### 1. Model shapes (pure)
+
+**File**: `src/lib/cabinet-3d-models.ts` (new) and `src/lib/cabinet-3d-models.test.ts` (new)
+
+**Intent**: Describe each element's realistic shape as plain parts in mm (boxes, rounded boxes,
+cylinders, extruded 2D profiles). The proportions are tested here, so the scene only turns parts into
+meshes. The module is bundle-safe and three-free, like `cabinet-3d.ts`.
+
+**Contract**:
+
+- **`deviceModel(device, box)`** returns the parts of a modular DIN device, given `role` and `poles`
+  (see 3 below):
+  - a base body clipped to the rail, at full width and height;
+  - the stepped front: the standard 45 mm front window raised toward the viewer to the full depth;
+  - screw terminal openings with screw heads on the top and bottom faces. One per pole, at
+    `terminalZ`, matching the x positions of `deviceTerminals` in `src/lib/cabinet-layout.ts`, so
+    wires and busbar teeth land on a screw.
+  - a toggle lever per handle on the front: one for an MCB or RCBO, a wider single handle for the FR,
+    and a lever plus a "T" test button for the RCD and RCBO;
+  - catalog `pe_bar`/`n_bar` get the bar model below, on a rail foot.
+  - Proportions are named constants (front window 45 mm, lever size, screw diameter), each documented
+    as a display assumption. A device smaller than the standard window scales the front window
+    down. It never overflows its box.
+- **`railModel(box)`** gives the TS35×7.5 top-hat cross-section as a 2D profile extruded along the
+  rail, with mounting slots along its length.
+- **`barModel(box, kind, terminalCount)`** gives a brass bar on two insulating supports, with one
+  clamping screw per terminal at the positions the router uses (`barTerminalPoints`).
+- **`busbarModel(busbar)`** gives the insulated comb strip plus one copper pin per tooth reaching its
+  terminal screw.
+- **`cabinetModel(scene)`** gives the enclosure walls with rounded outer edges and a front frame lip.
+  The cutaway from commit 1f98df3 is kept.
+- **Tests:**
+  - every part of every model lies inside its input box (cabinet: inside the walls' bounds);
+  - one terminal screw per pole, each at `terminalZ` and at its terminal's x;
+  - the lever, the test-button presence and the handle width all follow the role;
+  - one busbar pin per tooth;
+  - the result is deterministic.
+
+#### 2. Realistic wires (pure)
+
+**File**: `src/lib/wiring-3d.ts` (extend) and `src/lib/wiring-3d.test.ts` (extend)
+
+**Intent**: Give 3D wires the same realism rules as the 2D realistic variant. Reuse the pure helpers
+from `cabinet-drawing.ts` and `wire-dimensions.ts` rather than restating any number.
+
+**Contract**:
+
+- **`smoothConductor3D(conductor3d, variant: "realistic")`** rounds every corner with
+  `bendRadiusMm(diameterMm, "realistic")`. Feeds sag by `sagDepthMm` within `sagLimits`, as in 2D:
+  only feeds sag, while circuit and WLZ runs stay taut (layout-wiring rule). The sag goes down in y,
+  never in z.
+- **Ferrules** come from `FERRULE[crossSection]` (`wire-dimensions.ts`) at each terminal or bar end:
+  a short sleeve of the right length and colour token, plus the insulating collar.
+- **Cable ties:** one tie ring wherever `buildCableTies` puts one, placed on the lifted path.
+- **Sheath:** the sheathed stub from Phase 2, with `CABLE_OUTER_DIAMETER_MM` for its diameter.
+- **Tests:**
+  - the smoothed path stays within one bend radius of the lifted path;
+  - ends are unchanged;
+  - only feeds sag;
+  - one ferrule per terminal end, with the sizes from `FERRULE`;
+  - ties match `buildCableTies` in count.
+
+#### 3. Scene data
+
+**File**: `src/lib/cabinet-3d.ts`, `src/pages/dashboard/projects/[id].astro`
+
+**Intent**: The models need the device's poles, its front label and its N terminal side, all of which
+the page already has.
+
+**Contract**:
+
+- `Scene3DDevice` also picks `lines` and `nTerminalSide` from `DrawnDevice`, and `poles` from the
+  snapshot row. `toScene3DDevices` fills them.
+- The page passes nothing new beyond these fields. Still no prices.
+
+#### 4. Scene components
+
+**File**: `src/components/projects/Cabinet3DScene.tsx`
+
+**Intent**: Render the parts. The per-kind components keep their props.
+
+**Contract**:
+
+- **Materials** (tokens only, read at runtime as before):
+  - satin plastic housings in `--drawing-paper`, or a new `--device-housing` token if none fits;
+  - a darker lever;
+  - zinc-plated steel rail;
+  - brass bars;
+  - copper busbar pins in `--busbar-copper`, with the insulation in `--busbar-insulation`;
+  - a slightly glossy wire insulation.
+  - Any new colour becomes a token in `src/styles/global.css` first.
+- **Front label:** each device's `lines` (e.g. "B16", "40A 30mA") is drawn on its front window as a
+  `CanvasTexture`, in the page's font. No drei `Text` and no font download.
+- **Lighting:** an environment-style hemisphere light, a key directional light with soft shadows on
+  the back plate, and tone mapping. Keep the frame rate interactive on a worst-case kitchen-sink
+  cabinet.
+- **Performance:**
+  - geometry is shared per (role, poles, size) and instanced where there are many repeats (screws,
+    ties, ferrules);
+  - materials are shared per colour;
+  - everything is built in `useMemo`.
+
+### Success Criteria:
+
+#### Automated Verification:
+
+- `npm run test:unit` passes, including `cabinet-3d-models.test.ts` and the extended `wiring-3d.test.ts`
+- `npm run lint` passes
+- `npm run build` succeeds
+- `git diff` since 042fdb2 shows no change to `src/lib/cabinet-wiring.ts` or `src/lib/wiring-island.ts`
+
+#### Manual Verification:
+
+- Up close, MCB, RCD, RCBO and FR read as real modular devices: stepped profile, lever(s), test
+  button on RCD/RCBO, screw terminals, printed rating label
+- Wires land on terminal screws with ferrules, bend with rounded corners, feeds sag, packs are tied,
+  and cables keep their sheath to the stripping point
+- PE/N bars show brass, supports and screws; comb busbars show insulated strips with pins into the
+  terminals
+- From the front, the 3D view still matches the realistic 2D drawing; rotating stays smooth on the
+  largest kitchen-sink layout
+- The default view still loads no three.js chunk, and the WebGL-unavailable Alert still works
+
+**Implementation Note**: After completing this phase and all automated verification passes, pause here
+for manual confirmation from the human before proceeding to the next phase.
+
+---
+
+## Phase 5: Kitchen-sink, E2E smoke and docs
 
 ### Overview
 
@@ -619,16 +767,33 @@ None. There is no schema or data change, and the deploy is backward-compatible.
 - [x] 3.7 Without WebGL the 3D view shows the Polish Alert with a working link back
 - [x] 3.8 Realistic and schematic views, the editor, wire lengths and the printout are unchanged
 
-### Phase 4: Kitchen-sink, E2E smoke and docs
+### Phase 4: Realistic element models
 
 #### Automated
 
-- [ ] 4.1 `npm run lint` passes
-- [ ] 4.2 `npm run test:unit` passes
-- [ ] 4.3 `npx astro check` passes (final gate)
-- [ ] 4.4 `npm run build` succeeds
-- [ ] 4.5 `npm run test:e2e -- cabinet-3d` passes against a local Supabase stack
+- [ ] 4.1 `npm run test:unit` passes, including `cabinet-3d-models.test.ts` and the extended `wiring-3d.test.ts`
+- [ ] 4.2 `npm run lint` passes
+- [ ] 4.3 `npm run build` succeeds
+- [ ] 4.4 No change to `cabinet-wiring.ts` or `wiring-island.ts` since 042fdb2
 
 #### Manual
 
-- [ ] 4.6 `/dev/kitchen-sink` shows the 3D figure and the unavailable state with Polish captions
+- [ ] 4.5 MCB, RCD, RCBO and FR read as real modular devices up close
+- [ ] 4.6 Wires land on screws with ferrules, rounded bends, feeds sag, packs tied, sheaths to the stripping point
+- [ ] 4.7 PE/N bars and comb busbars look like real hardware
+- [ ] 4.8 Front view still matches the realistic 2D drawing; rotation stays smooth on the largest layout
+- [ ] 4.9 Default view still loads no three.js chunk; the WebGL-unavailable Alert still works
+
+### Phase 5: Kitchen-sink, E2E smoke and docs
+
+#### Automated
+
+- [ ] 5.1 `npm run lint` passes
+- [ ] 5.2 `npm run test:unit` passes
+- [ ] 5.3 `npx astro check` passes (final gate)
+- [ ] 5.4 `npm run build` succeeds
+- [ ] 5.5 `npm run test:e2e -- cabinet-3d` passes against a local Supabase stack
+
+#### Manual
+
+- [ ] 5.6 `/dev/kitchen-sink` shows the 3D figure and the unavailable state with Polish captions
