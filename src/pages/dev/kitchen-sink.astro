@@ -7,6 +7,7 @@ import { CabinetDrawing } from "@/components/cabinets/CabinetDrawing";
 import CircuitEditor from "@/components/circuits/CircuitEditor";
 import BusinessProfileCard from "@/components/forms/BusinessProfileCard.astro";
 import { ToggleField } from "@/components/forms/fields";
+import { Cabinet3DUnavailable } from "@/components/projects/Cabinet3DPreview";
 import LayoutSection from "@/components/projects/LayoutSection.astro";
 import MatchResult from "@/components/projects/MatchResult.astro";
 import PrintBlocked from "@/components/projects/PrintBlocked.astro";
@@ -703,7 +704,9 @@ const subTitleClass = "text-sm font-medium text-muted-foreground";
                     devices={state.devices}
                     wiring={state.wiring}
                     wiringVariant={state.wiringVariant}
+                    drawingView={state.cabinet3d ? "3d" : state.wiringVariant}
                     viewHrefs={wiringViewHrefs(Astro.url.pathname, layoutAnchor)}
+                    cabinet3d={state.cabinet3d}
                     geometry={state.geometry}
                     projectId={KS_PROJECT_ID}
                     matchAnchor={circuitsAnchor}
@@ -716,6 +719,14 @@ const subTitleClass = "text-sm font-medium text-muted-foreground";
               </Card>
             </figure>
           ))}
+          <figure class="flex flex-col gap-2">
+            <figcaption class:list={subTitleClass}>{k.layoutStates.unavailable3d}</figcaption>
+            <Card>
+              <CardContent>
+                <Cabinet3DUnavailable fallbackHref={wiringViewHrefs(Astro.url.pathname, layoutAnchor).realistic} />
+              </CardContent>
+            </Card>
+          </figure>
         </div>
         <h3 class="text-lg font-semibold">{k.editorDrawingsTitle}</h3>
         <div class="grid gap-6 md:grid-cols-3">

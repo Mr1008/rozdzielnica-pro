@@ -6,6 +6,7 @@
 import { test, expect, type Page } from "@playwright/test";
 
 import { waitForIslands } from "./hydration";
+import { addPlacedLayout, createProject, deleteProject } from "./placed-project";
 
 /** A device on the layout drawing, by its full accessible name (name, DIN rail, position). */
 function placedDevice(page: Page, name: string, rail: number, position: string) {
@@ -18,17 +19,10 @@ function placedDevice(page: Page, name: string, rail: number, position: string) 
 test.describe("risk #4 — layout editing", () => {
   let projectUrl: string | undefined;
 
-  // Cleanup — runs even when the test goes red mid-flow, and asserts the delete went through. The
-  // endpoint is a form POST guarded by Astro's origin check, so send the Origin a browser would.
+  // Cleanup — runs even when the test goes red mid-flow, and asserts the delete went through.
   test.afterEach(async ({ page, baseURL }) => {
     if (projectUrl === undefined) return; // the project was never created
-    const res = await page.request.post(`/api/projects${projectUrl.slice("/dashboard/projects".length)}/delete`, {
-      form: { confirm_delete: "on" },
-      headers: { Origin: new URL(baseURL ?? page.url()).origin },
-      maxRedirects: 0,
-    });
-    expect(res.status()).toBe(302);
-    expect(res.headers().location).toContain("deleted=1");
+    await deleteProject(page, baseURL, projectUrl);
     projectUrl = undefined;
   });
 
@@ -39,30 +33,8 @@ test.describe("risk #4 — layout editing", () => {
     test.info().annotations.push({ type: "test-data", description: projectName });
 
     // Setup: a project with a supply and one RCD group of two 16 A circuits, so a layout is proposed.
-    await page.goto("/dashboard/projects/new");
-    await page.getByLabel("Nazwa projektu").fill(projectName);
-    await page.getByRole("radio", { name: "Szafka natynkowa średnia, 3 rzędy" }).check();
-    await page.getByRole("button", { name: "Załóż projekt" }).click();
-    await page.waitForURL(/\/dashboard\/projects\/[0-9a-f-]{36}/);
-    projectUrl = new URL(page.url()).pathname;
-    await expect(page.getByRole("heading", { level: 1, name: projectName })).toBeVisible();
-
-    await page.getByLabel("Zabezpieczenie przedlicznikowe").selectOption("63 A");
-    await page.getByLabel("Układ sieci").selectOption("TN-S");
-    await page.getByLabel("Liczba faz").selectOption("1 faza");
-    await page.getByLabel("Długość WLZ (m)").fill("10");
-    await page.getByLabel("Przekrój żył WLZ").selectOption("16 mm²");
-    await page.getByLabel("Materiał żył").selectOption("Miedź (Cu)");
-    await page.getByLabel("Sposób ułożenia").selectOption("Natynkowo");
-    await page.getByRole("button", { name: "Zapisz przyłącze" }).click();
-    await page.waitForURL(/saved=supply/);
-
-    await waitForIslands(page);
-    await page.getByRole("button", { name: "Dodaj grupę RCD" }).click();
-    await page.getByRole("button", { name: "Dodaj obwód: Grupa RCD „RCD 1”" }).click();
-    await page.getByRole("button", { name: "Dodaj obwód: Grupa RCD „RCD 1”" }).click();
-    await page.getByRole("button", { name: "Zapisz obwody i dobierz aparaty" }).click();
-    await page.waitForURL(/saved=circuits/);
+    projectUrl = await createProject(page, projectName);
+    await addPlacedLayout(page);
 
     // The proposal puts the group's RCD at 3 TE and its MCBs right after it, on DIN rail 1.
     await waitForIslands(page);

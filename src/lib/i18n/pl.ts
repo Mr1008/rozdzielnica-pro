@@ -1529,6 +1529,9 @@ export const pl = {
         placedBusbarsThreePhase:
           "Rozmieszczony z listwą zasilającą 3F, widok realistyczny — grupa z RCD 4P, MCB 1P na fazach L1, L2 i L3 oraz MCB 3P",
         placedBusbarsThreePhaseSchematic: "Rozmieszczony z listwą zasilającą 3F, widok schematyczny",
+        placed3d:
+          "Rozmieszczony z listwami zasilającymi 1F, widok 3D (przełącznik w pozycji „3D”) — obracanie, przybliżanie i przesuwanie myszą",
+        unavailable3d: "Widok 3D niedostępny (brak WebGL) — komunikat z linkiem do widoku realistycznego",
         missing: "Nie zaproponowany",
         doesNotFit: "Nie mieści się",
         outdated: "Nieaktualny (zapisane aparaty nachodzą na siebie)",

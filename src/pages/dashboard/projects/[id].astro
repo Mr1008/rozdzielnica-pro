@@ -151,7 +151,7 @@ const placedDevices = drawing?.devices ?? [];
 const placedWiring = drawing?.wiring ?? null;
 // The 3D island's payload, built only in that view and only over a `placed` layout.
 const cabinet3d: Cabinet3DData | null =
-  drawingView === "3d" && layoutView?.state === "placed" && drawing && matchContext && matchView
+  drawingView === "3d" && layoutView?.state === "placed" && drawing && matchContext?.geometry && matchView
     ? {
         geometry: matchContext.geometry,
         devices: toScene3DDevices(drawing.devices, matchView.snapshot),
