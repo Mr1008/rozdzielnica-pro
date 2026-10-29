@@ -418,17 +418,17 @@ once no null rows remain in production.
 
 #### Automated
 
-- [x] 3.1 Unit tests pass: `npm run test:unit`
-- [x] 3.2 Lint and type checks pass: `npm run lint && npx astro check`
-- [x] 3.3 E2E suite passes, including the new picker spec and the updated helper: `npm run test:e2e`
-- [x] 3.4 Production build succeeds: `npm run build`
+- [x] 3.1 Unit tests pass: `npm run test:unit` — 803e061
+- [x] 3.2 Lint and type checks pass: `npm run lint && npx astro check` — 803e061
+- [x] 3.3 E2E suite passes, including the new picker spec and the updated helper: `npm run test:e2e` — 803e061
+- [x] 3.4 Production build succeeds: `npm run build` — 803e061
 
 #### Manual
 
-- [x] 3.5 With the 33 Karwasz cabinets, the new-project page opens short and finding "podtynkowa, at least 24 modules" takes one filter change
-- [x] 3.6 Large / small / list views render cleanly on desktop and at phone width, and the choice survives a reload
-- [x] 3.7 The admin cabinet list looks consistent with the picker and its edit / archive / restore actions still work
-- [x] 3.8 With JavaScript disabled, every cabinet can still be found (groups expand natively) and a project can be created
+- [x] 3.5 With the 33 Karwasz cabinets, the new-project page opens short and finding "podtynkowa, at least 24 modules" takes one filter change — 803e061
+- [x] 3.6 Large / small / list views render cleanly on desktop and at phone width, and the choice survives a reload — 803e061
+- [x] 3.7 The admin cabinet list looks consistent with the picker and its edit / archive / restore actions still work — 803e061
+- [x] 3.8 With JavaScript disabled, every cabinet can still be found (groups expand natively) and a project can be created — 803e061
 
 ### Phase 4: Admin device list
 
