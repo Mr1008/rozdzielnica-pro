@@ -40,6 +40,15 @@ describe("sortForCatalogList", () => {
     ]);
   });
 
+  it("compares digits as numbers", () => {
+    expect(sortForCatalogList([row("RN-12-P"), row("B10"), row("RN-6-P"), row("B6")]).map((r) => r.name)).toEqual([
+      "B6",
+      "B10",
+      "RN-6-P",
+      "RN-12-P",
+    ]);
+  });
+
   it("does not mutate its input", () => {
     const rows = [row("B"), row("A")];
     sortForCatalogList(rows);

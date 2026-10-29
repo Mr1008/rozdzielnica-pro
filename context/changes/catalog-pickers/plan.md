@@ -411,8 +411,8 @@ once no null rows remain in production.
 
 #### Automated
 
-- [ ] 2.1 Unit tests cover ordering (B6 before B10, 1P before 1P+N before 3P, Eaton/Legrand B16 1P adjacent, archived last), capacity (RN-6-P = 6, RN-24 = 2×12, uneven rails), and filters (≥ boundary at exactly N, null mounting, diacritics): `npm run test:unit`
-- [ ] 2.2 Lint and type checks pass: `npm run lint && npx astro check`
+- [x] 2.1 Unit tests cover ordering (B6 before B10, 1P before 1P+N before 3P, Eaton/Legrand B16 1P adjacent, archived last), capacity (RN-6-P = 6, RN-24 = 2×12, uneven rails), and filters (≥ boundary at exactly N, null mounting, diacritics): `npm run test:unit`
+- [x] 2.2 Lint and type checks pass: `npm run lint && npx astro check`
 
 ### Phase 3: Cabinet lists (admin and picker)
 
