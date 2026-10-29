@@ -1,0 +1,223 @@
+---
+import CatalogFilterBar from "@/components/catalog/CatalogFilterBar.astro";
+import { Badge } from "@/components/ui/badge";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { compareCatalogNames, compareDevicesForCatalog } from "@/lib/catalog-list";
+import type { Tables } from "@/lib/database.types";
+import { deviceArchivePath, deviceEditPath, deviceRestorePath } from "@/lib/device-catalog";
+import { DEVICE_KINDS, POLE_CONFIGS, deviceKindLabel, parseDeviceSpec } from "@/lib/device-spec";
+import { deviceParameterSummary, deviceWidthLabel } from "@/lib/device-summary";
+import { formatMoney, t } from "@/lib/i18n";
+import { cn } from "@/lib/utils";
+import { ChevronRightIcon } from "lucide-react";
+
+/**
+ * The admin device catalog as one list: a native `<details>` section per kind, in the fixed
+ * `DEVICE_KINDS` order, rows ordered by parameters (`compareDevicesForCatalog`). Every device is
+ * rendered, so the list works without JavaScript; `catalog-filter.ts` adds the filters and the
+ * counts. A kind with no active device is a catalog gap: its section keeps its message and stays
+ * visible while no filter narrows the list. A stored row that no longer parses is listed with a
+ * warning instead of a summary, so the admin can still open, fix or archive it.
+ */
+type DeviceListItem = Pick<
+  Tables<"devices">,
+  | "id"
+  | "kind"
+  | "name"
+  | "manufacturer"
+  | "model"
+  | "price_grosze"
+  | "width_mm"
+  | "height_mm"
+  | "depth_mm"
+  | "poles"
+  | "rated_current_a"
+  | "residual_current_ma"
+  | "rcd_type"
+  | "breaking_capacity_ka"
+  | "terminal_groups"
+  | "n_terminal_side"
+  | "archived_at"
+>;
+
+interface Props {
+  devices: readonly DeviceListItem[];
+  /** Keeps the input ids unique when a page renders more than one list. */
+  idPrefix: string;
+  /** Opens every section, e.g. for a demo; otherwise every section starts closed. */
+  openAll?: boolean;
+}
+
+const { devices, idPrefix, openAll = false } = Astro.props;
+const c = t.devices.catalog;
+
+const sections = DEVICE_KINDS.map((kind) => {
+  const rows = devices
+    .filter((row) => row.kind === kind)
+    .sort(compareDevicesForCatalog)
+    .map((row) => {
+      const parsed = parseDeviceSpec(row);
+      return { ...row, summary: parsed.ok ? deviceParameterSummary(parsed.spec) : null };
+    });
+  return {
+    kind,
+    isBar: kind === "pe_bar" || kind === "n_bar",
+    rows,
+    activeCount: rows.filter((row) => row.archived_at === null).length,
+  };
+});
+
+// Filter options come from the values present in the catalog, so no choice can only ever empty the list.
+const manufacturers = [...new Set(devices.map((row) => row.manufacturer))].sort(compareCatalogNames);
+const presentPoles = new Set(devices.map((row) => row.poles));
+const ratedCurrents = [
+  ...new Set(devices.flatMap((row) => (row.rated_current_a === null ? [] : [row.rated_current_a]))),
+].sort((a, b) => a - b);
+const selects = [
+  {
+    key: "manufacturer",
+    label: c.manufacturerFilter,
+    options: manufacturers.map((value) => ({ value, label: value })),
+  },
+  {
+    key: "poles",
+    label: c.polesFilter,
+    options: POLE_CONFIGS.filter((poles) => presentPoles.has(poles)).map((value) => ({
+      value,
+      label: t.devices.poles[value],
+    })),
+  },
+  {
+    key: "ratedCurrentA",
+    label: c.ratedCurrentFilter,
+    options: ratedCurrents.map((value) => ({ value: String(value), label: c.ratedCurrentOption(value) })),
+  },
+];
+
+const rowButtonClass = buttonVariants({ variant: "outline", size: "sm" });
+const headClass = "h-9 px-3 text-xs font-medium tracking-wide text-muted-foreground uppercase";
+const cellClass = "px-3 py-2 align-top whitespace-normal";
+---
+
+<div data-catalog-list="device" class="flex flex-col gap-3">
+  <CatalogFilterBar idPrefix={`${idPrefix}-filter`} selects={selects} archivedToggle />
+
+  {sections.map((section) => (
+    <details
+      data-catalog-group={section.kind}
+      data-catalog-keep={section.activeCount === 0 ? "" : undefined}
+      open={openAll}
+      class="group/details rounded-xl border bg-card text-card-foreground shadow-sm"
+    >
+      <summary class="flex cursor-pointer list-none items-center gap-2 px-4 py-3 [&::-webkit-details-marker]:hidden">
+        <ChevronRightIcon
+          aria-hidden="true"
+          className="size-4 shrink-0 text-muted-foreground transition-transform group-open/details:rotate-90"
+        />
+        <h2 class="text-lg leading-none font-semibold">{deviceKindLabel(section.kind)}</h2>
+        <span
+          data-catalog-group-count
+          data-forms-one={c.countForms.one}
+          data-forms-few={c.countForms.few}
+          data-forms-many={c.countForms.many}
+          class="text-sm text-muted-foreground"
+        >
+          {c.count(section.activeCount)}
+        </span>
+      </summary>
+
+      {section.activeCount === 0 && <p class="px-4 pb-3 text-sm text-muted-foreground">{c.emptyKind}</p>}
+
+      {section.rows.length > 0 && (
+        <div data-catalog-items class="pb-2">
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead scope="col" className={cn(headClass, "pl-4")}>
+                  {t.devices.fields.name}
+                </TableHead>
+                <TableHead scope="col" className={headClass}>
+                  {t.devices.fields.manufacturer}
+                </TableHead>
+                <TableHead scope="col" className={headClass}>
+                  {t.devices.fields.model}
+                </TableHead>
+                <TableHead scope="col" className={headClass}>
+                  {section.isBar ? t.devices.fields.terminalGroups : c.parameters}
+                </TableHead>
+                <TableHead scope="col" className={headClass}>
+                  {t.devices.fields.width}
+                </TableHead>
+                <TableHead scope="col" className={cn(headClass, "text-right")}>
+                  {t.devices.fields.price}
+                </TableHead>
+                <TableHead scope="col" className={cn(headClass, "pr-4")}>
+                  <span class="sr-only">{c.actions}</span>
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {section.rows.map((device) => {
+                const archived = device.archived_at !== null;
+                return (
+                  <TableRow
+                    data-catalog-item
+                    data-name={device.name}
+                    data-model={device.model}
+                    data-manufacturer={device.manufacturer}
+                    data-poles={device.poles ?? ""}
+                    data-rated-current-a={device.rated_current_a ?? ""}
+                    data-archived={archived ? "" : undefined}
+                    className={cn(archived && "bg-muted/40 text-muted-foreground")}
+                  >
+                    <TableCell className={cn(cellClass, "pl-4")}>
+                      <div class="flex flex-wrap items-center gap-2">
+                        <span class="font-medium text-foreground">{device.name}</span>
+                        {archived && <Badge variant="warning">{c.archivedBadge}</Badge>}
+                      </div>
+                    </TableCell>
+                    <TableCell className={cellClass}>{device.manufacturer}</TableCell>
+                    <TableCell className={cn(cellClass, "font-mono")}>{device.model}</TableCell>
+                    <TableCell className={cellClass}>
+                      {device.summary === null ? (
+                        <span class="text-destructive">{c.invalidStoredSpec}</span>
+                      ) : (
+                        <span class="font-mono tabular-nums">{device.summary}</span>
+                      )}
+                    </TableCell>
+                    <TableCell className={cn(cellClass, "font-mono whitespace-nowrap tabular-nums")}>
+                      {deviceWidthLabel(device.width_mm)}
+                    </TableCell>
+                    <TableCell className={cn(cellClass, "text-right font-mono whitespace-nowrap tabular-nums")}>
+                      {formatMoney(device.price_grosze / 100)}
+                    </TableCell>
+                    <TableCell className={cn(cellClass, "pr-4")}>
+                      <div class="flex justify-end gap-2">
+                        <a href={deviceEditPath(device.id)} class:list={rowButtonClass}>
+                          {c.edit}
+                        </a>
+                        <form
+                          method="POST"
+                          action={archived ? deviceRestorePath(device.id) : deviceArchivePath(device.id)}
+                        >
+                          <Button type="submit" variant="outline" size="sm">
+                            {archived ? c.restore : c.archive}
+                          </Button>
+                        </form>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+    </details>
+  ))}
+
+  <p data-catalog-empty hidden class="text-sm text-muted-foreground">
+    {t.catalogFilter.noResults}
+  </p>
+</div>

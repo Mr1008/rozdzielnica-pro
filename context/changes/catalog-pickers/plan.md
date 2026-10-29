@@ -434,13 +434,13 @@ once no null rows remain in production.
 
 #### Automated
 
-- [ ] 4.1 Unit tests pass: `npm run test:unit`
-- [ ] 4.2 Lint and type checks pass: `npm run lint && npx astro check`
-- [ ] 4.3 E2E suite passes: `npm run test:e2e`
-- [ ] 4.4 Production build succeeds: `npm run build`
+- [x] 4.1 Unit tests pass: `npm run test:unit`
+- [x] 4.2 Lint and type checks pass: `npm run lint && npx astro check`
+- [x] 4.3 E2E suite passes: `npm run test:e2e`
+- [x] 4.4 Production build succeeds: `npm run build`
 
 #### Manual
 
-- [ ] 4.5 With the production catalog, finding "B16 1P Legrand" takes one search or two filter choices, and B6 sorts before B10
-- [ ] 4.6 Archived devices are hidden by default, appear with "Pokaż zarchiwizowane", and can be restored
-- [ ] 4.7 An empty kind still shows its catalog-gap message
+- [x] 4.5 With the production catalog, finding "B16 1P Legrand" takes one search or two filter choices, and B6 sorts before B10
+- [x] 4.6 Archived devices are hidden by default, appear with "Pokaż zarchiwizowane", and can be restored
+- [x] 4.7 An empty kind still shows its catalog-gap message

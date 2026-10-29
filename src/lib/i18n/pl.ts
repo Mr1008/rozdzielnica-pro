@@ -1,6 +1,7 @@
 import { formatNumber, plural, type PluralForms } from "./format";
 
 const cabinetCountForms: PluralForms = { one: "szafka", few: "szafki", many: "szafek" };
+const deviceCountForms: PluralForms = { one: "aparat", few: "aparaty", many: "aparatów" };
 
 /**
  * The Polish message catalog — the only locale the MVP ships.
@@ -443,6 +444,13 @@ export const pl = {
       restore: "Przywróć",
       archivedBadge: "Zarchiwizowany",
       emptyKind: "Brak aparatów tego rodzaju.",
+      /** Read by the browser filter script through `data-*`, so the count follows the filter. */
+      countForms: deviceCountForms,
+      count: (n: number) => `${String(n)} ${plural(n, deviceCountForms)}`,
+      manufacturerFilter: "Producent",
+      polesFilter: "Liczba biegunów",
+      ratedCurrentFilter: "Prąd znamionowy",
+      ratedCurrentOption: (ratedCurrentA: number) => `${formatNumber(ratedCurrentA)} A`,
       parameters: "Parametry",
       actions: "Akcje",
       /** `modules` is null when the width is not a whole number of half-modules. */
@@ -1420,6 +1428,7 @@ export const pl = {
         feedback: "Komunikaty i kontenery",
         drawing: "Rysunek szafki",
         cabinetList: "Lista szafek (wybór i katalog)",
+        deviceList: "Lista aparatów (katalog)",
         circuits: "Obwody i dobór aparatów",
         layout: "Układ w szafce",
         quote: "Wycena",
@@ -1532,6 +1541,10 @@ export const pl = {
         list: "Widok: lista bez rysunków",
         adminCollapsed: "Katalog administratora: grupy zwinięte, zarchiwizowane ukryte",
       },
+      deviceListStates: {
+        collapsed: "Katalog aparatów: rodzaje zwinięte, zarchiwizowane ukryte, pusty rodzaj z komunikatem",
+        open: "Katalog aparatów: wszystkie rodzaje otwarte",
+      },
       demoCabinets: {
         surfaceSmall: "Szafka natynkowa 1×12",
         surfaceLarge: "Szafka natynkowa 3×24",
@@ -1539,6 +1552,12 @@ export const pl = {
         legacy: "Szafka bez rodzaju montażu",
         archived: "Szafka wycofana",
         manufacturer: "Producent demo",
+      },
+      demoDevices: {
+        mcb: (ratedCurrentA: number) => `Wyłącznik nadprądowy B${String(ratedCurrentA)} 1P`,
+        rcd: "Wyłącznik różnicowoprądowy 40 A 30 mA",
+        manufacturerA: "Producent A",
+        manufacturerB: "Producent B",
       },
       drawingStates: {
         plain: "Bez zaznaczenia",

@@ -1,9 +1,12 @@
 import {
   EMPTY_CABINET_FILTER,
   matchesCabinetFilter,
+  matchesDeviceFilter,
   toCatalogMounting,
   type CabinetFilter,
   type CatalogCabinet,
+  type CatalogDevice,
+  type DeviceFilter,
 } from "@/lib/catalog-list";
 import { plural, type PluralForms } from "@/lib/i18n/format";
 
@@ -20,6 +23,9 @@ import { plural, type PluralForms } from "@/lib/i18n/format";
  *   `[data-filter-clear]` button and `[data-view-option]` buttons;
  * - groups `details[data-catalog-group]` with a `[data-catalog-group-count]` carrying
  *   `data-forms-one/few/many`; items `[data-catalog-item]` carrying the adapter's `data-*`;
+ *   an optional `[data-catalog-items]` wrapper (e.g. a table) hidden while no item shows;
+ * - a group with no visible item hides, unless it carries `data-catalog-keep` (a catalog gap
+ *   with its own message) and no filter narrows the list;
  * - a `[data-catalog-empty]` line shown when nothing matches.
  *
  * Filter controls have no `name`, so a picker inside a form never submits them.
@@ -43,6 +49,15 @@ function text(values: FilterValues, key: string): string {
 function positiveInt(value: string): number | null {
   const n = Number(value);
   return value.trim() !== "" && Number.isInteger(n) && n > 0 ? n : null;
+}
+
+function finiteNumber(value: string): number | null {
+  const n = Number(value);
+  return value.trim() !== "" && Number.isFinite(n) ? n : null;
+}
+
+function nonEmpty(value: string): string | null {
+  return value === "" ? null : value;
 }
 
 const cabinetAdapter: ListAdapter<CatalogCabinet, CabinetFilter> = {
@@ -70,9 +85,41 @@ const cabinetAdapter: ListAdapter<CatalogCabinet, CabinetFilter> = {
     filter.minModules !== EMPTY_CABINET_FILTER.minModules,
 };
 
-/** Phase 4 registers the device list here. */
+/** Only the fields the filter reads are carried in `data-*`; the order is fixed on the server. */
+const deviceAdapter: ListAdapter<CatalogDevice, DeviceFilter> = {
+  readItem: (element) => {
+    const { name = "", model = "", manufacturer = "", poles = "", ratedCurrentA = "" } = element.dataset;
+    return {
+      name,
+      model,
+      manufacturer,
+      archived_at: element.dataset.archived === undefined ? null : "archived",
+      poles: nonEmpty(poles),
+      rated_current_a: finiteNumber(ratedCurrentA),
+      residual_current_ma: null,
+      rcd_type: null,
+      breaking_capacity_ka: null,
+      width_mm: 0,
+    };
+  },
+  readFilter: (values) => ({
+    query: text(values, "query"),
+    manufacturer: nonEmpty(text(values, "manufacturer")),
+    poles: nonEmpty(text(values, "poles")),
+    ratedCurrentA: finiteNumber(text(values, "ratedCurrentA")),
+    showArchived: values.showArchived === true,
+  }),
+  matches: matchesDeviceFilter,
+  narrows: (filter) =>
+    filter.query.trim() !== "" ||
+    filter.manufacturer !== null ||
+    filter.poles !== null ||
+    filter.ratedCurrentA !== null,
+};
+
 const ADAPTERS: Record<string, ListAdapter<unknown, unknown> | undefined> = {
   cabinet: cabinetAdapter,
+  device: deviceAdapter,
 };
 
 const VIEW_STORAGE_PREFIX = "catalog-view:";
@@ -143,7 +190,9 @@ function initList(root: HTMLElement, adapter: ListAdapter<unknown, unknown>, kin
         if (show) visible += 1;
       }
       visibleTotal += visible;
-      group.hidden = visible === 0;
+      group.hidden = visible === 0 && (narrows || group.dataset.catalogKeep === undefined);
+      const wrapper = group.querySelector<HTMLElement>("[data-catalog-items]");
+      if (wrapper) wrapper.hidden = visible === 0;
       const count = group.querySelector<HTMLElement>("[data-catalog-group-count]");
       if (count) {
         const { formsOne = "", formsFew = "", formsMany = "" } = count.dataset;
@@ -154,7 +203,8 @@ function initList(root: HTMLElement, adapter: ListAdapter<unknown, unknown>, kin
       else if (openBeforeNarrowing !== null) group.open = openBeforeNarrowing[index] ?? group.open;
     });
     if (!narrows) openBeforeNarrowing = null;
-    if (empty) empty.hidden = visibleTotal > 0;
+    // A kept catalog-gap section already says why it is empty.
+    if (empty) empty.hidden = visibleTotal > 0 || groups.some((group) => !group.hidden);
   };
 
   root.addEventListener("input", (event) => {

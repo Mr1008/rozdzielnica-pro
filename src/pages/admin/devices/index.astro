@@ -1,21 +1,16 @@
 ---
 import Banner from "@/components/Banner.astro";
 import PageHeader from "@/components/PageHeader.astro";
-import { Badge } from "@/components/ui/badge";
-import { Button, buttonVariants } from "@/components/ui/button";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import DeviceCatalogList from "@/components/devices/DeviceCatalogList.astro";
+import { buttonVariants } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import AppLayout from "@/layouts/AppLayout.astro";
-import { sortForCatalogList } from "@/lib/catalog";
-import { NEW_DEVICE_PATH, deviceArchivePath, deviceEditPath, deviceRestorePath } from "@/lib/device-catalog";
+import { NEW_DEVICE_PATH } from "@/lib/device-catalog";
 import { deviceErrorMessage } from "@/lib/device-errors";
-import { DEVICE_KINDS, deviceKindLabel, parseDeviceSpec } from "@/lib/device-spec";
-import { deviceParameterSummary, deviceWidthLabel } from "@/lib/device-summary";
-import { formatMoney, t } from "@/lib/i18n";
+import { t } from "@/lib/i18n";
 import { ROLE_HOME } from "@/lib/route-access";
 import { logServerError } from "@/lib/server-log";
 import { createClient } from "@/lib/supabase";
-import { cn } from "@/lib/utils";
 import { PlusIcon } from "lucide-react";
 
 // No role check here on purpose: `/admin/*` is gated in `src/lib/route-access.ts`, and RLS lets an
@@ -42,22 +37,6 @@ async function loadDevices() {
 }
 
 const { rows, loadError } = await loadDevices();
-
-// One section per kind, in the fixed `DEVICE_KINDS` order, so an empty kind — a catalog gap — stays
-// visible. A stored row that no longer parses is listed with a warning instead of a summary, so the
-// admin can still open, fix or archive it.
-const sections = DEVICE_KINDS.map((kind) => ({
-  kind,
-  isBar: kind === "pe_bar" || kind === "n_bar",
-  devices: sortForCatalogList(rows.filter((row) => row.kind === kind)).map((row) => {
-    const parsed = parseDeviceSpec(row);
-    return { ...row, summary: parsed.ok ? deviceParameterSummary(parsed.spec) : null };
-  }),
-}));
-
-const rowButtonClass = buttonVariants({ variant: "outline", size: "sm" });
-const headClass = "h-9 px-3 text-xs font-medium tracking-wide text-muted-foreground uppercase";
-const cellClass = "px-3 py-2 align-top whitespace-normal";
 ---
 
 <AppLayout title={t.devices.catalog.title} width="wide">
@@ -98,98 +77,5 @@ const cellClass = "px-3 py-2 align-top whitespace-normal";
 
   {/* An empty catalog says so once; the per-kind sections only appear once there is something to
       group, and then an empty kind is a visible catalog gap. */}
-  {!loadError && rows.length > 0 && (
-    <div class="flex flex-col gap-6">
-      {sections.map((section) => (
-        <section aria-labelledby={`kind-${section.kind}`}>
-          <Card className="gap-3 py-4">
-            <CardHeader className="px-4">
-              <h2 id={`kind-${section.kind}`} class="text-lg leading-none font-semibold">
-                {deviceKindLabel(section.kind)}
-              </h2>
-            </CardHeader>
-
-            {section.devices.length === 0 ? (
-              <CardContent className="px-4">
-                <p class="text-sm text-muted-foreground">{t.devices.catalog.emptyKind}</p>
-              </CardContent>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow className="hover:bg-transparent">
-                    <TableHead scope="col" className={cn(headClass, "pl-4")}>
-                      {t.devices.fields.name}
-                    </TableHead>
-                    <TableHead scope="col" className={headClass}>
-                      {t.devices.fields.manufacturer}
-                    </TableHead>
-                    <TableHead scope="col" className={headClass}>
-                      {t.devices.fields.model}
-                    </TableHead>
-                    <TableHead scope="col" className={headClass}>
-                      {section.isBar ? t.devices.fields.terminalGroups : t.devices.catalog.parameters}
-                    </TableHead>
-                    <TableHead scope="col" className={headClass}>
-                      {t.devices.fields.width}
-                    </TableHead>
-                    <TableHead scope="col" className={cn(headClass, "text-right")}>
-                      {t.devices.fields.price}
-                    </TableHead>
-                    <TableHead scope="col" className={cn(headClass, "pr-4")}>
-                      <span class="sr-only">{t.devices.catalog.actions}</span>
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {section.devices.map((device) => {
-                    const archived = device.archived_at !== null;
-                    return (
-                      <TableRow className={cn(archived && "bg-muted/40 text-muted-foreground")}>
-                        <TableCell className={cn(cellClass, "pl-4")}>
-                          <div class="flex flex-wrap items-center gap-2">
-                            <span class="font-medium text-foreground">{device.name}</span>
-                            {archived && <Badge variant="warning">{t.devices.catalog.archivedBadge}</Badge>}
-                          </div>
-                        </TableCell>
-                        <TableCell className={cellClass}>{device.manufacturer}</TableCell>
-                        <TableCell className={cn(cellClass, "font-mono")}>{device.model}</TableCell>
-                        <TableCell className={cellClass}>
-                          {device.summary === null ? (
-                            <span class="text-destructive">{t.devices.catalog.invalidStoredSpec}</span>
-                          ) : (
-                            <span class="font-mono tabular-nums">{device.summary}</span>
-                          )}
-                        </TableCell>
-                        <TableCell className={cn(cellClass, "font-mono whitespace-nowrap tabular-nums")}>
-                          {deviceWidthLabel(device.width_mm)}
-                        </TableCell>
-                        <TableCell className={cn(cellClass, "text-right font-mono whitespace-nowrap tabular-nums")}>
-                          {formatMoney(device.price_grosze / 100)}
-                        </TableCell>
-                        <TableCell className={cn(cellClass, "pr-4")}>
-                          <div class="flex justify-end gap-2">
-                            <a href={deviceEditPath(device.id)} class:list={rowButtonClass}>
-                              {t.devices.catalog.edit}
-                            </a>
-                            <form
-                              method="POST"
-                              action={archived ? deviceRestorePath(device.id) : deviceArchivePath(device.id)}
-                            >
-                              <Button type="submit" variant="outline" size="sm">
-                                {archived ? t.devices.catalog.restore : t.devices.catalog.archive}
-                              </Button>
-                            </form>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            )}
-          </Card>
-        </section>
-      ))}
-    </div>
-  )}
+  {!loadError && rows.length > 0 && <DeviceCatalogList devices={rows} idPrefix="devices" />}
 </AppLayout>

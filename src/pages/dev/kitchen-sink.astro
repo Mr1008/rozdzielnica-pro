@@ -6,6 +6,7 @@ import DraftingSheet from "@/components/brand/DraftingSheet.astro";
 import Logo from "@/components/brand/Logo.astro";
 import { IslandErrorFallback } from "@/components/IslandErrorBoundary";
 import CabinetCatalogList from "@/components/cabinets/CabinetCatalogList.astro";
+import DeviceCatalogList from "@/components/devices/DeviceCatalogList.astro";
 import { CabinetDrawing } from "@/components/cabinets/CabinetDrawing";
 import CircuitEditor from "@/components/circuits/CircuitEditor";
 import BusinessProfileCard from "@/components/forms/BusinessProfileCard.astro";
@@ -306,6 +307,47 @@ const demoCabinets = [
 }));
 const demoPickerCabinets = demoCabinets.filter((cabinet) => cabinet.archived_at === undefined);
 const cabinetListViews = ["large", "small", "list"] as const;
+
+// Out of name order on purpose: the list sorts them by In (B6 before B10), then manufacturer.
+const demoDeviceNames = t.devTools.kitchenSink.demoDevices;
+const demoMcb = (id: string, ratedCurrentA: number, manufacturer: string, archived_at: string | null = null) => ({
+  id,
+  kind: "mcb_b" as const,
+  name: demoDeviceNames.mcb(ratedCurrentA),
+  manufacturer,
+  model: `KS-B${String(ratedCurrentA)}`,
+  price_grosze: 1590,
+  width_mm: 17.5,
+  height_mm: 85,
+  depth_mm: 70,
+  poles: "1P" as const,
+  rated_current_a: ratedCurrentA,
+  residual_current_ma: null,
+  rcd_type: null,
+  breaking_capacity_ka: 6,
+  terminal_groups: null,
+  n_terminal_side: null,
+  archived_at,
+});
+const demoDevices = [
+  demoMcb("ks-dev-1", 16, demoDeviceNames.manufacturerB),
+  demoMcb("ks-dev-2", 10, demoDeviceNames.manufacturerA),
+  demoMcb("ks-dev-3", 16, demoDeviceNames.manufacturerA),
+  demoMcb("ks-dev-4", 6, demoDeviceNames.manufacturerA),
+  demoMcb("ks-dev-5", 20, demoDeviceNames.manufacturerA, "2026-10-01T10:00:00Z"),
+  {
+    ...demoMcb("ks-dev-6", 40, demoDeviceNames.manufacturerA),
+    kind: "rcd" as const,
+    name: demoDeviceNames.rcd,
+    model: "KS-RCD40",
+    width_mm: 35,
+    poles: "2P" as const,
+    residual_current_ma: 30,
+    rcd_type: "A" as const,
+    breaking_capacity_ka: null,
+    n_terminal_side: "left" as const,
+  },
+];
 
 const sectionClass = "flex flex-col gap-4";
 const sectionTitleClass = "text-xl font-semibold tracking-tight";
@@ -727,6 +769,20 @@ const subTitleClass = "text-sm font-medium text-muted-foreground";
         <div class="flex flex-col gap-2">
           <h3 class:list={subTitleClass}>{k.cabinetListStates.adminCollapsed}</h3>
           <CabinetCatalogList mode="admin" cabinets={demoCabinets} idPrefix="ks-admin" viewSwitch={false} />
+        </div>
+      </section>
+
+      <section class:list={sectionClass} aria-labelledby="ks-device-list">
+        <h2 id="ks-device-list" class:list={sectionTitleClass}>
+          {k.sections.deviceList}
+        </h2>
+        <div class="flex flex-col gap-2">
+          <h3 class:list={subTitleClass}>{k.deviceListStates.collapsed}</h3>
+          <DeviceCatalogList devices={demoDevices} idPrefix="ks-devices" />
+        </div>
+        <div class="flex flex-col gap-2">
+          <h3 class:list={subTitleClass}>{k.deviceListStates.open}</h3>
+          <DeviceCatalogList devices={demoDevices} idPrefix="ks-devices-open" openAll />
         </div>
       </section>
 
