@@ -1,7 +1,7 @@
 ---
 change_id: catalog-pickers
 title: Make device and cabinet pickers usable with a large catalog
-status: implementing
+status: implemented
 created: 2026-10-29
 updated: 2026-10-29
 archived_at: null
