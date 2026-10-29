@@ -233,12 +233,12 @@ describe("resolveRouteAccess while Auth is unavailable", () => {
 });
 
 describe("signInLanding", () => {
-  it("sends an admin to the admin panel", () => {
+  it("sends each role straight to its own panel", () => {
     expect(signInLanding("admin")).toBe(ROLE_HOME.admin);
+    expect(signInLanding("elektryk")).toBe(ROLE_HOME.elektryk);
   });
 
-  it("sends everyone else to the public home page", () => {
-    expect(signInLanding("elektryk")).toBe("/");
+  it("sends a user with no recognised role to the public home page", () => {
     expect(signInLanding(null)).toBe("/");
   });
 });

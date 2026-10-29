@@ -104,12 +104,9 @@ export function resolveRouteAccess({ pathname, isSignedIn, role, authUnavailable
 }
 
 /**
- * Where a freshly signed-in user lands.
- *
- * Deliberately *not* `ROLE_HOME`: an electrician keeps landing on the public home page, which is
- * what the app has always done, while `ROLE_HOME` is only about bouncing a wrong-role request back
- * somewhere useful. An admin is the one role with its own destination.
+ * Where a freshly signed-in user lands: straight into their own panel (`ROLE_HOME`). A token with
+ * no recognised role reaches no panel, so it lands on the public home page, as it always has.
  */
 export function signInLanding(role: UserRole | null): string {
-  return role === "admin" ? ROLE_HOME.admin : "/";
+  return role === null ? "/" : ROLE_HOME[role];
 }

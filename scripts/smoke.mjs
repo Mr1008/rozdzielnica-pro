@@ -58,7 +58,7 @@ const steps = [
   [
     "signin accepts correct password",
     () => request("/api/auth/signin", { method: "POST", form: { email, password } }),
-    { status: 302, location: "/" },
+    { status: 302, location: "/dashboard" },
   ],
   ["dashboard renders for signed-in user", () => request("/dashboard"), { status: 200 }],
   // The gate, from the electrician's side: a self-registered account is `elektryk`, so /admin is
@@ -67,8 +67,8 @@ const steps = [
   ["signout clears session", () => request("/api/auth/signout", { method: "POST" }), { status: 302, location: "/" }],
   ["dashboard redirects after signout", () => request("/dashboard"), { status: 302, location: "/auth/signin" }],
   ["admin redirects anonymous user", () => request("/admin"), { status: 302, location: "/auth/signin" }],
-  // And from the admin's side, using the seeded account. Signing in lands on /admin rather than /,
-  // which is the role-aware redirect in src/pages/api/auth/signin.ts.
+  // And from the admin's side, using the seeded account. Signing in lands on /admin, not /dashboard —
+  // the role-aware redirect in src/pages/api/auth/signin.ts.
   [
     "seeded admin signs in and lands on the admin panel",
     () => request("/api/auth/signin", { method: "POST", form: { email: adminEmail, password: adminPassword } }),
