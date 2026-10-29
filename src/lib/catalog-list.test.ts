@@ -12,9 +12,11 @@ import {
   matchesCabinetFilter,
   matchesDeviceFilter,
   normalizeSearchText,
+  toCatalogMounting,
   type CatalogCabinet,
   type CatalogDevice,
 } from "./catalog-list";
+import { CABINET_MOUNTINGS } from "./cabinet-form";
 import { KARWASZ_CABINETS, karwaszGeometry } from "./karwasz-cabinets";
 
 const ARCHIVED = "2026-10-01T10:00:00Z";
@@ -227,5 +229,16 @@ describe("CABINET_VIEWS", () => {
     expect(isCabinetView("list")).toBe(true);
     expect(isCabinetView("grid")).toBe(false);
     expect(isCabinetView(null)).toBe(false);
+  });
+});
+
+describe("toCatalogMounting", () => {
+  it("keeps every parser value and turns anything else into no mounting", () => {
+    for (const mounting of CABINET_MOUNTINGS) expect(toCatalogMounting(mounting)).toBe(mounting);
+    expect(toCatalogMounting(null)).toBeNull();
+    expect(toCatalogMounting(undefined)).toBeNull();
+    expect(toCatalogMounting("")).toBeNull();
+    expect(toCatalogMounting("hermetic")).toBeNull();
+    expect(toCatalogMounting("toString")).toBeNull();
   });
 });

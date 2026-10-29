@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import AppLayout from "@/layouts/AppLayout.astro";
 import { parseCabinetGeometry } from "@/lib/cabinet-geometry";
-import { sortForCatalogList } from "@/lib/catalog";
+import { toCatalogMounting } from "@/lib/catalog-list";
 import { t } from "@/lib/i18n";
 import { PROJECTS_API_PATH, PROJECTS_PATH } from "@/lib/project";
 import { projectErrorMessage } from "@/lib/project-errors";
@@ -28,7 +28,7 @@ async function loadCabinets() {
   // never offers one the snapshot trigger would refuse.
   const { data, error: queryError } = await supabase
     .from("cabinets")
-    .select("id, name, manufacturer, model, geometry, archived_at")
+    .select("id, name, manufacturer, model, mounting, geometry, archived_at")
     .is("archived_at", null);
   if (queryError) {
     logServerError("project cabinet picker load failed", queryError, { userId: Astro.locals.user?.id });
@@ -36,9 +36,16 @@ async function loadCabinets() {
     return { cabinets: [], loadError: t.projects.new.loadFailed };
   }
   // A cabinet whose geometry no longer parses is still offered, just without a drawing.
-  const cabinets = sortForCatalogList(data).map(({ id, name, manufacturer, model, geometry }) => {
+  const cabinets = data.map(({ id, name, manufacturer, model, mounting, geometry }) => {
     const parsed = parseCabinetGeometry(geometry);
-    return { id, name, manufacturer, model, geometry: parsed.ok ? parsed.geometry : null };
+    return {
+      id,
+      name,
+      manufacturer,
+      model,
+      mounting: toCatalogMounting(mounting),
+      geometry: parsed.ok ? parsed.geometry : null,
+    };
   });
   return { cabinets, loadError: null };
 }

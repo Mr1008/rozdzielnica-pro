@@ -1,20 +1,20 @@
 ---
-import { CabinetDrawing } from "@/components/cabinets/CabinetDrawing";
+import CabinetCatalogList from "@/components/cabinets/CabinetCatalogList.astro";
+import type { CabinetMounting } from "@/lib/cabinet-form";
 import type { CabinetGeometry } from "@/lib/cabinet-geometry";
-import { t } from "@/lib/i18n";
-import { PROJECT_FIELDS } from "@/lib/project";
 
 /**
  * The radio list of active catalog cabinets, shared by the new-project form and the project page's
- * cabinet change. Server-rendered: the drawing is static SVG, no island. A cabinet whose stored
- * geometry no longer parses is still listed, just without a drawing. The checked card takes the
- * accent; focus shows on the radio itself through the global `:focus-visible` outline.
+ * cabinet change: the shared catalog list in picker mode, grouped by mounting and filterable. Only
+ * the checked cabinet's group starts open. The checked card takes the accent; focus shows on the
+ * radio itself through the global `:focus-visible` outline.
  */
 interface CabinetOption {
   id: string;
   name: string;
   manufacturer: string;
   model: string;
+  mounting: CabinetMounting | null;
   geometry: CabinetGeometry | null;
 }
 
@@ -29,45 +29,4 @@ interface Props {
 const { cabinets, selectedId = null, idPrefix } = Astro.props;
 ---
 
-<ul class="grid gap-3 sm:grid-cols-2">
-  {cabinets.map((cabinet) => {
-    const inputId = `${idPrefix}-${cabinet.id}`;
-    return (
-      <li>
-        <label
-          for={inputId}
-          class="flex h-full cursor-pointer gap-3 rounded-lg border border-input bg-card p-3 text-card-foreground transition-colors hover:border-primary/60 has-checked:border-primary has-checked:bg-accent"
-        >
-          <input
-            id={inputId}
-            type="radio"
-            name={PROJECT_FIELDS.cabinetId}
-            value={cabinet.id}
-            required
-            checked={cabinet.id === selectedId}
-            aria-labelledby={`${inputId}-name`}
-            aria-describedby={`${inputId}-model`}
-            class="mt-0.5 size-4 shrink-0 accent-primary"
-          />
-          <span class="flex min-w-0 flex-1 flex-col gap-2">
-            <span>
-              <span id={`${inputId}-name`} class="block font-medium">
-                {cabinet.name}
-              </span>
-              <span id={`${inputId}-model`} class="block text-sm text-muted-foreground">
-                {t.projects.cabinet.manufacturerModel(cabinet.manufacturer, cabinet.model)}
-              </span>
-            </span>
-            <span class="flex h-32 w-full items-center justify-center">
-              {cabinet.geometry ? (
-                <CabinetDrawing geometry={cabinet.geometry} className="h-full w-full" />
-              ) : (
-                <span class="text-center text-xs text-muted-foreground">{t.projects.cabinet.drawingUnavailable}</span>
-              )}
-            </span>
-          </span>
-        </label>
-      </li>
-    );
-  })}
-</ul>
+<CabinetCatalogList mode="picker" cabinets={cabinets} selectedId={selectedId} idPrefix={idPrefix} />

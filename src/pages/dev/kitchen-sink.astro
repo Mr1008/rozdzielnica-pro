@@ -5,6 +5,7 @@ import ErrorPage from "@/components/ErrorPage.astro";
 import DraftingSheet from "@/components/brand/DraftingSheet.astro";
 import Logo from "@/components/brand/Logo.astro";
 import { IslandErrorFallback } from "@/components/IslandErrorBoundary";
+import CabinetCatalogList from "@/components/cabinets/CabinetCatalogList.astro";
 import { CabinetDrawing } from "@/components/cabinets/CabinetDrawing";
 import CircuitEditor from "@/components/circuits/CircuitEditor";
 import BusinessProfileCard from "@/components/forms/BusinessProfileCard.astro";
@@ -28,7 +29,8 @@ import { NativeSelect } from "@/components/ui/native-select";
 import Layout from "@/layouts/Layout.astro";
 import { businessErrorMessage } from "@/lib/business-errors";
 import { businessFormDefaults } from "@/lib/business-profile";
-import { DEMO_CABINET_GEOMETRY } from "@/lib/demo-cabinet";
+import { toCatalogMounting } from "@/lib/catalog-list";
+import { DEMO_CABINET_GEOMETRY, HERO_CABINET_GEOMETRY } from "@/lib/demo-cabinet";
 import { fieldControlProps, fieldErrorId, fieldHintId } from "@/lib/field-a11y";
 import { deviceKindLabel, N_TERMINAL_SIDES, type NTerminalSide } from "@/lib/device-spec";
 import { formatMoney, t } from "@/lib/i18n";
@@ -268,6 +270,42 @@ const businessCards = [
     saved: false,
   },
 ];
+
+/** The cabinet lists' demo rows: both mountings, a legacy row with none, an archived one, a broken drawing. */
+const demoCabinetNames = t.devTools.kitchenSink.demoCabinets;
+const demoCabinets = [
+  {
+    id: "ks-cab-1",
+    name: demoCabinetNames.surfaceSmall,
+    model: "KS-S12",
+    mounting: "surface",
+    geometry: HERO_CABINET_GEOMETRY,
+  },
+  {
+    id: "ks-cab-2",
+    name: demoCabinetNames.surfaceLarge,
+    model: "KS-S72",
+    mounting: "surface",
+    geometry: DEMO_CABINET_GEOMETRY,
+  },
+  { id: "ks-cab-3", name: demoCabinetNames.flush, model: "KS-P72", mounting: "flush", geometry: DEMO_CABINET_GEOMETRY },
+  { id: "ks-cab-4", name: demoCabinetNames.legacy, model: "KS-X", mounting: null, geometry: null },
+  {
+    id: "ks-cab-5",
+    name: demoCabinetNames.archived,
+    model: "KS-A",
+    mounting: "flush",
+    geometry: DEMO_CABINET_GEOMETRY,
+    archived_at: "2026-10-01T10:00:00Z",
+  },
+].map((cabinet) => ({
+  ...cabinet,
+  manufacturer: demoCabinetNames.manufacturer,
+  mounting: toCatalogMounting(cabinet.mounting),
+  price_grosze: 45900,
+}));
+const demoPickerCabinets = demoCabinets.filter((cabinet) => cabinet.archived_at === undefined);
+const cabinetListViews = ["large", "small", "list"] as const;
 
 const sectionClass = "flex flex-col gap-4";
 const sectionTitleClass = "text-xl font-semibold tracking-tight";
@@ -662,6 +700,33 @@ const subTitleClass = "text-sm font-medium text-muted-foreground";
             />
             <figcaption class:list={subTitleClass}>{k.drawingStates.invalid}</figcaption>
           </figure>
+        </div>
+      </section>
+
+      <section class:list={sectionClass} aria-labelledby="ks-cabinet-list">
+        <h2 id="ks-cabinet-list" class:list={sectionTitleClass}>
+          {k.sections.cabinetList}
+        </h2>
+        <div class="flex flex-col gap-2">
+          <h3 class:list={subTitleClass}>{k.cabinetListStates.picker}</h3>
+          <CabinetCatalogList mode="picker" cabinets={demoPickerCabinets} selectedId="ks-cab-3" idPrefix="ks-picker" />
+        </div>
+        {cabinetListViews.map((view) => (
+          <div class="flex flex-col gap-2">
+            <h3 class:list={subTitleClass}>{k.cabinetListStates[view]}</h3>
+            <CabinetCatalogList
+              mode="admin"
+              cabinets={demoCabinets}
+              idPrefix={`ks-view-${view}`}
+              view={view}
+              viewSwitch={false}
+              openAll
+            />
+          </div>
+        ))}
+        <div class="flex flex-col gap-2">
+          <h3 class:list={subTitleClass}>{k.cabinetListStates.adminCollapsed}</h3>
+          <CabinetCatalogList mode="admin" cabinets={demoCabinets} idPrefix="ks-admin" viewSwitch={false} />
         </div>
       </section>
 

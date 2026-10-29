@@ -1,3 +1,4 @@
+import type { CabinetMounting } from "@/lib/cabinet-form";
 import { DIN_MODULE_MM } from "@/lib/din-module";
 import { POLE_CONFIGS, RCD_TYPES } from "@/lib/device-spec";
 import { LOCALE } from "@/lib/i18n/format";
@@ -11,8 +12,16 @@ import { LOCALE } from "@/lib/i18n/format";
  * row, a `data-*` read-back or a test fixture alike.
  */
 
-/** Mirrors `CABINET_MOUNTINGS` in `cabinet-form.ts`; `null` is a legacy row not yet classified. */
-export type CatalogMounting = "surface" | "flush";
+/** `null` on a cabinet is a legacy row not yet classified. A type-only import: the browser script stays free of the parser. */
+export type CatalogMounting = CabinetMounting;
+
+/** Every mounting, kept exhaustive by the `Record` type without importing the parser's list. */
+const MOUNTING_KEYS: Record<CatalogMounting, true> = { surface: true, flush: true };
+
+/** Narrows a stored or `data-*` value; anything else (a legacy null, `""`) is "no mounting". */
+export function toCatalogMounting(value: string | null | undefined): CatalogMounting | null {
+  return value != null && Object.hasOwn(MOUNTING_KEYS, value) ? (value as CatalogMounting) : null;
+}
 
 export const CABINET_VIEWS = ["large", "small", "list"] as const;
 export type CabinetView = (typeof CABINET_VIEWS)[number];

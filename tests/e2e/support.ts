@@ -49,6 +49,13 @@ export async function signedInContext(
   return context;
 }
 
+/** Opens a closed mounting group of the cabinet picker (a native `<details>`) by its label. */
+export async function openCabinetGroup(page: Page, label: string): Promise<void> {
+  const group = page.locator("details").filter({ has: page.locator("summary", { hasText: label }) });
+  await group.locator("summary").click();
+  await expect(group).toHaveAttribute("open", "");
+}
+
 /**
  * Creates a project in the seeded three-row cabinet and saves the supply every spec uses
  * (63 A, TN-S, one phase, Cu 16 mm², 10 m, surface). Leaves the page on the project, islands
@@ -57,6 +64,8 @@ export async function signedInContext(
 export async function createProjectWithSupply(page: Page, name: string): Promise<{ id: string; url: string }> {
   await page.goto("/dashboard/projects/new");
   await page.getByLabel("Nazwa projektu").fill(name);
+  // The picker's mounting groups start closed; the seeded cabinets are all surface-mounted.
+  await openCabinetGroup(page, "Natynkowe");
   await page.getByRole("radio", { name: "Szafka natynkowa średnia, 3 rzędy" }).check();
   await page.getByRole("button", { name: "Załóż projekt" }).click();
   await page.waitForURL(/\/dashboard\/projects\/[0-9a-f-]{36}/);

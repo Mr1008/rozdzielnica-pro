@@ -1,4 +1,6 @@
-import { formatNumber, plural } from "./format";
+import { formatNumber, plural, type PluralForms } from "./format";
+
+const cabinetCountForms: PluralForms = { one: "szafka", few: "szafki", many: "szafek" };
 
 /**
  * The Polish message catalog — the only locale the MVP ships.
@@ -173,6 +175,23 @@ export const pl = {
     destinationsLabel: "Katalogi",
   },
 
+  /** The filter bar shared by the catalog lists (admin cabinets and devices, the cabinet picker). */
+  catalogFilter: {
+    label: "Filtry listy",
+    search: "Szukaj",
+    searchPlaceholder: "Nazwa lub model",
+    all: "Wszystkie",
+    showArchived: "Pokaż zarchiwizowane",
+    clear: "Wyczyść filtry",
+    noResults: "Nic nie pasuje do filtrów. Zmień je lub wyczyść.",
+    view: "Widok",
+    views: {
+      large: "Duże",
+      small: "Małe",
+      list: "Lista",
+    },
+  },
+
   cabinets: {
     geometry: "Geometria szafki",
     interior: "Wnętrze szafki",
@@ -240,6 +259,20 @@ export const pl = {
       dimensions: (widthMm: number, heightMm: number, depthMm: number) =>
         `${String(widthMm)} × ${String(heightMm)} × ${String(depthMm)} mm`,
       invalidStoredGeometry: "Zapisana geometria tej szafki jest nieprawidłowa — popraw ją w edycji.",
+    },
+    list: {
+      groups: {
+        surface: "Natynkowe",
+        flush: "Podtynkowe",
+        none: "Bez rodzaju montażu",
+      },
+      /** Read by the browser filter script through `data-*`, so the count follows the filter. */
+      countForms: cabinetCountForms,
+      count: (n: number) => `${String(n)} ${plural(n, cabinetCountForms)}`,
+      mountingFilter: "Rodzaj montażu",
+      minModules: "Min. liczba modułów",
+      capacity: (label: string) => `Moduły: ${label}`,
+      noMounting: "Bez rodzaju montażu",
     },
     editor: {
       newTitle: "Nowa szafka",
@@ -1386,6 +1419,7 @@ export const pl = {
         forms: "Pola formularzy",
         feedback: "Komunikaty i kontenery",
         drawing: "Rysunek szafki",
+        cabinetList: "Lista szafek (wybór i katalog)",
         circuits: "Obwody i dobór aparatów",
         layout: "Układ w szafce",
         quote: "Wycena",
@@ -1490,6 +1524,21 @@ export const pl = {
         warning: "Baner ostrzegawczy w pasku strony.",
         error: "Baner błędu w pasku strony.",
         success: "Baner potwierdzenia w pasku strony.",
+      },
+      cabinetListStates: {
+        picker: "Wybór szafki: filtry, przełącznik widoku, otwarta grupa zaznaczonej szafki",
+        large: "Widok: duże miniatury",
+        small: "Widok: małe miniatury",
+        list: "Widok: lista bez rysunków",
+        adminCollapsed: "Katalog administratora: grupy zwinięte, zarchiwizowane ukryte",
+      },
+      demoCabinets: {
+        surfaceSmall: "Szafka natynkowa 1×12",
+        surfaceLarge: "Szafka natynkowa 3×24",
+        flush: "Szafka podtynkowa 3×24",
+        legacy: "Szafka bez rodzaju montażu",
+        archived: "Szafka wycofana",
+        manufacturer: "Producent demo",
       },
       drawingStates: {
         plain: "Bez zaznaczenia",

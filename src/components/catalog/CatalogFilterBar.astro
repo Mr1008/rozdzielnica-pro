@@ -1,0 +1,111 @@
+---
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { t } from "@/lib/i18n";
+
+/**
+ * The filter bar of a catalog list. It renders `hidden` and is revealed by `catalog-filter.ts`, so
+ * without JavaScript nobody sees controls that do nothing — the list is then shown in full.
+ * Controls carry `data-filter-key` and no `name`: inside the picker's form they never submit.
+ * The parent list root (`[data-catalog-list]`) decides which adapter reads the keys.
+ */
+interface FilterSelect {
+  key: string;
+  label: string;
+  /** The "all" option comes first automatically; an empty value means "all". */
+  options: readonly { value: string; label: string }[];
+}
+
+interface FilterNumber {
+  key: string;
+  label: string;
+}
+
+interface Props {
+  /** Keeps the control ids unique when a page renders more than one list. */
+  idPrefix: string;
+  selects?: readonly FilterSelect[];
+  numbers?: readonly FilterNumber[];
+  archivedToggle?: boolean;
+  /** View options (value → label) for a list with a view switch; omitted, there is no switch. */
+  views?: readonly { value: string; label: string }[];
+}
+
+const { idPrefix, selects = [], numbers = [], archivedToggle = false, views = [] } = Astro.props;
+const f = t.catalogFilter;
+const fieldClass = "flex min-w-0 flex-col gap-1.5";
+const labelClass = "text-sm font-medium";
+---
+
+<div
+  data-catalog-filter-bar
+  hidden
+  role="search"
+  aria-label={f.label}
+  class="flex flex-wrap items-end gap-3 rounded-lg border bg-muted/40 p-3"
+>
+  <div class:list={[fieldClass, "w-full sm:w-56"]}>
+    <label for={`${idPrefix}-query`} class:list={labelClass}>
+      {f.search}
+    </label>
+    <Input id={`${idPrefix}-query`} type="search" data-filter-key="query" placeholder={f.searchPlaceholder} />
+  </div>
+  {selects.map((select) => (
+    <div class:list={fieldClass}>
+      <label for={`${idPrefix}-${select.key}`} class:list={labelClass}>
+        {select.label}
+      </label>
+      <NativeSelect id={`${idPrefix}-${select.key}`} data-filter-key={select.key}>
+        <NativeSelectOption value="">{f.all}</NativeSelectOption>
+        {select.options.map((option) => (
+          <NativeSelectOption value={option.value}>{option.label}</NativeSelectOption>
+        ))}
+      </NativeSelect>
+    </div>
+  ))}
+  {numbers.map((number) => (
+    <div class:list={[fieldClass, "w-36"]}>
+      <label for={`${idPrefix}-${number.key}`} class:list={labelClass}>
+        {number.label}
+      </label>
+      <Input
+        id={`${idPrefix}-${number.key}`}
+        type="number"
+        min={1}
+        step={1}
+        inputMode="numeric"
+        data-filter-key={number.key}
+      />
+    </div>
+  ))}
+  {archivedToggle && (
+    <label class="flex h-9 items-center gap-2 text-sm">
+      <input type="checkbox" data-filter-key="showArchived" class="size-4 accent-primary" />
+      {f.showArchived}
+    </label>
+  )}
+  <Button type="button" variant="ghost" size="sm" data-filter-clear className="h-9">
+    {f.clear}
+  </Button>
+  {views.length > 0 && (
+    <div role="group" aria-label={f.view} class="ml-auto flex rounded-md border bg-background p-0.5">
+      {views.map((view) => (
+        <button
+          type="button"
+          data-view-option={view.value}
+          aria-pressed="false"
+          class="rounded-sm px-3 py-1 text-sm text-muted-foreground transition-colors hover:text-foreground aria-pressed:bg-accent aria-pressed:font-medium aria-pressed:text-accent-foreground"
+        >
+          {view.label}
+        </button>
+      ))}
+    </div>
+  )}
+</div>
+
+<script>
+  import { initCatalogLists } from "./catalog-filter";
+
+  initCatalogLists();
+</script>

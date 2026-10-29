@@ -1,0 +1,243 @@
+---
+import CatalogFilterBar from "@/components/catalog/CatalogFilterBar.astro";
+import { CabinetDrawing } from "@/components/cabinets/CabinetDrawing";
+import { Badge } from "@/components/ui/badge";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { cabinetArchivePath, cabinetEditPath, cabinetRestorePath } from "@/lib/cabinet-catalog";
+import { CABINET_MOUNTINGS, type CabinetMounting } from "@/lib/cabinet-form";
+import type { CabinetGeometry } from "@/lib/cabinet-geometry";
+import {
+  CABINET_VIEWS,
+  DEFAULT_CABINET_VIEW,
+  cabinetCapacityLabel,
+  cabinetModuleCapacity,
+  compareCabinetsForCatalog,
+  type CabinetView,
+} from "@/lib/catalog-list";
+import { formatMoney, t } from "@/lib/i18n";
+import { PROJECT_FIELDS } from "@/lib/project";
+import { ChevronRightIcon } from "lucide-react";
+
+/**
+ * The cabinet catalog as one list, shared by the electrician's picker (a required radio per
+ * cabinet, inside the project form) and the admin catalog (edit / archive / restore per cabinet).
+ * Groups by mounting are native `<details>` and every cabinet is rendered, so the list works
+ * without JavaScript; `catalog-filter.ts` adds the filters, the counts and the view switch.
+ * A cabinet whose stored geometry no longer parses is still listed, just without a drawing.
+ */
+interface CabinetListItem {
+  id: string;
+  name: string;
+  manufacturer: string;
+  model: string;
+  mounting: CabinetMounting | null;
+  /** `null` when the stored geometry no longer parses. */
+  geometry: CabinetGeometry | null;
+  archived_at?: string | null;
+  /** Shown in the admin list only. */
+  price_grosze?: number;
+}
+
+type Props = {
+  cabinets: readonly CabinetListItem[];
+  /** Keeps the input ids unique when a page renders more than one list. */
+  idPrefix: string;
+  /** The view before the browser's remembered choice applies (and without JavaScript). */
+  view?: CabinetView;
+  /** Off for a fixed demo of one view. */
+  viewSwitch?: boolean;
+  /** Opens every group, e.g. for a demo; otherwise only the checked cabinet's group opens. */
+  openAll?: boolean;
+} & ({ mode: "picker"; selectedId?: string | null } | { mode: "admin" });
+
+const { cabinets, idPrefix, view = DEFAULT_CABINET_VIEW, viewSwitch = true, openAll = false } = Astro.props;
+const selectedId = Astro.props.mode === "picker" ? (Astro.props.selectedId ?? null) : null;
+const isPicker = Astro.props.mode === "picker";
+
+const items = cabinets
+  .map((cabinet) => {
+    const capacity = cabinet.geometry ? cabinetModuleCapacity(cabinet.geometry) : null;
+    return {
+      ...cabinet,
+      archived_at: cabinet.archived_at ?? null,
+      totalModules: capacity?.total ?? 0,
+      capacityLabel: capacity ? cabinetCapacityLabel(capacity) : null,
+    };
+  })
+  .sort(compareCabinetsForCatalog);
+
+const l = t.cabinets.list;
+const groupKeys = [...CABINET_MOUNTINGS, null] as const;
+const groups = groupKeys
+  .map((mounting) => ({
+    key: mounting ?? "none",
+    label: mounting === null ? l.groups.none : l.groups[mounting],
+    items: items.filter((item) => item.mounting === mounting),
+  }))
+  .filter((group) => group.items.length > 0);
+
+const mountingOptions = CABINET_MOUNTINGS.map((value) => ({ value, label: t.cabinets.mounting[value] }));
+const viewOptions = viewSwitch ? CABINET_VIEWS.map((value) => ({ value, label: t.catalogFilter.views[value] })) : [];
+
+// View-dependent layout, keyed on the root's `data-view` so switching never re-renders.
+const gridClass =
+  "grid grid-cols-1 gap-3 sm:grid-cols-2 sm:group-data-[view=small]/catalog:grid-cols-3 lg:group-data-[view=small]/catalog:grid-cols-4 group-data-[view=list]/catalog:gap-2 sm:group-data-[view=list]/catalog:grid-cols-1";
+const drawingClass =
+  "flex h-16 w-full shrink-0 items-center justify-center group-data-[view=large]/catalog:h-32 group-data-[view=list]/catalog:hidden";
+const bodyClass =
+  "flex min-w-0 flex-1 flex-col gap-2 group-data-[view=list]/catalog:sm:flex-row group-data-[view=list]/catalog:sm:items-center";
+const cardClass = "flex h-full gap-3 rounded-lg border bg-card p-3 text-card-foreground";
+const rowButtonClass = buttonVariants({ variant: "outline", size: "sm" });
+---
+
+<div data-catalog-list="cabinet" data-view={view} class="group/catalog flex flex-col gap-3">
+  <CatalogFilterBar
+    idPrefix={`${idPrefix}-filter`}
+    selects={[{ key: "mounting", label: l.mountingFilter, options: mountingOptions }]}
+    numbers={[{ key: "minModules", label: l.minModules }]}
+    archivedToggle={!isPicker}
+    views={viewOptions}
+  />
+
+  {groups.map((group) => {
+    const open = openAll || group.items.some((item) => item.id === selectedId);
+    return (
+      <details data-catalog-group={group.key} open={open} class="group/details">
+        <summary class="flex cursor-pointer list-none items-center gap-2 rounded-md py-2 font-medium [&::-webkit-details-marker]:hidden">
+          <ChevronRightIcon
+            aria-hidden="true"
+            className="size-4 shrink-0 text-muted-foreground transition-transform group-open/details:rotate-90"
+          />
+          <span>{group.label}</span>
+          <span
+            data-catalog-group-count
+            data-forms-one={l.countForms.one}
+            data-forms-few={l.countForms.few}
+            data-forms-many={l.countForms.many}
+            class="text-sm font-normal text-muted-foreground"
+          >
+            {l.count(group.items.length)}
+          </span>
+        </summary>
+
+        <ul class:list={[gridClass, "pt-1 pb-3"]}>
+          {group.items.map((cabinet) => {
+            const archived = cabinet.archived_at !== null;
+            const inputId = `${idPrefix}-${cabinet.id}`;
+            const meta = (
+              <span class="flex flex-wrap gap-1.5">
+                <Badge variant="outline">
+                  {cabinet.mounting === null ? l.noMounting : t.cabinets.mounting[cabinet.mounting]}
+                </Badge>
+                {cabinet.capacityLabel !== null && (
+                  <Badge variant="secondary" className="font-mono tabular-nums">
+                    {l.capacity(cabinet.capacityLabel)}
+                  </Badge>
+                )}
+                {archived && <Badge variant="warning">{t.cabinets.catalog.archivedBadge}</Badge>}
+              </span>
+            );
+            const drawing = (
+              <span class:list={drawingClass}>
+                {cabinet.geometry ? (
+                  <CabinetDrawing geometry={cabinet.geometry} className="h-full w-full" />
+                ) : (
+                  <span class="text-center text-xs text-muted-foreground">
+                    {isPicker ? t.projects.cabinet.drawingUnavailable : t.cabinets.catalog.invalidStoredGeometry}
+                  </span>
+                )}
+              </span>
+            );
+            return (
+              <li
+                data-catalog-item
+                data-name={cabinet.name}
+                data-model={cabinet.model}
+                data-manufacturer={cabinet.manufacturer}
+                data-mounting={cabinet.mounting ?? ""}
+                data-total-modules={cabinet.totalModules}
+                data-archived={archived ? "" : undefined}
+              >
+                {isPicker ? (
+                  <label
+                    for={inputId}
+                    class:list={[
+                      cardClass,
+                      "cursor-pointer border-input transition-colors hover:border-primary/60 has-checked:border-primary has-checked:bg-accent",
+                    ]}
+                  >
+                    <input
+                      id={inputId}
+                      type="radio"
+                      name={PROJECT_FIELDS.cabinetId}
+                      value={cabinet.id}
+                      required
+                      checked={cabinet.id === selectedId}
+                      aria-labelledby={`${inputId}-name`}
+                      aria-describedby={`${inputId}-model`}
+                      class="mt-0.5 size-4 shrink-0 accent-primary"
+                    />
+                    <span class:list={bodyClass}>
+                      <span class="min-w-0 group-data-[view=list]/catalog:sm:flex-1">
+                        <span id={`${inputId}-name`} class="block font-medium">
+                          {cabinet.name}
+                        </span>
+                        <span id={`${inputId}-model`} class="block text-sm text-muted-foreground">
+                          {t.projects.cabinet.manufacturerModel(cabinet.manufacturer, cabinet.model)}
+                        </span>
+                      </span>
+                      {meta}
+                      {drawing}
+                    </span>
+                  </label>
+                ) : (
+                  <div class:list={[cardClass, "flex-col", archived && "border-dashed bg-muted/40"]}>
+                    <div class:list={bodyClass}>
+                      <div class="min-w-0 group-data-[view=list]/catalog:sm:flex-1">
+                        <h2 class="font-semibold">{cabinet.name}</h2>
+                        <p class="text-sm text-muted-foreground">
+                          {t.projects.cabinet.manufacturerModel(cabinet.manufacturer, cabinet.model)}
+                        </p>
+                        {cabinet.price_grosze !== undefined && (
+                          <p class="font-mono text-sm tabular-nums">{formatMoney(cabinet.price_grosze / 100)}</p>
+                        )}
+                        {cabinet.geometry && (
+                          <p class="font-mono text-sm text-muted-foreground tabular-nums">
+                            {t.cabinets.catalog.dimensions(
+                              cabinet.geometry.interior.widthMm,
+                              cabinet.geometry.interior.heightMm,
+                              cabinet.geometry.interior.depthMm,
+                            )}
+                          </p>
+                        )}
+                      </div>
+                      {meta}
+                      <span class:list={[archived && "opacity-70"]}>{drawing}</span>
+                    </div>
+                    <div class="mt-auto flex gap-2">
+                      <a href={cabinetEditPath(cabinet.id)} class:list={rowButtonClass}>
+                        {t.cabinets.catalog.edit}
+                      </a>
+                      <form
+                        method="POST"
+                        action={archived ? cabinetRestorePath(cabinet.id) : cabinetArchivePath(cabinet.id)}
+                      >
+                        <Button type="submit" variant="outline" size="sm">
+                          {archived ? t.cabinets.catalog.restore : t.cabinets.catalog.archive}
+                        </Button>
+                      </form>
+                    </div>
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      </details>
+    );
+  })}
+
+  <p data-catalog-empty hidden class="text-sm text-muted-foreground">
+    {t.catalogFilter.noResults}
+  </p>
+</div>
