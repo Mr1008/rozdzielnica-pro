@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { terminalGroupSchema } from "@/lib/cabinet-geometry";
 import type { Enums } from "@/lib/database.types";
+import { POLE_CONFIGS, RCD_TYPES, type PoleConfig, type RcdType } from "@/lib/device-constants";
 import { DIN_MODULE_MM } from "@/lib/din-module";
 import { t } from "@/lib/i18n";
 import { MAX_PRICE_GROSZE } from "@/lib/price-input";
@@ -24,11 +25,7 @@ import { MAX_PRICE_GROSZE } from "@/lib/price-input";
 export const DEVICE_KINDS = ["switch_disconnector", "rcd", "rcbo", "mcb_b", "comb_busbar", "pe_bar", "n_bar"] as const;
 export type DeviceKind = (typeof DEVICE_KINDS)[number];
 
-export const POLE_CONFIGS = ["1P", "1P+N", "2P", "3P", "3P+N", "4P"] as const;
-export type PoleConfig = (typeof POLE_CONFIGS)[number];
-
-export const RCD_TYPES = ["AC", "A", "F", "B"] as const;
-export type RcdType = (typeof RCD_TYPES)[number];
+export { POLE_CONFIGS, RCD_TYPES, type PoleConfig, type RcdType };
 
 /** The side of a device's N terminal, viewed from the front. */
 export const N_TERMINAL_SIDES = ["left", "right"] as const;

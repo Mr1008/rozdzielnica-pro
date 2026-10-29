@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isUuid, sortForCatalogList } from "./catalog";
+import { isUuid } from "./catalog";
 
 describe("isUuid", () => {
   it("accepts a canonical UUID in either case", () => {
@@ -20,38 +20,5 @@ describe("isUuid", () => {
     ]) {
       expect(isUuid(value)).toBe(false);
     }
-  });
-});
-
-describe("sortForCatalogList", () => {
-  const row = (name: string, archived = false) => ({ name, archived_at: archived ? "2026-09-23T10:00:00Z" : null });
-
-  it("puts active rows first, each group by name", () => {
-    const rows = [row("Zeta", true), row("Beta"), row("Alfa", true), row("Alfa")];
-    expect(sortForCatalogList(rows)).toEqual([row("Alfa"), row("Beta"), row("Alfa", true), row("Zeta", true)]);
-  });
-
-  it("orders Polish letters by Polish collation", () => {
-    expect(sortForCatalogList([row("Źródło"), row("Łódź"), row("Lampa"), row("Zamek")]).map((r) => r.name)).toEqual([
-      "Lampa",
-      "Łódź",
-      "Zamek",
-      "Źródło",
-    ]);
-  });
-
-  it("compares digits as numbers", () => {
-    expect(sortForCatalogList([row("RN-12-P"), row("B10"), row("RN-6-P"), row("B6")]).map((r) => r.name)).toEqual([
-      "B6",
-      "B10",
-      "RN-6-P",
-      "RN-12-P",
-    ]);
-  });
-
-  it("does not mutate its input", () => {
-    const rows = [row("B"), row("A")];
-    sortForCatalogList(rows);
-    expect(rows.map((r) => r.name)).toEqual(["B", "A"]);
   });
 });

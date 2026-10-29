@@ -47,6 +47,18 @@ test("the checked cabinet stays visible under a filter that excludes it", async 
   await expect(page.getByRole("radio", { name: /RN-24,/ })).toBeHidden();
 });
 
+test("a cabinet chosen under a filter keeps its group open once the filters clear", async ({ page }) => {
+  await page.getByLabel("Rodzaj montażu").selectOption("Podtynkowa");
+  const rp24 = page.getByRole("radio", { name: /RP-24,/ });
+  await rp24.check();
+
+  await page.getByRole("button", { name: "Wyczyść filtry" }).click();
+
+  await expect(flushGroup(page)).toHaveAttribute("open", "");
+  await expect(rp24).toBeVisible();
+  await expect(rp24).toBeChecked();
+});
+
 test("submitting with no cabinet opens the groups instead of failing silently", async ({ page }) => {
   await page.getByLabel("Nazwa projektu").fill(`E2E bez szafki ${Date.now()}`);
   await page.getByLabel("Min. liczba modułów").fill("1000");

@@ -1,6 +1,6 @@
 import type { CabinetMounting } from "@/lib/cabinet-form";
 import { DIN_MODULE_MM } from "@/lib/din-module";
-import { POLE_CONFIGS, RCD_TYPES } from "@/lib/device-spec";
+import { POLE_CONFIGS, RCD_TYPES } from "@/lib/device-constants";
 import { LOCALE } from "@/lib/i18n/format";
 
 /**

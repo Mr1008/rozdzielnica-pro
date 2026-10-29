@@ -116,7 +116,7 @@ const rowButtonClass = buttonVariants({ variant: "outline", size: "sm" });
             data-forms-many={l.countForms.many}
             class="text-sm font-normal text-muted-foreground"
           >
-            {l.count(group.items.length)}
+            {l.count(group.items.filter((item) => item.archived_at === null).length)}
           </span>
         </summary>
 

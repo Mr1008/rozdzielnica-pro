@@ -200,7 +200,9 @@ function initList(root: HTMLElement, adapter: ListAdapter<unknown, unknown>, kin
         count.textContent = `${String(visible)} ${plural(visible, forms)}`;
       }
       if (narrows) group.open = visible > 0;
-      else if (openBeforeNarrowing !== null) group.open = openBeforeNarrowing[index] ?? group.open;
+      // A choice made under the filter keeps its group open once the filter clears.
+      else if (openBeforeNarrowing !== null)
+        group.open = (openBeforeNarrowing[index] ?? group.open) || group.querySelector("input:checked") !== null;
     });
     if (!narrows) openBeforeNarrowing = null;
     // A kept catalog-gap section already says why it is empty.
