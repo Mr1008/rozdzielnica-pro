@@ -177,12 +177,16 @@ describe("manual edits keep the layout valid", () => {
  * The production cabinets (`karwasz-cabinets.ts`), as in `cabinet-layout.property.test.ts`. The
  * 6-module models are left out: this generator always adds an RCD group, which a 6-module rail rarely
  * holds, so at 100 runs they produced 0–4 accepted moves (measured 2026-10-28) — a vacuous test. Their
- * proposals are still covered there. The rest measured at least 49 accepted, 49 refused and 7 block moves.
+ * proposals are still covered there. The 12-module models run 300 times: at 100 they fell to 1–2
+ * block moves in about 1 seed in 12 and failed CI; at 300 they measured at least 97 accepted, 95
+ * refused and 13 block moves over 10 seeds each, the rest at 100 at least 82, 115 and 11 over 30
+ * (measured 2026-10-29).
  */
 describe("manual edits keep the layout valid — production Karwasz cabinets", () => {
   for (const cabinet of KARWASZ_CABINETS.filter((c) => c.rails.modules > 6)) {
     it(`every accepted move on ${cabinet.model} passes validateLayout; every refused one changes nothing`, () => {
-      const { accepted, acceptedBlocks, refused } = runEdits(karwaszGeometry(cabinet), 100);
+      const numRuns = cabinet.rails.modules <= 12 ? 300 : 100;
+      const { accepted, acceptedBlocks, refused } = runEdits(karwaszGeometry(cabinet), numRuns);
       expect(accepted).toBeGreaterThan(20);
       expect(acceptedBlocks).toBeGreaterThan(2);
       expect(refused).toBeGreaterThan(20);
