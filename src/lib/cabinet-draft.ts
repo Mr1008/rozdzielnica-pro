@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { CabinetRow } from "@/lib/cabinet-form";
+import { CABINET_MOUNTINGS, type CabinetRow } from "@/lib/cabinet-form";
 import { formatPriceInput } from "@/lib/price-input";
 import { BAR_KINDS, BAR_ORIENTATIONS, ENTRY_SIDES, type CabinetGeometry } from "@/lib/cabinet-geometry";
 import { draftKeySchema, fieldFromNumber, newDraftKey, numberFromField } from "@/lib/draft-fields";
@@ -43,6 +43,11 @@ export const cabinetDraftSchema = z.object({
   manufacturer: field,
   model: field,
   price: field,
+  /**
+   * `""` until chosen: a new cabinet, or a legacy row stored before the column existed. Defaulted so a
+   * draft stored by an editor that predates the field still restores.
+   */
+  mounting: z.enum(["", ...CABINET_MOUNTINGS] as const).default(""),
   geometry: geometryDraftSchema,
 });
 
@@ -180,12 +185,22 @@ export function draftFromGeometry(input: unknown): GeometryDraft {
 
 /** The editor's starting state: the row being edited, or an empty new cabinet. */
 export function draftFromRow(row?: CabinetRow): CabinetDraft {
-  if (!row) return { name: "", manufacturer: "", model: "", price: "", geometry: draftFromGeometry(DEFAULT_GEOMETRY) };
+  if (!row) {
+    return {
+      name: "",
+      manufacturer: "",
+      model: "",
+      price: "",
+      mounting: "",
+      geometry: draftFromGeometry(DEFAULT_GEOMETRY),
+    };
+  }
   return {
     name: row.name,
     manufacturer: row.manufacturer,
     model: row.model,
     price: formatPriceInput(row.price_grosze),
+    mounting: CABINET_MOUNTINGS.find((option) => option === row.mounting) ?? "",
     geometry: draftFromGeometry(row.geometry),
   };
 }

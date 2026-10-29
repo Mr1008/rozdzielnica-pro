@@ -14,6 +14,12 @@ Change one, change the other in the same change.
   `src/lib/karwasz-cabinets.ts` and pinned to it by `toMatchFileSnapshot` in its unit test, which is
   how those geometries go through the parser. A deployed data migration is never regenerated: a data
   fix (a price, a new model) is a new migration.
+- **Cabinet `mounting` is guarded twice, and the two guards must change together.** The
+  `cabinets_mounting_valid` CHECK in `supabase/migrations/20261029120000_cabinet_mounting.sql` and
+  `CABINET_MOUNTINGS` in `src/lib/cabinet-form.ts` encode the same values. The column is nullable for
+  the deploy window; the parser always requires a value (the safe direction), and a null row is
+  shown as "no mounting" until the admin sets it. Mounting is a picking aid only — the project
+  snapshot does not copy it.
 - **A project must snapshot its cabinet's `geometry`, not reference it live** (S-03). Admin edits to
   a cabinet must never shift an existing project's layout or quote; archiving only hides the cabinet
   from the picker. The snapshot (`cabinet_geometry`, `cabinet_name`, `cabinet_manufacturer`,

@@ -41,6 +41,7 @@ describe("draft round trip", () => {
     const draft = draftFromRow();
     expect(parseCabinetGeometry(geometryFromDraft(draft.geometry)).ok).toBe(true);
     expect(draft.price).toBe("");
+    expect(draft.mounting).toBe("");
   });
 
   it("pre-fills an existing row in a shape the form parser accepts", () => {
@@ -50,6 +51,7 @@ describe("draft round trip", () => {
       manufacturer: "Producent",
       model: "M-1",
       price_grosze: 123456,
+      mounting: "flush",
       geometry: WITH_BARS,
     });
     const form = new FormData();
@@ -57,8 +59,25 @@ describe("draft round trip", () => {
     form.set("manufacturer", draft.manufacturer);
     form.set("model", draft.model);
     form.set("price", draft.price);
+    form.set("mounting", draft.mounting);
     form.set("geometry", JSON.stringify(geometryFromDraft(draft.geometry)));
-    expect(parseCabinetForm(form)).toMatchObject({ ok: true, value: { price_grosze: 123456, geometry: WITH_BARS } });
+    expect(parseCabinetForm(form)).toMatchObject({
+      ok: true,
+      value: { price_grosze: 123456, mounting: "flush", geometry: WITH_BARS },
+    });
+  });
+
+  it("opens a legacy row with no mounting unset, so the admin must choose one", () => {
+    const draft = draftFromRow({
+      id: "00000000-0000-0000-0000-000000000001",
+      name: "Szafka",
+      manufacturer: "Producent",
+      model: "M-1",
+      price_grosze: 123456,
+      mounting: null,
+      geometry: WITH_BARS,
+    });
+    expect(draft.mounting).toBe("");
   });
 
   it("turns a malformed stored geometry into empty fields instead of throwing", () => {
@@ -124,6 +143,7 @@ describe("draft element keys", () => {
     expect(keys.length).toBe(4);
     expect(keys.every((k) => k.length > 0)).toBe(true);
     expect(new Set(keys).size).toBe(keys.length);
+    expect(cabinetDraftSchema.parse(stripped).mounting).toBe("");
   });
 });
 

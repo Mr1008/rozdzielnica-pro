@@ -396,16 +396,16 @@ once no null rows remain in production.
 
 #### Automated
 
-- [ ] 1.1 Migration and seed apply on a fresh local stack: `npx supabase db reset`
-- [ ] 1.2 Regenerated types are committed and unchanged on re-run: `npm run db:types`
-- [ ] 1.3 Parser unit tests cover the mounting field: `npm run test:unit`
-- [ ] 1.4 Mounting parity and RLS suites pass: `npm run test:integration`
-- [ ] 1.5 Lint and type checks pass: `npm run lint && npx astro check`
+- [x] 1.1 Migration and seed apply on a fresh local stack: `npx supabase db reset`
+- [x] 1.2 Regenerated types are committed and unchanged on re-run: `npm run db:types`
+- [x] 1.3 Parser unit tests cover the mounting field: `npm run test:unit`
+- [x] 1.4 Mounting parity and RLS suites pass: `npm run test:integration`
+- [x] 1.5 Lint and type checks pass: `npm run lint && npx astro check`
 
 #### Manual
 
-- [ ] 1.6 After `db reset`, every Karwasz cabinet has the expected mounting (spot-check RN-24, RNH-36, RP-80, UNI SYSTEM 750-1200)
-- [ ] 1.7 The cabinet editor refuses to save without a mounting and saves each value
+- [x] 1.6 After `db reset`, every Karwasz cabinet has the expected mounting (spot-check RN-24, RNH-36, RP-80, UNI SYSTEM 750-1200)
+- [x] 1.7 The cabinet editor refuses to save without a mounting and saves each value
 
 ### Phase 2: Shared catalog list model
 

@@ -104,6 +104,7 @@ export interface SelectFieldProps<T extends string> {
   options: readonly T[];
   labels: Record<T, string>;
   onChange: (value: T) => void;
+  onBlur?: () => void;
   name?: string;
   placeholder?: string;
   error?: string;
@@ -117,6 +118,7 @@ export function SelectField<T extends string>({
   options,
   labels,
   onChange,
+  onBlur,
   name,
   placeholder,
   error,
@@ -133,6 +135,7 @@ export function SelectField<T extends string>({
           const next = options.find((option) => option === e.target.value);
           if (next !== undefined) onChange(next);
         }}
+        onBlur={onBlur}
       >
         {placeholder !== undefined && (
           <NativeSelectOption value="" disabled>

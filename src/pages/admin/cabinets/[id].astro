@@ -27,7 +27,7 @@ async function loadCabinet(): Promise<{ row: CabinetRow | null; loadError: strin
 
   const { data, error: queryError } = await supabase
     .from("cabinets")
-    .select("id, name, manufacturer, model, price_grosze, geometry")
+    .select("id, name, manufacturer, model, price_grosze, mounting, geometry")
     .eq("id", id)
     .maybeSingle();
   if (queryError) {

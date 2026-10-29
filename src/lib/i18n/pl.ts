@@ -181,6 +181,7 @@ export const pl = {
       manufacturer: "Producent",
       model: "Model",
       price: "Cena katalogowa",
+      mounting: "Rodzaj montażu",
       widthMm: "Szerokość (mm)",
       heightMm: "Wysokość (mm)",
       depthMm: "Głębokość (mm)",
@@ -220,6 +221,10 @@ export const pl = {
     orientations: {
       horizontal: "Pozioma",
       vertical: "Pionowa",
+    },
+    mounting: {
+      surface: "Natynkowa",
+      flush: "Podtynkowa",
     },
     catalog: {
       title: "Katalog szafek",
@@ -273,6 +278,8 @@ export const pl = {
       nameRequired: "Podaj nazwę szafki",
       manufacturerRequired: "Podaj producenta",
       modelRequired: "Podaj model",
+      mountingPlaceholder: "Wybierz rodzaj montażu",
+      mountingRequired: "Wybierz rodzaj montażu",
       priceInvalid: "Podaj cenę większą od zera, z najwyżej dwoma miejscami po przecinku, np. 249,99",
     },
     drawing: {

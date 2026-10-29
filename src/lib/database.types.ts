@@ -83,6 +83,7 @@ export type Database = {
           id: string
           manufacturer: string
           model: string
+          mounting: string | null
           name: string
           price_grosze: number
           updated_at: string
@@ -94,6 +95,7 @@ export type Database = {
           id?: string
           manufacturer: string
           model: string
+          mounting?: string | null
           name: string
           price_grosze: number
           updated_at?: string
@@ -105,6 +107,7 @@ export type Database = {
           id?: string
           manufacturer?: string
           model?: string
+          mounting?: string | null
           name?: string
           price_grosze?: number
           updated_at?: string

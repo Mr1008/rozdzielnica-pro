@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CABINET_FORM_FIELDS, parseCabinetForm } from "./cabinet-form";
+import { CABINET_FORM_FIELDS, CABINET_MOUNTINGS, parseCabinetForm } from "./cabinet-form";
 import type { CabinetGeometry } from "./cabinet-geometry";
 
 const GEOMETRY: CabinetGeometry = {
@@ -16,6 +16,7 @@ function form(overrides: Partial<Record<keyof typeof CABINET_FORM_FIELDS, string
     manufacturer: "Producent",
     model: "T-1",
     price: "249,99",
+    mounting: "surface",
     geometry: JSON.stringify(GEOMETRY),
     ...overrides,
   };
@@ -29,8 +30,30 @@ describe("parseCabinetForm", () => {
     const result = parseCabinetForm(form({ name: "  Szafka  ", manufacturer: " Producent ", model: " T-1 " }));
     expect(result).toEqual({
       ok: true,
-      value: { name: "Szafka", manufacturer: "Producent", model: "T-1", price_grosze: 24999, geometry: GEOMETRY },
+      value: {
+        name: "Szafka",
+        manufacturer: "Producent",
+        model: "T-1",
+        price_grosze: 24999,
+        mounting: "surface",
+        geometry: GEOMETRY,
+      },
     });
+  });
+
+  it("accepts every mounting", () => {
+    for (const mounting of CABINET_MOUNTINGS) {
+      const result = parseCabinetForm(form({ mounting }));
+      expect(result.ok && result.value.mounting, mounting).toBe(mounting);
+    }
+  });
+
+  it("rejects a blank, missing or unknown mounting", () => {
+    for (const raw of ["", "   ", "hermetic", "Surface"])
+      expect(parseCabinetForm(form({ mounting: raw })), raw).toEqual({ ok: false, code: "invalid_input" });
+    const data = form();
+    data.delete(CABINET_FORM_FIELDS.mounting);
+    expect(parseCabinetForm(data)).toEqual({ ok: false, code: "invalid_input" });
   });
 
   it("rejects a blank text field", () => {

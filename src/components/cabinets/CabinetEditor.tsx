@@ -24,7 +24,7 @@ import {
   type RailDraft,
   type TerminalGroupDraft,
 } from "@/lib/cabinet-draft";
-import { CABINET_FORM_FIELDS, type CabinetRow } from "@/lib/cabinet-form";
+import { CABINET_FORM_FIELDS, CABINET_MOUNTINGS, type CabinetRow } from "@/lib/cabinet-form";
 import { parsePriceGrosze } from "@/lib/price-input";
 import {
   BAR_KINDS,
@@ -51,6 +51,7 @@ interface CabinetEditorProps {
 }
 
 type ScalarField = "name" | "manufacturer" | "model" | "price";
+type ValidatedField = ScalarField | "mounting";
 
 /** A server-side rejection reloads the page; the draft stored on submit is restored from here. */
 function draftStorageKey(id: string | undefined): string {
@@ -78,12 +79,13 @@ function stateFor(draft: CabinetDraft, previous: CabinetGeometry | null): Editor
 // ---------------------------------------------------------------------------------------------------
 
 /** The same price parser the endpoint uses, so the browser and the server agree on what is valid. */
-function scalarErrors(draft: CabinetDraft): Partial<Record<ScalarField, string>> {
-  const errors: Partial<Record<ScalarField, string>> = {};
+function scalarErrors(draft: CabinetDraft): Partial<Record<ValidatedField, string>> {
+  const errors: Partial<Record<ValidatedField, string>> = {};
   if (!draft.name.trim()) errors.name = t.cabinets.editor.nameRequired;
   if (!draft.manufacturer.trim()) errors.manufacturer = t.cabinets.editor.manufacturerRequired;
   if (!draft.model.trim()) errors.model = t.cabinets.editor.modelRequired;
   if (parsePriceGrosze(draft.price) === null) errors.price = t.cabinets.editor.priceInvalid;
+  if (draft.mounting === "") errors.mounting = t.cabinets.editor.mountingRequired;
   return errors;
 }
 
@@ -91,8 +93,20 @@ function issuesOf(issues: readonly GeometryIssue[], kind: GeometryElementKind, i
   return issues.filter((issue) => issue.element?.kind === kind && issue.element.index === index);
 }
 
-const NO_TOUCHED: Record<ScalarField, boolean> = { name: false, manufacturer: false, model: false, price: false };
-const ALL_TOUCHED: Record<ScalarField, boolean> = { name: true, manufacturer: true, model: true, price: true };
+const NO_TOUCHED: Record<ValidatedField, boolean> = {
+  name: false,
+  manufacturer: false,
+  model: false,
+  price: false,
+  mounting: false,
+};
+const ALL_TOUCHED: Record<ValidatedField, boolean> = {
+  name: true,
+  manufacturer: true,
+  model: true,
+  price: true,
+  mounting: true,
+};
 
 function replaceAt<T>(items: readonly T[], index: number, next: T): T[] {
   return items.map((item, i) => (i === index ? next : item));
@@ -181,7 +195,11 @@ function CabinetEditorBody({ initial, action, error }: CabinetEditorProps) {
     return { draft: stored ?? draftFromRow(initial), restored: stored !== null };
   });
   const [state, setState] = useState<EditorState>(() => stateFor(boot.draft, null));
-  const [touched, setTouched] = useState(boot.restored ? ALL_TOUCHED : NO_TOUCHED);
+  // A legacy row stored before the mounting column existed opens with that one gap already flagged,
+  // so the disabled save button points somewhere.
+  const [touched, setTouched] = useState(
+    boot.restored ? ALL_TOUCHED : { ...NO_TOUCHED, mounting: initial !== undefined && boot.draft.mounting === "" },
+  );
   const [active, setActive] = useState<Highlight | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -229,7 +247,7 @@ function CabinetEditorBody({ initial, action, error }: CabinetEditorProps) {
     update((previous) => ({ ...previous, [field]: value }));
   }
 
-  function touch(field: ScalarField) {
+  function touch(field: ValidatedField) {
     setTouched((previous) => ({ ...previous, [field]: true }));
   }
 
@@ -300,7 +318,7 @@ function CabinetEditorBody({ initial, action, error }: CabinetEditorProps) {
     setSubmitting(true);
   }
 
-  const scalarError = (field: ScalarField) => (touched[field] ? errors[field] : undefined);
+  const scalarError = (field: ValidatedField) => (touched[field] ? errors[field] : undefined);
   const isActive = (kind: GeometryElementKind, index: number) => active?.kind === kind && active.index === index;
   const f = t.cabinets.fields;
   const e = t.cabinets.editor;
@@ -379,6 +397,22 @@ function CabinetEditorBody({ initial, action, error }: CabinetEditorProps) {
                 touch("model");
               }}
               error={scalarError("model")}
+            />
+            <SelectField
+              id="cabinet-mounting"
+              name={CABINET_FORM_FIELDS.mounting}
+              label={f.mounting}
+              value={draft.mounting}
+              options={CABINET_MOUNTINGS}
+              labels={t.cabinets.mounting}
+              placeholder={e.mountingPlaceholder}
+              onChange={(mounting) => {
+                update((previous) => ({ ...previous, mounting }));
+              }}
+              onBlur={() => {
+                touch("mounting");
+              }}
+              error={scalarError("mounting")}
             />
           </div>
         </Section>

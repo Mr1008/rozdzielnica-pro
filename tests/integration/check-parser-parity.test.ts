@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { parseBusinessForm } from "@/lib/business-profile";
+import { parseCabinetForm } from "@/lib/cabinet-form";
 import { parseCircuitsPayload } from "@/lib/circuit-params";
 import type { CabinetGeometry } from "@/lib/cabinet-geometry";
 import type { Database, Enums, Json } from "@/lib/database.types";
@@ -120,6 +121,7 @@ describe("CHECK to parser parity", () => {
   let ownerClient: UserClient;
   let adminClient: UserClient;
   let projectId: string;
+  let cabinetId: string;
 
   /** Updates the shared project as its owner; refuses to treat an RLS-filtered (zero-row) update as a verdict. */
   async function updateProject(patch: ProjectUpdate): Promise<string | null> {
@@ -163,6 +165,7 @@ describe("CHECK to parser parity", () => {
       .single();
     if (cabinet.error) throw new Error(`Could not create the parity cabinet: ${cabinet.error.message}`);
     createdCabinetIds.push(cabinet.data.id);
+    cabinetId = cabinet.data.id;
 
     const project = await ownerClient
       .from("projects")
@@ -912,6 +915,58 @@ describe("CHECK to parser parity", () => {
         return result.ok ? result.value : null;
       },
       write: (row, parsed) => writeProject(parsed ?? row),
+    });
+  });
+
+  // ---------------------------------------------------------------------------------------------
+  // Cabinet mounting: parseCabinetForm / CABINET_MOUNTINGS <-> cabinets_mounting_valid
+  // (20261029120000_cabinet_mounting.sql). The column stays nullable for rows written by code that
+  // predates it, so null is the one recorded asymmetry: the parser always requires a value.
+  // ---------------------------------------------------------------------------------------------
+  describe("cabinet mounting", () => {
+    interface MountingRow {
+      mounting: string | null;
+    }
+
+    const fixtures: Fixture<MountingRow>[] = [
+      { label: "surface", row: { mounting: "surface" }, verdict: "valid" },
+      { label: "flush", row: { mounting: "flush" }, verdict: "valid" },
+      { label: "padded surface (trimmed)", row: { mounting: "  surface  " }, verdict: "valid" },
+      { label: "empty mounting", row: { mounting: "" }, verdict: "invalid" },
+      { label: "unknown mounting", row: { mounting: "hermetic" }, verdict: "invalid" },
+      { label: "wrong case", row: { mounting: "Surface" }, verdict: "invalid" },
+      { label: "null (legacy row)", row: { mounting: null }, verdict: "parser-stricter" },
+    ];
+
+    function toParserInput(row: MountingRow): FormData {
+      const form = new FormData();
+      form.set("name", "Szafka parytetu");
+      form.set("manufacturer", "Producent testowy parytetu");
+      form.set("model", "PARITY");
+      form.set("price", "100,00");
+      form.set("geometry", JSON.stringify(GEOMETRY));
+      if (row.mounting !== null) form.set("mounting", row.mounting);
+      return form;
+    }
+
+    runParity<MountingRow, string>(fixtures, {
+      parse: (row) => {
+        const result = parseCabinetForm(toParserInput(row));
+        return result.ok ? result.value.mounting : null;
+      },
+      // Written as the admin, the only role the cabinet policies let write; reset by the service role.
+      write: async (row, parsed) => {
+        const { data, error } = await adminClient
+          .from("cabinets")
+          .update({ mounting: parsed ?? row.mounting })
+          .eq("id", cabinetId)
+          .select("id");
+        if (error) return error.code;
+        if (data.length !== 1) throw new Error("The cabinet update touched no row: that is a test setup fault.");
+        const reset = await service.from("cabinets").update({ mounting: null }).eq("id", cabinetId);
+        if (reset.error) throw new Error(`Could not reset the parity cabinet: ${reset.error.code}`);
+        return null;
+      },
     });
   });
 });
