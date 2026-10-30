@@ -35,3 +35,7 @@ blob-report/
 playwright/.cache/
 .playwright-cli/
 .playwright/
+
+# AI toolkit skills (10xDevs) - local only, never published
+.claude/skills/
+.agents/skills/
